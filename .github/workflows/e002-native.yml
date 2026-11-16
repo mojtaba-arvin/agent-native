@@ -1,0 +1,36 @@
+name: E-002 native baseline build checks
+
+on:
+  pull_request:
+    paths:
+      - "experiments/e002/**"
+      - ".github/workflows/e002-native.yml"
+  push:
+    branches:
+      - main
+      - "research/**"
+    paths:
+      - "experiments/e002/**"
+      - ".github/workflows/e002-native.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  go:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23.x"
+      - run: go test ./...
+        working-directory: experiments/e002/go
+
+  rust:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo test
+        working-directory: experiments/e002/rust
