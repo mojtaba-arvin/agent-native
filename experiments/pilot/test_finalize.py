@@ -178,6 +178,26 @@ class FinalizeTests(unittest.TestCase):
             )
 
 
+    def test_accepted_result_requires_validate_and_plan_for_same_proposal(self):
+        validation_event = next(
+            event for event in self.events
+            if event["event_type"] == "tool_call"
+            and event.get("tool_name") == "service.validate"
+        )
+        validation_event["change_set_id"] = "f" * 64
+        self.write_trace()
+        with self.assertRaisesRegex(
+            FinalizationError,
+            "missing_successful_tool:service.validate",
+        ):
+            finalize_run(
+                trace_path=self.trace_path,
+                evaluation_result_path=self.result_path,
+                candidate_path=self.candidate_path,
+                output_trace_path=self.output_trace_path,
+            )
+
+
     def test_accepted_result_rejects_invalid_validator_result(self):
         validation_event = next(
             event for event in self.events
