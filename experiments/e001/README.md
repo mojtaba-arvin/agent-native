@@ -39,3 +39,10 @@ The CLI emits canonical JSON to stdout and diagnostics to stderr. Exit status is
 - `baselines/rust/`: equivalent Rust domain service with traits, explicit authorization, deterministic errors, validation, and in-memory storage.
 
 These are implementation baselines for measuring how agents express the same contract in conventional languages. They use no HTTP/backend framework and are not Agent Native's product implementation language. The DSL parser remains a contract front-end prototype; it does not yet execute the service or prove end-to-end task-cost advantages.
+
+
+## Reproducibility pins
+
+- Go baseline: Go 1.23.12.
+- Rust baseline: Rust/Cargo 1.100.0 with committed `Cargo.lock`.
+- The parser harness uses Python 3.11.18 in CI.

@@ -98,3 +98,15 @@ The matrix runner samples the benchmark process **and its descendants** so the B
 
 
 An initial 3-repetition, 1,000-request-per-candidate matrix is available as a CI smoke-data artifact when the benchmark workflow is explicitly triggered. GitHub-hosted runner results are noisy and are not suitable for selecting a runtime; use them only to validate the measurement pipeline. Decision-grade measurements require a controlled, dedicated machine and a larger repeated-run protocol.
+
+
+## Pinned toolchains and dependencies
+
+- Go: 1.23.12.
+- Rust/Cargo: 1.100.0, pinned in root `rust-toolchain.toml`; Rust crates use committed lockfiles and CI `--locked` builds.
+- WASI P2 guest: `wstd` 0.6.8 and locked transitive dependencies.
+- Wasmtime host: 50.0.1.
+- BEAM: Elixir 1.20.5 / OTP 29.1.2.
+- Python measurement/conformance harness: 3.11.18.
+
+When changing a Rust manifest, regenerate the corresponding lockfile with the pinned toolchain and commit the resulting lockfile. The lockfile-generation workflow publishes generated files as an artifact; it does not commit them automatically.
