@@ -165,12 +165,15 @@ class PilotGateway:
         *,
         schema_lookup: bool = False,
         change_set_id: str | None = None,
+        safe_result_metadata: dict | None = None,
     ) -> None:
         fields = {"tool_name": tool_name, "schema_lookup": schema_lookup}
         if failure_class is not None:
             fields["failure_class"] = failure_class
         if change_set_id is not None:
             fields["change_set_id"] = change_set_id
+        if safe_result_metadata:
+            fields.update(safe_result_metadata)
         self._emit_trace("tool_call", **fields)
 
     def session_message(self) -> dict:
@@ -219,11 +222,28 @@ class PilotGateway:
                 candidate_id = proposed.get("change_set_id")
                 if isinstance(candidate_id, str):
                     change_set_id = candidate_id
+        safe_result_metadata = {}
+        tool_result = response.get("result")
+        if tool == "service.validate" and isinstance(tool_result, dict):
+            valid = tool_result.get("valid")
+            if isinstance(valid, bool):
+                safe_result_metadata["validation_valid"] = valid
+        if tool == "service.plan" and isinstance(tool_result, dict):
+            valid = tool_result.get("valid")
+            will_mutate = tool_result.get("will_mutate")
+            will_deploy = tool_result.get("will_deploy")
+            if isinstance(valid, bool):
+                safe_result_metadata["plan_valid"] = valid
+            if isinstance(will_mutate, bool):
+                safe_result_metadata["plan_will_mutate"] = will_mutate
+            if isinstance(will_deploy, bool):
+                safe_result_metadata["plan_will_deploy"] = will_deploy
         self._record_tool_call(
             tool,
             failure_class,
             schema_lookup=schema_lookup,
             change_set_id=change_set_id,
+            safe_result_metadata=safe_result_metadata,
         )
         return {
             "type": "tool_result",
