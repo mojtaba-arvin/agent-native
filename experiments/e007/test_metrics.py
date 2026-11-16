@@ -206,5 +206,27 @@ class MetricsTests(unittest.TestCase):
         self.assertEqual(task["schema_argument_errors"], 0)
 
 
+    def test_change_set_hash_is_allowed_only_on_proposal_tool_calls(self):
+        event = {
+            "event_id": "proposal-1",
+            "task_id": "pilot",
+            "attempt": 1,
+            "timestamp_ns": 1,
+            "event_type": "tool_call",
+            "tool_name": "service.propose",
+            "change_set_id": "a" * 64,
+        }
+        result = summarize([event])
+        self.assertEqual(result["tasks"][0]["tool_calls"], 1)
+
+        malformed = dict(event, change_set_id="not-a-hash")
+        with self.assertRaisesRegex(ValueError, "invalid_change_set_id"):
+            summarize([malformed])
+
+        wrong_tool = dict(event, tool_name="service.inspect")
+        with self.assertRaisesRegex(ValueError, "change_set_id_requires_service_propose"):
+            summarize([wrong_tool])
+
+
 if __name__ == "__main__":
     unittest.main()
