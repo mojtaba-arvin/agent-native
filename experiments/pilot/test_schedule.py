@@ -1,4 +1,5 @@
 import copy
+import tempfile
 import unittest
 
 from schedule import (
