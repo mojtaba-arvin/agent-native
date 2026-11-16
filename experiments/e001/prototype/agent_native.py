@@ -341,12 +341,25 @@ def validate_ir(ir: object) -> None:
             source = field.get("source")
             if not isinstance(source, str) or source not in {"path", "body", "query"}:
                 fail("AN010", f"unsupported input source {source!r}")
+        path_variables = re.findall(r"\\{([A-Za-z_][A-Za-z0-9_]*)\\}", path)
+        if "{" in re.sub(r"\\{[A-Za-z_][A-Za-z0-9_]*\\}", "", path) or "}" in re.sub(r"\\{[A-Za-z_][A-Za-z0-9_]*\\}", "", path):
+            fail("AN027", f"malformed path parameter in {path!r}")
+        path_inputs = {field["name"] for field in inputs if field["source"] == "path"}
+        if len(path_variables) != len(set(path_variables)) or set(path_variables) != path_inputs:
+            fail("AN035", f"path parameters and path inputs do not match for {name!r}")
+        if method == "GET" and any(field["source"] == "body" for field in inputs):
+            fail("AN037", f"GET operation {name!r} cannot declare body inputs")
         for key in ("errors", "validation", "effects"):
             values = operation.get(key)
             if not isinstance(values, list) or any(not isinstance(value, str) or not value for value in values):
                 fail("AN032", f"operation {name!r} requires a string array for {key}")
             if len(values) != len(set(values)):
                 fail("AN004", f"duplicate value in {key} for operation {name!r}")
+        input_types = {field["name"]: field["type"] for field in inputs}
+        for rule in operation["validation"]:
+            field_name, separator, rule_name = rule.partition(".")
+            if separator != "." or rule_name != "non_empty" or input_types.get(field_name) != "String":
+                fail("AN036", f"unsupported or unbound validation rule {rule!r}")
 
 
 def main(argv: list[str]) -> int:

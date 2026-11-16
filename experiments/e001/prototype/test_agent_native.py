@@ -49,6 +49,22 @@ class ParserTests(unittest.TestCase):
             validate_ir(ir)
         self.assertEqual(caught.exception.code, "AN027")
 
+    def test_structured_ir_rejects_unbound_path_inputs(self):
+        ir = Parser(EXAMPLE).parse()
+        get_item = next(item for item in ir["operations"] if item["name"] == "get_item")
+        get_item["input"] = []
+        with self.assertRaises(Diagnostic) as caught:
+            validate_ir(ir)
+        self.assertEqual(caught.exception.code, "AN035")
+
+    def test_structured_ir_rejects_unbound_validation_rules(self):
+        ir = Parser(EXAMPLE).parse()
+        create_item = next(item for item in ir["operations"] if item["name"] == "create_item")
+        create_item["validation"] = ["unknown.non_empty"]
+        with self.assertRaises(Diagnostic) as caught:
+            validate_ir(ir)
+        self.assertEqual(caught.exception.code, "AN036")
+
     def test_operation_order_is_canonical(self):
         source = EXAMPLE.replace(
             'operation get_item {', 'operation z_item {'
