@@ -104,7 +104,8 @@
         "E-002 shared HTTP conformance passes for Go, Rust, WASI P2, and BEAM",
         "Initial three-repetition CI smoke matrix",
         "Second three-repetition smoke matrix using pinned toolchains and committed Cargo.lock files",
-        "Four-candidate black-box conformance now rejects ambiguous raw query encodings and parameter ordering consistently across Go, Rust, WASI P2, and BEAM"
+        "Four-candidate black-box conformance now rejects ambiguous raw query encodings and parameter ordering consistently across Go, Rust, WASI P2, and BEAM",
+        "Benchmark runner rejects runs with non-200 responses, unexpected bodies, transport failures, or candidate exit during load"
       ],
       "reason": "Both shared GitHub-hosted CI smoke matrices are explicitly not decision-grade; representative persistence, serialization, authorization, inter-service, cancellation, and fault-injection workloads plus controlled dedicated-machine measurements remain outstanding."
     },
@@ -185,7 +186,8 @@
       "evidence": [
         "Ten machine-readable task definitions",
         "Provider-neutral trace schema",
-        "Metrics aggregation tests for tokens, tools, repairs, interventions, cost, wall time, and acceptance"
+        "Metrics aggregation tests for tokens, tools, repairs, interventions, cost, wall time, and acceptance",
+        "Trace aggregator validates retry and failure metadata types and rejects unknown fields and non-finite telemetry"
       ],
       "reason": "Isolated evaluator workspaces, external oracle packaging, provider telemetry adapters, pinned agent cohorts, and repeated trials remain outstanding."
     }
