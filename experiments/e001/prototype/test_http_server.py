@@ -28,7 +28,16 @@ class ReferenceHTTPServerTests(unittest.TestCase):
                 Grant("user-1", "tenant-a", "items.create", "/items"),
             ),
         )
-        self.server = create_server(runtime, StaticIdentityProvider({"test-token": context}))
+        limited_context = RequestContext(
+            principal_id="user-2",
+            tenant_id="tenant-a",
+            now=100,
+            grants=(),
+        )
+        self.server = create_server(
+            runtime,
+            StaticIdentityProvider({"test-token": context, "limited-token": limited_context}),
+        )
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.thread.start()
         self.base_url = f"http://127.0.0.1:{self.server.server_port}"
@@ -111,6 +120,20 @@ class ReferenceHTTPServerTests(unittest.TestCase):
         )
         self.assertEqual(status, 413)
         self.assertEqual(body["error"]["code"], "BODY_TOO_LARGE")
+
+
+    def test_authenticated_principal_without_capability_is_forbidden(self):
+        status, body = self.request(
+            "GET", "/items/00000000-0000-0000-0000-000000000001",
+            token="limited-token",
+        )
+        self.assertEqual(status, 403)
+        self.assertEqual(body["error"]["code"], "Unauthorized")
+
+    def test_invalid_typed_path_input_uses_declared_invalid_input_error(self):
+        status, body = self.request("GET", "/items/not-a-uuid")
+        self.assertEqual(status, 400)
+        self.assertEqual(body["error"]["code"], "InvalidInput")
 
 if __name__ == "__main__":
     unittest.main()
