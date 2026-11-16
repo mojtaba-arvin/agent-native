@@ -66,6 +66,37 @@ The experimental arm identity is not included in the model-visible session manif
 
 This adapter makes the tool contract executable and testable; it does **not** run an AI agent, enforce an OS sandbox, provide a provider connection, or isolate a hidden evaluator. A model/provider-specific client adapter and the separate trusted evaluator remain prerequisites for actual trials. The common dispatch envelope is an experimental measurement adapter, not a decision about Agent Native's eventual public protocol.
 
+## Paired trial schedule
+
+`schedule.py` creates an immutable runner-only schedule. It pairs one progressive and one upfront run for each pair, randomizes their order with a recorded seed, places the two runs adjacent, and schedules only one trial at a time. The plan pins:
+
+- the clean Git HEAD (the CLI resolves it itself and refuses a dirty worktree);
+- SHA-256 hashes of the task, service fixture, E-001/E-005 implementation, tool catalog, gateway, candidate/result contracts, finalizer, schedule generator, and trace/metrics contracts;
+- exact model identifier and generation-settings JSON;
+- identical input/output token, tool-call, and wall-clock budgets;
+- a deterministic plan ID and run ID for every arm/pair.
+
+The full schedule contains treatment labels and is strictly runner-side metadata. Do not place the schedule file in the agent workspace or pass `candidate_id`, pair order, seed, or treatment label to the model. The model receives only the task prompt and the selected session surface. The model generation settings must be identical across both arms; do not put credentials in the settings file.
+
+Example (screening only):
+
+```sh
+python experiments/pilot/schedule.py \
+  --pairs 10 \
+  --seed 20261116 \
+  --model-id '<exact-provider-model-revision>' \
+  --generation-settings-file /secure/path/pilot-generation-settings.json \
+  --max-input-tokens 16000 \
+  --max-output-tokens 4000 \
+  --max-tool-calls 40 \
+  --max-wall-seconds 900 \
+  --output results/pilot-screening-schedule.json
+```
+
+The settings file must be a JSON object containing the provider's non-secret generation parameters. The output path is exclusive: an existing schedule is never overwritten. For confirmatory trials, use at least 30 pairs and a separately recorded seed; do not reuse a screening schedule.
+
+This schedule generator is not an agent runner. It does not call a model or execute a trial. A provider adapter and an isolated execution/evaluator boundary remain necessary.
+
 ## Protocol
 
 1. Freeze and hash the task, service fixture, backend, schemas, evaluator, and both arm configurations.
@@ -134,8 +165,8 @@ No trial result may be claimed until actual agent executions have been performed
 - Protocol: specified here.
 - Task source: pilot-specific `TASK.md`, constrained to the E-005 capability.
 - Candidate interface: E-005.
-- Equivalent arm manifests, common NDJSON gateway, candidate-artifact envelope checks, proposal/trace correlation, and E-007 tool-error/schema-lookup telemetry: implemented.
-- GitHub Actions protocol checks: running for the latest changes.
+- Equivalent arm manifests, common NDJSON gateway, candidate-artifact envelope checks, proposal/trace correlation, no-side-effect validation gates, E-007 tool-error/schema-lookup telemetry, and deterministic paired schedule generation: implemented.
+- GitHub Actions protocol checks: verify these components; no agent trial has been performed.
 - Hidden evaluator: not provisioned.
 - Isolated agent execution boundary and provider adapter: not provisioned.
 - Agent trials: **not run**.
