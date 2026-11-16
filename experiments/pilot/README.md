@@ -90,10 +90,12 @@ python experiments/pilot/schedule.py \
   --max-output-tokens 4000 \
   --max-tool-calls 40 \
   --max-wall-seconds 900 \
-  --output results/pilot-screening-schedule.json
+  --output /secure/path/pilot-screening-schedule.json
 ```
 
 The settings file must be a JSON object containing the provider's non-secret generation parameters. The output path is exclusive: an existing schedule is never overwritten. For confirmatory trials, use at least 30 pairs and a separately recorded seed; do not reuse a screening schedule.
+
+Keep the schedule and generation-settings file outside the repository checkout: the scheduler refuses a dirty worktree and the schedule contains treatment labels. `AGENT_ADAPTER.md` specifies the provider-neutral bridge and insists on exactly one identical provider-facing `agent.invoke` function in both arms.
 
 This schedule generator is not an agent runner. It does not call a model or execute a trial. A provider adapter and an isolated execution/evaluator boundary remain necessary.
 
@@ -165,8 +167,8 @@ No trial result may be claimed until actual agent executions have been performed
 - Protocol: specified here.
 - Task source: pilot-specific `TASK.md`, constrained to the E-005 capability.
 - Candidate interface: E-005.
-- Equivalent arm manifests, common NDJSON gateway, candidate-artifact envelope checks, proposal/trace correlation, no-side-effect validation gates, E-007 tool-error/schema-lookup telemetry, and deterministic paired schedule generation: implemented.
-- GitHub Actions protocol checks: verify these components; no agent trial has been performed.
+- Equivalent blinded arm manifests, common NDJSON gateway, strict candidate-artifact envelope checks, proposal/trace correlation, validation/no-side-effect gates, E-007 tool-error/schema-lookup telemetry, infrastructure-trial eligibility accounting, deterministic paired schedule generation, and provider-neutral adapter contract: implemented.
+- GitHub Actions protocol checks: running on current branch head; no agent trial has been performed.
 - Hidden evaluator: not provisioned.
 - Isolated agent execution boundary and provider adapter: not provisioned.
 - Agent trials: **not run**.
