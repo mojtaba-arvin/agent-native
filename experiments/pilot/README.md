@@ -71,7 +71,7 @@ This adapter makes the tool contract executable and testable; it does **not** ru
 `schedule.py` creates an immutable runner-only schedule. It pairs one progressive and one upfront run for each pair, randomizes their order with a recorded seed, places the two runs adjacent, and schedules only one trial at a time. The plan pins:
 
 - the clean Git HEAD (the CLI resolves it itself and refuses a dirty worktree);
-- SHA-256 hashes of the task, service fixture, E-001/E-005 implementation, tool catalog, gateway, candidate/result contracts, finalizer, schedule generator, and trace/metrics contracts;
+- SHA-256 hashes of the system prompt, task, service fixture, E-001/E-005 implementation, tool catalog, gateway, candidate/result contracts, finalizer, schedule generator/verifier, and trace/metrics contracts;
 - exact model identifier and generation-settings JSON;
 - identical input/output token, tool-call, and wall-clock budgets;
 - a deterministic plan ID and run ID for every arm/pair.
@@ -83,7 +83,7 @@ python experiments/pilot/verify_schedule.py \\
   --schedule /secure/path/pilot-screening-schedule.json
 ```
 
-The verifier checks the schedule hash, exact Git HEAD, clean working tree, and every pinned source-file hash. The full schedule contains treatment labels and is strictly runner-side metadata. Do not place the schedule file in the agent workspace or pass `candidate_id`, pair order, seed, or treatment label to the model. The model receives only the task prompt and the selected session surface. The model generation settings must be identical across both arms; do not put credentials in the settings file.
+The verifier checks the schedule hash, exact Git HEAD, clean working tree, and every pinned source-file hash. The full schedule contains treatment labels and is strictly runner-side metadata. Do not place the schedule file in the agent workspace or pass `candidate_id`, pair order, seed, or treatment label to the model. The model receives the byte-identical system prompt, task prompt, and the selected session surface. The model generation settings must be identical across both arms; do not put credentials in the settings file.
 
 Example (screening only):
 
