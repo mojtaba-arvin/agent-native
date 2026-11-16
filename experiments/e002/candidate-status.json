@@ -46,5 +46,14 @@
     "artifact_id": 14215785765,
     "decision_grade": false,
     "runtime_selection": null
+  },
+  "pinned_smoke_matrix": {
+    "report": "experiments/e002/results/pinned-ci-smoke/README.md",
+    "summary": "experiments/e002/results/pinned-ci-smoke/summary.json",
+    "workflow_run_id": 43850570600,
+    "artifact_id": 14218045322,
+    "toolchains_pinned": true,
+    "decision_grade": false,
+    "runtime_selection": null
   }
 }

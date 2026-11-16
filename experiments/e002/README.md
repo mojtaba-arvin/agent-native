@@ -112,4 +112,4 @@ An initial 3-repetition, 1,000-request-per-candidate matrix is available as a CI
 When changing a Rust manifest, regenerate the corresponding lockfile with the pinned toolchain and commit the resulting lockfile. The lockfile-generation workflow publishes generated files as an artifact; it does not commit them automatically.
 
 
-A second smoke matrix is being collected after pinning the Go/Rust/Elixir/OTP/Wasmtime toolchains and switching Rust CI builds to committed lockfiles. It remains a shared-runner smoke test, not a runtime-selection benchmark.
+A second smoke matrix has completed with pinned Go/Rust/Elixir/OTP/Wasmtime toolchains and committed Rust lockfiles. Results and caveats: `results/pinned-ci-smoke/README.md`. It remains shared-runner smoke data, not a runtime-selection benchmark.
