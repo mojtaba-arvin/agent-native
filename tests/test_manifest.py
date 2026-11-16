@@ -29,3 +29,14 @@ def test_invalid_manifest_is_rejected(change):
     candidate = {**VALID, **change}
     with pytest.raises(ManifestError):
         validate_manifest(candidate)
+
+
+@pytest.mark.parametrize("operation", [
+    {"id": "orders.list", "method": [], "path": "/orders", "summary": "List"},
+    {"id": "orders.list", "method": "GET", "path": "/orders/{id}", "summary": "Dynamic path is not supported in v1"},
+    {"id": "orders.list", "method": "GET", "path": "/orders?limit=5", "summary": "Query strings are not route paths"},
+    {"id": "orders.list", "method": "GET", "path": "/orders//items", "summary": "Repeated separators are invalid"},
+])
+def test_invalid_operation_is_rejected(operation):
+    with pytest.raises(ManifestError):
+        validate_manifest({**VALID, "operations": [operation]})
