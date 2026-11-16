@@ -22,7 +22,8 @@ SCHEMA_ARGUMENT_FAILURES = {
 ALLOWED_FIELDS = {
     "event_id", "task_id", "attempt", "timestamp_ns", "event_type",
     *IDENTITY_FIELDS,
-    "tool_name", "schema_lookup", "change_set_id", "input_tokens", "output_tokens", "cost_usd",
+    "tool_name", "schema_lookup", "change_set_id", "validation_valid", "plan_valid",
+    "plan_will_mutate", "plan_will_deploy", "input_tokens", "output_tokens", "cost_usd",
     "accepted", "failure_class", "metric_name", "metric_value",
     "metric_unit", "retry",
 }
@@ -56,6 +57,19 @@ def summarize(events):
             raise ValueError("invalid_tool_name")
         if "schema_lookup" in event and (event["event_type"] != "tool_call" or not isinstance(event["schema_lookup"], bool)):
             raise ValueError("invalid_schema_lookup")
+        result_flag_tools = {
+            "validation_valid": "service.validate",
+            "plan_valid": "service.plan",
+            "plan_will_mutate": "service.plan",
+            "plan_will_deploy": "service.plan",
+        }
+        for flag, expected_tool in result_flag_tools.items():
+            if flag in event and (
+                event["event_type"] != "tool_call"
+                or event.get("tool_name") != expected_tool
+                or not isinstance(event[flag], bool)
+            ):
+                raise ValueError(f"invalid_{flag}")
         if event.get("schema_lookup", False) and event.get("tool_name") != "interface.describe":
             raise ValueError("schema_lookup_requires_interface_describe")
         if "change_set_id" in event:
