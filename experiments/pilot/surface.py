@@ -72,8 +72,9 @@ def build_dispatch_schema(tool_names: list[str]) -> dict:
     """The exact same dispatch schema is given to both experimental arms."""
     return {
         "type": "object",
-        "required": ["tool", "arguments"],
+        "required": ["request_id", "tool", "arguments"],
         "properties": {
+            "request_id": {"type": "string", "minLength": 1, "maxLength": 128},
             "tool": {"type": "string", "enum": tool_names},
             "arguments": {"type": "object"},
         },
