@@ -10,9 +10,9 @@ Separate these questions to avoid confounding:
 1. **Agent tool surface/protocol:** progressive-disclosure typed tools vs structured request/response protocol vs CLI vs MCP-compatible exposure.
 2. **Service representation:** text DSL vs structured IR vs hybrid.
 3. **Service language:** existing language vs purpose-built syntax.
-3. **Runtime implementation language:** candidate systems languages.
-4. **Execution substrate:** native runtime vs VM vs WASM vs actor/hybrid.
-5. **Framework semantics:** service, data, security, concurrency, and distributed behavior.
+4. **Runtime implementation language:** candidate systems languages.
+5. **Execution substrate:** native runtime vs VM vs WASM vs actor/hybrid.
+6. **Framework semantics:** service, data, security, concurrency, and distributed behavior.
 
 Do not compare candidates that change all dimensions simultaneously and then attribute the result to one choice.
 
