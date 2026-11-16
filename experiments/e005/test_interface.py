@@ -1,13 +1,15 @@
 import copy
+import sys
 import unittest
 from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "experiments" / "e001" / "prototype"))
 
 from agent_native import Parser
 from interface import AgentInterface
 
-
-ROOT = Path(__file__).resolve().parents[2]
-SOURCE = (ROOT / "e001" / "examples" / "catalog.an").read_text(encoding="utf-8")
+SOURCE = (ROOT / "experiments" / "e001" / "examples" / "catalog.an").read_text(encoding="utf-8")
 IR = Parser(SOURCE).parse()
 TRUSTED_EFFECTS = {"repository.read", "repository.write"}
 
@@ -90,7 +92,8 @@ class AgentInterfaceTests(unittest.TestCase):
         change_set_id = self.propose()["result"]["change_set_id"]
         before = self.interface.revision("catalog")
         response = self.request("service.apply", {"change_set_id": change_set_id})
-        self.assertFalse(response["result"]["applied"])
+        self.assertFalse(response["ok"])
+        self.assertEqual(response["diagnostics"][0]["code"], "APPLY_DISABLED")
         self.assertEqual(self.interface.revision("catalog"), before)
 
     def test_unknown_tool_has_stable_diagnostic(self):
