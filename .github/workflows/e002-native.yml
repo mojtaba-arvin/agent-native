@@ -26,6 +26,9 @@ jobs:
           go-version: "1.23.x"
       - run: go test ./...
         working-directory: experiments/e002/go
+      - run: go build -o /tmp/e002-go .
+        working-directory: experiments/e002/go
+      - run: python experiments/e002/conformance.py --command /tmp/e002-go --cwd experiments/e002/go
 
   rust:
     runs-on: ubuntu-latest
@@ -34,3 +37,6 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - run: cargo test
         working-directory: experiments/e002/rust
+      - run: cargo build --release
+        working-directory: experiments/e002/rust
+      - run: python experiments/e002/conformance.py --command ./target/release/agent-native-e002-rust --cwd experiments/e002/rust
