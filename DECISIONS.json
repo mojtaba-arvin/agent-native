@@ -28,25 +28,94 @@
       "id": "D-0003",
       "topic": "implementation_language",
       "status": "open",
-      "candidates": ["Rust", "Go", "Zig", "OCaml", "Gleam", "Elixir", "WASM-oriented toolchains", "purpose-built language"]
+      "candidates": [
+        "Rust",
+        "Go",
+        "Zig",
+        "OCaml",
+        "Gleam",
+        "Elixir",
+        "WASM-oriented toolchains",
+        "purpose-built language"
+      ]
     },
     {
       "id": "D-0004",
       "topic": "service_language_and_syntax",
       "status": "open",
-      "candidates": ["existing_language", "purpose_built_dsl", "purpose_built_language", "structured_ir", "hybrid"]
+      "candidates": [
+        "existing_language",
+        "purpose_built_dsl",
+        "purpose_built_language",
+        "structured_ir",
+        "hybrid"
+      ]
     },
     {
       "id": "D-0005",
       "topic": "execution_substrate",
       "status": "open",
-      "candidates": ["native_runtime", "bytecode_vm", "wasm_component_runtime", "actor_runtime", "hybrid"]
+      "candidates": [
+        "native_runtime",
+        "bytecode_vm",
+        "wasm_component_runtime",
+        "actor_runtime",
+        "hybrid"
+      ]
     },
     {
       "id": "D-0006",
       "topic": "existing_backend_framework_dependency",
       "status": "decided",
       "value": "No existing backend framework may own or implement the core service model or runtime."
+    },
+    {
+      "id": "D-0007",
+      "topic": "service_representation",
+      "status": "open",
+      "value": "No service representation is selected.",
+      "candidates": [
+        "purpose_built_textual_dsl",
+        "structured_ir",
+        "conventional_language_baselines",
+        "hybrid"
+      ],
+      "evidence": [
+        "E-001 parser and canonical IR prototype",
+        "Equivalent structured IR fixture",
+        "Go and Rust domain-service baselines"
+      ],
+      "reason": "No agent-authored task study, hidden acceptance evaluation, or repeated agent-cost measurements have been completed."
+    },
+    {
+      "id": "D-0008",
+      "topic": "runtime_substrate",
+      "status": "open",
+      "value": "No runtime substrate is selected.",
+      "candidates": [
+        "native_go",
+        "native_rust",
+        "wasi_preview_2",
+        "wasi_preview_3",
+        "beam_otp",
+        "hybrid"
+      ],
+      "evidence": [
+        "E-002 shared HTTP conformance passes for Go, Rust, WASI P2, and BEAM",
+        "Initial three-repetition CI smoke matrix"
+      ],
+      "reason": "The CI smoke matrix is not decision-grade; representative workloads and controlled dedicated-machine measurements are outstanding."
+    },
+    {
+      "id": "D-0009",
+      "topic": "concurrency_and_failure_semantics",
+      "status": "open",
+      "value": "The E-003 reference model is provisional and does not yet define production semantics.",
+      "evidence": [
+        "Bounded admission and concurrency tests",
+        "Deadlines, cancellation, retries, worker crash, idempotency, and shutdown tests"
+      ],
+      "reason": "Durability, distributed atomicity, fairness, leases, clock skew, and multi-process fault injection remain unresolved."
     }
   ]
 }
