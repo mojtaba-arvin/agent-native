@@ -137,5 +137,57 @@ class MetricsTests(unittest.TestCase):
             summarize([event])
 
 
+    def test_tool_errors_and_schema_discovery_are_counted_separately(self):
+        events = [
+            {"event_id":"1","task_id":"pilot","attempt":1,"timestamp_ns":1,
+             "event_type":"task_started","run_id":"r1","candidate_id":"progressive","model_id":"m1"},
+            {"event_id":"2","task_id":"pilot","attempt":1,"timestamp_ns":2,
+             "event_type":"tool_call","tool_name":"interface.describe",
+             "run_id":"r1","candidate_id":"progressive","model_id":"m1"},
+            {"event_id":"3","task_id":"pilot","attempt":1,"timestamp_ns":3,
+             "event_type":"tool_call","tool_name":"service.inspect",
+             "run_id":"r1","candidate_id":"progressive","model_id":"m1"},
+            {"event_id":"4","task_id":"pilot","attempt":1,"timestamp_ns":4,
+             "event_type":"tool_call","tool_name":"not.real",
+             "failure_class":"UNKNOWN_TOOL",
+             "run_id":"r1","candidate_id":"progressive","model_id":"m1"},
+            {"event_id":"5","task_id":"pilot","attempt":1,"timestamp_ns":5,
+             "event_type":"tool_call","tool_name":"service.propose",
+             "failure_class":"ARGUMENT_FIELDS",
+             "run_id":"r1","candidate_id":"progressive","model_id":"m1"},
+            {"event_id":"6","task_id":"pilot","attempt":1,"timestamp_ns":6,
+             "event_type":"task_finished","accepted":False,
+             "run_id":"r1","candidate_id":"progressive","model_id":"m1"},
+        ]
+        result = summarize(events)
+        task = result["tasks"][0]
+        self.assertEqual(task["tool_calls"], 4)
+        self.assertEqual(task["tool_errors"], 2)
+        self.assertEqual(task["invalid_tool_calls"], 2)
+        self.assertEqual(task["schema_argument_errors"], 1)
+        self.assertEqual(task["schema_lookup_calls"], 1)
+        self.assertEqual(
+            task["tool_error_classes"],
+            {"ARGUMENT_FIELDS": 1, "UNKNOWN_TOOL": 1},
+        )
+        self.assertEqual(result["totals"]["tool_errors"], 2)
+        self.assertEqual(result["totals"]["invalid_tool_calls"], 2)
+        self.assertEqual(result["totals"]["schema_argument_errors"], 1)
+        self.assertEqual(result["totals"]["schema_lookup_calls"], 1)
+
+    def test_legacy_traces_report_zero_tool_errors(self):
+        events = [
+            {"event_id":"1","task_id":"legacy","attempt":1,"timestamp_ns":1,"event_type":"task_started"},
+            {"event_id":"2","task_id":"legacy","attempt":1,"timestamp_ns":2,
+             "event_type":"tool_call","tool_name":"service.inspect"},
+            {"event_id":"3","task_id":"legacy","attempt":1,"timestamp_ns":3,
+             "event_type":"task_finished","accepted":True},
+        ]
+        task = summarize(events)["tasks"][0]
+        self.assertEqual(task["tool_errors"], 0)
+        self.assertEqual(task["invalid_tool_calls"], 0)
+        self.assertEqual(task["schema_argument_errors"], 0)
+
+
 if __name__ == "__main__":
     unittest.main()
