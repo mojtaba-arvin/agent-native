@@ -159,7 +159,11 @@ def load_trace_proposal_ids(path: str | Path) -> set[str]:
     """Read proposal IDs emitted by successful service.propose calls only."""
     trace_path = Path(path)
     try:
+        if trace_path.stat().st_size > 64 * 1024 * 1024:
+            raise CandidateError("trace_file_too_large")
         raw = trace_path.read_bytes()
+    except CandidateError:
+        raise
     except OSError as error:
         raise CandidateError("trace_file_unavailable") from error
     if len(raw) > 64 * 1024 * 1024:
@@ -199,7 +203,11 @@ def load_candidate(
 ) -> tuple[dict, str]:
     candidate_path = Path(path)
     try:
+        if candidate_path.stat().st_size > MAX_CANDIDATE_BYTES:
+            raise CandidateError("candidate_file_too_large")
         raw = candidate_path.read_bytes()
+    except CandidateError:
+        raise
     except OSError as error:
         raise CandidateError("candidate_file_unavailable") from error
     if len(raw) > MAX_CANDIDATE_BYTES:
