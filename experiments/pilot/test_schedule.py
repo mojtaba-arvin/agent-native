@@ -4,6 +4,7 @@ import unittest
 from schedule import (
     ARMS,
     ScheduleError,
+    resolve_git_revision,
     create_schedule,
     validate_schedule,
 )
@@ -66,11 +67,53 @@ class ScheduleTests(unittest.TestCase):
         self.assertIn("experiments/e005/tools.json", hashes)
         self.assertTrue(all(len(value) == 64 for value in hashes.values()))
 
-    def test_run_ids_are_unique_and_plan_bound(self):
+    def test_run_ids_are_unique_and_bound_to_plan_pair_and_arm(self):
+        import hashlib
+
         schedule = self.build()
         ids = [trial["run_id"] for trial in schedule["trials"]]
         self.assertEqual(len(ids), len(set(ids)))
-        self.assertTrue(all(schedule["plan_id"][:8] not in run_id for run_id in ids))
+        for trial in schedule["trials"]:
+            pair_number = int(trial["pair_id"].split("-")[1])
+            digest = hashlib.sha256(
+                f"{schedule['plan_id']}:{pair_number}:{trial['candidate_id']}".encode()
+            ).hexdigest()
+            expected = f"{trial['pair_id']}-{trial['candidate_id']}-{digest[:12]}"
+            self.assertEqual(trial["run_id"], expected)
+
+    def test_reordered_trial_entries_are_rejected(self):
+        schedule = self.build()
+        tampered = copy.deepcopy(schedule)
+        tampered["trials"][0], tampered["trials"][1] = (
+            tampered["trials"][1], tampered["trials"][0]
+        )
+        with self.assertRaisesRegex(ScheduleError, "trial_sequence_missing_or_duplicate"):
+            validate_schedule(tampered)
+
+    def test_git_revision_resolver_requires_a_clean_checkout(self):
+        import os
+        import subprocess
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+            subprocess.run(["git", "config", "user.name", "Pilot Test"], cwd=root, check=True)
+            subprocess.run(["git", "config", "user.email", "pilot@example.invalid"], cwd=root, check=True)
+            (root / "tracked.txt").write_text("pinned\\n", encoding="utf-8")
+            subprocess.run(["git", "add", "tracked.txt"], cwd=root, check=True)
+            subprocess.run(
+                ["git", "commit", "-q", "-m", "fixture"],
+                cwd=root,
+                check=True,
+                env={**os.environ, "GIT_AUTHOR_DATE":"2026-01-01T00:00:00Z", "GIT_COMMITTER_DATE":"2026-01-01T00:00:00Z"},
+            )
+            revision = resolve_git_revision(root)
+            self.assertRegex(revision, r"^[0-9a-f]{40}$")
+            (root / "untracked.txt").write_text("dirty\\n", encoding="utf-8")
+            with self.assertRaisesRegex(ScheduleError, "working_tree_must_be_clean"):
+                resolve_git_revision(root)
 
     def test_schedule_detects_budget_tampering(self):
         schedule = self.build()
