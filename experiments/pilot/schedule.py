@@ -35,6 +35,7 @@ SOURCE_FILES = (
     "experiments/pilot/evaluation-result.schema.json",
     "experiments/pilot/finalize.py",
     "experiments/pilot/schedule.py",
+    "experiments/pilot/verify_schedule.py",
     "experiments/e007/trace.schema.json",
     "experiments/e007/metrics.py",
 )
