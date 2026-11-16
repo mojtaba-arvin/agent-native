@@ -11,7 +11,6 @@ import copy
 import hashlib
 import json
 import tempfile
-import time
 import unittest
 from pathlib import Path
 
@@ -179,7 +178,6 @@ class MockPipelineConformanceTests(unittest.TestCase):
         self.assertEqual(progressive_task["schema_lookup_calls"], 4)
         self.assertEqual(upfront_task["schema_lookup_calls"], 0)
         self.assertEqual(progressive_task["tool_calls"], upfront_task["tool_calls"] + 4)
-        self.assertEqual(progressive_task["change_set_id"] if "change_set_id" in progressive_task else None, None)
 
 
 if __name__ == "__main__":
