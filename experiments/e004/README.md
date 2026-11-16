@@ -25,3 +25,6 @@ python -m unittest discover -s experiments/e004 -v
 - No key management, revocation distribution, policy compilation, network identity, workload identity, or secure audit transport is implemented.
 - No proof of non-interference or isolation is claimed.
 - The reference model tests policy semantics only; the eventual compiler/runtime must enforce these checks at every effect boundary, not rely on generated prompts or agent discipline.
+
+
+See `threat-model.md` for assets, actors, trust boundaries, entry points, abuse cases, human approval gates, and residual risks. `requirements.json` maps security invariants to tests or explicitly marks them as design-only. Production enforcement remains disabled.
