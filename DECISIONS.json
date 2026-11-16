@@ -127,9 +127,12 @@
         "Default-deny principal/tenant/capability model",
         "Effect allowlist and resource-scope checks",
         "Expiry and strict delegation attenuation tests",
-        "Threat model and machine-readable requirements"
+        "Threat model and machine-readable requirements",
+        "Canonical resource path checks reject percent-encoded paths, backslashes, control characters, dot segments, and non-NFC Unicode",
+        "Delegation compares normalized scopes so trailing-slash equivalence cannot masquerade as attenuation",
+        "Typed trusted time, grant expiry/depth, and immutable effect allowlist validation"
       ],
-      "reason": "Cryptographic grants, revocation, workload identity, storage isolation, sandbox enforcement, network egress, secrets, resource quotas, and human approval integration remain unimplemented."
+      "reason": "Cryptographic grants, revocation, workload identity, storage isolation, sandbox enforcement, network egress, secrets, resource quotas, human approval integration, and production authorization integration remain unimplemented."
     },
     {
       "id": "D-0011",
