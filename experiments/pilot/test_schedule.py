@@ -115,6 +115,15 @@ class ScheduleTests(unittest.TestCase):
             with self.assertRaisesRegex(ScheduleError, "working_tree_must_be_clean"):
                 resolve_git_revision(root)
 
+    def test_trial_metadata_does_not_alias_protocol_metadata(self):
+        schedule = self.build()
+        protocol_before = copy.deepcopy(schedule["protocol"])
+        schedule["trials"][0]["budgets"]["max_tool_calls"] += 1
+        schedule["trials"][0]["generation_settings"]["temperature"] = 0.7
+        schedule["trials"][0]["source_sha256"]["experiments/pilot/TASK.md"] = "0" * 64
+        self.assertEqual(schedule["protocol"], protocol_before)
+
+
     def test_schedule_detects_budget_tampering(self):
         schedule = self.build()
         tampered = copy.deepcopy(schedule)
