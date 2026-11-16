@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-native.dev/schemas/service-v1.json",
+  "title": "Agent Native Service Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "name", "version", "entrypoint", "operations"],
+  "properties": {
+    "schema_version": { "const": "1" },
+    "name": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,62}$" },
+    "version": { "type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$" },
+    "entrypoint": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*:[A-Za-z_][A-Za-z0-9_]*$" },
+    "operations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "method", "path", "summary"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z][a-z0-9_.-]{1,63}$" },
+          "method": { "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"] },
+          "path": { "type": "string", "pattern": "^/(?!/)[^{}]*$" },
+          "summary": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}
