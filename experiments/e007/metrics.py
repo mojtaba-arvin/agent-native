@@ -276,8 +276,13 @@ def _reject_non_finite_json_number(value):
 
 
 def load_jsonl(path):
+    trace_path = Path(path)
     try:
-        raw = Path(path).read_bytes()
+        if trace_path.stat().st_size > MAX_TRACE_BYTES:
+            raise ValueError("trace_file_too_large")
+        raw = trace_path.read_bytes()
+    except ValueError:
+        raise
     except OSError as error:
         raise ValueError("trace_file_unavailable") from error
     if len(raw) > MAX_TRACE_BYTES:
