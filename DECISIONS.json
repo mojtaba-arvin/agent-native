@@ -3,7 +3,7 @@
   "project": "agent-native",
   "product_type": "independent_backend_framework",
   "primary_user": "ai_agent",
-  "status": "architecture_reset",
+  "status": "active_research",
   "decisions": [
     {
       "id": "D-0001",
