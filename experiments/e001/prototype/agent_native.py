@@ -173,7 +173,7 @@ class Parser:
             self.fail("AN010", f"unsupported HTTP method {method!r}")
         if not path.startswith("/"):
             self.fail("AN011", "path must start with '/'")
-        placeholders = re.findall(r"\\{([^{}]+)\\}", path)
+        placeholders = re.findall(r"\{([^{}]+)\}", path)
         if path.count("{") != len(placeholders) or path.count("}") != len(placeholders):
             self.fail("AN012", "path contains malformed parameter braces")
         if len(placeholders) != len(set(placeholders)):
