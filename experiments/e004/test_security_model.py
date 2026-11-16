@@ -244,5 +244,18 @@ class PolicyEngineTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "invalid_operation_effects"):
             OperationContract("read", "items.read", {"repository.read"})
 
+
+    def test_malformed_requested_effects_are_denied_without_crashing(self):
+        for effects in ([""], [["repository.read"]], None):
+            with self.subTest(effects=repr(effects)):
+                decision = self.engine.authorize(
+                    self.operation,
+                    resource="/items/42",
+                    requested_effects=effects,
+                    context=self.context(),
+                )
+                self.assertFalse(decision.allowed)
+                self.assertEqual(decision.reason_code, "INVALID_EFFECTS")
+
 if __name__ == "__main__":
     unittest.main()

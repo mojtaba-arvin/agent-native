@@ -157,10 +157,20 @@ class PolicyEngine:
         requested_effects: Iterable[str],
         context: RequestContext,
     ) -> Decision:
-        effects = frozenset(requested_effects)
+        try:
+            effects = frozenset(requested_effects)
+            effects_valid = all(
+                isinstance(effect, str) and bool(effect.strip())
+                for effect in effects
+            )
+        except (TypeError, ValueError):
+            effects = frozenset()
+            effects_valid = False
         reason = "ALLOW"
 
-        if not context.principal_id or not context.tenant_id:
+        if not effects_valid:
+            reason = "INVALID_EFFECTS"
+        elif not context.principal_id or not context.tenant_id:
             reason = "MISSING_IDENTITY"
         elif not operation.required_capability:
             reason = "INVALID_OPERATION_CONTRACT"

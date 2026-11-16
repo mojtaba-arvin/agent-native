@@ -35,3 +35,6 @@ See `threat-model.md` for assets, actors, trust boundaries, entry points, abuse 
 The reference policy model now rejects percent-encoded and otherwise ambiguous resource paths, non-NFC Unicode paths, control characters, and backslashes before scope evaluation. Delegation normalizes trailing slashes before checking whether authority was actually narrowed, preventing an equivalent path spelling from satisfying the attenuation requirement. Grant time/depth values reject booleans, and operation effect allowlists must be immutable frozensets.
 
 These are reference-model invariants only. They do not provide cryptographic grant authenticity, revocation, storage-layer tenant isolation, or production enforcement.
+
+
+Malformed requested-effect collections are also denied with a stable `INVALID_EFFECTS` reason rather than raising during set conversion or audit serialization.

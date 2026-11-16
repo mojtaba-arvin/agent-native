@@ -90,6 +90,12 @@
       "name": "canonical_resource_and_immutable_authority_inputs",
       "status": "prototype_tested",
       "test": "test_encoded_and_ambiguous_resource_paths_are_rejected"
+    },
+    {
+      "id": "SEC-016",
+      "name": "malformed_requested_effects_denied",
+      "status": "prototype_tested",
+      "test": "test_malformed_requested_effects_are_denied_without_crashing"
     }
   ],
   "human_approval_gates": [
