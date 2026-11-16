@@ -25,7 +25,7 @@ from metrics import load_jsonl, summarize  # noqa: E402
 
 RESULT_FIELDS = {
     "schema_version", "run_id", "candidate_id", "task_id", "attempt",
-    "candidate_sha256", "accepted", "failure_class",
+    "candidate_sha256", "accepted", "eligible_for_acceptance", "failure_class",
     "agent_finished_at_ns", "evaluated_at_ns", "evaluator_version",
 }
 RESULT_FAILURES = {
@@ -33,6 +33,9 @@ RESULT_FAILURES = {
     "TASK_NOT_SATISFIED",
     "TOOL_TRACE_INCOMPLETE",
     "FORBIDDEN_ACTION_ATTEMPTED",
+    "AGENT_BUDGET_EXHAUSTED",
+    "PROVIDER_ERROR",
+    "ADAPTER_ERROR",
     "EVALUATOR_ERROR",
 }
 
@@ -86,9 +89,13 @@ def load_evaluation_result(path: str | Path) -> dict:
         raise FinalizationError("evaluation_result_attempt_invalid")
     if not isinstance(result["accepted"], bool):
         raise FinalizationError("evaluation_result_accepted_invalid")
+    if not isinstance(result["eligible_for_acceptance"], bool):
+        raise FinalizationError("evaluation_result_eligibility_invalid")
     if result["accepted"]:
         if result["failure_class"] is not None:
             raise FinalizationError("accepted_result_must_not_have_failure_class")
+        if result["eligible_for_acceptance"] is not True:
+            raise FinalizationError("accepted_result_must_be_eligible")
         if (
             not isinstance(result["candidate_sha256"], str)
             or len(result["candidate_sha256"]) != 64
@@ -98,6 +105,10 @@ def load_evaluation_result(path: str | Path) -> dict:
     else:
         if not isinstance(result["failure_class"], str) or result["failure_class"] not in RESULT_FAILURES:
             raise FinalizationError("rejected_result_requires_public_failure_class")
+        infrastructure_failures = {"PROVIDER_ERROR", "ADAPTER_ERROR", "EVALUATOR_ERROR"}
+        expected_eligibility = result["failure_class"] not in infrastructure_failures
+        if result["eligible_for_acceptance"] is not expected_eligibility:
+            raise FinalizationError("evaluation_result_eligibility_mismatch")
         if result["candidate_sha256"] is not None and (
             not isinstance(result["candidate_sha256"], str)
             or len(result["candidate_sha256"]) != 64
@@ -240,6 +251,7 @@ def finalize_run(
         "candidate_id": result["candidate_id"],
         "model_id": model_id,
         "accepted": result["accepted"],
+        "eligible_for_acceptance": result["eligible_for_acceptance"],
     }
     if not result["accepted"]:
         finish["failure_class"] = result["failure_class"]
