@@ -307,6 +307,33 @@ class MetricsTests(unittest.TestCase):
             summarize([event])
 
 
+    def test_gateway_protocol_failures_are_counted_as_invalid_tool_calls(self):
+        rows = []
+        for index, failure in enumerate((
+            "REQUEST_ID",
+            "INVALID_JSON",
+            "INVALID_UTF8",
+            "MESSAGE_TOO_LARGE",
+            "DUPLICATE_JSON_KEY",
+            "NON_FINITE_JSON_NUMBER",
+        ), 1):
+            rows.append({
+                "event_id": f"event-{index}",
+                "task_id": "pilot",
+                "attempt": 1,
+                "timestamp_ns": index,
+                "event_type": "tool_call",
+                "tool_name": "<invalid>",
+                "failure_class": failure,
+            })
+        result = summarize(rows)
+        task = result["tasks"][0]
+        self.assertEqual(task["tool_calls"], 6)
+        self.assertEqual(task["tool_errors"], 6)
+        self.assertEqual(task["invalid_tool_calls"], 6)
+        self.assertEqual(task["schema_argument_errors"], 0)
+
+
     def test_trace_loader_enforces_size_and_utf8_limits(self):
         from unittest.mock import patch
 
