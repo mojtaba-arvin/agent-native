@@ -25,6 +25,8 @@
         "experiments/e005/tools.json",
         "experiments/e007/metrics.py",
         "experiments/e007/trace.schema.json",
+        "experiments/pilot/AGENT_ADAPTER.md",
+        "experiments/pilot/README.md",
         "experiments/pilot/TASK.md",
         "experiments/pilot/candidate.py",
         "experiments/pilot/candidate.schema.json",
@@ -75,6 +77,12 @@
           "$ref": "#/$defs/sha256"
         },
         "experiments/pilot/schedule.py": {
+          "$ref": "#/$defs/sha256"
+        },
+        "experiments/pilot/README.md": {
+          "$ref": "#/$defs/sha256"
+        },
+        "experiments/pilot/AGENT_ADAPTER.md": {
           "$ref": "#/$defs/sha256"
         }
       }
