@@ -24,12 +24,13 @@ The adapter and gateway may receive a run-scoped identifier and candidate label 
 
 ## Trial startup
 
-1. The runner selects exactly one trial from a validated immutable schedule.
-2. The runner creates a fresh E-005 gateway instance and a new exclusive trace file for that run.
-3. The runner starts the gateway with its out-of-band run ID, candidate ID, model ID, task ID, and attempt number.
-4. The adapter reads the gateway's first NDJSON message, which contains the session surface. It must not add or remove tool schemas.
-5. The runner supplies the task text from `experiments/pilot/TASK.md`. It does not supply the pair ID, trial order, candidate label, hidden evaluator data, or schedule.
-6. The adapter sends the prompt and session surface to the selected model using the exact generation settings pinned in the schedule.
+1. Before starting any trial, the runner executes `verify_schedule.py` from the clean checkout and verifies the schedule Git revision and all pinned source hashes. A mismatch aborts the entire batch before any model request.
+2. The runner selects exactly one trial from the verified immutable schedule.
+3. The runner creates a fresh E-005 gateway instance and a new exclusive trace file for that run.
+4. The runner starts the gateway with its out-of-band run ID, candidate ID, model ID, task ID, and attempt number.
+5. The adapter reads the gateway's first NDJSON message, which contains the session surface. It must not add or remove tool schemas.
+6. The runner supplies the task text from `experiments/pilot/TASK.md`. It does not supply the pair ID, trial order, candidate label, hidden evaluator data, or schedule.
+7. The adapter sends the prompt and session surface to the selected model using the exact generation settings pinned in the schedule.
 
 ## Tool-call mapping
 
