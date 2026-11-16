@@ -104,7 +104,6 @@ def build_surface(arm: str, catalog: dict | None = None) -> dict:
 
     return {
         "surface_version": 1,
-        "disclosure_arm": arm,
         "dispatch": {
             "name": DISPATCH_TOOL,
             "summary": "Invoke one named E-005 operation using the shared request envelope.",
@@ -123,10 +122,6 @@ def build_surface(arm: str, catalog: dict | None = None) -> dict:
 
 
 def assert_fair_pair(progressive: dict, upfront: dict) -> None:
-    if progressive.get("disclosure_arm") != "progressive":
-        raise SurfaceError("first_surface_must_be_progressive")
-    if upfront.get("disclosure_arm") != "upfront":
-        raise SurfaceError("second_surface_must_be_upfront")
     if progressive.get("dispatch") != upfront.get("dispatch"):
         raise SurfaceError("dispatch_contract_mismatch")
 
