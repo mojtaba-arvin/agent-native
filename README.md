@@ -1,73 +1,88 @@
 # Agent Native
 
-**An agent-first backend framework, engineered for production.**
+Agent-first backend tooling. The initial executable slice provides a deterministic project contract, a FastAPI service scaffold, and machine-readable validation and verification.
 
-> Built for agents. Engineered for production.
+## Install the framework
 
-Agent Native explores a different premise for backend engineering: AI agents are the primary builders and operators of software, while humans define intent, policy, constraints, and acceptance criteria.
+```bash
+python -m pip install -e .
+```
 
-This is not an existing human-oriented framework with an AI plugin. The project starts by questioning the assumptions embedded in conventional backend frameworks, developer workflows, APIs, configuration, testing, deployment, and operations.
+## Create and run a service
 
-## Project status
+```bash
+agent-native init orders-service --path ./orders-service
+cd orders-service
+python -m pip install -r requirements.txt
+agent-native validate
+agent-native verify
+agent-native inspect
+uvicorn main:app --reload
+```
 
-**Research and foundation phase — no framework implementation has been selected or committed to yet.**
+All commands emit JSON to stdout. A non-zero exit code indicates failure. The generated service exposes `GET /health` and `GET /items`.
 
-The repository is intentionally being built around evidence, explicit decisions, reproducible experiments, and measurable outcomes. Language, runtime, architecture, and initial scope remain open until the research and benchmark design justify them.
+## Agent execution contract
 
-## What we are trying to improve
+An agent operating on a project should use this sequence:
 
-- The probability that an agent can take a backend task from intent to a correct, deployable result.
-- The total cost of successful delivery: model tokens, tool calls, execution time, retries, infrastructure, and human intervention.
-- Correctness, security, observability, operability, and maintainability of generated systems.
-- Compatibility with agents of different capability levels and tool environments.
-- The ability to inspect, verify, explain, repair, and safely evolve a running system.
+1. Run `agent-native inspect` and read the complete JSON result.
+2. Read `agent-native.json` before changing service behavior.
+3. Modify the application and its declared operations together.
+4. Run `agent-native validate`.
+5. Run `agent-native verify`.
+6. Run the service's tests and any task-specific acceptance checks. `verify` is not a substitute for behavioral tests.
+7. Return command outputs, exit codes, changed files, and unresolved risks as evidence.
 
-## Core hypothesis
+Do not infer undeclared operations or silently widen the service contract.
 
-A backend framework designed around agent workflows can outperform conventional frameworks for agent-driven delivery if it makes system capabilities, constraints, state transitions, failure modes, and verification surfaces explicit and machine-actionable—without sacrificing production-grade runtime properties.
+## Service contract: `agent-native.json`
 
-This is a hypothesis to test, not a claim of proven superiority.
+```json
+{
+  "schema_version": "1",
+  "name": "orders-service",
+  "version": "0.1.0",
+  "entrypoint": "main:app",
+  "operations": [
+    {
+      "id": "orders.list",
+      "method": "GET",
+      "path": "/orders",
+      "summary": "List orders"
+    }
+  ]
+}
+```
 
-## Design principles under evaluation
+The manifest is strict: unknown or missing keys, duplicate operation IDs, duplicate method/path pairs, invalid versions, and unsupported methods fail validation. Version 1 currently supports static paths only.
 
-1. **Agent-native, not agent-exclusive:** optimize machine interaction while preserving understandable human interfaces and governance.
-2. **Verifiable by construction:** provide deterministic checks and machine-readable evidence for generated changes and runtime behavior.
-3. **Safe by default:** enforce permissions, isolation, validation, and policy in trusted runtime components, never by prompt instructions alone.
-4. **Low-friction workflows:** reduce unnecessary context, tool calls, configuration ambiguity, and repair cycles.
-5. **Production-first:** include migrations, observability, deployment, rollback, and operational contracts in the design.
-6. **Progressive capability:** support simple agents through constrained workflows and advanced agents through composable interfaces.
-7. **Interoperable:** investigate standards such as OpenAPI and MCP rather than creating proprietary protocols without evidence.
-8. **Evidence over fashion:** choose languages, databases, protocols, and architecture from measured trade-offs.
-9. **Incremental adoption:** investigate whether the framework can coexist with existing services and infrastructure.
-10. **No hidden magic:** generated behavior, defaults, side effects, and resource costs must be inspectable.
+## Commands
 
-## Research documents
+| Command | Contract | Side effects |
+|---|---|---|
+| `agent-native init NAME --path DIR` | Scaffold a service; refuses non-empty targets | Creates files |
+| `agent-native inspect` | Emit service contract and framework operations | Read-only |
+| `agent-native validate` | Validate manifest structure and invariants | Read-only |
+| `agent-native verify` | Compile Python sources, import the ASGI entrypoint, compare declared routes | Imports and executes project module code |
 
-- [Vision and problem statement](docs/vision.md)
-- [Problem space and research questions](docs/problem-space.md)
-- [Architecture principles and decision process](docs/architecture-principles.md)
-- [Evaluation and benchmark strategy](docs/benchmark-strategy.md)
-- [Existing framework landscape](docs/research/framework-landscape.md)
-- [Backend agent benchmark landscape](docs/research/benchmark-landscape.md)
-- [Initial threat model](docs/security/threat-model.md)
-- [Roadmap and phase gates](docs/roadmap.md)
+`verify` imports the configured entrypoint. Only run it against code the agent is authorized to execute. It does not start a server, call external services, run migrations, or prove endpoint behavior.
 
-## Non-goals for the foundation phase
+## Current implementation boundary
 
-- Selecting a programming language because it is familiar or fashionable.
-- Reimplementing Django, FastAPI, Rails, Spring, or another framework feature by feature.
-- Assuming multi-agent orchestration is inherently better than a single agent.
-- Treating generated code volume, benchmark scores, or token reduction alone as success.
-- Building a large abstraction layer before validating a narrow end-to-end workflow.
+This is an early, executable vertical slice—not a production-ready framework. It currently provides:
+- Python 3.11+ CLI and strict JSON service manifest.
+- FastAPI/ASGI scaffold.
+- Deterministic manifest, syntax, entrypoint, and declared-route checks.
+- Machine-readable success/failure payloads and process exit codes.
 
-## How decisions are made
+Not implemented yet: database models/migrations, authentication/authorization, capability tokens, background jobs, distributed execution, deployment, rollback, runtime policy enforcement, and full behavioral/security verification. Do not use this release as a security boundary or expose generated services to untrusted traffic without adding those controls.
 
-Important choices must be recorded as Architecture Decision Records (ADRs), including context, alternatives, evidence, consequences, and a way to reverse or revisit the decision. See the roadmap for phase gates.
+## Development
 
-## Current phase
+```bash
+python -m pip install -e ".[dev]"
+pytest
+```
 
-Research, problem definition, benchmark design, and architecture exploration. No production-readiness or performance claims are made at this stage.
-
-## License
-
-See [LICENSE](LICENSE).
+The architecture and research documents remain hypotheses and design inputs; executable behavior is defined by the package and its tests.
