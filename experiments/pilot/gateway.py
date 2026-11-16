@@ -164,10 +164,13 @@ class PilotGateway:
         failure_class: str | None = None,
         *,
         schema_lookup: bool = False,
+        change_set_id: str | None = None,
     ) -> None:
         fields = {"tool_name": tool_name, "schema_lookup": schema_lookup}
         if failure_class is not None:
             fields["failure_class"] = failure_class
+        if change_set_id is not None:
+            fields["change_set_id"] = change_set_id
         self._emit_trace("tool_call", **fields)
 
     def session_message(self) -> dict:
@@ -209,7 +212,19 @@ class PilotGateway:
         diagnostics = response.get("diagnostics", [])
         failure_class = diagnostics[0]["code"] if diagnostics else None
         schema_lookup = tool == "interface.describe" and isinstance(arguments.get("name"), str) and bool(arguments["name"])
-        self._record_tool_call(tool, failure_class, schema_lookup=schema_lookup)
+        change_set_id = None
+        if tool == "service.propose" and response.get("ok"):
+            proposed = response.get("result")
+            if isinstance(proposed, dict):
+                candidate_id = proposed.get("change_set_id")
+                if isinstance(candidate_id, str):
+                    change_set_id = candidate_id
+        self._record_tool_call(
+            tool,
+            failure_class,
+            schema_lookup=schema_lookup,
+            change_set_id=change_set_id,
+        )
         return {
             "type": "tool_result",
             "request_id": request_id,
