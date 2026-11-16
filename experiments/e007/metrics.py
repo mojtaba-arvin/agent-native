@@ -22,7 +22,7 @@ SCHEMA_ARGUMENT_FAILURES = {
 ALLOWED_FIELDS = {
     "event_id", "task_id", "attempt", "timestamp_ns", "event_type",
     *IDENTITY_FIELDS,
-    "tool_name", "input_tokens", "output_tokens", "cost_usd",
+    "tool_name", "schema_lookup", "input_tokens", "output_tokens", "cost_usd",
     "accepted", "failure_class", "metric_name", "metric_value",
     "metric_unit", "retry",
 }
@@ -54,6 +54,10 @@ def summarize(events):
             raise ValueError("invalid_timestamp_ns")
         if "tool_name" in event and not isinstance(event["tool_name"], str):
             raise ValueError("invalid_tool_name")
+        if "schema_lookup" in event and not isinstance(event["schema_lookup"], bool):
+            raise ValueError("invalid_schema_lookup")
+        if event.get("schema_lookup", False) and event.get("tool_name") != "interface.describe":
+            raise ValueError("schema_lookup_requires_interface_describe")
         if event["event_type"] == "tool_call" and not event.get("tool_name"):
             raise ValueError("tool_call_missing_tool_name")
         if event["event_type"] == "task_finished" and not isinstance(event.get("accepted"), bool):
@@ -127,10 +131,7 @@ def summarize(events):
             count for failure_class, count in tool_error_classes.items()
             if failure_class in SCHEMA_ARGUMENT_FAILURES
         )
-        schema_lookup_calls = sum(
-            row.get("tool_name") == "interface.describe"
-            for row in tool_call_rows
-        )
+        schema_lookup_calls = sum(row.get("schema_lookup", False) for row in tool_call_rows)
 
         token_usage_complete = bool(model_events) and all(
             "input_tokens" in row and "output_tokens" in row for row in model_events
