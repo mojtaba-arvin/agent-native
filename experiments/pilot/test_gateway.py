@@ -22,8 +22,16 @@ class GatewayTests(unittest.TestCase):
         progressive = PilotGateway("progressive").session_message()
         upfront = PilotGateway("upfront").session_message()
         assert_fair_pair(progressive["surface"], upfront["surface"])
-        self.assertEqual(progressive["surface"]["disclosure_arm"], "progressive")
-        self.assertEqual(upfront["surface"]["disclosure_arm"], "upfront")
+        self.assertNotIn("disclosure_arm", progressive["surface"])
+        self.assertNotIn("disclosure_arm", upfront["surface"])
+        progressive_schema_count = sum(
+            "input_schema" in item for item in progressive["surface"]["tools"]
+        )
+        upfront_schema_count = sum(
+            "input_schema" in item for item in upfront["surface"]["tools"]
+        )
+        self.assertEqual(progressive_schema_count, 1)
+        self.assertEqual(upfront_schema_count, len(upfront["surface"]["tools"]))
 
     def test_progressive_discovery_returns_a_complete_tool_schema(self):
         listed = self.call("interface.describe", {})
