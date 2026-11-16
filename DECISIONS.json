@@ -114,9 +114,10 @@
       "value": "The E-003 reference model is provisional and does not yet define production semantics.",
       "evidence": [
         "Bounded admission and concurrency tests",
-        "Deadlines, cancellation, retries, worker crash, idempotency, and shutdown tests"
+        "Deadlines, cancellation, retries, worker crash, idempotency, and shutdown tests",
+        "Strict validation of task/worker identities, concurrency limits, deadlines, retry counts, outcomes, and results"
       ],
-      "reason": "Durability, distributed atomicity, fairness, leases, clock skew, and multi-process fault injection remain unresolved."
+      "reason": "Durable persistence, distributed atomicity, fairness, leases, clock skew, multi-process fault injection, and production runtime enforcement remain unresolved."
     },
     {
       "id": "D-0010",
