@@ -1,0 +1,26 @@
+// Experimental syntax sample. Effects/capabilities are declarations only.
+service Catalog {
+  version: "1";
+
+  operation get_item {
+    method: GET;
+    path: "/items/{id}";
+    input {
+      id: UUID from path;
+    }
+    output: Item;
+    effects: [repository.read];
+    capability: "items.read";
+  }
+
+  operation create_item {
+    method: POST;
+    path: "/items";
+    input {
+      name: String from body;
+    }
+    output: Item;
+    effects: [repository.write];
+    capability: "items.create";
+  }
+}

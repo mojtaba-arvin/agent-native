@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-native.dev/schemas/e001-service-ir-v1.json",
+  "title": "E-001 Service IR v1",
+  "description": "Experimental canonical shape emitted by the E-001 parser. Not a production framework contract.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["ir_version", "service", "operations"],
+  "properties": {
+    "ir_version": { "const": 1 },
+    "service": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version"],
+      "properties": {
+        "name": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
+        "version": { "type": "string", "minLength": 1 }
+      }
+    },
+    "operations": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "method", "path", "input", "output", "effects", "capability"],
+        "properties": {
+          "name": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
+          "method": { "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"] },
+          "path": { "type": "string", "pattern": "^/" },
+          "input": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["name", "type", "source"],
+              "properties": {
+                "name": { "type": "string" },
+                "type": { "type": "string" },
+                "source": { "enum": ["path", "query", "body", "header"] }
+              }
+            }
+          },
+          "output": { "type": "string" },
+          "effects": { "type": "array", "uniqueItems": true, "items": { "type": "string" } },
+          "capability": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}
