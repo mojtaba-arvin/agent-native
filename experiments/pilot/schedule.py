@@ -108,7 +108,11 @@ def _reject_non_finite_json_number(value: str) -> None:
 def load_generation_settings(path: str | Path) -> dict:
     settings_path = Path(path).expanduser()
     try:
+        if settings_path.stat().st_size > MAX_GENERATION_SETTINGS_BYTES:
+            raise ScheduleError("generation_settings_file_too_large")
         raw = settings_path.read_bytes()
+    except ScheduleError:
+        raise
     except OSError as error:
         raise ScheduleError("generation_settings_file_unavailable") from error
     if len(raw) > MAX_GENERATION_SETTINGS_BYTES:
