@@ -51,3 +51,8 @@ These are implementation baselines for measuring how agents express the same con
 ## Disposable IR reference executor
 
 `prototype/runtime.py` interprets the fixed catalog task from the parsed IR, derives routes from the declared method/path, validates typed inputs, enforces the trusted effect allowlist, calls the E-004 policy reference model, and executes in-memory create/get operations. It is intentionally a task-specific reference executor, not the product runtime and not a language/runtime selection. Its purpose is to test whether the textual and structured contracts contain enough information to drive observable behavior.
+
+
+## HTTP end-to-end slice
+
+`prototype/http_server.py` exposes the task-specific reference executor through Python's standard-library HTTP server. Routes are derived from the DSL/IR, while identity is supplied by a separate trusted test provider. Tests exercise real loopback HTTP requests for create/get, authentication failure, validation, method mismatch, and missing routes. The static bearer-token provider is test-only; this is not production authentication or the selected product runtime.
