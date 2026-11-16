@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Agent Native trusted evaluator result",
+  "description": "A coarse result record written by the trusted runner after agent execution and isolated evaluation. It intentionally contains no oracle path, assertions, or detailed hidden-test output.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "run_id",
+    "candidate_id",
+    "task_id",
+    "candidate_sha256",
+    "accepted",
+    "failure_class",
+    "evaluated_at_ns",
+    "evaluator_version"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "candidate_id": {
+      "type": "string",
+      "enum": [
+        "progressive",
+        "upfront"
+      ]
+    },
+    "task_id": {
+      "const": "pilot-catalog-add-readonly-operation"
+    },
+    "candidate_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "accepted": {
+      "type": "boolean"
+    },
+    "failure_class": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        null,
+        "INVALID_CANDIDATE",
+        "TASK_NOT_SATISFIED",
+        "TOOL_TRACE_INCOMPLETE",
+        "FORBIDDEN_ACTION_ATTEMPTED",
+        "EVALUATOR_ERROR"
+      ]
+    },
+    "evaluated_at_ns": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "evaluator_version": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "accepted": {
+            "const": true
+          }
+        },
+        "required": [
+          "accepted"
+        ]
+      },
+      "then": {
+        "properties": {
+          "failure_class": {
+            "const": null
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "accepted": {
+            "const": false
+          }
+        },
+        "required": [
+          "accepted"
+        ]
+      },
+      "then": {
+        "properties": {
+          "failure_class": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  ]
+}
