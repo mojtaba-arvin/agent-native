@@ -80,8 +80,8 @@ def summarize(events):
                 or any(character not in "0123456789abcdef" for character in candidate_id)
             ):
                 raise ValueError("invalid_change_set_id")
-            if event["event_type"] != "tool_call" or event.get("tool_name") != "service.propose":
-                raise ValueError("change_set_id_requires_service_propose")
+            if event["event_type"] != "tool_call" or event.get("tool_name") not in {"service.propose", "service.validate", "service.plan"}:
+                raise ValueError("change_set_id_requires_proposal_lifecycle_tool")
         if event["event_type"] == "tool_call" and not event.get("tool_name"):
             raise ValueError("tool_call_missing_tool_name")
         if event["event_type"] == "task_finished" and not isinstance(event.get("accepted"), bool):
