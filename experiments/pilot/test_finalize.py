@@ -183,16 +183,20 @@ class FinalizeTests(unittest.TestCase):
 
     def test_rejected_run_can_be_finalized_without_candidate(self):
         failed_trace = self.root / "failed-trace.jsonl"
+        prior_call = next(
+            event for event in self.events
+            if event["event_type"] == "tool_call"
+        )
         failed_events = [
             self.events[0],
             self.events[1],
             {
-                **self.events[1],
+                **prior_call,
                 "event_id": "failed-call",
-                "timestamp_ns": self.events[1]["timestamp_ns"] + 1,
-                "event_type": "tool_call",
+                "timestamp_ns": prior_call["timestamp_ns"] + 1,
                 "tool_name": "service.apply",
                 "failure_class": "APPLY_DISABLED",
+                "schema_lookup": False,
             },
         ]
         failed_trace.write_text(
