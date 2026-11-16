@@ -19,9 +19,9 @@ The experiment is about the agent interface only. The backend state, service mod
 
 ## Task
 
-Use the existing E-007 `safe-change-plan` task against the small catalog service fixture used by E-005.
+Use the pilot-specific task in `TASK.md` against the E-005 Catalog fixture. The task is intentionally limited to a change the current prototype can represent: add one read-only `list_items` operation while preserving the existing service contract. The task requires the agent to inspect the service, produce a proposal against the supplied revision, validate it, and produce a no-side-effect plan.
 
-The agent must inspect the service, understand the requested change, produce a proposal against the supplied revision, validate it, and produce a plan. The plan must identify required effects and human approval gates. The prototype's apply operation remains disabled; no mutation or deployment is part of this pilot.
+Do **not** use E-007 `safe-change-plan` for this pilot. That task requires destructive migration planning, rollback detail, and external-egress authority semantics that the current E-005 prototype does not represent. Reusing it would make the pilot invalid by asking the candidate to do work its interface cannot express.
 
 The service fixture, task prompt, validator version, and hidden acceptance oracle must be pinned by content hash before the first run. The oracle must remain outside the agent-visible workspace and process boundary, following `ORACLE_ISOLATION.md`.
 
@@ -108,7 +108,7 @@ No trial result may be claimed until actual agent executions have been performed
 ## Current state
 
 - Protocol: specified here.
-- Task source: E-007 `safe-change-plan`.
+- Task source: pilot-specific `TASK.md`, constrained to the E-005 capability.
 - Candidate interface: E-005.
 - Hidden evaluator: not yet provisioned.
 - Isolated agent/evaluator runner: not yet provisioned.
