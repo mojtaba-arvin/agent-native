@@ -19,7 +19,7 @@ The experiment is about the agent interface only. The backend state, service mod
 
 ## Task
 
-Use the pilot-specific task in `TASK.md` against the E-005 Catalog fixture. The task is intentionally limited to a change the current prototype can represent: add one read-only `list_items` operation while preserving the existing service contract. The task requires the agent to inspect the service, produce a proposal against the supplied revision, validate it, and produce a no-side-effect plan.
+Use the pilot-specific task in `TASK.md` against the E-005 Catalog fixture. The task is intentionally limited to a change the current prototype can represent: add one read-only `get_item_by_name` operation while preserving the existing service contract. The task requires the agent to inspect the service, produce a proposal against the supplied revision, validate it, and produce a no-side-effect plan.
 
 Do **not** use E-007 `safe-change-plan` for this pilot. That task requires destructive migration planning, rollback detail, and external-egress authority semantics that the current E-005 prototype does not represent. Reusing it would make the pilot invalid by asking the candidate to do work its interface cannot express.
 
