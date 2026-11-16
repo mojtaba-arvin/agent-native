@@ -1,0 +1,23 @@
+# E-003 executable semantics model
+
+This is a deterministic, discrete-time reference model for a narrow set of framework-owned task semantics. It is not a production scheduler or runtime and makes no claim about throughput.
+
+The model tests:
+- bounded outstanding work and explicit backpressure;
+- absolute deadlines;
+- cooperative cancellation with slot release;
+- bounded transient retries;
+- worker-crash requeue;
+- idempotency-key deduplication.
+
+Time advances only through explicit calls, so tests are reproducible without sleeps or wall-clock races.
+
+## Run
+
+```sh
+python -m unittest discover -s experiments/e003 -v
+```
+
+## Deliberate simplifications
+
+No persistence, distributed consensus, network transport, real worker process, fairness guarantee, lease expiry, exactly-once side-effect guarantee, or crash-safe idempotency store is implemented. The model's in-memory idempotency ledger demonstrates deduplication semantics only; production durability and atomicity remain open research questions.
