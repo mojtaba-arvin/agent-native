@@ -48,8 +48,9 @@ Both arms use one common `agent.invoke` dispatch envelope containing the same to
 
 - `surface.py` builds the progressive and upfront manifests from the single canonical `experiments/e005/tools.json` catalog and checks that tool identity, descriptions, dispatch schema, and discovery schema are equivalent.
 - `gateway.py` is a local newline-delimited JSON (NDJSON) adapter. It emits the session manifest, accepts calls to only the six E-005 operations, and delegates them to the same in-process E-005 reference handler. It offers no shell, filesystem, arbitrary network, secret, or deployment operation.
+- `candidate.schema.json` defines the agent final-output artifact; `evaluation-result.schema.json` defines the coarse result the trusted evaluator returns. `candidate.py` validates only the public envelope, recomputes the content-addressed proposal ID, and can require that ID to appear in a successful `service.propose` trace event. It is not the acceptance oracle and does not decide whether the requested operation is correct.
 - In the progressive arm, `interface.describe` is available with the same schema as the upfront arm and can return a selected tool's detailed schema. In the upfront arm, every detailed schema is included in the initial session manifest.
-- The gateway can write one exclusive, mode-0600 JSONL trace per run. It records task start, initial surface payload bytes, tool calls, and stable failure codes without recording tool arguments. The trusted outer runner/evaluator—not the agent—must append the authoritative `task_finished` event. Provider token/cost telemetry must come from the provider adapter, not be inferred by this gateway.
+- The gateway can write one exclusive, mode-0600 JSONL trace per run. It records task start, initial surface payload bytes, tool calls, explicit named-schema lookups, stable failure codes, and the content hash of a successful proposal without recording tool arguments or proposal bodies. The trusted outer runner/evaluator—not the agent—must append the authoritative `task_finished` event. Provider token/cost telemetry must come from the provider adapter, not be inferred by this gateway.
 
 Example gateway launch:
 
@@ -133,8 +134,8 @@ No trial result may be claimed until actual agent executions have been performed
 - Protocol: specified here.
 - Task source: pilot-specific `TASK.md`, constrained to the E-005 capability.
 - Candidate interface: E-005.
-- Equivalent arm manifests, common NDJSON gateway, and E-007 tool-error/schema-lookup telemetry: implemented.
-- GitHub Actions protocol checks: pending on the current branch head.
+- Equivalent arm manifests, common NDJSON gateway, candidate-artifact envelope checks, proposal/trace correlation, and E-007 tool-error/schema-lookup telemetry: implemented.
+- GitHub Actions protocol checks: running for the latest changes.
 - Hidden evaluator: not provisioned.
 - Isolated agent execution boundary and provider adapter: not provisioned.
 - Agent trials: **not run**.
