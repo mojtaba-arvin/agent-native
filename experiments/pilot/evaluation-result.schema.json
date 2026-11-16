@@ -10,8 +10,9 @@
     "candidate_id",
     "task_id",
     "attempt",
-    "candidate_sha256",
     "accepted",
+    "eligible_for_acceptance",
+    "candidate_sha256",
     "failure_class",
     "agent_finished_at_ns",
     "evaluated_at_ns",
@@ -57,6 +58,9 @@
         "TASK_NOT_SATISFIED",
         "TOOL_TRACE_INCOMPLETE",
         "FORBIDDEN_ACTION_ATTEMPTED",
+        "AGENT_BUDGET_EXHAUSTED",
+        "PROVIDER_ERROR",
+        "ADAPTER_ERROR",
         "EVALUATOR_ERROR"
       ]
     },
@@ -75,6 +79,9 @@
     "agent_finished_at_ns": {
       "type": "integer",
       "minimum": 0
+    },
+    "eligible_for_acceptance": {
+      "type": "boolean"
     }
   },
   "allOf": [
@@ -97,6 +104,9 @@
           "candidate_sha256": {
             "type": "string",
             "pattern": "^[a-f0-9]{64}$"
+          },
+          "eligible_for_acceptance": {
+            "const": true
           }
         }
       }
@@ -116,6 +126,9 @@
         "properties": {
           "failure_class": {
             "type": "string"
+          },
+          "eligible_for_acceptance": {
+            "type": "boolean"
           }
         }
       }
