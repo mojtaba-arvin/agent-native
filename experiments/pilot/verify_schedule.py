@@ -26,8 +26,13 @@ def _reject_non_finite(value: str) -> None:
 
 
 def load_schedule(path: str | Path) -> dict:
+    schedule_path = Path(path)
     try:
-        raw = Path(path).read_bytes()
+        if schedule_path.stat().st_size > MAX_SCHEDULE_BYTES:
+            raise ScheduleError("schedule_file_too_large")
+        raw = schedule_path.read_bytes()
+    except ScheduleError:
+        raise
     except OSError as error:
         raise ScheduleError("schedule_file_unavailable") from error
     if len(raw) > MAX_SCHEDULE_BYTES:
