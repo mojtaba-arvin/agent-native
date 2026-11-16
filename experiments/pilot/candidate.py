@@ -147,6 +147,44 @@ def validate_candidate(
     }
 
 
+
+def load_trace_proposal_ids(path: str | Path) -> set[str]:
+    """Read proposal IDs emitted by successful service.propose calls only."""
+    trace_path = Path(path)
+    try:
+        raw = trace_path.read_bytes()
+    except OSError as error:
+        raise CandidateError("trace_file_unavailable") from error
+    if len(raw) > 64 * 1024 * 1024:
+        raise CandidateError("trace_file_too_large")
+    try:
+        decoded = raw.decode("utf-8")
+    except UnicodeDecodeError as error:
+        raise CandidateError("trace_invalid_utf8") from error
+
+    proposal_ids: set[str] = set()
+    for line_number, line in enumerate(decoded.splitlines(), 1):
+        if not line.strip():
+            continue
+        try:
+            event = json.loads(
+                line,
+                object_pairs_hook=_reject_duplicate_keys,
+                parse_constant=_reject_non_finite,
+            )
+        except (json.JSONDecodeError, CandidateError) as error:
+            raise CandidateError(f"trace_invalid_jsonl_line:{line_number}") from error
+        if not isinstance(event, dict):
+            raise CandidateError(f"trace_event_not_object:{line_number}")
+        if event.get("event_type") == "tool_call" and event.get("tool_name") == "service.propose":
+            if event.get("failure_class"):
+                continue
+            change_set_id = event.get("change_set_id")
+            if not isinstance(change_set_id, str) or not SHA256_PATTERN.fullmatch(change_set_id):
+                raise CandidateError(f"trace_successful_proposal_missing_hash:{line_number}")
+            proposal_ids.add(change_set_id)
+    return proposal_ids
+
 def load_candidate(
     path: str | Path,
     *,
