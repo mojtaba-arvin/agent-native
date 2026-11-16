@@ -7,5 +7,5 @@ edition = "2021"
 crate-type = ["cdylib"]
 
 [dependencies]
-futures-lite = "2"
-wstd = "0.6.8"
+futures-lite = "=2.6.1"
+wstd = "=0.6.8"
