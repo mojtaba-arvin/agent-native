@@ -78,7 +78,7 @@ jobs:
       - run: python experiments/e002/conformance.py --command "mix run -e AgentNativeE002Beam.Server.main()" --cwd experiments/e002/beam
 
   benchmark-matrix:
-    if: github.event_name == 'push' && contains(github.event.head_commit.message, '[benchmark]')
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && contains(github.event.head_commit.message, '[benchmark]'))
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
