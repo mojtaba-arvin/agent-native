@@ -307,5 +307,19 @@ class MetricsTests(unittest.TestCase):
             summarize([event])
 
 
+    def test_trace_loader_enforces_size_and_utf8_limits(self):
+        from unittest.mock import patch
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "trace.jsonl"
+            path.write_bytes(b"12345")
+            with patch("metrics.MAX_TRACE_BYTES", 4):
+                with self.assertRaisesRegex(ValueError, "trace_file_too_large"):
+                    load_jsonl(path)
+            path.write_bytes(b"\\xff")
+            with self.assertRaisesRegex(ValueError, "trace_file_invalid_utf8"):
+                load_jsonl(path)
+
+
 if __name__ == "__main__":
     unittest.main()
