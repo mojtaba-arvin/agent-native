@@ -38,5 +38,13 @@
       "notes": "Elixir 1.20.5 / OTP 29.1.2; raw :gen_tcp, BEAM process-per-connection, atomic in-flight cap. No Phoenix/Plug/Bandit. One request per connection; graceful draining and disconnect cancellation remain unimplemented."
     }
   ],
-  "selection": null
+  "selection": null,
+  "initial_smoke_matrix": {
+    "report": "experiments/e002/results/initial-ci-smoke/README.md",
+    "summary": "experiments/e002/results/initial-ci-smoke/summary.json",
+    "workflow_run_id": 43846465352,
+    "artifact_id": 14215785765,
+    "decision_grade": false,
+    "runtime_selection": null
+  }
 }
