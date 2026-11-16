@@ -31,3 +31,11 @@ The CLI emits canonical JSON to stdout and diagnostics to stderr. Exit status is
 2. Have constrained, general, and advanced agents implement a hidden-test workload from a clean checkout.
 3. Record tokens, tool calls, wall time, edits, parse/repair loops, and acceptance results.
 4. Add a follow-up schema evolution task before considering any representation decision.
+
+
+## Conventional-language contract baselines
+
+- `baselines/go/`: standard-library Go domain service with explicit repository and authorization interfaces, deterministic error codes, validation, and in-memory storage.
+- `baselines/rust/`: equivalent Rust domain service with traits, explicit authorization, deterministic errors, validation, and in-memory storage.
+
+These are implementation baselines for measuring how agents express the same contract in conventional languages. They use no HTTP/backend framework and are not Agent Native's product implementation language. The DSL parser remains a contract front-end prototype; it does not yet execute the service or prove end-to-end task-cost advantages.
