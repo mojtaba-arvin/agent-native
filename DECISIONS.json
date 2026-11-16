@@ -117,9 +117,10 @@
       "evidence": [
         "Bounded admission and concurrency tests",
         "Deadlines, cancellation, retries, worker crash, idempotency, and shutdown tests",
-        "Strict validation of task/worker identities, concurrency limits, deadlines, retry counts, outcomes, and results"
+        "Strict validation of task/worker identities, concurrency limits, deadlines, retry counts, outcomes, and results",
+        "Running cancellation and deadline expiry retain worker/outstanding capacity until explicit worker finish/crash acknowledgement"
       ],
-      "reason": "Durable persistence, distributed atomicity, fairness, leases, clock skew, multi-process fault injection, and production runtime enforcement remain unresolved."
+      "reason": "Production cancellation transport, bounded worker kill escalation, durable persistence, distributed atomicity, fairness, leases, clock skew, multi-process fault injection, and production runtime enforcement remain unresolved."
     },
     {
       "id": "D-0010",
