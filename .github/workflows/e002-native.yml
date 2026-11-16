@@ -61,4 +61,4 @@ jobs:
           test -n "$WASMTIME_BIN"
           echo "$(dirname "$WASMTIME_BIN")" >> "$GITHUB_PATH"
       - name: Run shared HTTP conformance checks
-        run: python experiments/e002/conformance.py --command "wasmtime serve --addr=127.0.0.1:8080 target/wasm32-wasip2/release/agent_native_e002_wasi_p2.wasm" --cwd experiments/e002/wasi-p2
+        run: python experiments/e002/conformance.py --command "wasmtime serve --addr=127.0.0.1:8080 -S cli=y -S http=y target/wasm32-wasip2/release/agent_native_e002_wasi_p2.wasm" --cwd experiments/e002/wasi-p2
