@@ -59,6 +59,33 @@ def sha256_bytes(value: bytes) -> str:
     return hashlib.sha256(value).hexdigest()
 
 
+def validate_generation_settings(value: Any) -> None:
+    if not isinstance(value, dict):
+        raise ScheduleError("generation_settings_must_be_object")
+    try:
+        canonical_json(value)
+    except (TypeError, ValueError) as error:
+        raise ScheduleError("generation_settings_must_be_finite_json") from error
+
+    def reject_secret_keys(item: Any) -> None:
+        if isinstance(item, dict):
+            for key, child in item.items():
+                if not isinstance(key, str):
+                    raise ScheduleError("generation_setting_key_must_be_string")
+                normalized = key.lower().replace("-", "_")
+                if any(marker in normalized for marker in (
+                    "api_key", "api_token", "access_token", "refresh_token",
+                    "secret", "password", "credential", "authorization", "bearer",
+                )):
+                    raise ScheduleError("generation_settings_must_not_contain_credentials")
+                reject_secret_keys(child)
+        elif isinstance(item, list):
+            for child in item:
+                reject_secret_keys(child)
+
+    reject_secret_keys(value)
+
+
 def hash_source_files(root: str | Path = ROOT) -> dict[str, str]:
     base = Path(root)
     hashes = {}
@@ -131,27 +158,7 @@ def create_schedule(
         if type(value) is not int or value < 1:
             raise ScheduleError(f"{name}_must_be_positive_integer")
 
-    if not isinstance(generation_settings, dict):
-        raise ScheduleError("generation_settings_must_be_object")
-    try:
-        canonical_json(generation_settings)
-    except (TypeError, ValueError) as error:
-        raise ScheduleError("generation_settings_must_be_finite_json") from error
-
-    def reject_secret_keys(value: Any) -> None:
-        if isinstance(value, dict):
-            for key, child in value.items():
-                if not isinstance(key, str):
-                    raise ScheduleError("generation_setting_key_must_be_string")
-                normalized = key.lower().replace("-", "_")
-                if any(marker in normalized for marker in ("api_key", "api_token", "access_token", "refresh_token", "secret", "password", "credential", "authorization", "bearer")):
-                    raise ScheduleError("generation_settings_must_not_contain_credentials")
-                reject_secret_keys(child)
-        elif isinstance(value, list):
-            for child in value:
-                reject_secret_keys(child)
-
-    reject_secret_keys(generation_settings)
+    validate_generation_settings(generation_settings)
     source_hashes = hash_source_files(root)
     protocol = {
         "protocol_version": 1,
@@ -239,11 +246,9 @@ def validate_schedule(schedule: Any) -> None:
         raise ScheduleError("protocol_execution_policy_invalid")
     if not isinstance(protocol.get("model_id"), str) or not protocol["model_id"]:
         raise ScheduleError("protocol_model_id_invalid")
-    if not isinstance(protocol.get("generation_settings"), dict):
-        raise ScheduleError("protocol_generation_settings_invalid")
     try:
-        canonical_json(protocol["generation_settings"])
-    except (TypeError, ValueError) as error:
+        validate_generation_settings(protocol.get("generation_settings"))
+    except ScheduleError as error:
         raise ScheduleError("protocol_generation_settings_invalid") from error
     if not isinstance(protocol.get("source_revision"), str) or not REVISION_PATTERN.fullmatch(protocol["source_revision"]):
         raise ScheduleError("protocol_source_revision_invalid")
