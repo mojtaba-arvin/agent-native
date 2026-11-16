@@ -27,6 +27,7 @@
         "experiments/e007/metrics.py",
         "experiments/e007/trace.schema.json",
         "experiments/pilot/AGENT_ADAPTER.md",
+        "experiments/pilot/ORACLE_CONTRACT.md",
         "experiments/pilot/PROMPT.md",
         "experiments/pilot/README.md",
         "experiments/pilot/TASK.md",
@@ -95,6 +96,9 @@
           "$ref": "#/$defs/sha256"
         },
         ".gitignore": {
+          "$ref": "#/$defs/sha256"
+        },
+        "experiments/pilot/ORACLE_CONTRACT.md": {
           "$ref": "#/$defs/sha256"
         }
       }
