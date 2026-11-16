@@ -19,6 +19,7 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
+        ".gitignore",
         "experiments/e001/examples/catalog.an",
         "experiments/e001/prototype/agent_native.py",
         "experiments/e005/interface.py",
@@ -91,6 +92,9 @@
           "$ref": "#/$defs/sha256"
         },
         "experiments/pilot/PROMPT.md": {
+          "$ref": "#/$defs/sha256"
+        },
+        ".gitignore": {
           "$ref": "#/$defs/sha256"
         }
       }
