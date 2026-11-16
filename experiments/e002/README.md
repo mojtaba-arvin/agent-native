@@ -62,3 +62,12 @@ python experiments/e002/benchmark.py \
 ```
 
 Repeat with the Rust binary and randomized candidate order. Keep machine and runner identical. The script is an initial measurement harness, not yet a complete benchmark protocol: it does not isolate background noise, pin CPU frequency, measure startup distributions, or capture host/guest memory separately. Do not treat one run as a performance conclusion.
+
+
+## WASI Component Model arm
+
+A WASI Preview 2 HTTP component is now included at `wasi-p2/`, using `wstd` 0.6.8 and the standard `wasi:http/proxy` world. It implements the same health, bounded-duration work response, deadline status, and streaming body contract. The component build succeeds. Its first Wasmtime 50.0.1 host run exposed a missing `wasi:cli/environment` import in the test host configuration; the workflow now explicitly enables the CLI and HTTP WASI interfaces and reruns the shared conformance suite.
+
+Important comparison boundary: `wasmtime serve` is a development/test host, not a production server. It owns the socket and HTTP admission path; the guest component does not own the listener. Guest-global concurrency state cannot be assumed to persist across requests, so concurrency limits and isolation overhead must be measured at the host boundary. The WASI arm is not semantically equivalent for every E-002 dimension yet.
+
+WASI Preview 3 is a separate candidate, not silently substituted for Preview 2. Rust 1.100 now provides the `wasm32-wasip3` target, but the current `wasip3` bindings are still documented as a snapshot and Wasmtime's P3 HTTP host implementation is described as experimental/incomplete. Build/runtime compatibility must be established before treating it as a benchmark arm.

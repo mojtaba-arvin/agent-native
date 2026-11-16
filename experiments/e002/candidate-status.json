@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "snapshot": "2026-11-16",
+  "candidates": [
+    {
+      "id": "go-net-http",
+      "status": "black-box-conformance-passed",
+      "implementation": "Go standard library net/http",
+      "framework_dependency": null,
+      "notes": "Native baseline; no existing backend framework."
+    },
+    {
+      "id": "rust-tokio-hyper",
+      "status": "black-box-conformance-passed",
+      "implementation": "Tokio plus Hyper directly",
+      "framework_dependency": null,
+      "notes": "Native baseline; no existing backend framework."
+    },
+    {
+      "id": "wasi-p2-wstd-wasmtime-50.0.1",
+      "status": "component-build-passed-host-conformance-pending",
+      "implementation": "WASI Preview 2 HTTP component using wstd 0.6.8, served by Wasmtime 50.0.1",
+      "framework_dependency": null,
+      "notes": "Guest does not own the listening socket; Wasmtime CLI host is for development/testing only. Host-side admission and resource policy must be measured separately."
+    },
+    {
+      "id": "wasi-p3",
+      "status": "feasibility-research-only",
+      "implementation": "WASI Preview 3 / Component Model async",
+      "framework_dependency": null,
+      "notes": "Rust target is available, but bindings and Wasmtime HTTP host maturity/version alignment require validation before a runnable arm."
+    },
+    {
+      "id": "beam",
+      "status": "not-implemented",
+      "implementation": "BEAM/OTP actor runtime",
+      "framework_dependency": null,
+      "notes": "Candidate only; no implementation or measurements."
+    }
+  ],
+  "selection": null
+}
