@@ -233,14 +233,31 @@ def summarize(events):
     }
 
 
+def _reject_duplicate_json_keys(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("duplicate_json_key")
+        result[key] = value
+    return result
+
+
+def _reject_non_finite_json_number(value):
+    raise ValueError("non_finite_json_number")
+
+
 def load_jsonl(path):
     events = []
     for line_number, line in enumerate(Path(path).read_text(encoding="utf-8").splitlines(), 1):
         if not line.strip():
             continue
         try:
-            events.append(json.loads(line))
-        except json.JSONDecodeError as error:
+            events.append(json.loads(
+                line,
+                object_pairs_hook=_reject_duplicate_json_keys,
+                parse_constant=_reject_non_finite_json_number,
+            ))
+        except (json.JSONDecodeError, ValueError) as error:
             raise ValueError(f"invalid_jsonl_line:{line_number}") from error
     return events
 
