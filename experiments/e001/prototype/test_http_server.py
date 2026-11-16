@@ -121,11 +121,11 @@ class ReferenceHTTPServerTests(unittest.TestCase):
             connection.settimeout(3)
             connection.sendall(
                 (
-                    "POST /items HTTP/1.1\\r\\n"
-                    "Host: 127.0.0.1\\r\\n"
-                    "Authorization: Bearer test-token\\r\\n"
-                    f"Content-Length: {MAX_REQUEST_BODY_BYTES + 1}\\r\\n"
-                    "Connection: close\\r\\n\\r\\n"
+                    "POST /items HTTP/1.1\r\n"
+                    "Host: 127.0.0.1\r\n"
+                    "Authorization: Bearer test-token\r\n"
+                    f"Content-Length: {MAX_REQUEST_BODY_BYTES + 1}\r\n"
+                    "Connection: close\r\n\r\n"
                 ).encode("ascii")
             )
             response = b""
@@ -134,8 +134,8 @@ class ReferenceHTTPServerTests(unittest.TestCase):
                 if not chunk:
                     break
                 response += chunk
-        headers, raw_body = response.split(b"\\r\\n\\r\\n", 1)
-        status = int(headers.split(b"\\r\\n", 1)[0].split()[1])
+        headers, raw_body = response.split(b"\r\n\r\n", 1)
+        status = int(headers.split(b"\r\n", 1)[0].split()[1])
         body = json.loads(raw_body)
         self.assertEqual(status, 413)
         self.assertEqual(body["error"]["code"], "BODY_TOO_LARGE")
