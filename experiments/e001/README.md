@@ -56,3 +56,8 @@ These are implementation baselines for measuring how agents express the same con
 ## HTTP end-to-end slice
 
 `prototype/http_server.py` exposes the task-specific reference executor through Python's standard-library HTTP server. Routes are derived from the DSL/IR, while identity is supplied by a separate trusted test provider. Tests exercise real loopback HTTP requests for create/get, authentication failure, validation, method mismatch, and missing routes. The static bearer-token provider is test-only; this is not production authentication or the selected product runtime.
+
+
+## HTTP adapter request hardening
+
+The disposable loopback adapter now bounds request bodies to 1 MiB, rejects truncated/negative/oversized bodies, duplicate JSON object keys, and non-finite JSON constants, and routes PUT/PATCH through the framework method-mismatch path instead of the HTTP server's default 501 response. These are prototype adapter controls, not a production server or selected runtime.

@@ -7,6 +7,22 @@ from runtime import ReferenceRuntime, RuntimeFault
 from security_model import RequestContext
 
 
+MAX_REQUEST_BODY_BYTES = 1_048_576
+
+
+def _unique_object(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("duplicate JSON object key")
+        result[key] = value
+    return result
+
+
+def _reject_json_constant(value: str):
+    raise ValueError(f"non-finite JSON constant: {value}")
+
+
 class StaticIdentityProvider:
     """Test-only trusted identity source; never use client-supplied claims as grants."""
 
@@ -28,7 +44,7 @@ def create_server(
             return
 
         def _send(self, status: int, payload: dict) -> None:
-            encoded = json.dumps(payload, sort_keys=True).encode("utf-8")
+            encoded = json.dumps(payload, sort_keys=True, allow_nan=False).encode("utf-8")
             self.send_response(status)
             self.send_header("content-type", "application/json")
             self.send_header("content-length", str(len(encoded)))
@@ -45,8 +61,19 @@ def create_server(
             if method in {"POST", "PUT", "PATCH"}:
                 try:
                     length = int(self.headers.get("content-length", "0"))
+                    if length < 0:
+                        raise ValueError("negative content length")
+                    if length > MAX_REQUEST_BODY_BYTES:
+                        self._send(413, {"error": {"code": "BODY_TOO_LARGE"}})
+                        return
                     raw = self.rfile.read(length)
-                    body = json.loads(raw or b"{}")
+                    if len(raw) != length:
+                        raise ValueError("truncated request body")
+                    body = json.loads(
+                        raw or b"{}",
+                        object_pairs_hook=_unique_object,
+                        parse_constant=_reject_json_constant,
+                    )
                     if not isinstance(body, dict):
                         raise ValueError("JSON body must be an object")
                 except (ValueError, json.JSONDecodeError):
@@ -72,6 +99,12 @@ def create_server(
 
         def do_POST(self) -> None:
             self._dispatch("POST")
+
+        def do_PUT(self) -> None:
+            self._dispatch("PUT")
+
+        def do_PATCH(self) -> None:
+            self._dispatch("PATCH")
 
         def do_DELETE(self) -> None:
             self._dispatch("DELETE")

@@ -6,7 +6,7 @@ import urllib.request
 from pathlib import Path
 
 from agent_native import Parser
-from http_server import StaticIdentityProvider, create_server
+from http_server import MAX_REQUEST_BODY_BYTES, StaticIdentityProvider, create_server
 from runtime import ReferenceRuntime
 from security_model import Grant, RequestContext
 
@@ -52,6 +52,19 @@ class ReferenceHTTPServerTests(unittest.TestCase):
         except urllib.error.HTTPError as error:
             return error.code, json.loads(error.read())
 
+    def request_raw(self, method, path, raw_body, *, token="test-token"):
+        headers = {"content-type": "application/json"}
+        if token is not None:
+            headers["Authorization"] = f"Bearer {token}"
+        req = urllib.request.Request(
+            self.base_url + path, data=raw_body, headers=headers, method=method
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=3) as response:
+                return response.status, json.loads(response.read())
+        except urllib.error.HTTPError as error:
+            return error.code, json.loads(error.read())
+
     def test_dsl_declares_real_http_create_and_get_routes(self):
         status, created = self.request("POST", "/items", body={"name": "Desk lamp"})
         self.assertEqual(status, 200)
@@ -78,6 +91,26 @@ class ReferenceHTTPServerTests(unittest.TestCase):
         self.assertEqual(status, 404)
         self.assertEqual(body["error"]["code"], "ROUTE_NOT_FOUND")
 
+
+
+    def test_unsupported_put_and_patch_return_method_not_allowed(self):
+        for method in ("PUT", "PATCH"):
+            status, body = self.request(method, "/items", body={"name": "Lamp"})
+            self.assertEqual(status, 405)
+            self.assertEqual(body["error"]["code"], "METHOD_NOT_ALLOWED")
+
+    def test_duplicate_json_keys_and_non_finite_numbers_are_rejected(self):
+        for raw in (b'{"name":"one","name":"two"}', b'{"name":NaN}'):
+            status, body = self.request_raw("POST", "/items", raw)
+            self.assertEqual(status, 400)
+            self.assertEqual(body["error"]["code"], "INVALID_JSON")
+
+    def test_request_body_size_is_bounded(self):
+        status, body = self.request_raw(
+            "POST", "/items", b" " * (MAX_REQUEST_BODY_BYTES + 1)
+        )
+        self.assertEqual(status, 413)
+        self.assertEqual(body["error"]["code"], "BODY_TOO_LARGE")
 
 if __name__ == "__main__":
     unittest.main()
