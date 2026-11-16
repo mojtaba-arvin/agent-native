@@ -5,6 +5,7 @@ from schedule import (
     ARMS,
     ScheduleError,
     resolve_git_revision,
+    verify_schedule_checkout,
     create_schedule,
     validate_schedule,
 )
@@ -122,6 +123,17 @@ class ScheduleTests(unittest.TestCase):
         schedule["trials"][0]["generation_settings"]["temperature"] = 0.7
         schedule["trials"][0]["source_sha256"]["experiments/pilot/TASK.md"] = "0" * 64
         self.assertEqual(schedule["protocol"], protocol_before)
+
+
+    def test_schedule_verifies_against_exact_clean_checkout(self):
+        revision = resolve_git_revision()
+        schedule = self.build(source_revision=revision)
+        verify_schedule_checkout(schedule)
+
+    def test_schedule_rejects_another_source_revision(self):
+        schedule = self.build(source_revision="a" * 40)
+        with self.assertRaisesRegex(ScheduleError, "checkout_revision_does_not_match_schedule"):
+            verify_schedule_checkout(schedule)
 
 
     def test_schedule_detects_budget_tampering(self):
