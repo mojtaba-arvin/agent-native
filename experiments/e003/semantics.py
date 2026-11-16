@@ -26,10 +26,20 @@ class Submission:
     task_id: str | None
 
 
+def _require_text(value: object, name: str) -> None:
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"invalid_{name}")
+
+
+def _require_int(value: object, name: str, *, minimum: int = 0) -> None:
+    if not isinstance(value, int) or isinstance(value, bool) or value < minimum:
+        raise ValueError(f"invalid_{name}")
+
+
 class Engine:
     def __init__(self, *, max_outstanding: int, max_concurrency: int):
-        if max_outstanding < 1 or max_concurrency < 1:
-            raise ValueError("limits must be positive")
+        _require_int(max_outstanding, "max_outstanding", minimum=1)
+        _require_int(max_concurrency, "max_concurrency", minimum=1)
         if max_concurrency > max_outstanding:
             raise ValueError("max_concurrency cannot exceed max_outstanding")
         self.max_outstanding = max_outstanding
@@ -45,8 +55,10 @@ class Engine:
     def submit(
         self, task_id: str, idempotency_key: str, *, ttl: int, max_attempts: int = 1
     ) -> Submission:
-        if ttl < 1 or max_attempts < 1:
-            raise ValueError("ttl and max_attempts must be positive")
+        _require_text(task_id, "task_id")
+        _require_text(idempotency_key, "idempotency_key")
+        _require_int(ttl, "ttl", minimum=1)
+        _require_int(max_attempts, "max_attempts", minimum=1)
         if idempotency_key in self.keys:
             return Submission("deduplicated", self.keys[idempotency_key])
         if not self.accepting:
@@ -63,6 +75,7 @@ class Engine:
         return Submission("accepted", task_id)
 
     def start(self, worker_id: str) -> str | None:
+        _require_text(worker_id, "worker_id")
         if worker_id in self.workers or len(self.workers) >= self.max_concurrency:
             return None
         while self.queue:
@@ -80,8 +93,11 @@ class Engine:
         return None
 
     def finish(self, worker_id: str, outcome: Outcome, *, result: str | None = None) -> str:
-        if outcome not in {"ok", "transient", "fatal"}:
-            raise ValueError(f"unsupported outcome: {outcome}")
+        _require_text(worker_id, "worker_id")
+        if not isinstance(outcome, str) or outcome not in {"ok", "transient", "fatal"}:
+            raise ValueError("unsupported_outcome")
+        if result is not None and not isinstance(result, str):
+            raise ValueError("invalid_result")
         if worker_id not in self.workers:
             raise ValueError(f"worker is not running a task: {worker_id}")
         task_id = self.workers.pop(worker_id)
@@ -100,6 +116,7 @@ class Engine:
         return task.status
 
     def cancel(self, task_id: str) -> bool:
+        _require_text(task_id, "task_id")
         task = self.tasks[task_id]
         if task.status not in {"queued", "running"}:
             return False
@@ -110,6 +127,7 @@ class Engine:
         return True
 
     def crash(self, worker_id: str) -> str:
+        _require_text(worker_id, "worker_id")
         if worker_id not in self.workers:
             raise ValueError(f"worker is not running a task: {worker_id}")
         task_id = self.workers.pop(worker_id)
@@ -124,8 +142,7 @@ class Engine:
         return task.status
 
     def advance(self, ticks: int = 1) -> None:
-        if ticks < 0:
-            raise ValueError("time cannot move backwards")
+        _require_int(ticks, "ticks")
         self.now += ticks
         for task in self.tasks.values():
             if task.status in {"queued", "running"} and task.deadline <= self.now:
@@ -136,6 +153,8 @@ class Engine:
 
     def shutdown(self, *, graceful: bool = True) -> bool:
         """Stop admission; optionally cancel all outstanding work immediately."""
+        if not isinstance(graceful, bool):
+            raise ValueError("invalid_graceful_shutdown_flag")
         self.accepting = False
         if not graceful:
             for task in self.tasks.values():

@@ -21,3 +21,8 @@ python -m unittest discover -s experiments/e003 -v
 ## Deliberate simplifications
 
 No persistence, distributed consensus, network transport, real worker process, fairness guarantee, lease expiry, exactly-once side-effect guarantee, or crash-safe idempotency store is implemented. The model's in-memory idempotency ledger demonstrates deduplication semantics only; production durability and atomicity remain open research questions.
+
+
+## Input contract validation
+
+The in-memory reference model now rejects blank/non-string task and worker identities, booleans masquerading as integer limits or time values, non-integer retry/concurrency bounds, invalid outcomes, and non-string task results. These checks make the executable model's input boundary explicit; they do not add persistence, distributed coordination, or production resource enforcement.

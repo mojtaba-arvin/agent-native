@@ -101,5 +101,39 @@ class EngineSemanticsTests(unittest.TestCase):
         self.assertIsNone(engine.start("w"))
 
 
+
+    def test_boolean_and_non_integer_limits_are_rejected(self):
+        with self.assertRaisesRegex(ValueError, "invalid_max_outstanding"):
+            Engine(max_outstanding=True, max_concurrency=1)
+        with self.assertRaisesRegex(ValueError, "invalid_max_concurrency"):
+            Engine(max_outstanding=2, max_concurrency=1.5)
+
+    def test_submission_rejects_invalid_identity_and_limits(self):
+        engine = self.engine()
+        with self.assertRaisesRegex(ValueError, "invalid_task_id"):
+            engine.submit([], "key", ttl=5)
+        with self.assertRaisesRegex(ValueError, "invalid_idempotency_key"):
+            engine.submit("task", " ", ttl=5)
+        with self.assertRaisesRegex(ValueError, "invalid_ttl"):
+            engine.submit("task", "key", ttl=True)
+
+    def test_worker_and_time_inputs_reject_invalid_types(self):
+        engine = self.engine()
+        with self.assertRaisesRegex(ValueError, "invalid_worker_id"):
+            engine.start(" ")
+        with self.assertRaisesRegex(ValueError, "invalid_ticks"):
+            engine.advance(True)
+        with self.assertRaisesRegex(ValueError, "invalid_graceful_shutdown_flag"):
+            engine.shutdown(graceful=1)
+
+    def test_finish_rejects_non_string_result_and_unknown_outcome(self):
+        engine = self.engine()
+        engine.submit("a", "key-a", ttl=5)
+        engine.start("worker")
+        with self.assertRaisesRegex(ValueError, "invalid_result"):
+            engine.finish("worker", "ok", result={"secret": "not a string"})
+        with self.assertRaisesRegex(ValueError, "unsupported_outcome"):
+            engine.finish("worker", ["ok"])
+
 if __name__ == "__main__":
     unittest.main()
