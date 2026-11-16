@@ -140,6 +140,15 @@ class ScheduleTests(unittest.TestCase):
         schedule = self.build()
         tampered = copy.deepcopy(schedule)
         tampered["trials"][1]["candidate_id"] = tampered["trials"][0]["candidate_id"]
+        pair_number = 1
+        candidate_id = tampered["trials"][1]["candidate_id"]
+        import hashlib
+        run_hash = hashlib.sha256(
+            f"{tampered['plan_id']}:{pair_number}:{candidate_id}".encode()
+        ).hexdigest()
+        tampered["trials"][1]["run_id"] = (
+            f"pair-{pair_number:04d}-{candidate_id}-{run_hash[:12]}"
+        )
         with self.assertRaisesRegex(ScheduleError, "pair_not_balanced"):
             validate_schedule(tampered)
 
