@@ -43,7 +43,7 @@ def validate_manifest(data: Any) -> None:
         raise ManifestError("schema_version must be the string '1'")
     if not isinstance(data["name"], str) or not _NAME.fullmatch(data["name"]):
         raise ManifestError("name must be 2-63 lowercase letters, digits, or hyphens and start with a letter")
-    if not isinstance(data["version"], str) or not re.fullmatch(r"0|[1-9]\\d*\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)", data["version"]):
+    if not isinstance(data["version"], str) or not re.fullmatch(r"(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)", data["version"]):
         raise ManifestError("version must be a semantic version (for example 0.1.0)")
     entrypoint = data["entrypoint"]
     if not isinstance(entrypoint, str) or not re.fullmatch(r"[a-zA-Z_][a-zA-Z0-9_]*:[a-zA-Z_][a-zA-Z0-9_]*", entrypoint):
