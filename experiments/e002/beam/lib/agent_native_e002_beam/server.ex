@@ -35,20 +35,18 @@ defmodule AgentNativeE002Beam.Server do
 
   def route(_method, _target), do: {:response, 405, "method not allowed"}
 
-  defp decode_ms(nil), do: :error
-
-  defp decode_ms(query) do
-    case URI.decode_query(query)["ms"] do
-      nil -> :error
-      value ->
-        case Integer.parse(value) do
-          {number, ""} -> {:ok, number}
-          _ -> :error
-        end
+  defp decode_ms("ms=" <> value) when value != "" do
+    if String.match?(value, ~r/^[0-9]+$/) do
+      case Integer.parse(value) do
+        {number, ""} when number <= 5000 -> {:ok, number}
+        _ -> :error
+      end
+    else
+      :error
     end
-  rescue
-    ArgumentError -> :error
   end
+
+  defp decode_ms(_query), do: :error
 
   defp accept_loop(listener, counter) do
     case :gen_tcp.accept(listener) do

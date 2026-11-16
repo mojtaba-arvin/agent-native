@@ -9,6 +9,14 @@ use tokio::{net::TcpListener, sync::Semaphore, time};
 
 type ResponseBody = BoxBody<Bytes, Infallible>;
 
+fn parse_ms(query: Option<&str>) -> Option<u64> {
+    let value = query?.strip_prefix("ms=")?;
+    if value.is_empty() || !value.bytes().all(|byte| byte.is_ascii_digit()) {
+        return None;
+    }
+    value.parse::<u64>().ok().filter(|value| *value <= 5000)
+}
+
 fn response(status: StatusCode, body: impl Into<Bytes>) -> Response<ResponseBody> {
     Response::builder()
         .status(status)
@@ -36,13 +44,7 @@ async fn handle(
         "/health" => Ok(response(StatusCode::OK, "ok")),
         "/stream" => Ok(stream_response()),
         "/work" => {
-            let ms = request
-                .uri()
-                .query()
-                .and_then(|query| query.split('&').find_map(|pair| pair.strip_prefix("ms=")))
-                .and_then(|value| value.parse::<u64>().ok());
-
-            let Some(ms) = ms.filter(|value| *value <= 5000) else {
+            let Some(ms) = parse_ms(request.uri().query()) else {
                 return Ok(response(StatusCode::BAD_REQUEST, "invalid ms"));
             };
 

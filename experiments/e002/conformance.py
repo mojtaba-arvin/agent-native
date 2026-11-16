@@ -42,6 +42,13 @@ def verify() -> None:
         ("/work?ms=20", 200, b"completed:20"),
         ("/work?ms=900", 504, b"deadline exceeded\n" if False else b"deadline exceeded"),
         ("/work?ms=invalid", 400, b"invalid ms"),
+        ("/work?ms=20&x=1", 400, b"invalid ms"),
+        ("/work?x=1&ms=20", 400, b"invalid ms"),
+        ("/work?ms=20&ms=21", 400, b"invalid ms"),
+        ("/work?%6ds=20", 400, b"invalid ms"),
+        ("/work?ms=+1", 400, b"invalid ms"),
+        ("/work?ms=-1", 400, b"invalid ms"),
+        ("/work?ms=", 400, b"invalid ms"),
     ]
     for path, expected_status, expected_body in checks:
         status, body = request(path)

@@ -5,18 +5,20 @@ use wstd::http::body::Bytes;
 use wstd::http::{Body, Error, Request, Response, StatusCode};
 use wstd::time::Duration;
 
+fn parse_ms(query: Option<&str>) -> Option<u64> {
+    let value = query?.strip_prefix("ms=")?;
+    if value.is_empty() || !value.bytes().all(|byte| byte.is_ascii_digit()) {
+        return None;
+    }
+    value.parse::<u64>().ok().filter(|value| *value <= 5000)
+}
+
 #[wstd::http_server]
 async fn main(request: Request<Body>) -> Result<Response<Body>, Error> {
     match request.uri().path() {
         "/health" => Ok(Response::new(Body::from("ok"))),
         "/work" => {
-            let ms = request
-                .uri()
-                .query()
-                .and_then(|query| query.strip_prefix("ms="))
-                .and_then(|value| value.parse::<u64>().ok());
-
-            let Some(ms) = ms.filter(|value| *value <= 5000) else {
+            let Some(ms) = parse_ms(request.uri().query()) else {
                 return Ok(Response::builder()
                     .status(StatusCode::BAD_REQUEST)
                     .body(Body::from("invalid ms"))?);

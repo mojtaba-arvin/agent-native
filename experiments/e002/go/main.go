@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -32,8 +33,20 @@ func main() {
 			return
 		}
 
-		ms, err := strconv.Atoi(r.URL.Query().Get("ms"))
-		if err != nil || ms < 0 || ms > 5000 {
+		rawQuery := r.URL.RawQuery
+		value, found := strings.CutPrefix(rawQuery, "ms=")
+		if !found || value == "" || strings.ContainsAny(value, "&;") {
+			http.Error(w, "invalid ms", http.StatusBadRequest)
+			return
+		}
+		for _, character := range value {
+			if character < '0' || character > '9' {
+				http.Error(w, "invalid ms", http.StatusBadRequest)
+				return
+			}
+		}
+		ms, err := strconv.Atoi(value)
+		if err != nil || ms > 5000 {
 			http.Error(w, "invalid ms", http.StatusBadRequest)
 			return
 		}

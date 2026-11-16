@@ -12,12 +12,12 @@ Neither language is selected for Agent Native. These are disposable baseline imp
 ## Workload contract v0
 
 - `GET /health`: readiness response.
-- `GET /work?ms=N`: bounded concurrent work; reject overload with 503; return 504 when the fixed 750 ms operation deadline expires.
+- `GET /work?ms=N`: bounded concurrent work; the raw query must be exactly `ms=` followed by ASCII decimal digits (no extra/duplicate parameters, percent encoding, or sign); reject overload with 503; return 504 when the fixed 750 ms operation deadline expires.
 - `GET /stream`: return three ordered body frames.
 - Go, Rust, and BEAM candidates enforce an application-level limit of 64 active connections/work handlers. WASI P2 uses a host-owned listener; its admission limit is host policy and is not equivalent to a guest-owned limit.
 - Server binds to `127.0.0.1:8080`.
 
-The first pass checks semantic parity and buildability. It is **not** a performance benchmark. A later stage must add an independent load generator, warm-up, repetitions, latency percentiles, throughput, CPU/RSS, startup, and failure injection. Cancellation and client-disconnect semantics are not yet considered equivalent.
+The first pass checks semantic parity and buildability. The black-box suite now checks malformed, reordered, duplicate, encoded, signed, and empty query forms to prevent parser differences across candidates. It is **not** a performance benchmark. A later stage must add an independent load generator, warm-up, repetitions, latency percentiles, throughput, CPU/RSS, startup, and failure injection. Cancellation and client-disconnect semantics are not yet considered equivalent.
 
 ## Build and run
 
