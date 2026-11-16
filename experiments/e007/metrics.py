@@ -10,8 +10,10 @@ EVENT_TYPES = {
     "task_started", "tool_call", "model_usage", "repair",
     "human_intervention", "runtime_metric", "task_finished",
 }
+IDENTITY_FIELDS = ("run_id", "candidate_id", "model_id")
 ALLOWED_FIELDS = {
     "event_id", "task_id", "attempt", "timestamp_ns", "event_type",
+    *IDENTITY_FIELDS,
     "tool_name", "input_tokens", "output_tokens", "cost_usd",
     "accepted", "failure_class", "metric_name", "metric_value",
     "metric_unit", "retry",
@@ -30,10 +32,14 @@ def summarize(events):
         unexpected = set(event) - ALLOWED_FIELDS
         if unexpected:
             raise ValueError(f"unexpected_trace_fields:{','.join(sorted(unexpected))}")
-        if not isinstance(event["event_id"], str) or not event["event_id"]:
-            raise ValueError("invalid_event_id")
-        if not isinstance(event["task_id"], str) or not event["task_id"]:
-            raise ValueError("invalid_task_id")
+        for field in ("event_id", "task_id"):
+            if not isinstance(event[field], str) or not event[field]:
+                raise ValueError(f"invalid_{field}")
+        for field in IDENTITY_FIELDS:
+            if field in event and (
+                not isinstance(event[field], str) or not event[field]
+            ):
+                raise ValueError(f"invalid_{field}")
         if not isinstance(event["attempt"], int) or isinstance(event["attempt"], bool) or event["attempt"] < 1:
             raise ValueError("invalid_attempt")
         if not isinstance(event["timestamp_ns"], int) or isinstance(event["timestamp_ns"], bool) or event["timestamp_ns"] < 0:
@@ -46,10 +52,6 @@ def summarize(events):
             raise ValueError("task_finished_missing_accepted")
         if "accepted" in event and not isinstance(event["accepted"], bool):
             raise ValueError("invalid_accepted")
-        if "failure_class" in event and not isinstance(event["failure_class"], str):
-            raise ValueError("invalid_failure_class")
-        if "retry" in event and not isinstance(event["retry"], bool):
-            raise ValueError("invalid_retry")
         if "failure_class" in event and not isinstance(event["failure_class"], str):
             raise ValueError("invalid_failure_class")
         if "retry" in event and not isinstance(event["retry"], bool):
@@ -77,13 +79,23 @@ def summarize(events):
         if event["event_id"] in seen:
             raise ValueError("duplicate_event_id")
         seen.add(event["event_id"])
-        grouped[event["task_id"]].append(event)
+        # A task may be evaluated repeatedly or against multiple candidates.
+        # Keep each run and attempt independent instead of merging their traces.
+        group_key = (event.get("run_id", ""), event["task_id"], event["attempt"])
+        grouped[group_key].append(event)
 
     tasks = []
     runtime_samples = defaultdict(list)
     runtime_units = {}
-    for task_id, rows in sorted(grouped.items()):
+    for (run_id, task_id, attempt), rows in sorted(grouped.items()):
         rows.sort(key=lambda row: (row["timestamp_ns"], row["event_id"]))
+        identity = {}
+        for field in IDENTITY_FIELDS:
+            values = {row[field] for row in rows if field in row}
+            if len(values) > 1:
+                raise ValueError(f"inconsistent_{field}_within_attempt")
+            identity[field] = next(iter(values), None)
+
         model_events = [row for row in rows if row["event_type"] == "model_usage"]
         finishes = [row for row in rows if row["event_type"] == "task_finished"]
         if len(finishes) > 1:
@@ -95,18 +107,9 @@ def summarize(events):
             "input_tokens" in row and "output_tokens" in row for row in model_events
         )
         cost_complete = bool(model_events) and all("cost_usd" in row for row in model_events)
-        input_tokens = (
-            sum(row["input_tokens"] for row in model_events)
-            if token_usage_complete else None
-        )
-        output_tokens = (
-            sum(row["output_tokens"] for row in model_events)
-            if token_usage_complete else None
-        )
-        inference_cost = (
-            sum(row["cost_usd"] for row in model_events)
-            if cost_complete else None
-        )
+        input_tokens = sum(row["input_tokens"] for row in model_events) if token_usage_complete else None
+        output_tokens = sum(row["output_tokens"] for row in model_events) if token_usage_complete else None
+        inference_cost = sum(row["cost_usd"] for row in model_events) if cost_complete else None
         accepted = bool(finish and finish.get("accepted", False))
 
         for row in rows:
@@ -119,7 +122,10 @@ def summarize(events):
                 runtime_samples[name].append(row["metric_value"])
 
         tasks.append({
+            "run_id": run_id or None,
             "task_id": task_id,
+            "attempt": attempt,
+            **identity,
             "input_tokens": input_tokens,
             "output_tokens": output_tokens,
             "total_tokens": input_tokens + output_tokens if token_usage_complete else None,
