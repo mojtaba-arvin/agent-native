@@ -228,5 +228,29 @@ class MetricsTests(unittest.TestCase):
             summarize([wrong_tool])
 
 
+    def test_trace_jsonl_loader_rejects_duplicate_keys(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "trace.jsonl"
+            path.write_text(
+                '{"event_id":"a","task_id":"t","task_id":"other","attempt":1,'
+                '"timestamp_ns":1,"event_type":"task_started"}\\n',
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(ValueError, "invalid_jsonl_line:1"):
+                load_jsonl(path)
+
+    def test_trace_jsonl_loader_rejects_non_finite_json_numbers(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "trace.jsonl"
+            path.write_text(
+                '{"event_id":"a","task_id":"t","attempt":1,"timestamp_ns":1,'
+                '"event_type":"runtime_metric","metric_name":"m","metric_unit":"x",'
+                '"metric_value":NaN}\\n',
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(ValueError, "invalid_jsonl_line:1"):
+                load_jsonl(path)
+
+
 if __name__ == "__main__":
     unittest.main()
