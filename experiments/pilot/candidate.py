@@ -16,6 +16,7 @@ TASK_ID = "pilot-catalog-add-readonly-operation"
 SERVICE_ID = "catalog"
 MAX_CANDIDATE_BYTES = 1024 * 1024
 SHA256_PATTERN = re.compile(r"^[a-f0-9]{64}$")
+IDENTIFIER_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 TOP_LEVEL_FIELDS = {
     "schema_version", "task_id", "service_id",
@@ -99,18 +100,22 @@ def validate_candidate(
             {"name", "fields"},
             "candidate_type_shape_invalid",
         )
-        if not isinstance(item_type["name"], str) or not isinstance(item_type["fields"], list) or not item_type["fields"]:
+        if not isinstance(item_type["name"], str) or not item_type["name"] or not isinstance(item_type["fields"], list) or not item_type["fields"]:
             raise CandidateError("candidate_type_value_invalid")
         for field in item_type["fields"]:
             field = _require_object(field, {"name", "type"}, "candidate_type_field_shape_invalid")
             if not all(isinstance(field[key], str) and field[key] for key in ("name", "type")):
                 raise CandidateError("candidate_type_field_value_invalid")
+            if not IDENTIFIER_PATTERN.fullmatch(field["name"]):
+                raise CandidateError("candidate_type_field_name_invalid")
 
     for operation in ir["operations"]:
         operation = _require_object(operation, OPERATION_FIELDS, "candidate_operation_shape_invalid")
         for key in ("name", "method", "path", "output", "capability"):
             if not isinstance(operation[key], str) or not operation[key]:
                 raise CandidateError(f"candidate_operation_{key}_invalid")
+        if not IDENTIFIER_PATTERN.fullmatch(operation["name"]):
+            raise CandidateError("candidate_operation_name_invalid")
         if operation["method"] not in {"GET", "POST", "PUT", "PATCH", "DELETE"}:
             raise CandidateError("candidate_operation_method_invalid")
         if not isinstance(operation["input"], list):
@@ -119,6 +124,8 @@ def validate_candidate(
             field = _require_object(field, {"name", "type", "source"}, "candidate_input_shape_invalid")
             if not all(isinstance(field[key], str) and field[key] for key in ("name", "type", "source")):
                 raise CandidateError("candidate_input_value_invalid")
+            if not IDENTIFIER_PATTERN.fullmatch(field["name"]):
+                raise CandidateError("candidate_input_name_invalid")
             if field["source"] not in {"path", "query", "body", "header"}:
                 raise CandidateError("candidate_input_source_invalid")
         for key in ("errors", "validation", "effects"):
