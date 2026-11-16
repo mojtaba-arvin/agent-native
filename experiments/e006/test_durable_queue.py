@@ -37,7 +37,8 @@ class DurableQueueTests(unittest.TestCase):
     def test_claim_uses_monotonic_fencing_tokens_after_lease_expiry(self):
         self.submit()
         first = self.claim(worker="worker-a", now=10, lease=5)
-        second = self.claim(worker="worker-b", now=16, lease=5)
+        reopened = DurableQueue(self.path)
+        second = reopened.claim(worker_id="worker-b", now=16, lease_seconds=5)
         self.assertEqual(first["lease_token"], 1)
         self.assertEqual(second["lease_token"], 2)
         with self.assertRaises(StaleLease):
@@ -50,6 +51,24 @@ class DurableQueueTests(unittest.TestCase):
             now=16, effect_key="effect-1", state_key="balance", amount=5,
         )
         self.assertEqual(result["value"], 5)
+
+    def test_lease_renewal_cannot_revive_an_expired_lease(self):
+        self.submit()
+        claimed = self.claim()
+        self.assertTrue(self.queue.renew_lease(
+            task_id="task-1", worker_id="worker-a", lease_token=claimed["lease_token"],
+            now=12, lease_seconds=20,
+        ))
+        self.assertFalse(self.queue.renew_lease(
+            task_id="task-1", worker_id="worker-a", lease_token=claimed["lease_token"],
+            now=40, lease_seconds=20,
+        ))
+
+    def test_cancel_is_terminal_and_prevents_claim(self):
+        self.submit()
+        self.assertTrue(self.queue.cancel("task-1"))
+        self.assertEqual(self.queue.get_task("task-1")["status"], "cancelled")
+        self.assertIsNone(self.claim())
 
     def test_local_effect_and_task_completion_are_one_transaction(self):
         self.submit()

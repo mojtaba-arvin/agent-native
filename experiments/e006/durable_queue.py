@@ -29,7 +29,8 @@ class DurableQueue:
 
     def __init__(self, path: str | Path):
         self.path = str(path)
-        with self._connect() as connection:
+        connection = self._connect()
+        try:
             connection.execute("PRAGMA journal_mode=WAL")
             connection.executescript(
                 """
@@ -63,6 +64,8 @@ class DurableQueue:
                 );
                 """
             )
+        finally:
+            connection.close()
 
     def _connect(self) -> sqlite3.Connection:
         connection = sqlite3.connect(self.path, timeout=10, isolation_level=None)
@@ -88,11 +91,8 @@ class DurableQueue:
     def _task(row: sqlite3.Row) -> dict:
         result = dict(row)
         result["payload"] = json.loads(result.pop("payload_json"))
-        result["result"] = (
-            json.loads(result.pop("result_json"))
-            if result["result_json"] is not None
-            else None
-        )
+        result_json = result.pop("result_json")
+        result["result"] = json.loads(result_json) if result_json is not None else None
         return result
 
     def submit(self, *, task_id: str, idempotency_key: str, payload: dict,
