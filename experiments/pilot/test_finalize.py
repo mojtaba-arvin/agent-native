@@ -84,6 +84,7 @@ class FinalizeTests(unittest.TestCase):
             "attempt": 1,
             "candidate_sha256": hashlib.sha256(self.candidate_bytes).hexdigest(),
             "accepted": True,
+            "eligible_for_acceptance": True,
             "failure_class": None,
             "agent_finished_at_ns": self.agent_finished,
             "evaluated_at_ns": self.agent_finished + 1_000_000,
@@ -134,6 +135,48 @@ class FinalizeTests(unittest.TestCase):
         self.assertEqual(finish["event_type"], "task_finished")
         self.assertTrue(finish["accepted"])
         self.assertEqual(finish["timestamp_ns"], self.agent_finished)
+
+    def test_infrastructure_failure_is_excluded_from_acceptance_denominator(self):
+        failed_trace = self.root / "provider-failure-trace.jsonl"
+        failed_events = self.events[:2]
+        failed_trace.write_text(
+            "".join(json.dumps(event, sort_keys=True) + "\\n" for event in failed_events),
+            encoding="utf-8",
+        )
+        failed_result = dict(
+            self.result,
+            candidate_sha256=None,
+            accepted=False,
+            eligible_for_acceptance=False,
+            failure_class="PROVIDER_ERROR",
+            agent_finished_at_ns=max(e["timestamp_ns"] for e in failed_events) + 1000,
+        )
+        failed_result["evaluated_at_ns"] = failed_result["agent_finished_at_ns"] + 1000
+        failed_path = self.root / "provider-failure-result.json"
+        failed_path.write_text(json.dumps(failed_result), encoding="utf-8")
+        summary = finalize_run(
+            trace_path=failed_trace,
+            evaluation_result_path=failed_path,
+            output_trace_path=self.root / "provider-failure-final.jsonl",
+        )
+        self.assertEqual(summary["task_count"], 1)
+        self.assertEqual(summary["eligible_task_count"], 0)
+        self.assertEqual(summary["excluded_task_count"], 1)
+        self.assertIsNone(summary["acceptance_rate"])
+
+    def test_provider_failure_cannot_be_marked_as_eligible(self):
+        self.result["accepted"] = False
+        self.result["eligible_for_acceptance"] = True
+        self.result["failure_class"] = "PROVIDER_ERROR"
+        self.result["candidate_sha256"] = None
+        self.write_result()
+        with self.assertRaisesRegex(FinalizationError, "eligibility_mismatch"):
+            finalize_run(
+                trace_path=self.trace_path,
+                evaluation_result_path=self.result_path,
+                output_trace_path=self.output_trace_path,
+            )
+
 
     def test_accepted_result_rejects_invalid_validator_result(self):
         validation_event = next(
