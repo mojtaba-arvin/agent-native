@@ -240,6 +240,30 @@ class GatewayTests(unittest.TestCase):
         self.assertNotIn("ir", proposal_events[0])
         self.assertNotIn("arguments", proposal_events[0])
 
+        change_set_id = response["response"]["result"]["change_set_id"]
+        validation = gateway.handle_message({
+            "type": "tool_call",
+            "request_id": "validate-1",
+            "tool": "service.validate",
+            "arguments": {"change_set_id": change_set_id},
+        })
+        plan = gateway.handle_message({
+            "type": "tool_call",
+            "request_id": "plan-1",
+            "tool": "service.plan",
+            "arguments": {"change_set_id": change_set_id},
+        })
+        self.assertTrue(validation["response"]["result"]["valid"])
+        self.assertTrue(plan["response"]["result"]["valid"])
+        lifecycle_events = [
+            event for event in events
+            if event["event_type"] == "tool_call"
+            and event["tool_name"] in {"service.validate", "service.plan"}
+        ]
+        self.assertEqual(len(lifecycle_events), 2)
+        self.assertTrue(all(event["change_set_id"] == change_set_id for event in lifecycle_events))
+        self.assertTrue(all("arguments" not in event and "ir" not in event for event in lifecycle_events))
+
 
     def test_task_change_is_representable_and_does_not_mutate_service(self):
         # This deterministic fixture checks that E-005 can express the task.
