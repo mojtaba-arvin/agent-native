@@ -56,6 +56,21 @@ class MetricsTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "invalid_input_tokens"):
             summarize([event])
 
+    def test_unknown_fields_are_rejected(self):
+        event = {"event_id":"1","task_id":"a","attempt":1,"timestamp_ns":1,"event_type":"task_started","oracle_path":"/secret"}
+        with self.assertRaisesRegex(ValueError, "unexpected_trace_fields"):
+            summarize([event])
+
+    def test_non_finite_cost_is_rejected(self):
+        event = {"event_id":"1","task_id":"a","attempt":1,"timestamp_ns":1,"event_type":"model_usage","cost_usd":float("nan")}
+        with self.assertRaisesRegex(ValueError, "invalid_cost_usd"):
+            summarize([event])
+
+    def test_non_finite_runtime_metric_is_rejected(self):
+        event = {"event_id":"1","task_id":"a","attempt":1,"timestamp_ns":1,"event_type":"runtime_metric","metric_name":"rss","metric_value":float("inf"),"metric_unit":"bytes"}
+        with self.assertRaisesRegex(ValueError, "runtime_metric_invalid_value"):
+            summarize([event])
+
     def test_multiple_finish_events_are_rejected(self):
         events = [
             {"event_id":"1","task_id":"a","attempt":1,"timestamp_ns":1,"event_type":"task_finished","accepted":True},

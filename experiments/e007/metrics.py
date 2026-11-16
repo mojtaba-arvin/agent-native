@@ -1,5 +1,6 @@
 import argparse
 import json
+import math
 import statistics
 from collections import defaultdict
 from pathlib import Path
@@ -8,6 +9,12 @@ from pathlib import Path
 EVENT_TYPES = {
     "task_started", "tool_call", "model_usage", "repair",
     "human_intervention", "runtime_metric", "task_finished",
+}
+ALLOWED_FIELDS = {
+    "event_id", "task_id", "attempt", "timestamp_ns", "event_type",
+    "tool_name", "input_tokens", "output_tokens", "cost_usd",
+    "accepted", "failure_class", "metric_name", "metric_value",
+    "metric_unit", "retry",
 }
 
 
@@ -20,6 +27,9 @@ def summarize(events):
             raise ValueError("trace_event_missing_required_fields")
         if event["event_type"] not in EVENT_TYPES:
             raise ValueError("unknown_event_type")
+        unexpected = set(event) - ALLOWED_FIELDS
+        if unexpected:
+            raise ValueError(f"unexpected_trace_fields:{','.join(sorted(unexpected))}")
         if not isinstance(event["event_id"], str) or not event["event_id"]:
             raise ValueError("invalid_event_id")
         if not isinstance(event["task_id"], str) or not event["task_id"]:
@@ -28,17 +38,23 @@ def summarize(events):
             raise ValueError("invalid_attempt")
         if not isinstance(event["timestamp_ns"], int) or isinstance(event["timestamp_ns"], bool) or event["timestamp_ns"] < 0:
             raise ValueError("invalid_timestamp_ns")
+        if "tool_name" in event and not isinstance(event["tool_name"], str):
+            raise ValueError("invalid_tool_name")
         if event["event_type"] == "tool_call" and not event.get("tool_name"):
             raise ValueError("tool_call_missing_tool_name")
         if event["event_type"] == "task_finished" and not isinstance(event.get("accepted"), bool):
             raise ValueError("task_finished_missing_accepted")
+        if "failure_class" in event and not isinstance(event["failure_class"], str):
+            raise ValueError("invalid_failure_class")
+        if "retry" in event and not isinstance(event["retry"], bool):
+            raise ValueError("invalid_retry")
         if event["event_type"] == "runtime_metric":
             if not isinstance(event.get("metric_name"), str) or not event["metric_name"]:
                 raise ValueError("runtime_metric_missing_name")
             if not isinstance(event.get("metric_unit"), str) or not event["metric_unit"]:
                 raise ValueError("runtime_metric_missing_unit")
             value = event.get("metric_value")
-            if not isinstance(value, (int, float)) or isinstance(value, bool):
+            if not isinstance(value, (int, float)) or isinstance(value, bool) or not math.isfinite(value):
                 raise ValueError("runtime_metric_invalid_value")
         for key in ("input_tokens", "output_tokens"):
             if key in event and (
@@ -48,6 +64,7 @@ def summarize(events):
         if "cost_usd" in event and (
             not isinstance(event["cost_usd"], (int, float))
             or isinstance(event["cost_usd"], bool)
+            or not math.isfinite(event["cost_usd"])
             or event["cost_usd"] < 0
         ):
             raise ValueError("invalid_cost_usd")
