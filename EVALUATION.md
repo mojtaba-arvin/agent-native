@@ -36,6 +36,7 @@ Start with small, independently verifiable tasks and grow to full service tasks:
 - refactor service boundaries;
 - diagnose and repair injected failure;
 - add a backward-compatible API version;
+- submit durable work, recover after process restart, fence a stale worker, and atomically record a local effect;
 - inspect a service, propose a typed change, validate it, and produce a safe execution plan;
 - handle a stale proposal revision and repair a machine-readable diagnostic.
 

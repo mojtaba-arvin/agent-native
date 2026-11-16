@@ -150,6 +150,25 @@
         "Automated safety-oriented interface tests"
       ],
       "reason": "Constrained/general/advanced agent trials, token and tool-call measurements, authenticated approval, and trusted mutation semantics remain outstanding."
+    },
+    {
+      "id": "D-0012",
+      "topic": "durable_execution_and_persistence",
+      "status": "open",
+      "value": "E-006 SQLite implementation is a single-node semantic reference only; no production persistence or queue substrate is selected.",
+      "candidates": [
+        "embedded_transactional_store",
+        "relational_database",
+        "distributed_log_or_queue",
+        "outbox_inbox_hybrid"
+      ],
+      "evidence": [
+        "Durable idempotent submission",
+        "Lease expiry with monotonic fencing tokens",
+        "Crash rollback across local state/effect ledger/task completion",
+        "Concurrent claim and process-reopen tests"
+      ],
+      "reason": "External side-effect delivery, multi-node coordination, retention, schema evolution, recovery operations, and representative workload measurements remain outstanding."
     }
   ]
 }
