@@ -82,3 +82,23 @@ Source:
 - Agent success rates and token/tool cost for equivalent tasks in Go, Rust, Gleam, and a prototype DSL.
 - Runtime memory behavior and tail latency under load, failure, and tenant isolation.
 - A credible design for durable workflows, transactions, and schema evolution.
+
+
+## WASI 0.3 and Wasmtime — refreshed toolchain check (2026-11-16)
+
+**Observed:** WASI.dev lists WASI 0.3 as the current stable release, with native async functions, futures, and streams. Its roadmap records WASI 0.3.1 as shipped on 2026-08-11; the 0.3.2 release was listed as planned for 2026-10-13 in the retrieved roadmap snapshot, so the exact published patch must be verified and pinned before a benchmark run.
+
+**Observed:** Wasmtime 46+ supports WASI 0.3 components by default. The latest stable Wasmtime release found in this scan is 50.0.1 (2026-10-29); 51.0.0-rc.1 is a prerelease and must not be silently used as the stable baseline. The Rust `wasip3` crate exposes `wasi:http/service` bindings, but its own documentation still describes the APIs as an evolving snapshot. The Component Model Rust guide documents a WASI 0.3 Rust target and notes the toolchain/target stability boundary. Toolchain, WIT, bindings, and runtime versions must match.
+
+**Security/operations constraint:** `wasmtime serve` is documented as a local development/testing command, not a production server; it does not provide rate limiting, connection throttling, request-size limits, DDoS protections, or TLS termination. Therefore it is not a valid production-host architecture by itself. A WASI arm must distinguish guest-component isolation from host-side admission control, network authority, resource quotas, authentication, and operational hardening.
+
+**Implication:** The WASI arm is technically feasible enough to prototype, but it has more version-alignment and host-design constraints than the native baselines. Benchmark the guest plus the actual host path, not only guest execution. Pin Wasmtime 50.0.1 (or a later verified stable patch), exact WIT package versions, Rust toolchain, and generated bindings. Treat `wasip3` APIs as experimental until their stability contract is clarified.
+
+Sources:
+- https://wasi.dev/releases
+- https://wasi.dev/roadmap
+- https://component-model.bytecodealliance.org/running-components/wasmtime.html
+- https://component-model.bytecodealliance.org/language-support/creating-runnable-components/rust.html
+- https://docs.rs/wasip3/latest/wasip3/
+- https://github.com/bytecodealliance/wasmtime/releases
+- https://docs.wasmtime.dev/cli-options.html
