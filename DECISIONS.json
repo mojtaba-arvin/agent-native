@@ -175,9 +175,10 @@
         "Lease expiry with monotonic fencing tokens",
         "Crash rollback across local state/effect ledger/task completion",
         "Concurrent claim and process-reopen tests",
-        "Strict type and finite-JSON validation for durable task, lease, retry, and local-effect inputs"
+        "Strict type and finite-JSON validation for durable task, lease, retry, and local-effect inputs",
+        "SQLite write-transaction race test proves cancellation fencing and local effect/task completion have one serialized winner"
       ],
-      "reason": "External side-effect delivery, multi-node coordination, authenticated worker identity, retention, schema evolution, recovery operations, and representative workload measurements remain outstanding."
+      "reason": "External side-effect delivery, multi-node coordination, authenticated worker identity, production cancellation transport, retention, schema evolution, recovery operations, and representative workload measurements remain outstanding."
     },
     {
       "id": "D-0013",
