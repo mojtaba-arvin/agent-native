@@ -213,5 +213,36 @@ class PolicyEngineTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "invalid_trusted_time"):
             RequestContext("user-1", "tenant-a", True, (self.grant,))
 
+
+    def test_trailing_slash_normalization_cannot_fake_attenuation(self):
+        grant = Grant(
+            principal_id="user-1",
+            tenant_id="tenant-a",
+            capability="items.read",
+            resource_prefix="/items",
+            expires_at=500,
+            delegation_depth=1,
+        )
+        with self.assertRaisesRegex(ValueError, "no_authority_attenuation"):
+            attenuate(
+                grant,
+                delegate_principal_id="worker-1",
+                resource_prefix="/items/",
+                expires_at=500,
+            )
+
+    def test_invalid_delegated_resource_scope_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, "invalid_delegated_resource_prefix"):
+            attenuate(
+                self.grant,
+                delegate_principal_id="worker-1",
+                resource_prefix="/items/%2e%2e/secrets",
+                expires_at=300,
+            )
+
+    def test_mutable_effect_allowlists_are_rejected(self):
+        with self.assertRaisesRegex(ValueError, "invalid_operation_effects"):
+            OperationContract("read", "items.read", {"repository.read"})
+
 if __name__ == "__main__":
     unittest.main()

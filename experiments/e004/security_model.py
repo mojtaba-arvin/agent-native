@@ -45,7 +45,7 @@ class OperationContract:
             raise ValueError("operation_name_required")
         if not isinstance(self.required_capability, str) or not self.required_capability.strip():
             raise ValueError("operation_capability_required")
-        if not isinstance(self.allowed_effects, (set, frozenset)) or any(
+        if not isinstance(self.allowed_effects, frozenset) or any(
             not isinstance(effect, str) or not effect.strip()
             for effect in self.allowed_effects
         ):
@@ -99,13 +99,17 @@ def _resource_matches(resource: str, prefix: str | None) -> bool:
     return resource == normalized or resource.startswith(normalized.rstrip("/") + "/")
 
 
+def _normalize_scope(resource_prefix: str | None) -> str | None:
+    if resource_prefix is None:
+        return None
+    return resource_prefix.rstrip("/") or "/"
+
+
 def _scope_is_attenuated(candidate: str | None, parent: str | None) -> bool:
     if parent is None:
         return True
     if candidate is None:
         return False
-    parent = parent.rstrip("/") or "/"
-    candidate = candidate.rstrip("/") or "/"
     return candidate == parent or candidate.startswith(parent.rstrip("/") + "/")
 
 
@@ -116,17 +120,21 @@ def attenuate(
     resource_prefix: str | None,
     expires_at: int | None,
 ) -> Grant:
-    if not delegate_principal_id:
+    if not isinstance(delegate_principal_id, str) or not delegate_principal_id.strip():
         raise ValueError("delegate_identity_required")
     if grant.delegation_depth <= 0:
         raise ValueError("delegation_depth_exhausted")
-    if not _scope_is_attenuated(resource_prefix, grant.resource_prefix):
+    if resource_prefix is not None and not _valid_resource(resource_prefix):
+        raise ValueError("invalid_delegated_resource_prefix")
+    parent_scope = _normalize_scope(grant.resource_prefix)
+    candidate_scope = _normalize_scope(resource_prefix)
+    if not _scope_is_attenuated(candidate_scope, parent_scope):
         raise ValueError("resource_scope_widening")
     if grant.expires_at is not None and (
         expires_at is None or expires_at > grant.expires_at
     ):
         raise ValueError("expiry_extension")
-    scope_narrowed = resource_prefix != grant.resource_prefix
+    scope_narrowed = candidate_scope != parent_scope
     expiry_narrowed = expires_at != grant.expires_at
     if not (scope_narrowed or expiry_narrowed):
         raise ValueError("no_authority_attenuation")
@@ -134,7 +142,7 @@ def attenuate(
         principal_id=delegate_principal_id,
         tenant_id=grant.tenant_id,
         capability=grant.capability,
-        resource_prefix=resource_prefix,
+        resource_prefix=candidate_scope,
         expires_at=expires_at,
         delegation_depth=grant.delegation_depth - 1,
     )

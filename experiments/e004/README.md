@@ -28,3 +28,10 @@ python -m unittest discover -s experiments/e004 -v
 
 
 See `threat-model.md` for assets, actors, trust boundaries, entry points, abuse cases, human approval gates, and residual risks. `requirements.json` maps security invariants to tests or explicitly marks them as design-only. Production enforcement remains disabled.
+
+
+## Additional input hardening
+
+The reference policy model now rejects percent-encoded and otherwise ambiguous resource paths, non-NFC Unicode paths, control characters, and backslashes before scope evaluation. Delegation normalizes trailing slashes before checking whether authority was actually narrowed, preventing an equivalent path spelling from satisfying the attenuation requirement. Grant time/depth values reject booleans, and operation effect allowlists must be immutable frozensets.
+
+These are reference-model invariants only. They do not provide cryptographic grant authenticity, revocation, storage-layer tenant isolation, or production enforcement.
