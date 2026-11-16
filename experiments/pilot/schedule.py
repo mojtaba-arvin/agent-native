@@ -11,6 +11,7 @@ import hashlib
 import json
 import random
 import re
+import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -30,6 +31,8 @@ SOURCE_FILES = (
     "experiments/pilot/candidate.schema.json",
     "experiments/pilot/evaluation-result.schema.json",
     "experiments/pilot/finalize.py",
+    "experiments/pilot/schedule.py",
+    "experiments/pilot/schedule.schema.json",
     "experiments/e007/trace.schema.json",
     "experiments/e007/metrics.py",
 )
@@ -65,6 +68,34 @@ def hash_source_files(root: str | Path = ROOT) -> dict[str, str]:
             raise ScheduleError(f"source_file_unavailable:{relative}") from error
         hashes[relative] = sha256_bytes(raw)
     return hashes
+
+
+
+def resolve_git_revision(root: str | Path = ROOT) -> str:
+    """Resolve the actual HEAD and refuse to pin a dirty working tree."""
+    base = Path(root).resolve()
+    try:
+        revision = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=base,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        status = subprocess.run(
+            ["git", "status", "--porcelain", "--untracked-files=all"],
+            cwd=base,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout
+    except (OSError, subprocess.CalledProcessError) as error:
+        raise ScheduleError("git_revision_unavailable") from error
+    if not REVISION_PATTERN.fullmatch(revision):
+        raise ScheduleError("git_revision_invalid")
+    if status.strip():
+        raise ScheduleError("working_tree_must_be_clean_before_scheduling")
+    return revision
 
 
 def create_schedule(
@@ -111,7 +142,7 @@ def create_schedule(
                 if not isinstance(key, str):
                     raise ScheduleError("generation_setting_key_must_be_string")
                 normalized = key.lower().replace("-", "_")
-                if any(marker in normalized for marker in ("api_key", "access_token", "secret", "password", "credential")):
+                if any(marker in normalized for marker in ("api_key", "api_token", "access_token", "refresh_token", "secret", "password", "credential", "authorization", "bearer")):
                     raise ScheduleError("generation_settings_must_not_contain_credentials")
                 reject_secret_keys(child)
         elif isinstance(value, list):
@@ -304,7 +335,6 @@ def main() -> None:
     parser.add_argument("--seed", type=int, required=True)
     parser.add_argument("--model-id", required=True)
     parser.add_argument("--generation-settings-file", required=True, type=Path)
-    parser.add_argument("--source-revision", required=True)
     parser.add_argument("--max-input-tokens", type=int, required=True)
     parser.add_argument("--max-output-tokens", type=int, required=True)
     parser.add_argument("--max-tool-calls", type=int, required=True)
@@ -324,7 +354,7 @@ def main() -> None:
         pairs=args.pairs,
         seed=args.seed,
         model_id=args.model_id,
-        source_revision=args.source_revision,
+        source_revision=resolve_git_revision(ROOT),
         max_input_tokens=args.max_input_tokens,
         max_output_tokens=args.max_output_tokens,
         max_tool_calls=args.max_tool_calls,
