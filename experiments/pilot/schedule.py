@@ -336,6 +336,28 @@ def validate_schedule(schedule: Any) -> None:
             raise ScheduleError(f"pair_trials_must_be_adjacent:{pair_id}")
 
 
+
+def verify_schedule_checkout(
+    schedule: Any,
+    *,
+    root: str | Path = ROOT,
+) -> None:
+    """Verify a schedule was created from this exact clean source checkout."""
+    validate_schedule(schedule)
+    actual_revision = resolve_git_revision(root)
+    expected_revision = schedule["protocol"]["source_revision"]
+    if actual_revision != expected_revision:
+        raise ScheduleError("checkout_revision_does_not_match_schedule")
+    actual_hashes = hash_source_files(root)
+    expected_hashes = schedule["protocol"]["source_sha256"]
+    if actual_hashes != expected_hashes:
+        mismatches = sorted(
+            path for path in set(actual_hashes) | set(expected_hashes)
+            if actual_hashes.get(path) != expected_hashes.get(path)
+        )
+        raise ScheduleError(f"checkout_source_hash_mismatch:{','.join(mismatches)}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--pairs", type=int, required=True)
