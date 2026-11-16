@@ -83,13 +83,26 @@ class ParserTests(unittest.TestCase):
         self.assertEqual(caught.exception.code, "AN004")
 
     def test_duplicate_record_field_is_rejected(self):
-        invalid = EXAMPLE.replace("name: String;", "name: String;" + chr(10) + "    name: String;", 1)
+        invalid = EXAMPLE.replace("type Item {", "type Item {" + chr(10) + "    name: String;")
         with self.assertRaises(Diagnostic) as caught:
             Parser(invalid).parse()
         self.assertEqual(caught.exception.code, "AN018")
 
     def test_empty_record_is_rejected(self):
-        invalid = EXAMPLE.replace("    id: UUID;" + chr(10) + "    name: String;" + chr(10), "")
+        invalid = """service Empty {
+  version: "1";
+  type Item { }
+  operation read {
+    method: GET;
+    path: "/";
+    input { }
+    output: Item;
+    errors: [];
+    validation: [];
+    effects: [];
+    capability: "items.read";
+  }
+}"""
         with self.assertRaises(Diagnostic) as caught:
             Parser(invalid).parse()
         self.assertEqual(caught.exception.code, "AN019")
