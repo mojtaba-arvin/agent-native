@@ -11,6 +11,14 @@ EVENT_TYPES = {
     "human_intervention", "runtime_metric", "task_finished",
 }
 IDENTITY_FIELDS = ("run_id", "candidate_id", "model_id")
+INVALID_TOOL_FAILURES = {
+    "UNKNOWN_TOOL", "TOOL_NAME", "ARGUMENT_SHAPE",
+    "REQUEST_SHAPE", "REQUEST_FIELDS", "MESSAGE_TYPE",
+    "ARGUMENT_FIELDS", "ARGUMENTS_REQUIRED", "ARGUMENT_TYPE",
+}
+SCHEMA_ARGUMENT_FAILURES = {
+    "ARGUMENT_FIELDS", "ARGUMENTS_REQUIRED", "ARGUMENT_TYPE",
+}
 ALLOWED_FIELDS = {
     "event_id", "task_id", "attempt", "timestamp_ns", "event_type",
     *IDENTITY_FIELDS,
@@ -102,6 +110,27 @@ def summarize(events):
             raise ValueError("multiple_task_finished_events")
         starts = [row["timestamp_ns"] for row in rows if row["event_type"] == "task_started"]
         finish = finishes[0] if finishes else None
+        tool_call_rows = [
+            row for row in rows if row["event_type"] == "tool_call"
+        ]
+        tool_error_classes = defaultdict(int)
+        for row in tool_call_rows:
+            failure_class = row.get("failure_class")
+            if failure_class:
+                tool_error_classes[failure_class] += 1
+        tool_errors = sum(tool_error_classes.values())
+        invalid_tool_calls = sum(
+            count for failure_class, count in tool_error_classes.items()
+            if failure_class in INVALID_TOOL_FAILURES
+        )
+        schema_argument_errors = sum(
+            count for failure_class, count in tool_error_classes.items()
+            if failure_class in SCHEMA_ARGUMENT_FAILURES
+        )
+        schema_lookup_calls = sum(
+            row.get("tool_name") == "interface.describe"
+            for row in tool_call_rows
+        )
 
         token_usage_complete = bool(model_events) and all(
             "input_tokens" in row and "output_tokens" in row for row in model_events
@@ -130,7 +159,12 @@ def summarize(events):
             "output_tokens": output_tokens,
             "total_tokens": input_tokens + output_tokens if token_usage_complete else None,
             "token_usage_complete": token_usage_complete,
-            "tool_calls": sum(row["event_type"] == "tool_call" for row in rows),
+            "tool_calls": len(tool_call_rows),
+            "tool_errors": tool_errors,
+            "invalid_tool_calls": invalid_tool_calls,
+            "schema_argument_errors": schema_argument_errors,
+            "schema_lookup_calls": schema_lookup_calls,
+            "tool_error_classes": dict(sorted(tool_error_classes.items())),
             "repair_events": sum(
                 row["event_type"] == "repair" or row.get("retry", False) for row in rows
             ),
@@ -167,6 +201,10 @@ def summarize(events):
             "input_tokens": sum(row["input_tokens"] for row in tasks) if tokens_complete else None,
             "output_tokens": sum(row["output_tokens"] for row in tasks) if tokens_complete else None,
             "tool_calls": sum(row["tool_calls"] for row in tasks),
+            "tool_errors": sum(row["tool_errors"] for row in tasks),
+            "invalid_tool_calls": sum(row["invalid_tool_calls"] for row in tasks),
+            "schema_argument_errors": sum(row["schema_argument_errors"] for row in tasks),
+            "schema_lookup_calls": sum(row["schema_lookup_calls"] for row in tasks),
             "repair_events": sum(row["repair_events"] for row in tasks),
             "human_interventions": sum(row["human_interventions"] for row in tasks),
         },
