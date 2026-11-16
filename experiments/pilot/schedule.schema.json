@@ -19,19 +19,20 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "experiments/pilot/TASK.md",
         "experiments/e001/examples/catalog.an",
         "experiments/e001/prototype/agent_native.py",
         "experiments/e005/interface.py",
         "experiments/e005/tools.json",
-        "experiments/pilot/surface.py",
-        "experiments/pilot/gateway.py",
+        "experiments/e007/metrics.py",
+        "experiments/e007/trace.schema.json",
+        "experiments/pilot/TASK.md",
         "experiments/pilot/candidate.py",
         "experiments/pilot/candidate.schema.json",
         "experiments/pilot/evaluation-result.schema.json",
         "experiments/pilot/finalize.py",
-        "experiments/e007/trace.schema.json",
-        "experiments/e007/metrics.py"
+        "experiments/pilot/gateway.py",
+        "experiments/pilot/schedule.py",
+        "experiments/pilot/surface.py"
       ],
       "properties": {
         "0": {
@@ -71,6 +72,9 @@
           "$ref": "#/$defs/sha256"
         },
         "12": {
+          "$ref": "#/$defs/sha256"
+        },
+        "experiments/pilot/schedule.py": {
           "$ref": "#/$defs/sha256"
         }
       }
