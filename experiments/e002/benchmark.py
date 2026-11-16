@@ -91,7 +91,9 @@ def main() -> int:
     try:
         wait_ready(process)
         with concurrent.futures.ThreadPoolExecutor(max_workers=args.concurrency) as pool:
-            list(pool.map(lambda _: request("/work?ms=0"), range(args.warmup)))
+            warmup_results = list(pool.map(lambda _: request("/work?ms=0"), range(args.warmup)))
+            if any(status != 200 or body != b"completed:0" for status, body in warmup_results):
+                raise RuntimeError("candidate failed one or more warm-up requests")
 
             raw: list[dict] = []
             start_cpu = proc_sample(process.pid)

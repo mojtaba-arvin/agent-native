@@ -71,3 +71,17 @@ A WASI Preview 2 HTTP component is now included at `wasi-p2/`, using `wstd` 0.6.
 Important comparison boundary: `wasmtime serve` is a development/test host, not a production server. It owns the socket and HTTP admission path; the guest component does not own the listener. Guest-global concurrency state cannot be assumed to persist across requests, so concurrency limits and isolation overhead must be measured at the host boundary. The WASI arm is not semantically equivalent for every E-002 dimension yet.
 
 WASI Preview 3 is a separate candidate, not silently substituted for Preview 2. Rust 1.100 now provides the `wasm32-wasip3` target, but the current `wasip3` bindings are still documented as a snapshot and Wasmtime's P3 HTTP host implementation is described as experimental/incomplete. Build/runtime compatibility must be established before treating it as a benchmark arm.
+
+
+For the full three-candidate randomized matrix (after building `/tmp/e002-go` and the Rust release binary):
+
+```sh
+python experiments/e002/run_matrix.py \
+  --go-command /tmp/e002-go \
+  --rust-command ./target/release/agent-native-e002-rust \
+  --wasi-command "wasmtime serve --addr=127.0.0.1:8080 -S cli=y -S http=y target/wasm32-wasip2/release/agent_native_e002_wasi_p2.wasm" \
+  --requests 5000 --concurrency 64 --warmup 250 --repetitions 10 \
+  --output results/e002
+```
+
+The matrix runner shuffles candidate order with a recorded seed, retains every run's raw JSONL and summary JSON, and reports descriptive medians only. It deliberately does not declare a winner or compute inferential statistics.

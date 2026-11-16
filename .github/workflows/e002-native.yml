@@ -21,7 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: python -m py_compile experiments/e002/conformance.py experiments/e002/benchmark.py
+      - run: python -m py_compile experiments/e002/conformance.py experiments/e002/benchmark.py experiments/e002/run_matrix.py
       - uses: actions/setup-go@v5
         with:
           go-version: "1.23.x"
@@ -35,7 +35,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: python -m py_compile experiments/e002/conformance.py experiments/e002/benchmark.py
+      - run: python -m py_compile experiments/e002/conformance.py experiments/e002/benchmark.py experiments/e002/run_matrix.py
       - uses: dtolnay/rust-toolchain@stable
       - run: cargo test
         working-directory: experiments/e002/rust
