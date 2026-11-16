@@ -1,0 +1,20 @@
+{
+  "schema_version": "1",
+  "name": "orders-service",
+  "version": "0.1.0",
+  "entrypoint": "main:app",
+  "operations": [
+    {
+      "id": "health.read",
+      "method": "GET",
+      "path": "/health",
+      "summary": "Service health"
+    },
+    {
+      "id": "orders.list",
+      "method": "GET",
+      "path": "/orders",
+      "summary": "List orders"
+    }
+  ]
+}
