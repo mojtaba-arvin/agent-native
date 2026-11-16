@@ -206,7 +206,7 @@ class MetricsTests(unittest.TestCase):
         self.assertEqual(task["schema_argument_errors"], 0)
 
 
-    def test_change_set_hash_is_allowed_only_on_proposal_tool_calls(self):
+    def test_change_set_hash_is_allowed_on_proposal_lifecycle_tool_calls(self):
         event = {
             "event_id": "proposal-1",
             "task_id": "pilot",
@@ -223,8 +223,12 @@ class MetricsTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "invalid_change_set_id"):
             summarize([malformed])
 
+        for tool_name in ("service.validate", "service.plan"):
+            lifecycle_event = dict(event, tool_name=tool_name)
+            self.assertEqual(summarize([lifecycle_event])["tasks"][0]["tool_calls"], 1)
+
         wrong_tool = dict(event, tool_name="service.inspect")
-        with self.assertRaisesRegex(ValueError, "change_set_id_requires_service_propose"):
+        with self.assertRaisesRegex(ValueError, "change_set_id_requires_proposal_lifecycle_tool"):
             summarize([wrong_tool])
 
 
