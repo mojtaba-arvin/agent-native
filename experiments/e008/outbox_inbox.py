@@ -116,14 +116,21 @@ class OutboxInbox:
         amount: int,
         payload: dict,
         now: int,
+        max_attempts: int = 8,
         fail_after_state: bool = False,
+        fail_after_outbox: bool = False,
     ) -> dict:
         _require_text(effect_key, "effect_key")
         _require_text(event_id, "event_id")
         _require_text(state_key, "state_key")
         _require_int(amount, "amount")
         _require_int(now, "now")
-        if not isinstance(payload, dict) or not isinstance(fail_after_state, bool):
+        _require_int(max_attempts, "max_attempts", minimum=1)
+        if (
+            not isinstance(payload, dict)
+            or not isinstance(fail_after_state, bool)
+            or not isinstance(fail_after_outbox, bool)
+        ):
             raise ValueError("invalid_outbox_payload_or_failure_flag")
         try:
             payload_json = _canonical(payload)
@@ -160,10 +167,12 @@ class OutboxInbox:
                 raise RuntimeError("simulated_crash_after_producer_state")
             connection.execute(
                 """INSERT INTO outbox(
-                    event_id, payload_json, payload_hash, status, available_at
-                ) VALUES (?, ?, ?, 'pending', ?)""",
-                (event_id, payload_json, payload_hash, now),
+                    event_id, payload_json, payload_hash, status, max_attempts, available_at
+                ) VALUES (?, ?, ?, 'pending', ?, ?)""",
+                (event_id, payload_json, payload_hash, max_attempts, now),
             )
+            if fail_after_outbox:
+                raise RuntimeError("simulated_crash_after_outbox_insert")
             connection.execute(
                 "INSERT INTO producer_effects(effect_key, payload_hash, event_id) VALUES (?, ?, ?)",
                 (effect_key, payload_hash, event_id),
@@ -281,7 +290,7 @@ class OutboxInbox:
             payload_json = _canonical(payload)
         except (TypeError, ValueError) as error:
             raise ValueError("invalid_consumer_payload") from error
-        payload_hash = _digest(payload)
+        payload_hash = _digest({"payload": payload, "state_key": state_key, "amount": amount})
 
         with self._transaction() as connection:
             existing = connection.execute(
