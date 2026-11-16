@@ -25,6 +25,55 @@ class MetricsTests(unittest.TestCase):
         self.assertEqual(result["cost_per_accepted_task_usd"], 0.02)
         self.assertEqual(result["runtime_metrics"]["p95_latency"]["median"], 12.5)
 
+    def test_repeated_runs_and_candidates_are_kept_separate(self):
+        events = []
+        for run_id, candidate, accepted, tokens in [
+            ("run-a", "dsl", True, 100),
+            ("run-b", "go", False, 250),
+        ]:
+            events.extend([
+                {"event_id":f"{run_id}-start","run_id":run_id,"candidate_id":candidate,
+                 "model_id":"agent-x","task_id":"same-task","attempt":1,
+                 "timestamp_ns":10,"event_type":"task_started"},
+                {"event_id":f"{run_id}-usage","run_id":run_id,"candidate_id":candidate,
+                 "model_id":"agent-x","task_id":"same-task","attempt":1,
+                 "timestamp_ns":20,"event_type":"model_usage",
+                 "input_tokens":tokens,"output_tokens":10,"cost_usd":0.01},
+                {"event_id":f"{run_id}-finish","run_id":run_id,"candidate_id":candidate,
+                 "model_id":"agent-x","task_id":"same-task","attempt":1,
+                 "timestamp_ns":30,"event_type":"task_finished","accepted":accepted},
+            ])
+        result = summarize(events)
+        self.assertEqual(result["task_count"], 2)
+        self.assertEqual(result["accepted_tasks"], 1)
+        self.assertEqual(result["totals"]["input_tokens"], 350)
+        self.assertEqual(
+            {(row["run_id"], row["candidate_id"], row["accepted"]) for row in result["tasks"]},
+            {("run-a", "dsl", True), ("run-b", "go", False)},
+        )
+
+    def test_attempts_are_not_merged(self):
+        events = [
+            {"event_id":"1","task_id":"a","attempt":1,"timestamp_ns":1,"event_type":"task_started"},
+            {"event_id":"2","task_id":"a","attempt":1,"timestamp_ns":2,"event_type":"task_finished","accepted":False},
+            {"event_id":"3","task_id":"a","attempt":2,"timestamp_ns":3,"event_type":"task_started"},
+            {"event_id":"4","task_id":"a","attempt":2,"timestamp_ns":4,"event_type":"task_finished","accepted":True},
+        ]
+        result = summarize(events)
+        self.assertEqual(result["task_count"], 2)
+        self.assertEqual([row["attempt"] for row in result["tasks"]], [1, 2])
+        self.assertEqual(result["accepted_tasks"], 1)
+
+    def test_inconsistent_candidate_identity_is_rejected(self):
+        events = [
+            {"event_id":"1","run_id":"run","candidate_id":"dsl","task_id":"a",
+             "attempt":1,"timestamp_ns":1,"event_type":"task_started"},
+            {"event_id":"2","run_id":"run","candidate_id":"go","task_id":"a",
+             "attempt":1,"timestamp_ns":2,"event_type":"task_finished","accepted":True},
+        ]
+        with self.assertRaisesRegex(ValueError, "inconsistent_candidate_id"):
+            summarize(events)
+
     def test_missing_usage_is_unknown_not_zero(self):
         events = [
             {"event_id":"1","task_id":"a","attempt":1,"timestamp_ns":1,"event_type":"task_started"},
@@ -79,8 +128,6 @@ class MetricsTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "multiple_task_finished"):
             summarize(events)
 
-
-
     def test_retry_and_failure_metadata_must_be_typed(self):
         event = {"event_id":"1","task_id":"a","attempt":1,"timestamp_ns":1,"event_type":"repair","retry":"false"}
         with self.assertRaisesRegex(ValueError, "invalid_retry"):
@@ -88,6 +135,7 @@ class MetricsTests(unittest.TestCase):
         event = {"event_id":"2","task_id":"a","attempt":1,"timestamp_ns":2,"event_type":"task_finished","accepted":False,"failure_class":7}
         with self.assertRaisesRegex(ValueError, "invalid_failure_class"):
             summarize([event])
+
 
 if __name__ == "__main__":
     unittest.main()
