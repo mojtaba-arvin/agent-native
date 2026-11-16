@@ -65,9 +65,9 @@ def validate_manifest(data: Any) -> None:
             raise ManifestError(f"operations[{index}].id is invalid")
         if op_id in seen_ids:
             raise ManifestError(f"Duplicate operation id: {op_id}")
-        if method not in _METHODS:
+        if not isinstance(method, str) or method not in _METHODS:
             raise ManifestError(f"operations[{index}].method must be one of {sorted(_METHODS)}")
-        if not isinstance(route, str) or not route.startswith("/") or "{" in route or "}" in route or "//" in route:
+        if not isinstance(route, str) or not re.fullmatch(r"/(?:[A-Za-z0-9._~-]+(?:/[A-Za-z0-9._~-]+)*)?", route):
             raise ManifestError(f"operations[{index}].path must be a static absolute path")
         if (method, route) in seen_routes:
             raise ManifestError(f"Duplicate route: {method} {route}")
