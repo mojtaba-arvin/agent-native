@@ -116,6 +116,8 @@ class Parser:
     def parse(self) -> dict:
         self.take("service")
         name = self.identifier()
+        if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", name):
+            self.fail("AN014", f"invalid service identifier {name!r}")
         self.take("{")
         version = self.string_value("version")
         operations = []
@@ -140,6 +142,8 @@ class Parser:
     def operation(self) -> dict:
         self.take("operation")
         name = self.identifier()
+        if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", name):
+            self.fail("AN015", f"invalid operation identifier {name!r}")
         self.take("{")
         method = self.name_value("method")
         path = self.string_value("path")
@@ -169,6 +173,14 @@ class Parser:
             self.fail("AN010", f"unsupported HTTP method {method!r}")
         if not path.startswith("/"):
             self.fail("AN011", "path must start with '/'")
+        placeholders = re.findall(r"\\{([^{}]+)\\}", path)
+        if path.count("{") != len(placeholders) or path.count("}") != len(placeholders):
+            self.fail("AN012", "path contains malformed parameter braces")
+        if len(placeholders) != len(set(placeholders)):
+            self.fail("AN012", "path contains a duplicate parameter")
+        path_inputs = {item["name"] for item in inputs if item["source"] == "path"}
+        if set(placeholders) != path_inputs:
+            self.fail("AN013", "path parameters must match path-sourced input fields exactly")
         return {
             "name": name,
             "method": method,

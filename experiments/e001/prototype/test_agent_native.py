@@ -53,6 +53,29 @@ class ParserTests(unittest.TestCase):
             Parser(invalid).parse()
         self.assertEqual(caught.exception.code, "AN007")
 
+    def test_path_parameter_must_have_path_input(self):
+        invalid = EXAMPLE.replace("id: UUID from path;", "id: UUID from query;")
+        with self.assertRaises(Diagnostic) as caught:
+            Parser(invalid).parse()
+        self.assertEqual(caught.exception.code, "AN013")
+
+    def test_duplicate_input_field_is_rejected(self):
+        invalid = EXAMPLE.replace(
+            "id: UUID from path;", "id: UUID from path;\\n      id: UUID from path;"
+        )
+        with self.assertRaises(Diagnostic) as caught:
+            Parser(invalid).parse()
+        self.assertEqual(caught.exception.code, "AN008")
+
+    def test_duplicate_effect_is_rejected(self):
+        invalid = EXAMPLE.replace(
+            "effects: [repository.read];",
+            "effects: [repository.read, repository.read];"
+        )
+        with self.assertRaises(Diagnostic) as caught:
+            Parser(invalid).parse()
+        self.assertEqual(caught.exception.code, "AN004")
+
 
 if __name__ == "__main__":
     unittest.main()

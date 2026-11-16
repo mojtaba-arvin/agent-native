@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://agent-native.dev/schemas/e001-service-ir-v1.json",
+  "$id": "urn:agent-native:e001:service-ir:v1",
   "title": "E-001 Service IR v1",
   "description": "Experimental canonical shape emitted by the E-001 parser. Not a production framework contract.",
   "type": "object",
