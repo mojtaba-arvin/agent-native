@@ -155,6 +155,7 @@ class GatewayTests(unittest.TestCase):
         calls = [event for event in events if event["event_type"] == "tool_call"]
         self.assertEqual(len(calls), 2)
         self.assertEqual(calls[0]["tool_name"], "interface.describe")
+        self.assertTrue(calls[0]["schema_lookup"])
         self.assertNotIn("failure_class", calls[0])
         self.assertEqual(calls[1]["failure_class"], "UNKNOWN_TOOL")
         self.assertTrue(all(event["run_id"] == "trial-001" for event in events))
