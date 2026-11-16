@@ -107,6 +107,31 @@ class CandidateTests(unittest.TestCase):
             )
             self.assertEqual(load_trace_proposal_ids(path), {digest})
 
+    def test_candidate_rejects_non_identifier_operation_names(self):
+        candidate = copy.deepcopy(self.candidate)
+        candidate["ir"]["operations"][-1]["name"] = "invalid-operation-name"
+        proposal = {
+            "service_id": candidate["service_id"],
+            "base_revision": candidate["base_revision"],
+            "ir": candidate["ir"],
+        }
+        candidate["change_set_id"] = canonical_digest(proposal)
+        with self.assertRaisesRegex(CandidateError, "candidate_operation_name_invalid"):
+            validate_candidate(candidate)
+
+    def test_candidate_rejects_non_identifier_input_names(self):
+        candidate = copy.deepcopy(self.candidate)
+        candidate["ir"]["operations"][-1]["input"][0]["name"] = "bad name"
+        proposal = {
+            "service_id": candidate["service_id"],
+            "base_revision": candidate["base_revision"],
+            "ir": candidate["ir"],
+        }
+        candidate["change_set_id"] = canonical_digest(proposal)
+        with self.assertRaisesRegex(CandidateError, "candidate_input_name_invalid"):
+            validate_candidate(candidate)
+
+
     def test_candidate_loader_returns_raw_artifact_hash(self):
         encoded = json.dumps(self.candidate, ensure_ascii=False).encode("utf-8")
         with tempfile.TemporaryDirectory() as directory:
