@@ -218,11 +218,10 @@ class AgentInterface:
         }, ["service.apply is disabled in this prototype"]
 
     def _apply(self, arguments: dict, _context: dict):
-        return {
-            "change_set_id": arguments.get("change_set_id"),
-            "applied": False,
-            "production_deploy_enabled": False,
-        }, ["No apply operation is enabled in the research prototype"]
+        raise InterfaceError(
+            "APPLY_DISABLED",
+            "Applying changes is disabled in this prototype; no state or production mutation is possible.",
+        )
 
 
 class InterfaceError(Exception):
