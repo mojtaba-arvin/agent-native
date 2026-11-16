@@ -286,7 +286,8 @@ class MetricsTests(unittest.TestCase):
         self.assertEqual(result["eligible_task_count"], 1)
         self.assertEqual(result["excluded_task_count"], 1)
         self.assertEqual(result["acceptance_rate"], 1.0)
-        self.assertFalse(result["tasks"][1]["eligible_for_acceptance"])
+        excluded = next(task for task in result["tasks"] if task["run_id"] == "provider-outage")
+        self.assertFalse(excluded["eligible_for_acceptance"])
 
     def test_accepted_task_cannot_be_marked_ineligible(self):
         event = {
