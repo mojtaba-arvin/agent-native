@@ -316,7 +316,7 @@ class MetricsTests(unittest.TestCase):
             with patch("metrics.MAX_TRACE_BYTES", 4):
                 with self.assertRaisesRegex(ValueError, "trace_file_too_large"):
                     load_jsonl(path)
-            path.write_bytes(b"\\xff")
+            path.write_bytes(bytes([0xFF]))
             with self.assertRaisesRegex(ValueError, "trace_file_invalid_utf8"):
                 load_jsonl(path)
 
