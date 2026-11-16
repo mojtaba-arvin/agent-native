@@ -5,16 +5,32 @@
   "description": "Experimental canonical shape emitted by the E-001 parser. Not a production framework contract.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["ir_version", "service", "operations"],
+  "required": [
+    "ir_version",
+    "service",
+    "types",
+    "operations"
+  ],
   "properties": {
-    "ir_version": { "const": 1 },
+    "ir_version": {
+      "const": 1
+    },
     "service": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["name", "version"],
+      "required": [
+        "name",
+        "version"
+      ],
       "properties": {
-        "name": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
-        "version": { "type": "string", "minLength": 1 }
+        "name": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        }
       }
     },
     "operations": {
@@ -23,27 +39,128 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["name", "method", "path", "input", "output", "effects", "capability"],
+        "required": [
+          "name",
+          "method",
+          "path",
+          "input",
+          "output",
+          "errors",
+          "validation",
+          "effects",
+          "capability"
+        ],
         "properties": {
-          "name": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
-          "method": { "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"] },
-          "path": { "type": "string", "pattern": "^/" },
+          "name": {
+            "type": "string",
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+          },
+          "method": {
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "PATCH",
+              "DELETE"
+            ]
+          },
+          "path": {
+            "type": "string",
+            "pattern": "^/"
+          },
           "input": {
             "type": "array",
             "items": {
               "type": "object",
               "additionalProperties": false,
-              "required": ["name", "type", "source"],
+              "required": [
+                "name",
+                "type",
+                "source"
+              ],
               "properties": {
-                "name": { "type": "string" },
-                "type": { "type": "string" },
-                "source": { "enum": ["path", "query", "body", "header"] }
+                "name": {
+                  "type": "string"
+                },
+                "type": {
+                  "type": "string"
+                },
+                "source": {
+                  "enum": [
+                    "path",
+                    "query",
+                    "body",
+                    "header"
+                  ]
+                }
               }
             }
           },
-          "output": { "type": "string" },
-          "effects": { "type": "array", "uniqueItems": true, "items": { "type": "string" } },
-          "capability": { "type": "string", "minLength": 1 }
+          "output": {
+            "type": "string"
+          },
+          "effects": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string"
+            }
+          },
+          "capability": {
+            "type": "string",
+            "minLength": 1
+          },
+          "errors": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string"
+            }
+          },
+          "validation": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "types": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "fields"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+          },
+          "fields": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "name",
+                "type"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "type": {
+                  "type": "string"
+                }
+              }
+            }
+          }
         }
       }
     }

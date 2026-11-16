@@ -15,6 +15,12 @@ class ParserTests(unittest.TestCase):
         ir = Parser(EXAMPLE).parse()
         self.assertEqual(ir["ir_version"], 1)
         self.assertEqual(ir["service"], {"name": "Catalog", "version": "1"})
+        self.assertEqual(ir["types"], [{"name": "Item", "fields": [
+            {"name": "id", "type": "UUID"}, {"name": "name", "type": "String"}
+        ]}])
+        create = next(item for item in ir["operations"] if item["name"] == "create_item")
+        self.assertEqual(create["validation"], ["name.non_empty"])
+        self.assertEqual(create["errors"], ["InvalidInput", "Unauthorized"])
         self.assertEqual(ir["operations"][0]["name"], "create_item")
         self.assertEqual(next(item for item in ir["operations"] if item["name"] == "get_item")["effects"], ["repository.read"])
 
@@ -75,6 +81,18 @@ class ParserTests(unittest.TestCase):
         with self.assertRaises(Diagnostic) as caught:
             Parser(invalid).parse()
         self.assertEqual(caught.exception.code, "AN004")
+
+    def test_duplicate_record_field_is_rejected(self):
+        invalid = EXAMPLE.replace("name: String;", "name: String;\\n    name: String;")
+        with self.assertRaises(Diagnostic) as caught:
+            Parser(invalid).parse()
+        self.assertEqual(caught.exception.code, "AN018")
+
+    def test_empty_record_is_rejected(self):
+        invalid = EXAMPLE.replace("    id: UUID;\\n    name: String;\\n", "")
+        with self.assertRaises(Diagnostic) as caught:
+            Parser(invalid).parse()
+        self.assertEqual(caught.exception.code, "AN019")
 
 
 if __name__ == "__main__":

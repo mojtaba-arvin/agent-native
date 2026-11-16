@@ -2,6 +2,11 @@
 service Catalog {
   version: "1";
 
+  type Item {
+    id: UUID;
+    name: String;
+  }
+
   operation get_item {
     method: GET;
     path: "/items/{id}";
@@ -9,6 +14,8 @@ service Catalog {
       id: UUID from path;
     }
     output: Item;
+    errors: [NotFound, Unauthorized];
+    validation: [];
     effects: [repository.read];
     capability: "items.read";
   }
@@ -20,6 +27,8 @@ service Catalog {
       name: String from body;
     }
     output: Item;
+    errors: [InvalidInput, Unauthorized];
+    validation: [name.non_empty];
     effects: [repository.write];
     capability: "items.create";
   }

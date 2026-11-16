@@ -120,6 +120,14 @@ class Parser:
             self.fail("AN014", f"invalid service identifier {name!r}")
         self.take("{")
         version = self.string_value("version")
+        types = []
+        type_names: set[str] = set()
+        while self.current.value == "type":
+            item_type = self.type_decl()
+            if item_type["name"] in type_names:
+                self.fail("AN016", f"duplicate type {item_type['name']!r}")
+            type_names.add(item_type["name"])
+            types.append(item_type)
         operations = []
         names: set[str] = set()
         while self.current.value == "operation":
@@ -136,8 +144,31 @@ class Parser:
         return {
             "ir_version": 1,
             "service": {"name": name, "version": version},
+            "types": sorted(types, key=lambda item: item["name"]),
             "operations": sorted(operations, key=lambda item: item["name"]),
         }
+
+    def type_decl(self) -> dict:
+        self.take("type")
+        name = self.identifier()
+        if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", name):
+            self.fail("AN017", f"invalid type identifier {name!r}")
+        self.take("{")
+        fields = []
+        field_names: set[str] = set()
+        while self.current.value != "}":
+            field = self.identifier()
+            if field in field_names:
+                self.fail("AN018", f"duplicate type field {field!r}")
+            field_names.add(field)
+            self.take(":")
+            type_name = self.identifier()
+            self.take(";")
+            fields.append({"name": field, "type": type_name})
+        self.take("}")
+        if not fields:
+            self.fail("AN019", f"type {name!r} must declare at least one field")
+        return {"name": name, "fields": sorted(fields, key=lambda item: item["name"])}
 
     def operation(self) -> dict:
         self.take("operation")
@@ -166,6 +197,8 @@ class Parser:
             inputs.append({"name": field, "type": type_name, "source": source})
         self.take("}")
         output = self.name_value("output")
+        errors = self.list_value("errors")
+        validation = self.list_value("validation")
         effects = self.list_value("effects")
         capability = self.string_value("capability")
         self.take("}")
@@ -187,6 +220,8 @@ class Parser:
             "path": path,
             "input": sorted(inputs, key=lambda item: item["name"]),
             "output": output,
+            "errors": sorted(errors),
+            "validation": sorted(validation),
             "effects": sorted(effects),
             "capability": capability,
         }
