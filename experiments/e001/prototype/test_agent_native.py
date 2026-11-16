@@ -149,5 +149,27 @@ class ParserTests(unittest.TestCase):
         self.assertEqual(caught.exception.code, "AN019")
 
 
+
+    def test_parser_and_ir_validator_accept_every_declared_http_method(self):
+        for method in ("GET", "POST", "PUT", "PATCH", "DELETE"):
+            with self.subTest(method=method):
+                Parser(EXAMPLE.replace("method: GET;", f"method: {method};")).parse()
+
+    def test_header_input_is_supported_by_parser_and_ir_validator(self):
+        source = EXAMPLE.replace(
+            "id: UUID from path;",
+            "id: UUID from path;" + chr(10) + "      trace_id: String from header;"
+        )
+        ir = Parser(source).parse()
+        get_item = next(item for item in ir["operations"] if item["name"] == "get_item")
+        self.assertIn({"name": "trace_id", "type": "String", "source": "header"}, get_item["input"])
+        validate_ir(ir)
+
+    def test_invalid_json_string_escape_has_stable_diagnostic(self):
+        invalid = 'service Bad { version: "' + chr(92) + 'q"; operation read { method: GET; path: "/"; input { } output: String; errors: []; validation: []; effects: []; capability: "read"; } }'
+        with self.assertRaises(Diagnostic) as caught:
+            Parser(invalid).parse()
+        self.assertEqual(caught.exception.code, "AN038")
+
 if __name__ == "__main__":
     unittest.main()

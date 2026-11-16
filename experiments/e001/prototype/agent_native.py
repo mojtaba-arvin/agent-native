@@ -81,7 +81,10 @@ class Parser:
 
     def string(self) -> str:
         token = self.take(kind="string")
-        return json.loads(token.value)
+        try:
+            return json.loads(token.value)
+        except json.JSONDecodeError as error:
+            raise Diagnostic("AN038", "invalid string escape or encoding", token) from error
 
     def name_value(self, keyword: str) -> str:
         self.take(keyword)
@@ -304,7 +307,7 @@ def validate_ir(ir: object) -> None:
         operation_names.add(name)
         method = operation.get("method")
         path = operation.get("path")
-        if not isinstance(method, str) or method not in {"GET", "POST"}:
+        if not isinstance(method, str) or method not in {"GET", "POST", "PUT", "PATCH", "DELETE"}:
             fail("AN003", f"unsupported method {method!r}")
         if (
             not isinstance(path, str)
@@ -339,7 +342,7 @@ def validate_ir(ir: object) -> None:
             if not isinstance(field.get("type"), str) or field.get("type") not in known_types:
                 fail("AN020", f"unknown input type {field.get('type')!r}")
             source = field.get("source")
-            if not isinstance(source, str) or source not in {"path", "body", "query"}:
+            if not isinstance(source, str) or source not in {"path", "body", "query", "header"}:
                 fail("AN010", f"unsupported input source {source!r}")
         path_variables = re.findall(r"\{([A-Za-z_][A-Za-z0-9_]*)\}", path)
         if "{" in re.sub(r"\{[A-Za-z_][A-Za-z0-9_]*\}", "", path) or "}" in re.sub(r"\{[A-Za-z_][A-Za-z0-9_]*\}", "", path):
