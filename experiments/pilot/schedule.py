@@ -245,7 +245,7 @@ def validate_schedule(schedule: Any) -> None:
         "generation_settings", "task_id", "attempt", "source_revision", "source_sha256",
         "budgets", "fresh_state_required", "agent_visible_treatment_label",
     }
-    for trial in trials:
+    for expected_sequence, trial in enumerate(trials, 1):
         if not isinstance(trial, dict) or set(trial) != trial_fields:
             raise ScheduleError("trial_shape_invalid")
         if trial.get("candidate_id") not in ARMS:
@@ -255,7 +255,7 @@ def validate_schedule(schedule: Any) -> None:
             raise ScheduleError("trial_run_id_missing_or_duplicate")
         seen_run_ids.add(run_id)
         sequence = trial.get("sequence")
-        if type(sequence) is not int or sequence < 1 or sequence in seen_sequences:
+        if type(sequence) is not int or sequence != expected_sequence or sequence in seen_sequences:
             raise ScheduleError("trial_sequence_missing_or_duplicate")
         seen_sequences.add(sequence)
         if trial.get("model_id") != protocol["model_id"]:
@@ -266,8 +266,15 @@ def validate_schedule(schedule: Any) -> None:
             raise ScheduleError("trial_task_id_mismatch")
         if trial.get("source_revision") != protocol["source_revision"]:
             raise ScheduleError("trial_source_revision_mismatch")
-        if trial.get("pair_id") != f"pair-{(sequence + 1) // 2:04d}":
+        pair_number = (sequence + 1) // 2
+        if trial.get("pair_id") != f"pair-{pair_number:04d}":
             raise ScheduleError("trial_pair_id_mismatch")
+        expected_run_hash = sha256_bytes(
+            f"{schedule['plan_id']}:{pair_number}:{trial['candidate_id']}".encode("utf-8")
+        )
+        expected_run_id = f"pair-{pair_number:04d}-{trial['candidate_id']}-{expected_run_hash[:12]}"
+        if run_id != expected_run_id:
+            raise ScheduleError("trial_run_id_mismatch")
         if type(trial.get("attempt")) is not int or trial["attempt"] != 1:
             raise ScheduleError("trial_attempt_invalid")
         if trial.get("budgets") != protocol.get("budgets"):
