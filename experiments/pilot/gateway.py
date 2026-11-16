@@ -222,6 +222,12 @@ class PilotGateway:
                 candidate_id = proposed.get("change_set_id")
                 if isinstance(candidate_id, str):
                     change_set_id = candidate_id
+        elif tool in {"service.validate", "service.plan"} and response.get("ok"):
+            tool_result = response.get("result")
+            supplied_id = arguments.get("change_set_id")
+            returned_id = tool_result.get("change_set_id") if isinstance(tool_result, dict) else None
+            if isinstance(supplied_id, str) and supplied_id == returned_id:
+                change_set_id = supplied_id
         safe_result_metadata = {}
         tool_result = response.get("result")
         if tool == "service.validate" and isinstance(tool_result, dict):
