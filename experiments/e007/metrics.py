@@ -54,7 +54,7 @@ def summarize(events):
             raise ValueError("invalid_timestamp_ns")
         if "tool_name" in event and not isinstance(event["tool_name"], str):
             raise ValueError("invalid_tool_name")
-        if "schema_lookup" in event and not isinstance(event["schema_lookup"], bool):
+        if "schema_lookup" in event and (event["event_type"] != "tool_call" or not isinstance(event["schema_lookup"], bool)):
             raise ValueError("invalid_schema_lookup")
         if event.get("schema_lookup", False) and event.get("tool_name") != "interface.describe":
             raise ValueError("schema_lookup_requires_interface_describe")
@@ -74,7 +74,7 @@ def summarize(events):
             raise ValueError("task_finished_missing_accepted")
         if "accepted" in event and not isinstance(event["accepted"], bool):
             raise ValueError("invalid_accepted")
-        if "failure_class" in event and not isinstance(event["failure_class"], str):
+        if "failure_class" in event and (not isinstance(event["failure_class"], str) or not event["failure_class"]):
             raise ValueError("invalid_failure_class")
         if "retry" in event and not isinstance(event["retry"], bool):
             raise ValueError("invalid_retry")
