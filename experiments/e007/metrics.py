@@ -11,6 +11,7 @@ EVENT_TYPES = {
     "human_intervention", "runtime_metric", "task_finished",
 }
 IDENTITY_FIELDS = ("run_id", "candidate_id", "model_id")
+MAX_TRACE_BYTES = 64 * 1024 * 1024
 INVALID_TOOL_FAILURES = {
     "UNKNOWN_TOOL", "TOOL_NAME", "ARGUMENT_SHAPE",
     "REQUEST_SHAPE", "REQUEST_FIELDS", "MESSAGE_TYPE",
@@ -273,8 +274,19 @@ def _reject_non_finite_json_number(value):
 
 
 def load_jsonl(path):
+    try:
+        raw = Path(path).read_bytes()
+    except OSError as error:
+        raise ValueError("trace_file_unavailable") from error
+    if len(raw) > MAX_TRACE_BYTES:
+        raise ValueError("trace_file_too_large")
+    try:
+        lines = raw.decode("utf-8").splitlines()
+    except UnicodeDecodeError as error:
+        raise ValueError("trace_file_invalid_utf8") from error
+
     events = []
-    for line_number, line in enumerate(Path(path).read_text(encoding="utf-8").splitlines(), 1):
+    for line_number, line in enumerate(lines, 1):
         if not line.strip():
             continue
         try:
