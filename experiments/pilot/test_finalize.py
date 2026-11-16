@@ -135,6 +135,45 @@ class FinalizeTests(unittest.TestCase):
         self.assertTrue(finish["accepted"])
         self.assertEqual(finish["timestamp_ns"], self.agent_finished)
 
+    def test_accepted_result_rejects_invalid_validator_result(self):
+        validation_event = next(
+            event for event in self.events
+            if event["event_type"] == "tool_call"
+            and event.get("tool_name") == "service.validate"
+        )
+        validation_event["validation_valid"] = False
+        self.write_trace()
+        with self.assertRaisesRegex(
+            FinalizationError,
+            "requires_successful_semantic_validation",
+        ):
+            finalize_run(
+                trace_path=self.trace_path,
+                evaluation_result_path=self.result_path,
+                candidate_path=self.candidate_path,
+                output_trace_path=self.output_trace_path,
+            )
+
+    def test_accepted_result_rejects_mutating_or_deploying_plan(self):
+        plan_event = next(
+            event for event in self.events
+            if event["event_type"] == "tool_call"
+            and event.get("tool_name") == "service.plan"
+        )
+        plan_event["plan_will_mutate"] = True
+        self.write_trace()
+        with self.assertRaisesRegex(
+            FinalizationError,
+            "plan_must_not_mutate",
+        ):
+            finalize_run(
+                trace_path=self.trace_path,
+                evaluation_result_path=self.result_path,
+                candidate_path=self.candidate_path,
+                output_trace_path=self.output_trace_path,
+            )
+
+
     def test_candidate_hash_mismatch_is_rejected(self):
         self.result["candidate_sha256"] = "0" * 64
         self.write_result()
