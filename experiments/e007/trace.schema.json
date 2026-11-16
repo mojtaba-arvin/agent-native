@@ -39,6 +39,7 @@
     "output_tokens": {"type": "integer", "minimum": 0},
     "cost_usd": {"type": "number", "minimum": 0},
     "accepted": {"type": "boolean"},
+    "eligible_for_acceptance": {"type": "boolean"},
     "failure_class": {"type": "string"},
     "metric_name": {"type": "string"},
     "metric_value": {"type": "number"},
