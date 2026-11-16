@@ -30,6 +30,7 @@
     "model_id": {"type": "string", "minLength": 1},
     "tool_name": {"type": "string"},
     "schema_lookup": {"type": "boolean"},
+    "change_set_id": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
     "input_tokens": {"type": "integer", "minimum": 0},
     "output_tokens": {"type": "integer", "minimum": 0},
     "cost_usd": {"type": "number", "minimum": 0},
