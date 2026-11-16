@@ -114,3 +114,6 @@ No production-readiness claim before G0–G6 evidence exists.
 
 
 The current public task subset and provider-neutral trace metrics live in `experiments/e007/`. It defines tasks and oracle identifiers only; hidden acceptance assertions must be mounted by an evaluator outside the agent-visible workspace. No agent runs have been performed.
+
+
+E-008 adds an executable transactional outbox/inbox model for producer atomicity, fenced relay leases, at-least-once delivery, retry exhaustion, and consumer deduplication after publish-before-ack crashes. It does not claim exactly-once delivery to arbitrary external APIs.

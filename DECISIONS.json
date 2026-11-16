@@ -192,6 +192,20 @@
         "Trace aggregator validates retry and failure metadata types and rejects unknown fields and non-finite telemetry"
       ],
       "reason": "Isolated evaluator workspaces, external oracle packaging, provider telemetry adapters, pinned agent cohorts, and repeated trials remain outstanding."
+    },
+    {
+      "id": "D-0014",
+      "topic": "external_effect_delivery_semantics",
+      "status": "open",
+      "value": "The E-008 reference model demonstrates producer outbox atomicity, fenced at-least-once relay delivery, and consumer inbox deduplication. Arbitrary external side effects are not exactly-once.",
+      "evidence": [
+        "Producer state and outbox insert rollback together at injected crash points",
+        "Relay lease fencing rejects stale ack/retry",
+        "Publish-before-ack crash causes redelivery while consumer inbox applies local state once",
+        "Semantic envelope binds payload, state key, and amount",
+        "Finite retry budget and terminal failure state are tested"
+      ],
+      "reason": "No real broker, separate producer/consumer databases, multi-node failure model, external API idempotency adapter, distributed observability, or production recovery policy is implemented."
     }
   ]
 }

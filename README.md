@@ -24,7 +24,7 @@ The project may create a purpose-built language, DSL, compiler, virtual machine,
 
 ## Current status
 
-Active research with executable E-001 representation prototypes, E-002 Go/Rust/WASI P2/BEAM runtime baselines, an E-003 concurrency/failure model, an E-004 capability-security reference model with a threat model, an E-005 progressive-disclosure agent-interface prototype, an E-006 durable execution reference model, and an E-007 backend-agent task corpus with trace metrics. A preliminary CI smoke matrix is preserved but is not decision-grade. No production framework, language, syntax, or runtime has been selected. Earlier FastAPI-based vertical-slice experiments are not the product direction and are not a foundation for implementation.
+Active research with executable E-001 representation prototypes, E-002 Go/Rust/WASI P2/BEAM runtime baselines, an E-003 concurrency/failure model, an E-004 capability-security reference model with a threat model, an E-005 progressive-disclosure agent-interface prototype, an E-006 durable execution reference model, an E-007 backend-agent task corpus with trace metrics, and an E-008 transactional outbox/inbox delivery reference model. A preliminary CI smoke matrix is preserved but is not decision-grade. No production framework, language, syntax, or runtime has been selected. Earlier FastAPI-based vertical-slice experiments are not the product direction and are not a foundation for implementation.
 
 ## Canonical project contract
 
