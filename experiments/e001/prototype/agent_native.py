@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import re
 import sys
+import unicodedata
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -254,7 +255,13 @@ def validate_ir(ir: object) -> None:
     def fail(code: str, message: str) -> None:
         raise Diagnostic(code, message, token)
 
-    if not isinstance(ir, dict) or set(ir) != {"ir_version", "service", "types", "operations"} or ir.get("ir_version") != 1:
+    if (
+        not isinstance(ir, dict)
+        or set(ir) != {"ir_version", "service", "types", "operations"}
+        or not isinstance(ir.get("ir_version"), int)
+        or isinstance(ir.get("ir_version"), bool)
+        or ir.get("ir_version") != 1
+    ):
         fail("AN021", "unsupported or malformed IR version or top-level shape")
     service = ir.get("service")
     if not isinstance(service, dict) or set(service) != {"name", "version"} or not isinstance(service.get("name"), str) or not isinstance(service.get("version"), str) or not service["version"]:
@@ -314,7 +321,11 @@ def validate_ir(ir: object) -> None:
             or not path.startswith("/")
             or "?" in path
             or "#" in path
+            or "%" in path
+            or chr(92) in path
             or "//" in path
+            or any(ord(character) < 0x20 or ord(character) == 0x7F for character in path)
+            or unicodedata.normalize("NFC", path) != path
             or any(segment in {".", ".."} for segment in path.split("/"))
         ):
             fail("AN027", f"invalid route path {path!r}")

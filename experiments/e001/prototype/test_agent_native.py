@@ -171,5 +171,28 @@ class ParserTests(unittest.TestCase):
             Parser(invalid).parse()
         self.assertEqual(caught.exception.code, "AN038")
 
+
+    def test_boolean_ir_version_is_not_accepted_as_integer_version(self):
+        ir = Parser(EXAMPLE).parse()
+        ir["ir_version"] = True
+        with self.assertRaises(Diagnostic) as caught:
+            validate_ir(ir)
+        self.assertEqual(caught.exception.code, "AN021")
+
+    def test_encoded_backslash_and_noncanonical_routes_are_rejected(self):
+        invalid_paths = (
+            "/items/%2e%2e/secrets",
+            "/items/" + chr(92) + "secrets",
+            "/items/" + chr(0) + "secrets",
+            "/items/cafe" + chr(0x301),
+        )
+        for path in invalid_paths:
+            with self.subTest(path=repr(path)):
+                ir = Parser(EXAMPLE).parse()
+                ir["operations"][0]["path"] = path
+                with self.assertRaises(Diagnostic) as caught:
+                    validate_ir(ir)
+                self.assertEqual(caught.exception.code, "AN027")
+
 if __name__ == "__main__":
     unittest.main()
