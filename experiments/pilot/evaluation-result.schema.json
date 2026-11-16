@@ -9,9 +9,11 @@
     "run_id",
     "candidate_id",
     "task_id",
+    "attempt",
     "candidate_sha256",
     "accepted",
     "failure_class",
+    "agent_finished_at_ns",
     "evaluated_at_ns",
     "evaluator_version"
   ],
@@ -35,7 +37,10 @@
       "const": "pilot-catalog-add-readonly-operation"
     },
     "candidate_sha256": {
-      "type": "string",
+      "type": [
+        "string",
+        "null"
+      ],
       "pattern": "^[a-f0-9]{64}$"
     },
     "accepted": {
@@ -62,6 +67,14 @@
     "evaluator_version": {
       "type": "string",
       "minLength": 1
+    },
+    "attempt": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "agent_finished_at_ns": {
+      "type": "integer",
+      "minimum": 0
     }
   },
   "allOf": [
@@ -80,6 +93,10 @@
         "properties": {
           "failure_class": {
             "const": null
+          },
+          "candidate_sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
           }
         }
       }
