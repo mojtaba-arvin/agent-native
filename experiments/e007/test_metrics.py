@@ -252,5 +252,55 @@ class MetricsTests(unittest.TestCase):
                 load_jsonl(path)
 
 
+    def test_infrastructure_invalid_trials_are_excluded_from_acceptance_denominator(self):
+        events = []
+        for run_id, accepted, eligible, failure in [
+            ("valid-run", True, True, None),
+            ("provider-outage", False, False, "PROVIDER_ERROR"),
+        ]:
+            events.append({
+                "event_id": f"{run_id}-start",
+                "run_id": run_id,
+                "task_id": "pilot",
+                "attempt": 1,
+                "timestamp_ns": 1,
+                "event_type": "task_started",
+            })
+            finish = {
+                "event_id": f"{run_id}-finish",
+                "run_id": run_id,
+                "task_id": "pilot",
+                "attempt": 1,
+                "timestamp_ns": 2,
+                "event_type": "task_finished",
+                "accepted": accepted,
+                "eligible_for_acceptance": eligible,
+            }
+            if failure is not None:
+                finish["failure_class"] = failure
+            events.append(finish)
+
+        result = summarize(events)
+        self.assertEqual(result["task_count"], 2)
+        self.assertEqual(result["accepted_tasks"], 1)
+        self.assertEqual(result["eligible_task_count"], 1)
+        self.assertEqual(result["excluded_task_count"], 1)
+        self.assertEqual(result["acceptance_rate"], 1.0)
+        self.assertFalse(result["tasks"][1]["eligible_for_acceptance"])
+
+    def test_accepted_task_cannot_be_marked_ineligible(self):
+        event = {
+            "event_id": "finish",
+            "task_id": "pilot",
+            "attempt": 1,
+            "timestamp_ns": 2,
+            "event_type": "task_finished",
+            "accepted": True,
+            "eligible_for_acceptance": False,
+        }
+        with self.assertRaisesRegex(ValueError, "accepted_task_must_be_eligible"):
+            summarize([event])
+
+
 if __name__ == "__main__":
     unittest.main()
