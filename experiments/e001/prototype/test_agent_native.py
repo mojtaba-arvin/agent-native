@@ -61,7 +61,7 @@ class ParserTests(unittest.TestCase):
 
     def test_duplicate_input_field_is_rejected(self):
         invalid = EXAMPLE.replace(
-            "id: UUID from path;", "id: UUID from path;\\n      id: UUID from path;"
+            "id: UUID from path;", "id: UUID from path;" + chr(10) + "      id: UUID from path;"
         )
         with self.assertRaises(Diagnostic) as caught:
             Parser(invalid).parse()
