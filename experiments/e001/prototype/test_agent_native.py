@@ -5,7 +5,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from agent_native import Diagnostic, Parser  # noqa: E402
+from agent_native import Diagnostic, Parser, validate_ir  # noqa: E402
 
 
 EXAMPLE = (ROOT / "examples" / "catalog.an").read_text(encoding="utf-8")
@@ -34,6 +34,13 @@ class ParserTests(unittest.TestCase):
         with self.assertRaises(Diagnostic) as caught:
             Parser(invalid).parse()
         self.assertEqual(caught.exception.code, "AN020")
+
+    def test_structured_ir_rejects_unknown_properties(self):
+        ir = Parser(EXAMPLE).parse()
+        ir["operations"][0]["ambient_authority"] = True
+        with self.assertRaises(Diagnostic) as caught:
+            validate_ir(ir)
+        self.assertEqual(caught.exception.code, "AN026")
 
     def test_operation_order_is_canonical(self):
         source = EXAMPLE.replace(
