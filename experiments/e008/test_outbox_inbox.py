@@ -25,6 +25,14 @@ class OutboxInboxTests(unittest.TestCase):
             **kwargs,
         )
 
+    @staticmethod
+    def envelope(payload=None, *, state_key="balance", amount=7):
+        return {
+            "payload": {"kind": "ledger.posted"} if payload is None else payload,
+            "state_key": state_key,
+            "amount": amount,
+        }
+
     def test_producer_state_and_outbox_insert_roll_back_together(self):
         for flag in ("fail_after_state", "fail_after_outbox"):
             with self.subTest(flag=flag):
@@ -53,13 +61,12 @@ class OutboxInboxTests(unittest.TestCase):
         self.stage(payload=payload)
         first_relay = self.store.claim(worker_id="relay-a", now=10, lease_seconds=5)
         self.assertEqual(first_relay["lease_token"], 1)
+        self.assertEqual(first_relay["payload"], self.envelope(payload))
 
         first_delivery = self.store.consume(
             consumer_id="ledger-projection",
             event_id="event-1",
-            payload=payload,
-            state_key="balance",
-            amount=7,
+            payload=first_relay["payload"],
             now=11,
         )
         self.assertFalse(first_delivery["duplicate"])
@@ -71,9 +78,7 @@ class OutboxInboxTests(unittest.TestCase):
         redelivery = self.store.consume(
             consumer_id="ledger-projection",
             event_id="event-1",
-            payload=payload,
-            state_key="balance",
-            amount=7,
+            payload=second_relay["payload"],
             now=16,
         )
         self.assertTrue(redelivery["duplicate"])
@@ -119,29 +124,28 @@ class OutboxInboxTests(unittest.TestCase):
         self.assertEqual(next_claim["attempts"], 2)
 
     def test_consumer_state_and_inbox_insert_roll_back_together(self):
-        payload = {"kind": "ledger.posted"}
+        event = self.envelope(amount=4)
         with self.assertRaisesRegex(RuntimeError, "simulated_crash"):
             self.store.consume(
-                consumer_id="projection", event_id="event-1", payload=payload,
-                state_key="balance", amount=4, now=10, fail_after_state=True,
+                consumer_id="projection", event_id="event-1",
+                payload=event, now=10, fail_after_state=True,
             )
         self.assertEqual(self.store.get_consumer_state("projection", "balance"), 0)
         self.assertIsNone(self.store.get_inbox("projection", "event-1"))
         self.store.consume(
-            consumer_id="projection", event_id="event-1", payload=payload,
-            state_key="balance", amount=4, now=11,
+            consumer_id="projection", event_id="event-1", payload=event, now=11,
         )
         self.assertEqual(self.store.get_consumer_state("projection", "balance"), 4)
 
     def test_inbox_rejects_same_event_id_with_different_semantics(self):
         self.store.consume(
-            consumer_id="projection", event_id="event-1", payload={"kind": "x"},
-            state_key="balance", amount=4, now=10,
+            consumer_id="projection", event_id="event-1",
+            payload=self.envelope(amount=4), now=10,
         )
         with self.assertRaisesRegex(OutboxConflict, "inbox_event_payload_mismatch"):
             self.store.consume(
-                consumer_id="projection", event_id="event-1", payload={"kind": "x"},
-                state_key="balance", amount=5, now=11,
+                consumer_id="projection", event_id="event-1",
+                payload=self.envelope(amount=5), now=11,
             )
 
     def test_two_relays_cannot_claim_the_same_pending_event(self):
@@ -170,8 +174,6 @@ class OutboxInboxTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "invalid_amount"):
             self.stage(amount=True)
 
-
-
     def test_relay_retry_budget_ends_in_terminal_failed_state(self):
         self.stage(max_attempts=1)
         claimed = self.store.claim(worker_id="relay-a", now=10, lease_seconds=5)
@@ -188,6 +190,7 @@ class OutboxInboxTests(unittest.TestCase):
         self.store.claim(worker_id="relay-a", now=10, lease_seconds=5)
         self.assertIsNone(self.store.claim(worker_id="relay-b", now=15, lease_seconds=5))
         self.assertEqual(self.store.get_outbox("event-1")["status"], "failed")
+
 
 if __name__ == "__main__":
     unittest.main()
