@@ -142,7 +142,7 @@ class MetricsTests(unittest.TestCase):
             {"event_id":"1","task_id":"pilot","attempt":1,"timestamp_ns":1,
              "event_type":"task_started","run_id":"r1","candidate_id":"progressive","model_id":"m1"},
             {"event_id":"2","task_id":"pilot","attempt":1,"timestamp_ns":2,
-             "event_type":"tool_call","tool_name":"interface.describe",
+             "event_type":"tool_call","tool_name":"interface.describe","schema_lookup":True,
              "run_id":"r1","candidate_id":"progressive","model_id":"m1"},
             {"event_id":"3","task_id":"pilot","attempt":1,"timestamp_ns":3,
              "event_type":"tool_call","tool_name":"service.inspect",
@@ -174,6 +174,23 @@ class MetricsTests(unittest.TestCase):
         self.assertEqual(result["totals"]["invalid_tool_calls"], 2)
         self.assertEqual(result["totals"]["schema_argument_errors"], 1)
         self.assertEqual(result["totals"]["schema_lookup_calls"], 1)
+
+    def test_schema_lookup_flag_is_typed_and_bound_to_discovery_tool(self):
+        base = {
+            "event_id": "schema-1",
+            "task_id": "pilot",
+            "attempt": 1,
+            "timestamp_ns": 1,
+            "event_type": "tool_call",
+            "tool_name": "service.inspect",
+            "schema_lookup": True,
+        }
+        with self.assertRaisesRegex(ValueError, "schema_lookup_requires_interface_describe"):
+            summarize([base])
+        base["tool_name"] = "interface.describe"
+        base["schema_lookup"] = "true"
+        with self.assertRaisesRegex(ValueError, "invalid_schema_lookup"):
+            summarize([base])
 
     def test_legacy_traces_report_zero_tool_errors(self):
         events = [
