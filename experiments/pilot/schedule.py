@@ -21,6 +21,7 @@ ROOT = PILOT_ROOT.parents[1]
 TASK_ID = "pilot-catalog-add-readonly-operation"
 ARMS = ("progressive", "upfront")
 SOURCE_FILES = (
+    ".gitignore",
     "experiments/pilot/README.md",
     "experiments/pilot/AGENT_ADAPTER.md",
     "experiments/pilot/PROMPT.md",
