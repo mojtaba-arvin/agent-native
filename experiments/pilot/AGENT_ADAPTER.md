@@ -45,7 +45,9 @@ Both arms expose the same generic dispatch contract named `agent.invoke`:
 }
 ```
 
-The adapter maps a model tool call to one NDJSON gateway line:
+The provider-facing API must expose exactly one function/tool, named `agent.invoke`, in both arms, using the exact `dispatch.input_schema` from the session surface. Do not expose the six E-005 operations as six separate provider functions: that would change the provider tool count and confound this experiment. The adapter includes the `surface.tools` list and `schema_discovery` object as a structured JSON context block. Thus the only initial-context difference is the presence or absence of non-discovery input schemas; the provider-native function declaration and invocation path remain byte-for-byte identical.
+
+The adapter maps a model `agent.invoke` call to one NDJSON gateway line:
 
 ```json
 {
