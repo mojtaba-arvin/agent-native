@@ -12,6 +12,7 @@ This contract defines observable behavior for the reference model only. It is a 
 | Crash | Worker loss is observable; task requeues only when budget remains | `crash` |
 | Idempotency | Repeated submissions with the same key map to the original task | `submit` deduplicates |
 | Success | Completed idempotency keys are retained in the model | in-memory completed-key ledger |
+| Shutdown | Stop admission; graceful mode drains accepted work, immediate mode cancels queued/running work | `shutdown(graceful=True|False)` |
 
 ## Open production questions
 
@@ -27,3 +28,12 @@ This contract defines observable behavior for the reference model only. It is a 
 - How are retry storms and overload prevented globally?
 
 These questions must be answered and tested before promoting this model to framework semantics.
+
+
+## Shutdown contract
+
+- Once shutdown begins, new unique submissions return `shutting_down`.
+- Duplicate submissions for an existing idempotency key continue to resolve to the original task.
+- Graceful shutdown leaves already accepted work eligible to start and finish; the runtime reports drained only when no task remains queued or running.
+- Immediate shutdown marks all queued/running tasks cancelled and releases worker slots.
+- A production runtime still needs a bounded drain deadline, signal handling, listener closure, in-flight response policy, and a defined behavior for tasks that exceed the drain budget.
