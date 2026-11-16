@@ -189,10 +189,10 @@ def _require_accepted_tool_sequence(events: list[dict], change_set_id: str) -> N
 
     inspect_index, _ = find_after("service.inspect", -1)
     propose_index, _ = find_after("service.propose", inspect_index, proposal_id=change_set_id)
-    validate_index, validate_event = find_after("service.validate", propose_index)
+    validate_index, validate_event = find_after("service.validate", propose_index, proposal_id=change_set_id)
     if validate_event.get("validation_valid") is not True:
         raise FinalizationError("accepted_result_requires_successful_semantic_validation")
-    _, plan_event = find_after("service.plan", validate_index)
+    _, plan_event = find_after("service.plan", validate_index, proposal_id=change_set_id)
     if plan_event.get("plan_valid") is not True:
         raise FinalizationError("accepted_result_requires_valid_execution_plan")
     if plan_event.get("plan_will_mutate") is not False:
