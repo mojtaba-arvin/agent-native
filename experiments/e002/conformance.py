@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import argparse
+import os
+import signal
 import subprocess
 import time
 import urllib.error
@@ -60,16 +62,22 @@ def main() -> int:
     parser.add_argument("--command", required=True, help="candidate executable command")
     parser.add_argument("--cwd", required=True, help="candidate working directory")
     args = parser.parse_args()
-    process = subprocess.Popen(args.command.split(), cwd=Path(args.cwd))
+    process = subprocess.Popen(args.command.split(), cwd=Path(args.cwd), start_new_session=True)
     try:
         wait_ready()
         verify()
     finally:
-        process.terminate()
+        try:
+            os.killpg(process.pid, signal.SIGTERM)
+        except ProcessLookupError:
+            pass
         try:
             process.wait(timeout=5)
         except subprocess.TimeoutExpired:
-            process.kill()
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
             process.wait()
     print("E-002 black-box conformance: PASS")
     return 0
