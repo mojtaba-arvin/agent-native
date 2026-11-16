@@ -78,6 +78,15 @@ class AgentInterfaceTests(unittest.TestCase):
         self.assertFalse(validated["result"]["valid"])
         self.assertEqual(validated["result"]["diagnostics"][0]["code"], "UNTRUSTED_EFFECT")
 
+    def test_validate_uses_shared_ir_semantic_validator(self):
+        changed = copy.deepcopy(IR)
+        get_item = next(item for item in changed["operations"] if item["name"] == "get_item")
+        get_item["path"] = "/items/../secrets"
+        change_set_id = self.propose(changed)["result"]["change_set_id"]
+        validated = self.request("service.validate", {"change_set_id": change_set_id})
+        self.assertFalse(validated["result"]["valid"])
+        self.assertEqual(validated["result"]["diagnostics"][0]["code"], "AN027")
+
     def test_plan_marks_high_impact_effect_for_human_approval(self):
         changed = copy.deepcopy(IR)
         changed["operations"][0]["effects"].append("network.egress")
