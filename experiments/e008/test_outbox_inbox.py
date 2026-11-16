@@ -171,5 +171,23 @@ class OutboxInboxTests(unittest.TestCase):
             self.stage(amount=True)
 
 
+
+    def test_relay_retry_budget_ends_in_terminal_failed_state(self):
+        self.stage(max_attempts=1)
+        claimed = self.store.claim(worker_id="relay-a", now=10, lease_seconds=5)
+        self.assertFalse(self.store.retry(
+            event_id="event-1", worker_id="relay-a",
+            lease_token=claimed["lease_token"], now=11,
+            delay_seconds=1, error_code="receiver_failed",
+        ))
+        self.assertEqual(self.store.get_outbox("event-1")["status"], "failed")
+        self.assertIsNone(self.store.claim(worker_id="relay-b", now=20, lease_seconds=5))
+
+    def test_expired_final_lease_is_not_reclaimed_after_attempt_budget(self):
+        self.stage(max_attempts=1)
+        self.store.claim(worker_id="relay-a", now=10, lease_seconds=5)
+        self.assertIsNone(self.store.claim(worker_id="relay-b", now=15, lease_seconds=5))
+        self.assertEqual(self.store.get_outbox("event-1")["status"], "failed")
+
 if __name__ == "__main__":
     unittest.main()

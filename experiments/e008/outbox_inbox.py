@@ -59,8 +59,9 @@ class OutboxInbox:
                     event_id TEXT PRIMARY KEY,
                     payload_json TEXT NOT NULL,
                     payload_hash TEXT NOT NULL,
-                    status TEXT NOT NULL CHECK (status IN ('pending', 'leased', 'delivered')),
+                    status TEXT NOT NULL CHECK (status IN ('pending', 'leased', 'delivered', 'failed')),
                     attempts INTEGER NOT NULL DEFAULT 0,
+                    max_attempts INTEGER NOT NULL DEFAULT 8,
                     available_at INTEGER NOT NULL,
                     lease_owner TEXT,
                     lease_token INTEGER NOT NULL DEFAULT 0,
@@ -178,9 +179,16 @@ class OutboxInbox:
         _require_int(now, "now")
         _require_int(lease_seconds, "lease_seconds", minimum=1)
         with self._transaction() as connection:
+            connection.execute(
+                """UPDATE outbox SET status = 'failed', lease_owner = NULL,
+                   lease_until = NULL, last_error = 'retry_exhausted'
+                   WHERE status = 'leased' AND lease_until <= ? AND attempts >= max_attempts""",
+                (now,),
+            )
             row = connection.execute(
                 """SELECT * FROM outbox
                    WHERE available_at <= ?
+                     AND attempts < max_attempts
                      AND (status = 'pending' OR (status = 'leased' AND lease_until <= ?))
                    ORDER BY available_at, event_id LIMIT 1""",
                 (now, now),
@@ -228,15 +236,27 @@ class OutboxInbox:
         _require_int(delay_seconds, "delay_seconds")
         _require_text(error_code, "error_code")
         with self._transaction() as connection:
-            cursor = connection.execute(
+            row = connection.execute(
+                """SELECT attempts, max_attempts FROM outbox
+                   WHERE event_id = ? AND status = 'leased' AND lease_owner = ?
+                     AND lease_token = ? AND lease_until > ?""",
+                (event_id, worker_id, lease_token, now),
+            ).fetchone()
+            if row is None:
+                raise StaleOutboxLease("outbox_lease_missing_expired_or_fenced")
+            if row["attempts"] >= row["max_attempts"]:
+                connection.execute(
+                    """UPDATE outbox SET status = 'failed', lease_owner = NULL,
+                       lease_until = NULL, last_error = ? WHERE event_id = ?""",
+                    (error_code, event_id),
+                )
+                return False
+            connection.execute(
                 """UPDATE outbox SET status = 'pending', available_at = ?,
                    lease_owner = NULL, lease_until = NULL, last_error = ?
-                   WHERE event_id = ? AND status = 'leased'
-                   AND lease_owner = ? AND lease_token = ? AND lease_until > ?""",
-                (now + delay_seconds, error_code, event_id, worker_id, lease_token, now),
+                   WHERE event_id = ?""",
+                (now + delay_seconds, error_code, event_id),
             )
-            if cursor.rowcount != 1:
-                raise StaleOutboxLease("outbox_lease_missing_expired_or_fenced")
             return True
 
     def consume(
