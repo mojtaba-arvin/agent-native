@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["protocol_version", "request_id", "tool", "arguments"],
+  "properties": {
+    "protocol_version": {"const": "0.1"},
+    "request_id": {"type": "string", "minLength": 1},
+    "tool": {
+      "enum": [
+        "interface.describe",
+        "service.inspect",
+        "service.propose",
+        "service.validate",
+        "service.plan",
+        "service.apply"
+      ]
+    },
+    "arguments": {"type": "object"}
+  }
+}
