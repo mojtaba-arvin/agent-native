@@ -51,7 +51,7 @@ WASI Component Model and BEAM arms remain open. No runtime selection is made fro
 
 ## Reproducible native benchmark runner
 
-`benchmark.py` starts one candidate binary, waits for readiness, performs warm-up requests, then sends a fixed number of concurrent `/work?ms=0` requests. It writes request-level JSONL and a summary JSON containing latency percentiles, throughput, status counts, process CPU time, and peak RSS (Linux `/proc` sampling).
+`benchmark.py` starts one candidate binary, waits for readiness, performs warm-up requests, then sends a fixed number of concurrent `/work?ms=0` requests. It writes request-level JSONL and a summary JSON containing latency percentiles, throughput, status counts, process CPU time, and peak RSS (Linux `/proc` sampling). A run is marked functionally unsuccessful and exits non-zero if any measured response is not exactly HTTP 200 with `completed:0`, if a transport error occurs, or if the candidate exits during load. The matrix runner therefore cannot silently compare broken candidates as fast results.
 
 Example from the repository root:
 

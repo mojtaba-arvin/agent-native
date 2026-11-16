@@ -26,6 +26,14 @@ def request(path: str) -> tuple[int, bytes]:
         return error.code, error.read()
 
 
+def valid_measurement_response(item: dict) -> bool:
+    return (
+        item.get("status") == 200
+        and item.get("body") == "completed:0"
+        and item.get("error") is None
+    )
+
+
 def proc_sample(pid: int) -> tuple[float, int] | None:
     """Aggregate CPU time and RSS for the process and its descendants."""
     pending = [pid]
@@ -154,6 +162,9 @@ def main() -> int:
         if start_cpu and end_cpu:
             cpu_seconds = max(0.0, end_cpu[0] - start_cpu[0])
         peak_rss = max((sample[1] for sample in samples), default=None)
+        failed_responses = sum(not valid_measurement_response(item) for item in raw)
+        process_alive_after_load = process.poll() is None
+        functional_success = failed_responses == 0 and process_alive_after_load
         summary = {
             "label": args.label,
             "command": args.command,
@@ -171,7 +182,9 @@ def main() -> int:
             "status_counts": status_counts,
             "cpu_seconds": cpu_seconds,
             "peak_rss_bytes": peak_rss,
-            "process_exit_before_cleanup": process.poll(),
+            "process_alive_after_load": process_alive_after_load,
+            "failed_response_count": failed_responses,
+            "functional_success": functional_success,
             "measurement_note": "single run; not a statistically sufficient performance conclusion",
         }
         with output.with_suffix(".jsonl").open("w", encoding="utf-8") as handle:
@@ -181,6 +194,8 @@ def main() -> int:
             json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8"
         )
         print(json.dumps(summary, indent=2, sort_keys=True))
+        if not functional_success:
+            return 2
     finally:
         stop_monitor.set()
         try:

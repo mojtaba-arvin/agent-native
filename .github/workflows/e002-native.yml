@@ -23,6 +23,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: python -m py_compile experiments/e002/conformance.py experiments/e002/benchmark.py experiments/e002/run_matrix.py
+      - run: python -m unittest discover -s experiments/e002 -p 'test_*.py' -v
       - uses: actions/setup-go@v5
         with:
           go-version: "1.23.12"
