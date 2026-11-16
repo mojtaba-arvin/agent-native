@@ -152,12 +152,14 @@ class Parser:
             for field in operation["input"]:
                 if field["type"] not in known_types:
                     self.fail("AN020", f"unknown input type {field['type']!r} in field {field['name']!r}")
-        return {
+        ir = {
             "ir_version": 1,
             "service": {"name": name, "version": version},
             "types": sorted(types, key=lambda item: item["name"]),
             "operations": sorted(operations, key=lambda item: item["name"]),
         }
+        validate_ir(ir)
+        return ir
 
     def type_decl(self) -> dict:
         self.take("type")
@@ -236,6 +238,99 @@ class Parser:
             "effects": sorted(effects),
             "capability": capability,
         }
+
+
+
+BUILTIN_TYPES = frozenset({"String", "UUID", "Integer", "Boolean", "Bytes", "Float"})
+
+
+def validate_ir(ir: object) -> None:
+    """Validate untrusted structured IR using the same invariants as the text parser."""
+    token = Token("invalid", "", 1, 1)
+
+    def fail(code: str, message: str) -> None:
+        raise Diagnostic(code, message, token)
+
+    if not isinstance(ir, dict) or ir.get("ir_version") != 1:
+        fail("AN021", "unsupported or malformed IR version")
+    service = ir.get("service")
+    if not isinstance(service, dict) or not isinstance(service.get("name"), str) or not isinstance(service.get("version"), str):
+        fail("AN022", "service identity and version are required")
+    if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", service["name"]):
+        fail("AN014", "invalid service identifier")
+    types = ir.get("types")
+    operations = ir.get("operations")
+    if not isinstance(types, list) or not isinstance(operations, list) or not operations:
+        fail("AN023", "types and non-empty operations arrays are required")
+
+    type_names: set[str] = set()
+    for item_type in types:
+        if not isinstance(item_type, dict) or not isinstance(item_type.get("name"), str):
+            fail("AN024", "malformed type declaration")
+        name = item_type["name"]
+        if name in BUILTIN_TYPES or name in type_names:
+            fail("AN016", f"duplicate or reserved type {name!r}")
+        type_names.add(name)
+
+    known_types = BUILTIN_TYPES | type_names
+    for item_type in types:
+        fields = item_type.get("fields")
+        if not isinstance(fields, list) or not fields:
+            fail("AN019", f"type {item_type['name']!r} must declare fields")
+        field_names: set[str] = set()
+        for field in fields:
+            if not isinstance(field, dict) or not isinstance(field.get("name"), str):
+                fail("AN025", f"malformed field in type {item_type['name']!r}")
+            if field["name"] in field_names:
+                fail("AN018", f"duplicate type field {field['name']!r}")
+            field_names.add(field["name"])
+            if field.get("type") not in known_types:
+                fail("AN020", f"unknown type {field.get('type')!r} in record field {field['name']!r}")
+
+    operation_names: set[str] = set()
+    route_keys: set[tuple[str, str]] = set()
+    for operation in operations:
+        if not isinstance(operation, dict):
+            fail("AN026", "malformed operation declaration")
+        name = operation.get("name")
+        if not isinstance(name, str) or not name or name in operation_names:
+            fail("AN005", f"invalid or duplicate operation {name!r}")
+        operation_names.add(name)
+        method = operation.get("method")
+        path = operation.get("path")
+        if method not in {"GET", "POST"}:
+            fail("AN003", f"unsupported method {method!r}")
+        if not isinstance(path, str) or not path.startswith("/") or "?" in path or "#" in path:
+            fail("AN027", f"invalid route path {path!r}")
+        route_key = (method, path)
+        if route_key in route_keys:
+            fail("AN028", f"duplicate route {method} {path}")
+        route_keys.add(route_key)
+        if operation.get("output") not in known_types:
+            fail("AN020", f"unknown output type {operation.get('output')!r}")
+        capability = operation.get("capability")
+        if not isinstance(capability, str) or not capability:
+            fail("AN029", f"operation {name!r} requires a capability")
+        inputs = operation.get("input")
+        if not isinstance(inputs, list):
+            fail("AN030", f"operation {name!r} input must be an array")
+        input_names: set[str] = set()
+        for field in inputs:
+            if not isinstance(field, dict) or not isinstance(field.get("name"), str):
+                fail("AN031", f"malformed input field in {name!r}")
+            if field["name"] in input_names:
+                fail("AN008", f"duplicate input field {field['name']!r}")
+            input_names.add(field["name"])
+            if field.get("type") not in known_types:
+                fail("AN020", f"unknown input type {field.get('type')!r}")
+            if field.get("source") not in {"path", "body", "query"}:
+                fail("AN010", f"unsupported input source {field.get('source')!r}")
+        for key in ("errors", "validation", "effects"):
+            values = operation.get(key)
+            if not isinstance(values, list) or any(not isinstance(value, str) or not value for value in values):
+                fail("AN032", f"operation {name!r} requires a string array for {key}")
+            if len(values) != len(set(values)):
+                fail("AN004", f"duplicate value in {key} for operation {name!r}")
 
 
 def main(argv: list[str]) -> int:

@@ -4,6 +4,11 @@ import copy
 import hashlib
 import json
 from pathlib import Path
+import sys
+
+_REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(_REPOSITORY_ROOT / "experiments" / "e001" / "prototype"))
+from agent_native import Diagnostic, validate_ir  # noqa: E402
 
 
 PROTOCOL_VERSION = "0.1"
@@ -160,29 +165,19 @@ class AgentInterface:
 
     def _validate_ir(self, ir: dict) -> list[dict]:
         diagnostics = []
-        if not {"service", "types", "operations"}.issubset(ir):
-            return [self._diagnostic("IR_SHAPE", "IR must contain service, types, and operations.")]
-        if not isinstance(ir["operations"], list) or not ir["operations"]:
-            diagnostics.append(self._diagnostic("IR_OPERATIONS", "At least one operation is required."))
+        try:
+            validate_ir(ir)
+        except Diagnostic as error:
+            diagnostics.append(self._diagnostic(error.code, error.message))
             return diagnostics
-        names = set()
         for operation in ir["operations"]:
-            name = operation.get("name")
-            if not name or name in names:
-                diagnostics.append(self._diagnostic("DUPLICATE_OPERATION", "Operation names must be unique."))
-                continue
-            names.add(name)
-            if not operation.get("capability"):
-                diagnostics.append(self._diagnostic("CAPABILITY_REQUIRED", f"{name} has no capability."))
-            undeclared = set(operation.get("effects", [])) - self.trusted_effects
+            undeclared = set(operation["effects"]) - self.trusted_effects
             if undeclared:
                 diagnostics.append(self._diagnostic(
                     "UNTRUSTED_EFFECT",
-                    f"{name} requests effects outside the trusted allowlist: {', '.join(sorted(undeclared))}.",
+                    f"{operation['name']} requests effects outside the trusted allowlist: {', '.join(sorted(undeclared))}.",
                     "Remove the effect or submit a separately reviewed platform capability change.",
                 ))
-            if "errors" not in operation or "validation" not in operation:
-                diagnostics.append(self._diagnostic("CONTRACT_INCOMPLETE", f"{name} lacks errors or validation."))
         return diagnostics
 
     def _validate(self, arguments: dict, _context: dict):
