@@ -140,7 +140,7 @@ class FinalizeTests(unittest.TestCase):
         failed_trace = self.root / "provider-failure-trace.jsonl"
         failed_events = self.events[:2]
         failed_trace.write_text(
-            "".join(json.dumps(event, sort_keys=True) + "\\n" for event in failed_events),
+            "".join(json.dumps(event, sort_keys=True) + "\n" for event in failed_events),
             encoding="utf-8",
         )
         failed_result = dict(
