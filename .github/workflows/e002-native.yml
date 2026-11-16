@@ -99,7 +99,7 @@ jobs:
         run: cargo build --locked --release
         working-directory: experiments/e002/rust
       - name: Build WASI component
-        run: cargo build --release --target wasm32-wasip2
+        run: cargo build --locked --release --target wasm32-wasip2
         working-directory: experiments/e002/wasi-p2
       - name: Test BEAM candidate
         run: mix test
