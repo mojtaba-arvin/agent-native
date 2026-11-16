@@ -102,9 +102,10 @@
       ],
       "evidence": [
         "E-002 shared HTTP conformance passes for Go, Rust, WASI P2, and BEAM",
-        "Initial three-repetition CI smoke matrix"
+        "Initial three-repetition CI smoke matrix",
+        "Second three-repetition smoke matrix using pinned toolchains and committed Cargo.lock files"
       ],
-      "reason": "The CI smoke matrix is not decision-grade; representative workloads and controlled dedicated-machine measurements are outstanding."
+      "reason": "Both shared GitHub-hosted CI smoke matrices are explicitly not decision-grade; representative workloads and controlled dedicated-machine measurements remain outstanding."
     },
     {
       "id": "D-0009",
