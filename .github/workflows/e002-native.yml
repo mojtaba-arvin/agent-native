@@ -1,4 +1,4 @@
-name: E-002 native and WASI baseline checks
+name: E-002 native, WASI, and BEAM baseline checks
 
 on:
   pull_request:
@@ -57,8 +57,20 @@ jobs:
         run: |
           curl -fsSL https://github.com/bytecodealliance/wasmtime/releases/download/v50.0.1/wasmtime-v50.0.1-x86_64-linux.tar.xz -o /tmp/wasmtime.tar.xz
           tar -xJf /tmp/wasmtime.tar.xz -C /tmp
-          WASMTIME_BIN="$(find /tmp -type f -name wasmtime -perm -111 | head -n 1)"
+          WASMTIME_BIN="$(find /tmp -type f -name wasmtime -perm -111 2>/dev/null | head -n 1)"
           test -n "$WASMTIME_BIN"
           echo "$(dirname "$WASMTIME_BIN")" >> "$GITHUB_PATH"
       - name: Run shared HTTP conformance checks
         run: python experiments/e002/conformance.py --command "wasmtime serve --addr=127.0.0.1:8080 -S cli=y -S http=y target/wasm32-wasip2/release/agent_native_e002_wasi_p2.wasm" --cwd experiments/e002/wasi-p2
+
+  beam:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: "29.1.2"
+          elixir-version: "1.20.5"
+      - run: mix test
+        working-directory: experiments/e002/beam
+      - run: python experiments/e002/conformance.py --command "mix run -e AgentNativeE002Beam.Server.main()" --cwd experiments/e002/beam
