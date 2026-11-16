@@ -13,7 +13,7 @@ This is deliberately narrower than testing whether Agent Native is better than F
 
 ## Why this is the first pilot
 
-E-005 already contains a small inspect/propose/validate/plan interface and a progressive-discovery mechanism. E-007 already defines a safe-change-planning task and provider-neutral trace format. Connecting these existing pieces tests a real unresolved assumption before building a service runtime.
+E-005 already contains a small inspect/propose/validate/plan interface and a progressive-discovery mechanism. E-007 provides a provider-neutral trace format and aggregation logic. The pilot adds one narrowly scoped task that the current E-005 prototype can actually express. This tests a real unresolved assumption before building a service runtime.
 
 The experiment is about the agent interface only. The backend state, service model, validator, available operations, tool semantics, task prompt, model settings, and evaluator must be identical between arms.
 
