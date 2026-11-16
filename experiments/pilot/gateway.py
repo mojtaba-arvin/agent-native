@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import sys
 import time
@@ -192,6 +193,59 @@ class PilotGateway:
             "surface": self.surface,
         }
 
+    def _handle_model_usage(self, message: dict, request_id: str) -> dict:
+        """Accept usage only on the trusted adapter-to-gateway control channel.
+
+        The provider adapter sends this internal message after each model
+        response. It is not a model-facing tool and is never listed in the
+        session surface or dispatch enum.
+        """
+        allowed = {"type", "request_id", "input_tokens", "output_tokens", "cost_usd"}
+        if set(message) - allowed:
+            return {
+                "type": "telemetry_ack",
+                "request_id": request_id,
+                "accepted": False,
+                "diagnostic": "MODEL_USAGE_FIELDS",
+            }
+        input_tokens = message.get("input_tokens")
+        output_tokens = message.get("output_tokens")
+        if (
+            type(input_tokens) is not int or input_tokens < 0
+            or type(output_tokens) is not int or output_tokens < 0
+        ):
+            return {
+                "type": "telemetry_ack",
+                "request_id": request_id,
+                "accepted": False,
+                "diagnostic": "MODEL_USAGE_TOKENS",
+            }
+        fields = {
+            "input_tokens": input_tokens,
+            "output_tokens": output_tokens,
+        }
+        if "cost_usd" in message:
+            cost = message["cost_usd"]
+            if (
+                isinstance(cost, bool)
+                or not isinstance(cost, (int, float))
+                or not math.isfinite(cost)
+                or cost < 0
+            ):
+                return {
+                    "type": "telemetry_ack",
+                    "request_id": request_id,
+                    "accepted": False,
+                    "diagnostic": "MODEL_USAGE_COST",
+                }
+            fields["cost_usd"] = cost
+        self._emit_trace("model_usage", **fields)
+        return {
+            "type": "telemetry_ack",
+            "request_id": request_id,
+            "accepted": True,
+        }
+
     def handle_message(self, message: Any) -> dict:
         if not isinstance(message, dict):
             self._record_protocol_error(message, "REQUEST_SHAPE")
@@ -200,6 +254,8 @@ class PilotGateway:
         if not isinstance(request_id, str) or not request_id or len(request_id) > MAX_REQUEST_ID_LENGTH:
             self._record_protocol_error(message, "REQUEST_ID")
             return _error_response("invalid", "REQUEST_ID", "request_id must be a non-empty string of at most 128 characters.")
+        if message.get("type") == "model_usage":
+            return self._handle_model_usage(message, request_id)
         if set(message) != ENVELOPE_FIELDS:
             self._record_protocol_error(message, "REQUEST_FIELDS")
             return _error_response(request_id, "REQUEST_FIELDS", "Message must contain exactly type, request_id, tool, and arguments.")
