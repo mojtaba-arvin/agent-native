@@ -66,7 +66,7 @@ Repeat with the Rust binary and randomized candidate order. Keep machine and run
 
 ## WASI Component Model arm
 
-A WASI Preview 2 HTTP component is now included at `wasi-p2/`, using `wstd` 0.6.8 and the standard `wasi:http/proxy` world. It implements the same health, bounded-duration work response, deadline status, and streaming body contract. The component build succeeds. Its first Wasmtime 50.0.1 host run exposed a missing `wasi:cli/environment` import in the test host configuration; the workflow now explicitly enables the CLI and HTTP WASI interfaces and reruns the shared conformance suite.
+A WASI Preview 2 HTTP component is now included at `wasi-p2/`, using `wstd` 0.6.8 and the standard `wasi:http/proxy` world. It implements the same health, bounded-duration work response, deadline status, and streaming body contract. The component build and shared black-box conformance suite pass on Wasmtime 50.0.1. The first host run exposed a missing `wasi:cli/environment` import; explicitly enabling the CLI and HTTP WASI interfaces resolved it.
 
 Important comparison boundary: `wasmtime serve` is a development/test host, not a production server. It owns the socket and HTTP admission path; the guest component does not own the listener. Guest-global concurrency state cannot be assumed to persist across requests, so concurrency limits and isolation overhead must be measured at the host boundary. The WASI arm is not semantically equivalent for every E-002 dimension yet.
 

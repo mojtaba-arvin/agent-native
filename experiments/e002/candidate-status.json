@@ -18,7 +18,7 @@
     },
     {
       "id": "wasi-p2-wstd-wasmtime-50.0.1",
-      "status": "component-build-passed-host-conformance-pending",
+      "status": "black-box-conformance-passed",
       "implementation": "WASI Preview 2 HTTP component using wstd 0.6.8, served by Wasmtime 50.0.1",
       "framework_dependency": null,
       "notes": "Guest does not own the listening socket; Wasmtime CLI host is for development/testing only. Host-side admission and resource policy must be measured separately."
