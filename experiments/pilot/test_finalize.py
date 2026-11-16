@@ -6,6 +6,7 @@ import time
 import unittest
 from pathlib import Path
 
+from candidate import MAX_CANDIDATE_BYTES
 from finalize import FinalizationError, finalize_run
 from gateway import PilotGateway
 
@@ -233,6 +234,18 @@ class FinalizeTests(unittest.TestCase):
                 trace_path=self.trace_path,
                 evaluation_result_path=self.result_path,
                 candidate_path=self.candidate_path,
+                output_trace_path=self.output_trace_path,
+            )
+
+
+    def test_finalizer_rejects_oversized_candidate_before_hashing(self):
+        oversized = self.root / "oversized-candidate.json"
+        oversized.write_bytes(b"x" * (MAX_CANDIDATE_BYTES + 1))
+        with self.assertRaisesRegex(FinalizationError, "candidate_file_too_large"):
+            finalize_run(
+                trace_path=self.trace_path,
+                evaluation_result_path=self.result_path,
+                candidate_path=oversized,
                 output_trace_path=self.output_trace_path,
             )
 
