@@ -2,6 +2,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+
 from metrics import load_jsonl, summarize
 
 
@@ -12,7 +13,8 @@ class MetricsTests(unittest.TestCase):
             {"event_id":"2","task_id":"a","attempt":1,"timestamp_ns":200,"event_type":"model_usage","input_tokens":100,"output_tokens":40,"cost_usd":0.02},
             {"event_id":"3","task_id":"a","attempt":1,"timestamp_ns":300,"event_type":"tool_call","tool_name":"service.inspect"},
             {"event_id":"4","task_id":"a","attempt":1,"timestamp_ns":400,"event_type":"repair","retry":True},
-            {"event_id":"5","task_id":"a","attempt":1,"timestamp_ns":500,"event_type":"task_finished","accepted":True},
+            {"event_id":"5","task_id":"a","attempt":1,"timestamp_ns":500,"event_type":"runtime_metric","metric_name":"p95_latency","metric_value":12.5,"metric_unit":"ms"},
+            {"event_id":"6","task_id":"a","attempt":1,"timestamp_ns":600,"event_type":"task_finished","accepted":True},
         ]
         result = summarize(events)
         self.assertEqual(result["accepted_tasks"], 1)
@@ -21,6 +23,18 @@ class MetricsTests(unittest.TestCase):
         self.assertEqual(result["totals"]["tool_calls"], 1)
         self.assertEqual(result["totals"]["repair_events"], 1)
         self.assertEqual(result["cost_per_accepted_task_usd"], 0.02)
+        self.assertEqual(result["runtime_metrics"]["p95_latency"]["median"], 12.5)
+
+    def test_missing_usage_is_unknown_not_zero(self):
+        events = [
+            {"event_id":"1","task_id":"a","attempt":1,"timestamp_ns":1,"event_type":"task_started"},
+            {"event_id":"2","task_id":"a","attempt":1,"timestamp_ns":2,"event_type":"task_finished","accepted":True},
+        ]
+        result = summarize(events)
+        self.assertFalse(result["token_usage_complete"])
+        self.assertFalse(result["cost_complete"])
+        self.assertIsNone(result["totals"]["input_tokens"])
+        self.assertIsNone(result["cost_per_accepted_task_usd"])
 
     def test_no_accepted_tasks_returns_null_cost(self):
         self.assertIsNone(summarize([])["cost_per_accepted_task_usd"])
