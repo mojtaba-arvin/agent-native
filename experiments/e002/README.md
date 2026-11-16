@@ -95,3 +95,6 @@ The matrix runner shuffles candidate order with a recorded seed, retains every r
 The Elixir/OTP implementation uses raw `:gen_tcp`, one BEAM process per accepted connection, and an atomic in-flight counter for the 64-connection cap. It intentionally avoids Phoenix, Plug, Bandit, or another HTTP framework. It is a runtime probe rather than a production HTTP server: it handles one request per connection and does not yet implement graceful draining or cancellation propagation when the client disconnects.
 
 The matrix runner samples the benchmark process **and its descendants** so the BEAM VM spawned by `mix` is included in CPU/RSS measurements. The benchmark is still descriptive: process-tree RSS is summed and sampled, not a complete memory-isolation or per-tenant accounting model.
+
+
+An initial 3-repetition, 1,000-request-per-candidate matrix is available as a CI smoke-data artifact when the benchmark workflow is explicitly triggered. GitHub-hosted runner results are noisy and are not suitable for selecting a runtime; use them only to validate the measurement pipeline. Decision-grade measurements require a controlled, dedicated machine and a larger repeated-run protocol.

@@ -1,6 +1,7 @@
 name: E-002 native, WASI, and BEAM baseline checks
 
 on:
+  workflow_dispatch:
   pull_request:
     paths:
       - "experiments/e002/**"
@@ -75,3 +76,52 @@ jobs:
         working-directory: experiments/e002/beam
       - run: python -m py_compile experiments/e002/conformance.py experiments/e002/benchmark.py experiments/e002/run_matrix.py
       - run: python experiments/e002/conformance.py --command "mix run -e AgentNativeE002Beam.Server.main()" --cwd experiments/e002/beam
+
+  benchmark-matrix:
+    if: github.event_name == 'push' && contains(github.event.head_commit.message, '[benchmark]')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23.x"
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-wasip2
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: "29.1.2"
+          elixir-version: "1.20.5"
+      - name: Build Go candidate
+        run: go build -o /tmp/e002-go .
+        working-directory: experiments/e002/go
+      - name: Build Rust candidate
+        run: cargo build --release
+        working-directory: experiments/e002/rust
+      - name: Build WASI component
+        run: cargo build --release --target wasm32-wasip2
+        working-directory: experiments/e002/wasi-p2
+      - name: Test BEAM candidate
+        run: mix test
+        working-directory: experiments/e002/beam
+      - name: Install pinned Wasmtime
+        run: |
+          curl -fsSL https://github.com/bytecodealliance/wasmtime/releases/download/v50.0.1/wasmtime-v50.0.1-x86_64-linux.tar.xz -o /tmp/wasmtime.tar.xz
+          tar -xJf /tmp/wasmtime.tar.xz -C /tmp
+          WASMTIME_BIN="$(find /tmp -type f -name wasmtime -perm -111 2>/dev/null | head -n 1)"
+          test -n "$WASMTIME_BIN"
+          echo "$(dirname "$WASMTIME_BIN")" >> "$GITHUB_PATH"
+      - name: Run randomized initial matrix (smoke data only)
+        run: |
+          python experiments/e002/run_matrix.py \
+            --go-command /tmp/e002-go \
+            --rust-command ./target/release/agent-native-e002-rust \
+            --wasi-command "wasmtime serve --addr=127.0.0.1:8080 -S cli=y -S http=y target/wasm32-wasip2/release/agent_native_e002_wasi_p2.wasm" \
+            --beam-command "mix run -e AgentNativeE002Beam.Server.main()" \
+            --requests 1000 --concurrency 32 --warmup 100 --repetitions 3 \
+            --output /tmp/e002-results
+      - uses: actions/upload-artifact@v4
+        with:
+          name: e002-initial-runtime-matrix
+          path: /tmp/e002-results/
+          if-no-files-found: error
