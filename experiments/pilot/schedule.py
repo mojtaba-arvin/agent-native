@@ -23,6 +23,7 @@ ARMS = ("progressive", "upfront")
 SOURCE_FILES = (
     "experiments/pilot/README.md",
     "experiments/pilot/AGENT_ADAPTER.md",
+    "experiments/pilot/PROMPT.md",
     "experiments/pilot/TASK.md",
     "experiments/e001/examples/catalog.an",
     "experiments/e001/prototype/agent_native.py",
