@@ -76,7 +76,14 @@ This adapter makes the tool contract executable and testable; it does **not** ru
 - identical input/output token, tool-call, and wall-clock budgets;
 - a deterministic plan ID and run ID for every arm/pair.
 
-The full schedule contains treatment labels and is strictly runner-side metadata. Do not place the schedule file in the agent workspace or pass `candidate_id`, pair order, seed, or treatment label to the model. The model receives only the task prompt and the selected session surface. The model generation settings must be identical across both arms; do not put credentials in the settings file.
+Before executing any trial, verify the schedule from the same clean checkout:
+
+```sh
+python experiments/pilot/verify_schedule.py \\
+  --schedule /secure/path/pilot-screening-schedule.json
+```
+
+The verifier checks the schedule hash, exact Git HEAD, clean working tree, and every pinned source-file hash. The full schedule contains treatment labels and is strictly runner-side metadata. Do not place the schedule file in the agent workspace or pass `candidate_id`, pair order, seed, or treatment label to the model. The model receives only the task prompt and the selected session surface. The model generation settings must be identical across both arms; do not put credentials in the settings file.
 
 Example (screening only):
 
