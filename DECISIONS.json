@@ -116,6 +116,19 @@
         "Deadlines, cancellation, retries, worker crash, idempotency, and shutdown tests"
       ],
       "reason": "Durability, distributed atomicity, fairness, leases, clock skew, and multi-process fault injection remain unresolved."
+    },
+    {
+      "id": "D-0010",
+      "topic": "security_and_capability_enforcement",
+      "status": "open",
+      "value": "The E-004 reference model is a provisional policy contract; no production authorization, sandbox, or secret-management architecture is selected.",
+      "evidence": [
+        "Default-deny principal/tenant/capability model",
+        "Effect allowlist and resource-scope checks",
+        "Expiry and strict delegation attenuation tests",
+        "Threat model and machine-readable requirements"
+      ],
+      "reason": "Cryptographic grants, revocation, workload identity, storage isolation, sandbox enforcement, network egress, secrets, resource quotas, and human approval integration remain unimplemented."
     }
   ]
 }
