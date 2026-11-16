@@ -40,6 +40,7 @@ class Engine:
         self.workers: dict[str, str] = {}
         self.keys: dict[str, str] = {}
         self.completed_keys: set[str] = set()
+        self.accepting = True
 
     def submit(
         self, task_id: str, idempotency_key: str, *, ttl: int, max_attempts: int = 1
@@ -48,6 +49,8 @@ class Engine:
             raise ValueError("ttl and max_attempts must be positive")
         if idempotency_key in self.keys:
             return Submission("deduplicated", self.keys[idempotency_key])
+        if not self.accepting:
+            return Submission("shutting_down", None)
         if task_id in self.tasks:
             raise ValueError(f"task id already exists: {task_id}")
         active = sum(t.status in {"queued", "running"} for t in self.tasks.values())
@@ -130,3 +133,16 @@ class Engine:
         for worker_id, task_id in list(self.workers.items()):
             if self.tasks[task_id].status == "expired":
                 del self.workers[worker_id]
+
+    def shutdown(self, *, graceful: bool = True) -> bool:
+        """Stop admission; optionally cancel all outstanding work immediately."""
+        self.accepting = False
+        if not graceful:
+            for task in self.tasks.values():
+                if task.status in {"queued", "running"}:
+                    task.status = "cancelled"
+            self.workers.clear()
+        return self.is_drained()
+
+    def is_drained(self) -> bool:
+        return not any(task.status in {"queued", "running"} for task in self.tasks.values())

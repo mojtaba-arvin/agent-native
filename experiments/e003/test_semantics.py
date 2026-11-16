@@ -79,6 +79,27 @@ class EngineSemanticsTests(unittest.TestCase):
         self.assertEqual(engine.finish("w", "ok"), "completed")
         self.assertIsNone(engine.start("w"))
 
+    def test_graceful_shutdown_rejects_new_work_and_drains_accepted_work(self):
+        engine = self.engine()
+        engine.submit("a", "key-a", ttl=5)
+        self.assertFalse(engine.shutdown(graceful=True))
+        rejected = engine.submit("b", "key-b", ttl=5)
+        self.assertEqual(rejected.status, "shutting_down")
+        self.assertEqual(engine.start("w"), "a")
+        self.assertEqual(engine.finish("w", "ok"), "completed")
+        self.assertTrue(engine.is_drained())
+
+    def test_immediate_shutdown_cancels_queued_and_running_work(self):
+        engine = self.engine(outstanding=3, concurrency=1)
+        engine.submit("a", "key-a", ttl=5)
+        engine.submit("b", "key-b", ttl=5)
+        engine.start("w")
+        self.assertTrue(engine.shutdown(graceful=False))
+        self.assertEqual(engine.tasks["a"].status, "cancelled")
+        self.assertEqual(engine.tasks["b"].status, "cancelled")
+        self.assertEqual(engine.workers, {})
+        self.assertIsNone(engine.start("w"))
+
 
 if __name__ == "__main__":
     unittest.main()
