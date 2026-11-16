@@ -80,5 +80,14 @@ class MetricsTests(unittest.TestCase):
             summarize(events)
 
 
+
+    def test_retry_and_failure_metadata_must_be_typed(self):
+        event = {"event_id":"1","task_id":"a","attempt":1,"timestamp_ns":1,"event_type":"repair","retry":"false"}
+        with self.assertRaisesRegex(ValueError, "invalid_retry"):
+            summarize([event])
+        event = {"event_id":"2","task_id":"a","attempt":1,"timestamp_ns":2,"event_type":"task_finished","accepted":False,"failure_class":7}
+        with self.assertRaisesRegex(ValueError, "invalid_failure_class"):
+            summarize([event])
+
 if __name__ == "__main__":
     unittest.main()

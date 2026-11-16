@@ -44,6 +44,12 @@ def summarize(events):
             raise ValueError("tool_call_missing_tool_name")
         if event["event_type"] == "task_finished" and not isinstance(event.get("accepted"), bool):
             raise ValueError("task_finished_missing_accepted")
+        if "accepted" in event and not isinstance(event["accepted"], bool):
+            raise ValueError("invalid_accepted")
+        if "failure_class" in event and not isinstance(event["failure_class"], str):
+            raise ValueError("invalid_failure_class")
+        if "retry" in event and not isinstance(event["retry"], bool):
+            raise ValueError("invalid_retry")
         if "failure_class" in event and not isinstance(event["failure_class"], str):
             raise ValueError("invalid_failure_class")
         if "retry" in event and not isinstance(event["retry"], bool):

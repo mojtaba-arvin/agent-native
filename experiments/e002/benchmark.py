@@ -30,7 +30,8 @@ def valid_measurement_response(item: dict) -> bool:
     return (
         item.get("status") == 200
         and item.get("body") == "completed:0"
-        and item.get("error") is None
+        and "error" in item
+        and item["error"] is None
     )
 
 
