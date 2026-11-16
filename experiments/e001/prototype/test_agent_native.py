@@ -83,13 +83,13 @@ class ParserTests(unittest.TestCase):
         self.assertEqual(caught.exception.code, "AN004")
 
     def test_duplicate_record_field_is_rejected(self):
-        invalid = EXAMPLE.replace("name: String;", "name: String;\\n    name: String;")
+        invalid = EXAMPLE.replace("name: String;", "name: String;" + chr(10) + "    name: String;", 1)
         with self.assertRaises(Diagnostic) as caught:
             Parser(invalid).parse()
         self.assertEqual(caught.exception.code, "AN018")
 
     def test_empty_record_is_rejected(self):
-        invalid = EXAMPLE.replace("    id: UUID;\\n    name: String;\\n", "")
+        invalid = EXAMPLE.replace("    id: UUID;" + chr(10) + "    name: String;" + chr(10), "")
         with self.assertRaises(Diagnostic) as caught:
             Parser(invalid).parse()
         self.assertEqual(caught.exception.code, "AN019")
