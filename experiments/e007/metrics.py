@@ -100,7 +100,7 @@ def main():
     parser.add_argument("--output", help="Optional output JSON path; defaults to stdout.")
     args = parser.parse_args()
     result = summarize(load_jsonl(args.input))
-    encoded = json.dumps(result, indent=2, sort_keys=True) + "\\n"
+    encoded = json.dumps(result, indent=2, sort_keys=True) + "\n"
     if args.output:
         Path(args.output).write_text(encoded, encoding="utf-8")
     else:

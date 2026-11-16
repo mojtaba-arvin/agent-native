@@ -34,7 +34,7 @@ class MetricsTests(unittest.TestCase):
         event = {"event_id":"1","task_id":"a","attempt":1,"timestamp_ns":1,"event_type":"task_started"}
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "trace.jsonl"
-            path.write_text(json.dumps(event) + "\\n", encoding="utf-8")
+            path.write_text(json.dumps(event) + "\n", encoding="utf-8")
             self.assertEqual(load_jsonl(path), [event])
 
     def test_negative_token_counts_are_rejected(self):
