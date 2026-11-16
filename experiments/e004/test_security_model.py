@@ -138,6 +138,24 @@ class PolicyEngineTests(unittest.TestCase):
                 expires_at=600,
             )
 
+    def test_delegation_must_reduce_at_least_one_authority_dimension(self):
+        with self.assertRaisesRegex(ValueError, "no_authority_attenuation"):
+            attenuate(
+                self.grant,
+                delegate_principal_id="worker-1",
+                resource_prefix="/items",
+                expires_at=500,
+            )
+
+    def test_invalid_grant_scope_is_rejected_at_construction(self):
+        with self.assertRaisesRegex(ValueError, "invalid_grant_resource_prefix"):
+            Grant(
+                principal_id="user-1",
+                tenant_id="tenant-a",
+                capability="items.read",
+                resource_prefix="/items/../secrets",
+            )
+
     def test_delegation_depth_is_enforced(self):
         exhausted = Grant(
             principal_id="user-1",

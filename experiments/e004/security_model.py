@@ -13,6 +13,16 @@ class Grant:
     expires_at: int | None = None
     delegation_depth: int = 0
 
+    def __post_init__(self) -> None:
+        if not self.principal_id or not self.tenant_id or not self.capability:
+            raise ValueError("grant_identity_tenant_and_capability_required")
+        if self.resource_prefix is not None and not _valid_resource(self.resource_prefix):
+            raise ValueError("invalid_grant_resource_prefix")
+        if self.expires_at is not None and self.expires_at < 0:
+            raise ValueError("invalid_grant_expiry")
+        if self.delegation_depth < 0:
+            raise ValueError("invalid_delegation_depth")
+
 
 @dataclass(frozen=True)
 class OperationContract:
@@ -76,6 +86,10 @@ def attenuate(
         expires_at is None or expires_at > grant.expires_at
     ):
         raise ValueError("expiry_extension")
+    scope_narrowed = resource_prefix != grant.resource_prefix
+    expiry_narrowed = expires_at != grant.expires_at
+    if not (scope_narrowed or expiry_narrowed):
+        raise ValueError("no_authority_attenuation")
     return Grant(
         principal_id=delegate_principal_id,
         tenant_id=grant.tenant_id,
