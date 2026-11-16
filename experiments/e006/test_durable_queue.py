@@ -219,5 +219,60 @@ class DurableQueueTests(unittest.TestCase):
                 now=11, lease_seconds=5,
             )
 
+
+    def test_cancel_fences_worker_before_any_later_local_effect(self):
+        self.submit()
+        claimed = self.claim()
+        self.assertTrue(self.queue.cancel("task-1"))
+        with self.assertRaises(StaleLease):
+            self.queue.complete_with_increment(
+                task_id="task-1", worker_id="worker-a",
+                lease_token=claimed["lease_token"], now=11,
+                effect_key="effect-1", state_key="balance", amount=9,
+            )
+        self.assertEqual(self.queue.get_task("task-1")["status"], "cancelled")
+        self.assertEqual(self.queue.get_state("balance"), 0)
+        self.assertIsNone(self.queue.get_effect("effect-1"))
+
+    def test_cancel_and_atomic_completion_have_one_serialized_winner(self):
+        self.submit()
+        claimed = self.claim()
+        barrier = threading.Barrier(3)
+        outcomes = {}
+
+        def cancel():
+            barrier.wait()
+            outcomes["cancelled"] = self.queue.cancel("task-1")
+
+        def complete():
+            barrier.wait()
+            try:
+                self.queue.complete_with_increment(
+                    task_id="task-1", worker_id="worker-a",
+                    lease_token=claimed["lease_token"], now=11,
+                    effect_key="effect-1", state_key="balance", amount=9,
+                )
+                outcomes["completion"] = "completed"
+            except StaleLease:
+                outcomes["completion"] = "fenced"
+
+        threads = [threading.Thread(target=cancel), threading.Thread(target=complete)]
+        for thread in threads:
+            thread.start()
+        barrier.wait()
+        for thread in threads:
+            thread.join()
+
+        task = self.queue.get_task("task-1")
+        if task["status"] == "completed":
+            self.assertEqual(outcomes, {"cancelled": False, "completion": "completed"})
+            self.assertEqual(self.queue.get_state("balance"), 9)
+            self.assertIsNotNone(self.queue.get_effect("effect-1"))
+        else:
+            self.assertEqual(task["status"], "cancelled")
+            self.assertEqual(outcomes, {"cancelled": True, "completion": "fenced"})
+            self.assertEqual(self.queue.get_state("balance"), 0)
+            self.assertIsNone(self.queue.get_effect("effect-1"))
+
 if __name__ == "__main__":
     unittest.main()

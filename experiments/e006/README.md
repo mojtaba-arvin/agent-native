@@ -29,3 +29,10 @@ The atomic effect demonstration covers only state stored in the same SQLite data
 The reference queue now rejects blank/non-string identities, boolean or non-integer timestamps/limits/lease tokens/amounts, non-object task payloads, and non-finite JSON numbers before entering a transaction. Canonical JSON hashing explicitly disables NaN/Infinity. These checks prevent Python's boolean-as-integer behavior and non-standard JSON values from silently changing durable task or effect semantics.
 
 This remains a single-node SQLite semantic model. It does not provide distributed coordination, authenticated worker identity, external-effect delivery, production retention, or a production queue substrate.
+
+
+## Cancellation/completion linearization
+
+The queue's `cancel` operation is a durable state fence: it atomically changes a queued/running task to `cancelled` and clears its lease. A later local completion attempt with the old lease is rejected before effect mutation. A concurrent cancel and completion are serialized by SQLite's write transaction; exactly one transition wins, and the test asserts that a cancelled task has no local effect while a completed task has both effect and completion committed.
+
+This is not an OS-level worker termination mechanism. A production runtime must separately request cooperative cancellation or kill the worker, retain resource accounting until it stops, and define external side-effect behavior. The E-003 model covers the stop-acknowledgement side of that contract.
