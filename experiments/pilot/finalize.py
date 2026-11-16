@@ -58,8 +58,13 @@ def _reject_non_finite(value: str) -> None:
 
 
 def load_evaluation_result(path: str | Path) -> dict:
+    result_path = Path(path)
     try:
-        raw = Path(path).read_bytes()
+        if result_path.stat().st_size > 1024 * 1024:
+            raise FinalizationError("evaluation_result_too_large")
+        raw = result_path.read_bytes()
+    except FinalizationError:
+        raise
     except OSError as error:
         raise FinalizationError("evaluation_result_unavailable") from error
     if len(raw) > 1024 * 1024:
