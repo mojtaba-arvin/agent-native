@@ -17,7 +17,7 @@ Traditional backend frameworks largely assume a human developer who can:
 
 Agents can perform many of these activities, but the interface and workflow impose costs. Context is finite; tool calls are not free; generated changes can be plausible but incorrect; and an agent may not reliably infer hidden conventions or operational consequences.
 
-The opportunity is not simply to replace human-readable documentation with prompts. It is to make the system's contracts and feedback loops explicit, structured, discoverable, and enforceable.
+Existing frameworks already provide substantial automation, generators, schemas, migration tooling, and operational checks; some are also adding direct AI and MCP integrations. It would be inaccurate to describe them as exclusively human-oriented or to assume they have failed. The opportunity is to test whether the complete agent-driven delivery loop—discovery, bounded change, verification, recovery, governance, and deployment—can be made more coherent, reliable, and economical. The project may ultimately build a new framework, a control plane over existing frameworks, a language-neutral specification, or a combination. The evidence must decide.
 
 ## Primary users and stakeholders
 
