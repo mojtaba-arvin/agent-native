@@ -24,7 +24,7 @@ ALLOWED_FIELDS = {
     *IDENTITY_FIELDS,
     "tool_name", "schema_lookup", "change_set_id", "validation_valid", "plan_valid",
     "plan_will_mutate", "plan_will_deploy", "input_tokens", "output_tokens", "cost_usd",
-    "accepted", "failure_class", "metric_name", "metric_value",
+    "accepted", "eligible_for_acceptance", "failure_class", "metric_name", "metric_value",
     "metric_unit", "retry",
 }
 
@@ -86,6 +86,13 @@ def summarize(events):
             raise ValueError("tool_call_missing_tool_name")
         if event["event_type"] == "task_finished" and not isinstance(event.get("accepted"), bool):
             raise ValueError("task_finished_missing_accepted")
+        if "eligible_for_acceptance" in event and (
+            event["event_type"] != "task_finished"
+            or not isinstance(event["eligible_for_acceptance"], bool)
+        ):
+            raise ValueError("invalid_eligible_for_acceptance")
+        if event["event_type"] == "task_finished" and event.get("accepted") is True and event.get("eligible_for_acceptance", True) is not True:
+            raise ValueError("accepted_task_must_be_eligible")
         if "accepted" in event and not isinstance(event["accepted"], bool):
             raise ValueError("invalid_accepted")
         if "failure_class" in event and (not isinstance(event["failure_class"], str) or not event["failure_class"]):
@@ -164,6 +171,7 @@ def summarize(events):
         input_tokens = sum(row["input_tokens"] for row in model_events) if token_usage_complete else None
         output_tokens = sum(row["output_tokens"] for row in model_events) if token_usage_complete else None
         inference_cost = sum(row["cost_usd"] for row in model_events) if cost_complete else None
+        eligible_for_acceptance = bool(finish.get("eligible_for_acceptance", True)) if finish else True
         accepted = bool(finish and finish.get("accepted", False))
 
         for row in rows:
@@ -201,20 +209,24 @@ def summarize(events):
                 if starts and finish else None
             ),
             "accepted": accepted,
+            "eligible_for_acceptance": eligible_for_acceptance,
             "failure_class": None if accepted or not finish else finish.get("failure_class", "unspecified"),
             "cost_per_accepted_task_usd": (
                 round(inference_cost, 8) if accepted and cost_complete else None
             ),
         })
 
-    accepted_count = sum(row["accepted"] for row in tasks)
+    accepted_count = sum(row["accepted"] and row["eligible_for_acceptance"] for row in tasks)
+    eligible_count = sum(row["eligible_for_acceptance"] for row in tasks)
     tokens_complete = bool(tasks) and all(row["token_usage_complete"] for row in tasks)
     costs_complete = bool(tasks) and all(row["cost_complete"] for row in tasks)
     total_cost = sum(row["inference_cost_usd"] for row in tasks) if costs_complete else None
     return {
         "task_count": len(tasks),
         "accepted_tasks": accepted_count,
-        "acceptance_rate": accepted_count / len(tasks) if tasks else 0.0,
+        "eligible_task_count": eligible_count,
+        "excluded_task_count": len(tasks) - eligible_count,
+        "acceptance_rate": accepted_count / eligible_count if eligible_count else None,
         "token_usage_complete": tokens_complete,
         "cost_complete": costs_complete,
         "total_inference_cost_usd": round(total_cost, 8) if total_cost is not None else None,
