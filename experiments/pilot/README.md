@@ -61,6 +61,8 @@ python experiments/pilot/gateway.py \
   --trace-output results/trial-001.jsonl
 ```
 
+The experimental arm identity is not included in the model-visible session manifest; it is retained only in out-of-band trace metadata. This avoids telling the agent which treatment it received. The surface and trace metadata are separate objects.
+
 This adapter makes the tool contract executable and testable; it does **not** run an AI agent, enforce an OS sandbox, provide a provider connection, or isolate a hidden evaluator. A model/provider-specific client adapter and the separate trusted evaluator remain prerequisites for actual trials. The common dispatch envelope is an experimental measurement adapter, not a decision about Agent Native's eventual public protocol.
 
 ## Protocol
@@ -131,7 +133,9 @@ No trial result may be claimed until actual agent executions have been performed
 - Protocol: specified here.
 - Task source: pilot-specific `TASK.md`, constrained to the E-005 capability.
 - Candidate interface: E-005.
-- Hidden evaluator: not yet provisioned.
-- Isolated agent/evaluator runner: not yet provisioned.
+- Equivalent arm manifests, common NDJSON gateway, and E-007 tool-error/schema-lookup telemetry: implemented.
+- GitHub Actions protocol checks: pending on the current branch head.
+- Hidden evaluator: not provisioned.
+- Isolated agent execution boundary and provider adapter: not provisioned.
 - Agent trials: **not run**.
 - Architecture or technology selection: **none**.
