@@ -71,5 +71,25 @@ class ReferenceRuntimeTests(unittest.TestCase):
         self.assertEqual(caught.exception.code, "UNTRUSTED_EFFECT")
 
 
+
+    def test_header_inputs_are_case_insensitive_and_required(self):
+        source = SOURCE.replace(
+            "id: UUID from path;",
+            "id: UUID from path;" + chr(10) + "      trace_id: String from header;"
+        ).replace(
+            "errors: [NotFound, Unauthorized];",
+            "errors: [InvalidInput, NotFound, Unauthorized];"
+        )
+        runtime = ReferenceRuntime.from_source(source, trusted_effects=TRUSTED_EFFECTS)
+        created = runtime.dispatch("POST", "/items", {"name": "Desk lamp"}, self.context)
+        fetched = runtime.dispatch(
+            "GET", f"/items/{created['id']}", {}, self.context,
+            headers={"TRACE_ID": "trace-123"}
+        )
+        self.assertEqual(fetched, created)
+        with self.assertRaises(RuntimeFault) as caught:
+            runtime.dispatch("GET", f"/items/{created['id']}", {}, self.context)
+        self.assertEqual(caught.exception.code, "InvalidInput")
+
 if __name__ == "__main__":
     unittest.main()

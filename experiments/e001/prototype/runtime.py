@@ -92,8 +92,10 @@ class ReferenceRuntime:
         target: str,
         body: dict[str, object],
         context: RequestContext,
+        headers: dict[str, str] | None = None,
     ) -> dict[str, str]:
         parsed = urlsplit(target)
+        header_values = {key.lower(): value for key, value in (headers or {}).items()}
         path = parsed.path
         operation, path_values = self._resolve(method, path)
 
@@ -126,6 +128,8 @@ class ReferenceRuntime:
             elif source == "query":
                 candidates = query_values.get(field["name"], [])
                 value = candidates[0] if candidates else None
+            elif source == "header":
+                value = header_values.get(field["name"].lower())
             else:
                 raise RuntimeFault("UNSUPPORTED_INPUT_SOURCE")
             if not self._valid_value(field["type"], value):

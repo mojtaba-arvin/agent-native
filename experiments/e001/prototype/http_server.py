@@ -53,7 +53,7 @@ def create_server(
                     self._send(400, {"error": {"code": "INVALID_JSON"}})
                     return
             try:
-                result = runtime.dispatch(method, self.path, body, context)
+                result = runtime.dispatch(method, self.path, body, context, headers=dict(self.headers.items()))
                 self._send(200 if method == "POST" else 200, {"data": result})
             except RuntimeFault as error:
                 status = {
