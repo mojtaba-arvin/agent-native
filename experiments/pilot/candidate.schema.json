@@ -48,7 +48,8 @@
           "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
         },
         "type": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         }
       }
     },
@@ -66,7 +67,8 @@
           "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
         },
         "type": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "source": {
           "enum": [
@@ -117,24 +119,28 @@
           }
         },
         "output": {
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "errors": {
           "type": "array",
           "items": {
-            "type": "string"
+            "type": "string",
+            "minLength": 1
           }
         },
         "validation": {
           "type": "array",
           "items": {
-            "type": "string"
+            "type": "string",
+            "minLength": 1
           }
         },
         "effects": {
           "type": "array",
           "items": {
-            "type": "string"
+            "type": "string",
+            "minLength": 1
           }
         },
         "capability": {
@@ -183,7 +189,8 @@
             ],
             "properties": {
               "name": {
-                "type": "string"
+                "type": "string",
+                "minLength": 1
               },
               "fields": {
                 "type": "array",
