@@ -14,7 +14,7 @@ service Catalog {
       id: UUID from path;
     }
     output: Item;
-    errors: [NotFound, Unauthorized];
+    errors: [InvalidInput, NotFound, Unauthorized];
     validation: [];
     effects: [repository.read];
     capability: "items.read";

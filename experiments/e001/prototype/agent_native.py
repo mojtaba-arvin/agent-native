@@ -369,6 +369,11 @@ def validate_ir(ir: object) -> None:
                 fail("AN032", f"operation {name!r} requires a string array for {key}")
             if len(values) != len(set(values)):
                 fail("AN004", f"duplicate value in {key} for operation {name!r}")
+        declared_errors = set(operation["errors"])
+        if "Unauthorized" not in declared_errors:
+            fail("AN039", f"operation {name!r} must declare Unauthorized")
+        if inputs and "InvalidInput" not in declared_errors:
+            fail("AN040", f"operation {name!r} with inputs must declare InvalidInput")
         input_types = {field["name"]: field["type"] for field in inputs}
         for rule in operation["validation"]:
             field_name, separator, rule_name = rule.partition(".")

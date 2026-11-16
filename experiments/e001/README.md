@@ -61,3 +61,8 @@ These are implementation baselines for measuring how agents express the same con
 ## HTTP adapter request hardening
 
 The disposable loopback adapter now bounds request bodies to 1 MiB, rejects truncated/negative/oversized bodies, duplicate JSON object keys, and non-finite JSON constants, and routes PUT/PATCH through the framework method-mismatch path instead of the HTTP server's default 501 response. These are prototype adapter controls, not a production server or selected runtime.
+
+
+## Declared error completeness
+
+Semantic IR validation now requires every operation to declare `Unauthorized`, because the runtime enforces a capability decision for every operation. Operations with input fields must also declare `InvalidInput`, because typed input validation can reject those fields. The catalog source and structured-IR fixture were updated together, preventing the reference executor from turning expected authorization/input failures into undeclared 500 errors.

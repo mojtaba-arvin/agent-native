@@ -194,5 +194,24 @@ class ParserTests(unittest.TestCase):
                     validate_ir(ir)
                 self.assertEqual(caught.exception.code, "AN027")
 
+
+    def test_every_operation_must_declare_authorization_denial(self):
+        invalid = EXAMPLE.replace(
+            "errors: [InvalidInput, NotFound, Unauthorized];",
+            "errors: [InvalidInput, NotFound];"
+        )
+        with self.assertRaises(Diagnostic) as caught:
+            Parser(invalid).parse()
+        self.assertEqual(caught.exception.code, "AN039")
+
+    def test_operations_with_inputs_must_declare_invalid_input(self):
+        invalid = EXAMPLE.replace(
+            "errors: [InvalidInput, NotFound, Unauthorized];",
+            "errors: [NotFound, Unauthorized];"
+        )
+        with self.assertRaises(Diagnostic) as caught:
+            Parser(invalid).parse()
+        self.assertEqual(caught.exception.code, "AN040")
+
 if __name__ == "__main__":
     unittest.main()

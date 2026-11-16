@@ -46,6 +46,7 @@
       ],
       "capability": "items.read",
       "errors": [
+        "InvalidInput",
         "NotFound",
         "Unauthorized"
       ],

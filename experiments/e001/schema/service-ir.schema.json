@@ -115,7 +115,8 @@
             "uniqueItems": true,
             "items": {
               "type": "string"
-            }
+            },
+            "description": "Declared operation errors. Every operation must include Unauthorized; operations with one or more input fields must also include InvalidInput. Enforced by semantic validation in agent_native.py."
           },
           "validation": {
             "type": "array",
