@@ -109,8 +109,9 @@ A result should be reported as **inconclusive** if the environment or evaluator 
 ## External research inputs
 
 - ABC-Bench: backend-specific, end-to-end agent evaluation across languages and frameworks.
+- BackendForge: contract-defined service generation with Docker deployment and HTTP-only evaluation; highlights the sensitivity of results to oracle quality.
 - GitTaskBench: repository-grounded tasks, practical success criteria, and economic evaluation.
 - SWE-PolyBench: repository-level, multi-language software engineering tasks.
 - SWE-bench and Terminal-Bench: useful complementary signals, but not substitutes for backend-specific deployment and operational evaluation.
 
-Benchmark versions and external papers must be reviewed before implementation; this document is a strategy, not a claim that the project already has a benchmark suite.
+See [the benchmark landscape](research/benchmark-landscape.md) for source links, reported dataset characteristics, implications, and limitations. Benchmark versions and external papers must be reviewed before implementation; this document is a strategy, not a claim that the project already has a benchmark suite.
