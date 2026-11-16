@@ -76,8 +76,8 @@ The adapter stops after the final candidate is received or the trial budget expi
 - The trusted adapter records model-usage events using the same run/task/attempt/candidate/model identity.
 - The trusted outer runner records the agent-finished timestamp and stores the candidate artifact.
 - A separate trusted evaluator reads the candidate artifact read-only and evaluates it outside the model-visible boundary. Candidate data is untrusted JSON; the evaluator must not execute it.
-- The evaluator writes only the coarse `evaluation-result.schema.json` result. Hidden assertion names, expected values, oracle data, and detailed mismatch diagnostics are not returned to the model.
-- `finalize.py` correlates run identity, final artifact hash, successful proposal hash, inspect/propose/validate/plan sequence, and no-mutation/no-deploy plan flags. It then appends the authoritative `task_finished` event and produces the E-007 summary.
+- The evaluator writes only the coarse `evaluation-result.schema.json` result. It must set `eligible_for_acceptance` to false only for `PROVIDER_ERROR`, `ADAPTER_ERROR`, or `EVALUATOR_ERROR`; agent task failures, invalid candidates, and budget exhaustion remain eligible failures. Accepted outcomes are always eligible. Hidden assertion names, expected values, oracle data, and detailed mismatch diagnostics are not returned to the model.
+- `finalize.py` correlates run identity, final artifact hash, successful proposal hash, inspect/propose/validate/plan sequence, and no-mutation/no-deploy plan flags. It then appends the authoritative `task_finished` event including `eligible_for_acceptance` and produces the E-007 summary. The summary retains all trials in `task_count`, reports infrastructure exclusions separately, and calculates acceptance rate only over eligible trials.
 - The finalized trace and result are immutable experiment records. A failed or incomplete run is retained; it is never deleted or rerun under the same run ID.
 
 ## Arm equivalence requirements
