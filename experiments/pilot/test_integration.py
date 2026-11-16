@@ -43,9 +43,26 @@ class MockPipelineConformanceTests(unittest.TestCase):
 
         request_number = 0
 
+        def record_usage(request_id: str, input_tokens: int, output_tokens: int, cost_usd: float) -> None:
+            acknowledgement = gateway.handle_message({
+                "type": "model_usage",
+                "request_id": request_id,
+                "input_tokens": input_tokens,
+                "output_tokens": output_tokens,
+                "cost_usd": cost_usd,
+            })
+            self.assertTrue(acknowledgement["accepted"])
+
         def call(tool: str, arguments: dict) -> dict:
             nonlocal request_number
             request_number += 1
+            # Synthetic provider telemetry for adapter/gateway conformance only.
+            record_usage(
+                f"{arm}-{request_number}-usage",
+                1000 + request_number,
+                40 + request_number,
+                0.001,
+            )
             response = gateway.handle_message({
                 "type": "tool_call",
                 "request_id": f"{arm}-{request_number}",
@@ -99,6 +116,10 @@ class MockPipelineConformanceTests(unittest.TestCase):
         self.assertTrue(planned["result"]["valid"])
         self.assertFalse(planned["result"]["will_mutate"])
         self.assertFalse(planned["result"]["will_deploy"])
+
+        # Model's final JSON response also contributes usage, even though it
+        # does not invoke a tool.
+        record_usage(f"{arm}-final-usage", 900, 30, 0.0005)
 
         candidate = {
             "schema_version": 1,
@@ -169,8 +190,8 @@ class MockPipelineConformanceTests(unittest.TestCase):
             self.assertEqual(result["eligible_task_count"], 1)
             self.assertEqual(result["accepted_tasks"], 1)
             self.assertEqual(result["acceptance_rate"], 1.0)
-            self.assertTrue(result["tasks"][0]["token_usage_complete"] is False)
-            self.assertTrue(result["tasks"][0]["cost_complete"] is False)
+            self.assertTrue(result["tasks"][0]["token_usage_complete"])
+            self.assertTrue(result["tasks"][0]["cost_complete"])
             self.assertEqual(result["tasks"][0]["tool_errors"], 0)
 
         progressive_task = progressive["tasks"][0]
@@ -178,6 +199,8 @@ class MockPipelineConformanceTests(unittest.TestCase):
         self.assertEqual(progressive_task["schema_lookup_calls"], 4)
         self.assertEqual(upfront_task["schema_lookup_calls"], 0)
         self.assertEqual(progressive_task["tool_calls"], upfront_task["tool_calls"] + 4)
+        self.assertGreater(progressive_task["total_tokens"], upfront_task["total_tokens"])
+        self.assertGreater(progressive_task["inference_cost_usd"], upfront_task["inference_cost_usd"])
 
 
 if __name__ == "__main__":
