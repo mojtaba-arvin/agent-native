@@ -1,4 +1,4 @@
-name: E-001 prototype checks
+name: E-001 representation and baseline checks
 
 on:
   pull_request:
@@ -17,14 +17,14 @@ permissions:
   contents: read
 
 jobs:
-  parser-tests:
+  parser:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Run standard-library parser tests
+      - name: Run parser tests
         run: python -m unittest discover -s experiments/e001/prototype -v
       - name: Compile example to canonical JSON
         run: python experiments/e001/prototype/agent_native.py experiments/e001/examples/catalog.an > /tmp/catalog-ir.json
@@ -32,3 +32,21 @@ jobs:
         run: |
           python experiments/e001/prototype/agent_native.py experiments/e001/examples/catalog.an > /tmp/catalog-ir-second.json
           cmp /tmp/catalog-ir.json /tmp/catalog-ir-second.json
+
+  go-baseline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23.x"
+      - run: go test ./...
+        working-directory: experiments/e001/baselines/go
+
+  rust-baseline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo test
+        working-directory: experiments/e001/baselines/rust
