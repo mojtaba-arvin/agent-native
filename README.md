@@ -47,6 +47,9 @@ This is a hypothesis to test, not a claim of proven superiority.
 - [Problem space and research questions](docs/problem-space.md)
 - [Architecture principles and decision process](docs/architecture-principles.md)
 - [Evaluation and benchmark strategy](docs/benchmark-strategy.md)
+- [Existing framework landscape](docs/research/framework-landscape.md)
+- [Backend agent benchmark landscape](docs/research/benchmark-landscape.md)
+- [Initial threat model](docs/security/threat-model.md)
 - [Roadmap and phase gates](docs/roadmap.md)
 
 ## Non-goals for the foundation phase
