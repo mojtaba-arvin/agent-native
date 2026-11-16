@@ -10,22 +10,10 @@
     "event_type"
   ],
   "properties": {
-    "event_id": {
-      "type": "string",
-      "minLength": 1
-    },
-    "task_id": {
-      "type": "string",
-      "minLength": 1
-    },
-    "attempt": {
-      "type": "integer",
-      "minimum": 1
-    },
-    "timestamp_ns": {
-      "type": "integer",
-      "minimum": 0
-    },
+    "event_id": {"type": "string", "minLength": 1},
+    "task_id": {"type": "string", "minLength": 1},
+    "attempt": {"type": "integer", "minimum": 1},
+    "timestamp_ns": {"type": "integer", "minimum": 0},
     "event_type": {
       "enum": [
         "task_started",
@@ -37,38 +25,18 @@
         "task_finished"
       ]
     },
-    "tool_name": {
-      "type": "string"
-    },
-    "input_tokens": {
-      "type": "integer",
-      "minimum": 0
-    },
-    "output_tokens": {
-      "type": "integer",
-      "minimum": 0
-    },
-    "cost_usd": {
-      "type": "number",
-      "minimum": 0
-    },
-    "accepted": {
-      "type": "boolean"
-    },
-    "failure_class": {
-      "type": "string"
-    },
-    "metric_name": {
-      "type": "string"
-    },
-    "metric_value": {
-      "type": "number"
-    },
-    "metric_unit": {
-      "type": "string"
-    },
-    "retry": {
-      "type": "boolean"
-    }
+    "run_id": {"type": "string", "minLength": 1},
+    "candidate_id": {"type": "string", "minLength": 1},
+    "model_id": {"type": "string", "minLength": 1},
+    "tool_name": {"type": "string"},
+    "input_tokens": {"type": "integer", "minimum": 0},
+    "output_tokens": {"type": "integer", "minimum": 0},
+    "cost_usd": {"type": "number", "minimum": 0},
+    "accepted": {"type": "boolean"},
+    "failure_class": {"type": "string"},
+    "metric_name": {"type": "string"},
+    "metric_value": {"type": "number"},
+    "metric_unit": {"type": "string"},
+    "retry": {"type": "boolean"}
   }
 }
