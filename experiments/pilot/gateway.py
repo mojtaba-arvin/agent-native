@@ -176,6 +176,14 @@ class PilotGateway:
             fields.update(safe_result_metadata)
         self._emit_trace("tool_call", **fields)
 
+    def _record_protocol_error(self, message: Any, code: str) -> None:
+        tool_name = "<invalid>"
+        if isinstance(message, dict):
+            supplied_tool = message.get("tool")
+            if isinstance(supplied_tool, str) and supplied_tool:
+                tool_name = supplied_tool[:128]
+        self._record_tool_call(tool_name, code)
+
     def session_message(self) -> dict:
         return {
             "type": "session",
@@ -186,13 +194,17 @@ class PilotGateway:
 
     def handle_message(self, message: Any) -> dict:
         if not isinstance(message, dict):
+            self._record_protocol_error(message, "REQUEST_SHAPE")
             return _error_response("invalid", "REQUEST_SHAPE", "Message must be a JSON object.")
         request_id = message.get("request_id", "invalid")
         if not isinstance(request_id, str) or not request_id or len(request_id) > MAX_REQUEST_ID_LENGTH:
+            self._record_protocol_error(message, "REQUEST_ID")
             return _error_response("invalid", "REQUEST_ID", "request_id must be a non-empty string of at most 128 characters.")
         if set(message) != ENVELOPE_FIELDS:
+            self._record_protocol_error(message, "REQUEST_FIELDS")
             return _error_response(request_id, "REQUEST_FIELDS", "Message must contain exactly type, request_id, tool, and arguments.")
         if message.get("type") != "tool_call":
+            self._record_protocol_error(message, "MESSAGE_TYPE")
             return _error_response(request_id, "MESSAGE_TYPE", "Only tool_call messages are accepted.")
         tool = message.get("tool")
         arguments = message.get("arguments")
@@ -259,6 +271,7 @@ class PilotGateway:
 
     def handle_line(self, raw_line: bytes) -> bytes:
         if len(raw_line) > MAX_MESSAGE_BYTES:
+            self._record_protocol_error(None, "MESSAGE_TOO_LARGE")
             result = _error_response("invalid", "MESSAGE_TOO_LARGE", "Message exceeds the configured byte limit.")
         else:
             try:
@@ -270,10 +283,13 @@ class PilotGateway:
                 )
                 result = self.handle_message(message)
             except UnicodeDecodeError:
+                self._record_protocol_error(None, "INVALID_UTF8")
                 result = _error_response("invalid", "INVALID_UTF8", "Messages must be UTF-8.")
             except json.JSONDecodeError:
+                self._record_protocol_error(None, "INVALID_JSON")
                 result = _error_response("invalid", "INVALID_JSON", "Message must contain one valid JSON value.")
             except GatewayInputError as error:
+                self._record_protocol_error(None, error.code)
                 result = _error_response("invalid", error.code, error.message)
         return (json.dumps(result, ensure_ascii=False, sort_keys=True, allow_nan=False) + "\n").encode("utf-8")
 
