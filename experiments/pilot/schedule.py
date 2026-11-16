@@ -24,6 +24,7 @@ SOURCE_FILES = (
     ".gitignore",
     "experiments/pilot/README.md",
     "experiments/pilot/AGENT_ADAPTER.md",
+    "experiments/pilot/ORACLE_CONTRACT.md",
     "experiments/pilot/PROMPT.md",
     "experiments/pilot/TASK.md",
     "experiments/e001/examples/catalog.an",
