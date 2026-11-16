@@ -42,6 +42,27 @@ Both arms use the same backend implementation and exactly the same six operation
 
 The only intended independent variable is schema-discovery policy. Do not change tool names, descriptions, schemas, ordering semantics, backend responses, error messages, model, prompt, or budgets between arms. If the implementation cannot preserve this equivalence, do not run the comparison.
 
+## Common dispatch adapter
+
+Both arms use one common `agent.invoke` dispatch envelope containing the same tool-name enum, request identifier, and arguments object. The envelope is intentionally generic; the E-005 handler remains responsible for strict per-tool argument validation and stable diagnostics. This holds the invocation mechanism constant while varying only the schemas initially shown to the agent.
+
+- `surface.py` builds the progressive and upfront manifests from the single canonical `experiments/e005/tools.json` catalog and checks that tool identity, descriptions, dispatch schema, and discovery schema are equivalent.
+- `gateway.py` is a local newline-delimited JSON (NDJSON) adapter. It emits the session manifest, accepts calls to only the six E-005 operations, and delegates them to the same in-process E-005 reference handler. It offers no shell, filesystem, arbitrary network, secret, or deployment operation.
+- In the progressive arm, `interface.describe` is available with the same schema as the upfront arm and can return a selected tool's detailed schema. In the upfront arm, every detailed schema is included in the initial session manifest.
+- The gateway can write one exclusive, mode-0600 JSONL trace per run. It records task start, initial surface payload bytes, tool calls, and stable failure codes without recording tool arguments. The trusted outer runner/evaluator—not the agent—must append the authoritative `task_finished` event. Provider token/cost telemetry must come from the provider adapter, not be inferred by this gateway.
+
+Example gateway launch:
+
+```sh
+python experiments/pilot/gateway.py \
+  --arm progressive \
+  --run-id trial-001 \
+  --model-id '<pinned-model-id>' \
+  --trace-output results/trial-001.jsonl
+```
+
+This adapter makes the tool contract executable and testable; it does **not** run an AI agent, enforce an OS sandbox, provide a provider connection, or isolate a hidden evaluator. A model/provider-specific client adapter and the separate trusted evaluator remain prerequisites for actual trials. The common dispatch envelope is an experimental measurement adapter, not a decision about Agent Native's eventual public protocol.
+
 ## Protocol
 
 1. Freeze and hash the task, service fixture, backend, schemas, evaluator, and both arm configurations.
