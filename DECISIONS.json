@@ -170,6 +170,18 @@
         "Concurrent claim and process-reopen tests"
       ],
       "reason": "External side-effect delivery, multi-node coordination, retention, schema evolution, recovery operations, and representative workload measurements remain outstanding."
+    },
+    {
+      "id": "D-0013",
+      "topic": "agent_benchmark_corpus_and_oracles",
+      "status": "open",
+      "value": "E-007 defines public task statements and trace metrics only; acceptance oracles must remain outside the agent-visible workspace.",
+      "evidence": [
+        "Ten machine-readable task definitions",
+        "Provider-neutral trace schema",
+        "Metrics aggregation tests for tokens, tools, repairs, interventions, cost, wall time, and acceptance"
+      ],
+      "reason": "Isolated evaluator workspaces, external oracle packaging, provider telemetry adapters, pinned agent cohorts, and repeated trials remain outstanding."
     }
   ]
 }

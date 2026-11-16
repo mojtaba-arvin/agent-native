@@ -111,3 +111,6 @@ Existing frameworks are comparison baselines only, not implementation foundation
 - **G6 — Production candidate:** deployment, observability, recovery, compatibility, and upgrade story validated.
 
 No production-readiness claim before G0–G6 evidence exists.
+
+
+The current public task subset and provider-neutral trace metrics live in `experiments/e007/`. It defines tasks and oracle identifiers only; hidden acceptance assertions must be mounted by an evaluator outside the agent-visible workspace. No agent runs have been performed.
