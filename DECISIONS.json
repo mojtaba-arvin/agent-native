@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "project": "agent-native",
+  "product_type": "independent_backend_framework",
+  "primary_user": "ai_agent",
+  "status": "architecture_reset",
+  "decisions": [
+    {
+      "id": "D-0001",
+      "topic": "product_identity",
+      "status": "decided",
+      "value": "Build a new backend framework with its own programming model and runtime semantics.",
+      "evidence": "Explicit project requirement.",
+      "constraints": [
+        "not_a_wrapper",
+        "not_an_adapter",
+        "not_a_framework_manager",
+        "not_a_codegen_layer_for_existing_backend_frameworks"
+      ]
+    },
+    {
+      "id": "D-0002",
+      "topic": "primary_user",
+      "status": "decided",
+      "value": "AI agents across capability levels are the primary authors and operators."
+    },
+    {
+      "id": "D-0003",
+      "topic": "implementation_language",
+      "status": "open",
+      "candidates": ["Rust", "Go", "Zig", "OCaml", "Gleam", "Elixir", "WASM-oriented toolchains", "purpose-built language"]
+    },
+    {
+      "id": "D-0004",
+      "topic": "service_language_and_syntax",
+      "status": "open",
+      "candidates": ["existing_language", "purpose_built_dsl", "purpose_built_language", "structured_ir", "hybrid"]
+    },
+    {
+      "id": "D-0005",
+      "topic": "execution_substrate",
+      "status": "open",
+      "candidates": ["native_runtime", "bytecode_vm", "wasm_component_runtime", "actor_runtime", "hybrid"]
+    },
+    {
+      "id": "D-0006",
+      "topic": "existing_backend_framework_dependency",
+      "status": "decided",
+      "value": "No existing backend framework may own or implement the core service model or runtime."
+    }
+  ]
+}
