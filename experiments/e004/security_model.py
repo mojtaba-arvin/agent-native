@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Iterable
+import unicodedata
 
 
 @dataclass(frozen=True)
@@ -14,13 +15,22 @@ class Grant:
     delegation_depth: int = 0
 
     def __post_init__(self) -> None:
-        if not self.principal_id or not self.tenant_id or not self.capability:
+        identities = (self.principal_id, self.tenant_id, self.capability)
+        if any(not isinstance(value, str) or not value.strip() for value in identities):
             raise ValueError("grant_identity_tenant_and_capability_required")
         if self.resource_prefix is not None and not _valid_resource(self.resource_prefix):
             raise ValueError("invalid_grant_resource_prefix")
-        if self.expires_at is not None and self.expires_at < 0:
+        if self.expires_at is not None and (
+            not isinstance(self.expires_at, int)
+            or isinstance(self.expires_at, bool)
+            or self.expires_at < 0
+        ):
             raise ValueError("invalid_grant_expiry")
-        if self.delegation_depth < 0:
+        if (
+            not isinstance(self.delegation_depth, int)
+            or isinstance(self.delegation_depth, bool)
+            or self.delegation_depth < 0
+        ):
             raise ValueError("invalid_delegation_depth")
 
 
@@ -30,6 +40,17 @@ class OperationContract:
     required_capability: str
     allowed_effects: frozenset[str]
 
+    def __post_init__(self) -> None:
+        if not isinstance(self.name, str) or not self.name.strip():
+            raise ValueError("operation_name_required")
+        if not isinstance(self.required_capability, str) or not self.required_capability.strip():
+            raise ValueError("operation_capability_required")
+        if not isinstance(self.allowed_effects, (set, frozenset)) or any(
+            not isinstance(effect, str) or not effect.strip()
+            for effect in self.allowed_effects
+        ):
+            raise ValueError("invalid_operation_effects")
+
 
 @dataclass(frozen=True)
 class RequestContext:
@@ -37,6 +58,15 @@ class RequestContext:
     tenant_id: str | None
     now: int
     grants: tuple[Grant, ...]
+
+    def __post_init__(self) -> None:
+        for name, value in (("principal_id", self.principal_id), ("tenant_id", self.tenant_id)):
+            if value is not None and (not isinstance(value, str) or not value.strip()):
+                raise ValueError(f"invalid_{name}")
+        if not isinstance(self.now, int) or isinstance(self.now, bool) or self.now < 0:
+            raise ValueError("invalid_trusted_time")
+        if not isinstance(self.grants, tuple) or any(not isinstance(grant, Grant) for grant in self.grants):
+            raise ValueError("request_grants_must_be_a_tuple_of_grants")
 
 
 @dataclass(frozen=True)
@@ -47,7 +77,17 @@ class Decision:
 
 
 def _valid_resource(resource: str) -> bool:
-    if not resource.startswith("/") or "//" in resource or "?" in resource or "#" in resource:
+    if (
+        not isinstance(resource, str)
+        or not resource.startswith("/")
+        or "//" in resource
+        or "?" in resource
+        or "#" in resource
+        or "%" in resource
+        or chr(92) in resource
+        or any(ord(character) < 0x20 or ord(character) == 0x7F for character in resource)
+        or unicodedata.normalize("NFC", resource) != resource
+    ):
         return False
     return all(segment not in {".", ".."} for segment in resource.split("/"))
 

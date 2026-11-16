@@ -172,5 +172,46 @@ class PolicyEngineTests(unittest.TestCase):
             )
 
 
+
+    def test_encoded_and_ambiguous_resource_paths_are_rejected(self):
+        resources = (
+            "/items/%2e%2e/secrets",
+            "/items/%2Fsecrets",
+            "/items/" + chr(92) + "secrets",
+            "/items//secrets",
+            "/items/./secrets",
+            "/items/../secrets",
+            "/items/" + chr(0) + "secrets",
+        )
+        for resource in resources:
+            with self.subTest(resource=repr(resource)):
+                decision = self.engine.authorize(
+                    self.operation,
+                    resource=resource,
+                    requested_effects={"repository.read"},
+                    context=self.context(),
+                )
+                self.assertEqual(decision.reason_code, "INVALID_RESOURCE")
+
+    def test_noncanonical_unicode_resource_is_rejected(self):
+        resource = "/items/cafe" + chr(0x301)
+        decision = self.engine.authorize(
+            self.operation,
+            resource=resource,
+            requested_effects={"repository.read"},
+            context=self.context(),
+        )
+        self.assertEqual(decision.reason_code, "INVALID_RESOURCE")
+
+    def test_boolean_expiry_and_delegation_depth_are_rejected(self):
+        with self.assertRaisesRegex(ValueError, "invalid_grant_expiry"):
+            Grant("user-1", "tenant-a", "items.read", expires_at=True)
+        with self.assertRaisesRegex(ValueError, "invalid_delegation_depth"):
+            Grant("user-1", "tenant-a", "items.read", delegation_depth=True)
+
+    def test_boolean_trusted_time_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, "invalid_trusted_time"):
+            RequestContext("user-1", "tenant-a", True, (self.grant,))
+
 if __name__ == "__main__":
     unittest.main()
