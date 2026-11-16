@@ -91,7 +91,7 @@ def validate_candidate(
     if service != {"name": "Catalog", "version": "1"}:
         raise CandidateError("candidate_service_identity_invalid")
 
-    if not isinstance(ir["types"], list) or not isinstance(ir["operations"], list):
+    if not isinstance(ir["types"], list) or not isinstance(ir["operations"], list) or not ir["operations"]:
         raise CandidateError("candidate_ir_collections_invalid")
     for item_type in ir["types"]:
         item_type = _require_object(
@@ -117,7 +117,7 @@ def validate_candidate(
             raise CandidateError("candidate_operation_input_invalid")
         for field in operation["input"]:
             field = _require_object(field, {"name", "type", "source"}, "candidate_input_shape_invalid")
-            if not all(isinstance(field[key], str) and field[key] for key in ("name", "type")):
+            if not all(isinstance(field[key], str) and field[key] for key in ("name", "type", "source")):
                 raise CandidateError("candidate_input_value_invalid")
             if field["source"] not in {"path", "query", "body", "header"}:
                 raise CandidateError("candidate_input_source_invalid")
