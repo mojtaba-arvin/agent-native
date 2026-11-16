@@ -1,4 +1,7 @@
+import argparse
+import json
 from collections import defaultdict
+from pathlib import Path
 
 
 EVENT_TYPES = {"task_started", "tool_call", "model_usage", "repair", "human_intervention", "runtime_metric", "task_finished"}
@@ -13,6 +16,19 @@ def summarize(events):
             raise ValueError("trace_event_missing_required_fields")
         if event["event_type"] not in EVENT_TYPES:
             raise ValueError("unknown_event_type")
+        if not isinstance(event["event_id"], str) or not event["event_id"] or not isinstance(event["task_id"], str) or not event["task_id"]:
+            raise ValueError("invalid_event_or_task_id")
+        if not isinstance(event["attempt"], int) or event["attempt"] < 1:
+            raise ValueError("invalid_attempt")
+        for key in ("input_tokens", "output_tokens"):
+            if key in event and (not isinstance(event[key], int) or event[key] < 0):
+                raise ValueError(f"invalid_{key}")
+        if "cost_usd" in event and (not isinstance(event["cost_usd"], (int, float)) or event["cost_usd"] < 0):
+            raise ValueError("invalid_cost_usd")
+        if event["event_type"] == "tool_call" and not event.get("tool_name"):
+            raise ValueError("tool_call_missing_tool_name")
+        if event["event_type"] == "task_finished" and not isinstance(event.get("accepted"), bool):
+            raise ValueError("task_finished_missing_accepted")
         if event["event_id"] in seen:
             raise ValueError("duplicate_event_id")
         if not isinstance(event["timestamp_ns"], int) or event["timestamp_ns"] < 0:
@@ -64,3 +80,32 @@ def summarize(events):
         },
         "tasks": tasks,
     }
+
+
+def load_jsonl(path):
+    events = []
+    for line_number, line in enumerate(Path(path).read_text(encoding="utf-8").splitlines(), 1):
+        if not line.strip():
+            continue
+        try:
+            events.append(json.loads(line))
+        except json.JSONDecodeError as error:
+            raise ValueError(f"invalid_jsonl_line:{line_number}") from error
+    return events
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Aggregate an Agent Native trace JSONL file.")
+    parser.add_argument("--input", required=True, help="Path to raw provider-neutral JSONL trace.")
+    parser.add_argument("--output", help="Optional output JSON path; defaults to stdout.")
+    args = parser.parse_args()
+    result = summarize(load_jsonl(args.input))
+    encoded = json.dumps(result, indent=2, sort_keys=True) + "\\n"
+    if args.output:
+        Path(args.output).write_text(encoded, encoding="utf-8")
+    else:
+        print(encoded, end="")
+
+
+if __name__ == "__main__":
+    main()

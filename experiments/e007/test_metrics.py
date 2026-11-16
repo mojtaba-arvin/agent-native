@@ -1,5 +1,8 @@
+import json
+import tempfile
 import unittest
-from metrics import summarize
+from pathlib import Path
+from metrics import load_jsonl, summarize
 
 
 class MetricsTests(unittest.TestCase):
@@ -26,6 +29,18 @@ class MetricsTests(unittest.TestCase):
         event = {"event_id":"x","task_id":"a","attempt":1,"timestamp_ns":1,"event_type":"task_started"}
         with self.assertRaisesRegex(ValueError, "duplicate_event_id"):
             summarize([event, event])
+
+    def test_trace_jsonl_loader_preserves_raw_events(self):
+        event = {"event_id":"1","task_id":"a","attempt":1,"timestamp_ns":1,"event_type":"task_started"}
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "trace.jsonl"
+            path.write_text(json.dumps(event) + "\\n", encoding="utf-8")
+            self.assertEqual(load_jsonl(path), [event])
+
+    def test_negative_token_counts_are_rejected(self):
+        event = {"event_id":"1","task_id":"a","attempt":1,"timestamp_ns":1,"event_type":"model_usage","input_tokens":-1}
+        with self.assertRaisesRegex(ValueError, "invalid_input_tokens"):
+            summarize([event])
 
     def test_multiple_finish_events_are_rejected(self):
         events = [
