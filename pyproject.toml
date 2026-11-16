@@ -17,5 +17,8 @@ agent-native = "agent_native.cli:main"
 [tool.hatch.build.targets.wheel]
 packages = ["src/agent_native"]
 
+[project.optional-dependencies]
+dev = ["pytest>=8,<10"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
