@@ -22,7 +22,7 @@ SCHEMA_ARGUMENT_FAILURES = {
 ALLOWED_FIELDS = {
     "event_id", "task_id", "attempt", "timestamp_ns", "event_type",
     *IDENTITY_FIELDS,
-    "tool_name", "schema_lookup", "input_tokens", "output_tokens", "cost_usd",
+    "tool_name", "schema_lookup", "change_set_id", "input_tokens", "output_tokens", "cost_usd",
     "accepted", "failure_class", "metric_name", "metric_value",
     "metric_unit", "retry",
 }
@@ -58,6 +58,16 @@ def summarize(events):
             raise ValueError("invalid_schema_lookup")
         if event.get("schema_lookup", False) and event.get("tool_name") != "interface.describe":
             raise ValueError("schema_lookup_requires_interface_describe")
+        if "change_set_id" in event:
+            candidate_id = event["change_set_id"]
+            if (
+                not isinstance(candidate_id, str)
+                or len(candidate_id) != 64
+                or any(character not in "0123456789abcdef" for character in candidate_id)
+            ):
+                raise ValueError("invalid_change_set_id")
+            if event["event_type"] != "tool_call" or event.get("tool_name") != "service.propose":
+                raise ValueError("change_set_id_requires_service_propose")
         if event["event_type"] == "tool_call" and not event.get("tool_name"):
             raise ValueError("tool_call_missing_tool_name")
         if event["event_type"] == "task_finished" and not isinstance(event.get("accepted"), bool):
