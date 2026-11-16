@@ -18,6 +18,7 @@ class Task:
     attempts: int = 0
     status: str = "queued"
     result: str | None = None
+    terminal_after_stop: str | None = None
 
 
 @dataclass(frozen=True)
@@ -102,6 +103,10 @@ class Engine:
             raise ValueError(f"worker is not running a task: {worker_id}")
         task_id = self.workers.pop(worker_id)
         task = self.tasks[task_id]
+        if task.status == "cancelling":
+            task.status = task.terminal_after_stop or "cancelled"
+            task.terminal_after_stop = None
+            return task.status
         if task.deadline <= self.now:
             task.status = "expired"
         elif outcome == "ok":
@@ -120,10 +125,11 @@ class Engine:
         task = self.tasks[task_id]
         if task.status not in {"queued", "running"}:
             return False
-        task.status = "cancelled"
-        for worker_id, active_id in list(self.workers.items()):
-            if active_id == task_id:
-                del self.workers[worker_id]
+        if task.status == "queued":
+            task.status = "cancelled"
+        else:
+            task.status = "cancelling"
+            task.terminal_after_stop = "cancelled"
         return True
 
     def crash(self, worker_id: str) -> str:
@@ -132,7 +138,10 @@ class Engine:
             raise ValueError(f"worker is not running a task: {worker_id}")
         task_id = self.workers.pop(worker_id)
         task = self.tasks[task_id]
-        if task.deadline <= self.now:
+        if task.status == "cancelling":
+            task.status = task.terminal_after_stop or "cancelled"
+            task.terminal_after_stop = None
+        elif task.deadline <= self.now:
             task.status = "expired"
         elif task.attempts < task.max_attempts:
             task.status = "queued"
@@ -145,11 +154,11 @@ class Engine:
         _require_int(ticks, "ticks")
         self.now += ticks
         for task in self.tasks.values():
-            if task.status in {"queued", "running"} and task.deadline <= self.now:
+            if task.status == "queued" and task.deadline <= self.now:
                 task.status = "expired"
-        for worker_id, task_id in list(self.workers.items()):
-            if self.tasks[task_id].status == "expired":
-                del self.workers[worker_id]
+            elif task.status == "running" and task.deadline <= self.now:
+                task.status = "cancelling"
+                task.terminal_after_stop = "expired"
 
     def shutdown(self, *, graceful: bool = True) -> bool:
         """Stop admission; optionally cancel all outstanding work immediately."""
@@ -158,10 +167,15 @@ class Engine:
         self.accepting = False
         if not graceful:
             for task in self.tasks.values():
-                if task.status in {"queued", "running"}:
+                if task.status == "queued":
                     task.status = "cancelled"
-            self.workers.clear()
+                elif task.status == "running":
+                    task.status = "cancelling"
+                    task.terminal_after_stop = "cancelled"
         return self.is_drained()
 
     def is_drained(self) -> bool:
-        return not any(task.status in {"queued", "running"} for task in self.tasks.values())
+        return not self.workers and not any(
+            task.status in {"queued", "running", "cancelling"}
+            for task in self.tasks.values()
+        )

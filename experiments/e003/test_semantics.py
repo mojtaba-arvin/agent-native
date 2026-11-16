@@ -38,7 +38,9 @@ class EngineSemanticsTests(unittest.TestCase):
         engine.advance(1)
         self.assertEqual(engine.tasks["b"].status, "expired")
         engine.advance(1)
-        self.assertEqual(engine.tasks["a"].status, "expired")
+        self.assertEqual(engine.tasks["a"].status, "cancelling")
+        self.assertEqual(engine.workers, {"w": "a"})
+        self.assertEqual(engine.finish("w", "ok", result="late"), "expired")
         self.assertEqual(engine.workers, {})
 
     def test_cancellation_releases_worker_capacity(self):
@@ -47,6 +49,9 @@ class EngineSemanticsTests(unittest.TestCase):
         engine.submit("b", "key-b", ttl=5)
         engine.start("w")
         self.assertTrue(engine.cancel("a"))
+        self.assertEqual(engine.tasks["a"].status, "cancelling")
+        self.assertIsNone(engine.start("worker-2"))
+        self.assertEqual(engine.finish("w", "ok", result="late"), "cancelled")
         self.assertEqual(engine.start("w"), "b")
         self.assertEqual(engine.tasks["a"].status, "cancelled")
 
@@ -94,10 +99,12 @@ class EngineSemanticsTests(unittest.TestCase):
         engine.submit("a", "key-a", ttl=5)
         engine.submit("b", "key-b", ttl=5)
         engine.start("w")
-        self.assertTrue(engine.shutdown(graceful=False))
-        self.assertEqual(engine.tasks["a"].status, "cancelled")
+        self.assertFalse(engine.shutdown(graceful=False))
+        self.assertEqual(engine.tasks["a"].status, "cancelling")
         self.assertEqual(engine.tasks["b"].status, "cancelled")
-        self.assertEqual(engine.workers, {})
+        self.assertEqual(engine.workers, {"w": "a"})
+        self.assertEqual(engine.finish("w", "ok"), "cancelled")
+        self.assertTrue(engine.is_drained())
         self.assertIsNone(engine.start("w"))
 
 
