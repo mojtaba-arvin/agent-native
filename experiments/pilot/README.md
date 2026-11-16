@@ -71,7 +71,7 @@ This adapter makes the tool contract executable and testable; it does **not** ru
 `schedule.py` creates an immutable runner-only schedule. It pairs one progressive and one upfront run for each pair, randomizes their order with a recorded seed, places the two runs adjacent, and schedules only one trial at a time. The plan pins:
 
 - the clean Git HEAD (the CLI resolves it itself and refuses a dirty worktree);
-- SHA-256 hashes of the system prompt, task, service fixture, E-001/E-005 implementation, tool catalog, gateway, candidate/result contracts, finalizer, schedule generator/verifier, and trace/metrics contracts;
+- SHA-256 hashes of the system prompt, task, public oracle contract, service fixture, E-001/E-005 implementation, tool catalog, gateway, candidate/result contracts, finalizer, schedule generator/verifier, and trace/metrics contracts;
 - exact model identifier and generation-settings JSON;
 - identical input/output token, tool-call, and wall-clock budgets;
 - a deterministic plan ID and run ID for every arm/pair.
@@ -104,7 +104,7 @@ The settings file must be a JSON object containing the provider's non-secret gen
 
 Keep the schedule and generation-settings file outside the repository checkout: the scheduler refuses a dirty worktree and the schedule contains treatment labels. `AGENT_ADAPTER.md` specifies the provider-neutral bridge and insists on exactly one identical provider-facing `agent.invoke` function in both arms.
 
-This schedule generator is not an agent runner. It does not call a model or execute a trial. A provider adapter and an isolated execution/evaluator boundary remain necessary.
+This schedule generator is not an agent runner. It does not call a model or execute a trial. A provider adapter and a separately protected evaluator deployment remain necessary. This pilot does not execute agent-generated code: the model proposes JSON service IR through the allowlisted gateway. Therefore a general-purpose OS sandbox for generated code is not needed for this narrow trial; the evaluator implementation, private keys, and detailed results must nevertheless remain outside model context and outside this public repository.
 
 ## Protocol
 
@@ -176,7 +176,7 @@ No trial result may be claimed until actual agent executions have been performed
 - Candidate interface: E-005.
 - Equivalent blinded arm manifests, common NDJSON gateway, strict candidate-artifact envelope checks, proposal/trace correlation, validation/no-side-effect gates, E-007 tool-error/schema-lookup telemetry, infrastructure-trial eligibility accounting, deterministic paired schedule generation, and provider-neutral adapter contract: implemented.
 - GitHub Actions protocol checks: running on current branch head; no agent trial has been performed.
-- Hidden evaluator: not provisioned.
-- Isolated agent execution boundary and provider adapter: not provisioned.
+- Public acceptance-oracle contract: specified in ORACLE_CONTRACT.md; evaluator implementation must remain private and external.
+- Provider-specific model adapter and protected evaluator deployment: not provisioned.
 - Agent trials: **not run**.
 - Architecture or technology selection: **none**.
