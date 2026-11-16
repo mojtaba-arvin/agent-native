@@ -20,7 +20,7 @@ E007_ROOT = PILOT_ROOT.parent / "e007"
 sys.path.insert(0, str(PILOT_ROOT))
 sys.path.insert(0, str(E007_ROOT))
 
-from candidate import CandidateError, load_candidate, load_trace_proposal_ids  # noqa: E402
+from candidate import MAX_CANDIDATE_BYTES, CandidateError, load_candidate, load_trace_proposal_ids  # noqa: E402
 from metrics import load_jsonl, summarize  # noqa: E402
 
 RESULT_FIELDS = {
@@ -217,10 +217,18 @@ def finalize_run(
     candidate_sha256 = None
     candidate_summary = None
     if candidate_path is not None:
+        candidate_file = Path(candidate_path)
         try:
-            raw_candidate = Path(candidate_path).read_bytes()
+            candidate_size = candidate_file.stat().st_size
+            if candidate_size > MAX_CANDIDATE_BYTES:
+                raise FinalizationError("candidate_file_too_large")
+            raw_candidate = candidate_file.read_bytes()
+        except FinalizationError:
+            raise
         except OSError as error:
             raise FinalizationError("candidate_file_unavailable") from error
+        if len(raw_candidate) > MAX_CANDIDATE_BYTES:
+            raise FinalizationError("candidate_file_too_large")
         candidate_sha256 = hashlib.sha256(raw_candidate).hexdigest()
         if result["candidate_sha256"] != candidate_sha256:
             raise FinalizationError("candidate_hash_mismatch")
