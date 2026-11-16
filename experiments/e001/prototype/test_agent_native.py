@@ -15,7 +15,7 @@ class ParserTests(unittest.TestCase):
         ir = Parser(EXAMPLE).parse()
         self.assertEqual(ir["ir_version"], 1)
         self.assertEqual(ir["service"], {"name": "Catalog", "version": "1"})
-        self.assertEqual(ir["operations"][0]["name"], "get_item")
+        self.assertEqual(ir["operations"][0]["name"], "create_item")
         self.assertEqual(ir["operations"][0]["effects"], ["repository.read"])
 
     def test_operation_order_is_canonical(self):
