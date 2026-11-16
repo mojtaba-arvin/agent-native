@@ -26,6 +26,7 @@
         "experiments/e007/metrics.py",
         "experiments/e007/trace.schema.json",
         "experiments/pilot/AGENT_ADAPTER.md",
+        "experiments/pilot/PROMPT.md",
         "experiments/pilot/README.md",
         "experiments/pilot/TASK.md",
         "experiments/pilot/candidate.py",
@@ -87,6 +88,9 @@
           "$ref": "#/$defs/sha256"
         },
         "experiments/pilot/verify_schedule.py": {
+          "$ref": "#/$defs/sha256"
+        },
+        "experiments/pilot/PROMPT.md": {
           "$ref": "#/$defs/sha256"
         }
       }
