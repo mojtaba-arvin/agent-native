@@ -18,7 +18,7 @@ class OutboxInboxTests(unittest.TestCase):
         return self.store.stage(
             effect_key=effect,
             event_id=event,
-            state_key="producer-balance",
+            state_key="balance",
             amount=amount,
             payload={"kind": "ledger.posted"} if payload is None else payload,
             now=10,
@@ -30,7 +30,7 @@ class OutboxInboxTests(unittest.TestCase):
             with self.subTest(flag=flag):
                 with self.assertRaisesRegex(RuntimeError, "simulated_crash"):
                     self.stage(effect=f"effect-{flag}", event=f"event-{flag}", **{flag: True})
-                self.assertEqual(self.store.get_producer_state("producer-balance"), 0)
+                self.assertEqual(self.store.get_producer_state("balance"), 0)
                 self.assertIsNone(self.store.get_outbox(f"event-{flag}"))
 
     def test_effect_submission_is_idempotent_and_payload_conflicts_are_rejected(self):
@@ -39,7 +39,7 @@ class OutboxInboxTests(unittest.TestCase):
         self.assertFalse(first["duplicate"])
         self.assertTrue(duplicate["duplicate"])
         self.assertEqual(duplicate["event_id"], "event-1")
-        self.assertEqual(self.store.get_producer_state("producer-balance"), 7)
+        self.assertEqual(self.store.get_producer_state("balance"), 7)
         with self.assertRaises(OutboxConflict):
             self.stage(payload={"kind": "different"})
 
