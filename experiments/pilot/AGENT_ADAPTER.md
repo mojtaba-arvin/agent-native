@@ -7,6 +7,7 @@ The adapter is the trusted bridge between a model-provider API and the local E-0
 ## Trust boundary
 
 The model provider receives only:
+- the exact system prompt from `PROMPT.md`;
 - the pilot task prompt;
 - the model-visible session surface for its assigned trial;
 - prior tool results from that same trial;
@@ -30,7 +31,7 @@ The adapter and gateway may receive a run-scoped identifier and candidate label 
 4. The runner starts the gateway with its out-of-band run ID, candidate ID, model ID, task ID, and attempt number.
 5. The adapter reads the gateway's first NDJSON message, which contains the session surface. It must not add or remove tool schemas.
 6. The runner supplies the task text from `experiments/pilot/TASK.md`. It does not supply the pair ID, trial order, candidate label, hidden evaluator data, or schedule.
-7. The adapter sends the prompt and session surface to the selected model using the exact generation settings pinned in the schedule.
+7. The adapter sends the exact system prompt from `PROMPT.md`, the task text, and the session surface to the selected model using the exact generation settings pinned in the schedule. The system prompt and task text must be byte-identical across both arms; only the initial session surface differs.
 
 ## Tool-call mapping
 
