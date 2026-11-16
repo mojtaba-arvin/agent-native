@@ -21,7 +21,13 @@ HIGH_IMPACT_EFFECTS = frozenset({
 
 
 def canonical_json(value: object) -> str:
-    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return json.dumps(
+        value,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+        allow_nan=False,
+    )
 
 
 def digest(value: object) -> str:
@@ -56,6 +62,11 @@ class AgentInterface:
         }
 
     def handle(self, request: dict, *, context: dict | None = None) -> dict:
+        if not isinstance(request, dict):
+            return self._response(
+                "invalid",
+                diagnostics=[self._diagnostic("REQUEST_SHAPE", "Request must be an object.")],
+            )
         request_id = request.get("request_id", "missing-request-id")
         if request.get("protocol_version") != PROTOCOL_VERSION:
             return self._response(
@@ -66,6 +77,12 @@ class AgentInterface:
             return self._response(
                 "invalid",
                 diagnostics=[self._diagnostic("REQUEST_ID", "A non-empty request_id is required.")],
+            )
+        unexpected_request_fields = set(request) - {"protocol_version", "request_id", "tool", "arguments"}
+        if unexpected_request_fields:
+            return self._response(
+                request_id,
+                diagnostics=[self._diagnostic("REQUEST_FIELDS", "Request contains unknown envelope fields.")],
             )
         tool = request.get("tool")
         arguments = request.get("arguments")
@@ -88,6 +105,36 @@ class AgentInterface:
             return self._response(
                 request_id,
                 diagnostics=[self._diagnostic("UNKNOWN_TOOL", f"Tool {tool!r} is not exposed.")],
+            )
+        argument_contracts = {
+            "interface.describe": (set(), {"name": str}),
+            "service.inspect": ({"service_id"}, {"service_id": str, "operation": str}),
+            "service.propose": ({"service_id", "base_revision", "ir"}, {"service_id": str, "base_revision": str, "ir": dict}),
+            "service.validate": ({"change_set_id"}, {"change_set_id": str}),
+            "service.plan": ({"change_set_id"}, {"change_set_id": str}),
+            "service.apply": ({"change_set_id"}, {"change_set_id": str}),
+        }
+        required, allowed = argument_contracts[tool]
+        if set(arguments) - set(allowed):
+            return self._response(
+                request_id,
+                diagnostics=[self._diagnostic("ARGUMENT_FIELDS", "Arguments contain unknown fields.")],
+            )
+        if required - set(arguments):
+            return self._response(
+                request_id,
+                diagnostics=[self._diagnostic("ARGUMENTS_REQUIRED", "Required tool arguments are missing.")],
+            )
+        if any(
+            key in arguments and (
+                not isinstance(arguments[key], expected_type)
+                or (expected_type is str and not arguments[key].strip())
+            )
+            for key, expected_type in allowed.items()
+        ):
+            return self._response(
+                request_id,
+                diagnostics=[self._diagnostic("ARGUMENT_TYPE", "Tool arguments have invalid types or empty values.")],
             )
         try:
             result, next_actions = handler(arguments, context or {})
@@ -154,7 +201,10 @@ class AgentInterface:
             "base_revision": base_revision,
             "ir": copy.deepcopy(proposed_ir),
         }
-        change_set_id = digest(proposal)
+        try:
+            change_set_id = digest(proposal)
+        except (TypeError, ValueError) as error:
+            raise InterfaceError("INVALID_PROPOSAL", "IR must contain only finite JSON values.") from error
         self.proposals.setdefault(change_set_id, proposal)
         return {
             "change_set_id": change_set_id,
@@ -169,6 +219,9 @@ class AgentInterface:
             validate_ir(ir)
         except Diagnostic as error:
             diagnostics.append(self._diagnostic(error.code, error.message))
+            return diagnostics
+        except (TypeError, ValueError, KeyError, AttributeError, IndexError):
+            diagnostics.append(self._diagnostic("INVALID_IR_SHAPE", "IR contains malformed nested values."))
             return diagnostics
         for operation in ir["operations"]:
             undeclared = set(operation["effects"]) - self.trusted_effects
@@ -197,17 +250,35 @@ class AgentInterface:
         proposal = self.proposals.get(change_set_id)
         if proposal is None:
             raise InterfaceError("CHANGE_SET_NOT_FOUND", "Unknown change_set_id.")
+        validation_diagnostics = self._validate_ir(proposal["ir"])
+        structural_errors = [
+            item for item in validation_diagnostics
+            if item["code"] != "UNTRUSTED_EFFECT"
+        ]
+        if structural_errors:
+            return {
+                "change_set_id": change_set_id,
+                "valid": False,
+                "effects": [],
+                "human_approval_required": False,
+                "approval_reasons": [],
+                "validation_diagnostics": structural_errors,
+                "will_mutate": False,
+                "will_deploy": False,
+            }, ["service.propose a structurally valid IR"]
         effects = sorted({
             effect
-            for operation in proposal["ir"].get("operations", [])
-            for effect in operation.get("effects", [])
+            for operation in proposal["ir"]["operations"]
+            for effect in operation["effects"]
         })
         approvals = sorted(set(effects) & HIGH_IMPACT_EFFECTS)
         return {
             "change_set_id": change_set_id,
+            "valid": not validation_diagnostics,
             "effects": effects,
             "human_approval_required": bool(approvals),
             "approval_reasons": approvals,
+            "validation_diagnostics": validation_diagnostics,
             "will_mutate": False,
             "will_deploy": False,
         }, ["service.apply is disabled in this prototype"]

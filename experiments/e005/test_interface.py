@@ -120,5 +120,46 @@ class AgentInterfaceTests(unittest.TestCase):
         self.assertEqual(response["diagnostics"][0]["code"], "PROTOCOL_VERSION")
 
 
+
+    def test_non_object_request_returns_diagnostic(self):
+        response = self.interface.handle(["not", "an", "object"])
+        self.assertFalse(response["ok"])
+        self.assertEqual(response["diagnostics"][0]["code"], "REQUEST_SHAPE")
+
+    def test_unknown_envelope_and_tool_argument_fields_are_rejected(self):
+        request = {
+            "protocol_version": "0.1",
+            "request_id": "req-extra",
+            "tool": "service.inspect",
+            "arguments": {"service_id": "catalog"},
+            "debug": True,
+        }
+        response = self.interface.handle(request)
+        self.assertEqual(response["diagnostics"][0]["code"], "REQUEST_FIELDS")
+        response = self.request("service.inspect", {"service_id": "catalog", "include_secrets": True})
+        self.assertEqual(response["diagnostics"][0]["code"], "ARGUMENT_FIELDS")
+
+    def test_unhashable_service_identifiers_return_diagnostics(self):
+        response = self.request("service.inspect", {"service_id": ["catalog"]})
+        self.assertEqual(response["diagnostics"][0]["code"], "ARGUMENT_TYPE")
+
+    def test_proposal_rejects_non_finite_json_values(self):
+        changed = copy.deepcopy(IR)
+        changed["service"]["version"] = float("nan")
+        response = self.propose(changed)
+        self.assertFalse(response["ok"])
+        self.assertEqual(response["diagnostics"][0]["code"], "INVALID_PROPOSAL")
+
+    def test_plan_handles_malformed_ir_without_raising(self):
+        changed = copy.deepcopy(IR)
+        changed["operations"][0] = None
+        proposal = self.propose(changed)
+        change_set_id = proposal["result"]["change_set_id"]
+        plan = self.request("service.plan", {"change_set_id": change_set_id})
+        self.assertTrue(plan["ok"])
+        self.assertFalse(plan["result"]["valid"])
+        self.assertEqual(plan["result"]["validation_diagnostics"][0]["code"], "AN026")
+        self.assertFalse(plan["result"]["will_mutate"])
+
 if __name__ == "__main__":
     unittest.main()

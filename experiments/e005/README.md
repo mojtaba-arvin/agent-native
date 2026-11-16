@@ -28,3 +28,10 @@ python -m unittest discover -s experiments/e005 -v
 - The agent cannot approve its own high-impact actions.
 - No side effects occur during inspect, propose, validate, or plan.
 - Transport and final tool protocol remain open pending agent trials.
+
+
+## Untrusted request hardening
+
+The reference handler rejects non-object requests, unknown envelope fields, unknown tool arguments, missing required arguments, wrong argument types, and empty identifiers with stable diagnostics. Proposal hashing rejects non-finite JSON values. Planning runs the shared IR validator before inspecting effects, so malformed nested IR cannot crash the planner or be treated as a valid plan.
+
+This remains an in-process reference interface. It has no authenticated transport, durable proposal store, concurrency control, or production mutation path.
