@@ -7,6 +7,7 @@ candidate_id and disclosure_arm are treatment labels, not agent context.
 from __future__ import annotations
 
 import argparse
+import copy
 import hashlib
 import json
 import random
@@ -186,12 +187,12 @@ def create_schedule(
                 "run_id": f"{pair_id}-{arm}-{run_hash[:12]}",
                 "candidate_id": arm,
                 "model_id": protocol["model_id"],
-                "generation_settings": protocol["generation_settings"],
+                "generation_settings": copy.deepcopy(protocol["generation_settings"]),
                 "task_id": TASK_ID,
                 "attempt": 1,
                 "source_revision": source_revision,
-                "source_sha256": source_hashes,
-                "budgets": budgets,
+                "source_sha256": copy.deepcopy(source_hashes),
+                "budgets": copy.deepcopy(budgets),
                 "fresh_state_required": True,
                 "agent_visible_treatment_label": False,
             })
