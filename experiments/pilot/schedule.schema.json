@@ -34,7 +34,8 @@
         "experiments/pilot/finalize.py",
         "experiments/pilot/gateway.py",
         "experiments/pilot/schedule.py",
-        "experiments/pilot/surface.py"
+        "experiments/pilot/surface.py",
+        "experiments/pilot/verify_schedule.py"
       ],
       "properties": {
         "0": {
@@ -83,6 +84,9 @@
           "$ref": "#/$defs/sha256"
         },
         "experiments/pilot/AGENT_ADAPTER.md": {
+          "$ref": "#/$defs/sha256"
+        },
+        "experiments/pilot/verify_schedule.py": {
           "$ref": "#/$defs/sha256"
         }
       }
