@@ -265,6 +265,85 @@ class GatewayTests(unittest.TestCase):
         self.assertTrue(all("arguments" not in event and "ir" not in event for event in lifecycle_events))
 
 
+    def test_trusted_model_usage_is_written_to_trace_not_exposed_as_a_tool(self):
+        events = []
+        gateway = PilotGateway(
+            "progressive",
+            trace_sink=events.append,
+            trace_context={
+                "run_id": "usage-trial",
+                "candidate_id": "progressive",
+                "model_id": "provider/model-pinned",
+                "task_id": "pilot-catalog-add-readonly-operation",
+                "attempt": 1,
+            },
+        )
+        session = gateway.session_message()
+        self.assertNotIn("model_usage", json.dumps(session["surface"]))
+
+        acknowledgement = gateway.handle_message({
+            "type": "model_usage",
+            "request_id": "generation-1",
+            "input_tokens": 1234,
+            "output_tokens": 87,
+            "cost_usd": 0.0025,
+        })
+        self.assertEqual(acknowledgement["type"], "telemetry_ack")
+        self.assertTrue(acknowledgement["accepted"])
+        usage_events = [event for event in events if event["event_type"] == "model_usage"]
+        self.assertEqual(len(usage_events), 1)
+        self.assertEqual(usage_events[0]["input_tokens"], 1234)
+        self.assertEqual(usage_events[0]["output_tokens"], 87)
+        self.assertEqual(usage_events[0]["cost_usd"], 0.0025)
+        self.assertEqual(usage_events[0]["model_id"], "provider/model-pinned")
+
+    def test_model_usage_rejects_invalid_or_untrusted_metadata(self):
+        events = []
+        gateway = PilotGateway(
+            "upfront",
+            trace_sink=events.append,
+            trace_context={
+                "run_id": "usage-invalid",
+                "candidate_id": "upfront",
+                "model_id": "provider/model-pinned",
+                "task_id": "pilot-catalog-add-readonly-operation",
+                "attempt": 1,
+            },
+        )
+        invalid_messages = [
+            {
+                "type": "model_usage",
+                "request_id": "r1",
+                "input_tokens": True,
+                "output_tokens": 1,
+            },
+            {
+                "type": "model_usage",
+                "request_id": "r2",
+                "input_tokens": 1,
+                "output_tokens": -1,
+            },
+            {
+                "type": "model_usage",
+                "request_id": "r3",
+                "input_tokens": 1,
+                "output_tokens": 1,
+                "cost_usd": float("nan"),
+            },
+            {
+                "type": "model_usage",
+                "request_id": "r4",
+                "input_tokens": 1,
+                "output_tokens": 1,
+                "model_id": "attacker-controlled",
+            },
+        ]
+        for message in invalid_messages:
+            response = gateway.handle_message(message)
+            self.assertFalse(response["accepted"])
+        self.assertFalse(any(event["event_type"] == "model_usage" for event in events))
+
+
     def test_task_change_is_representable_and_does_not_mutate_service(self):
         # This deterministic fixture checks that E-005 can express the task.
         # It is not an LLM/agent trial and is not the hidden acceptance oracle.
