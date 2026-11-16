@@ -1,3 +1,4 @@
+import json
 import sys
 import unittest
 from pathlib import Path
@@ -23,6 +24,16 @@ class ParserTests(unittest.TestCase):
         self.assertEqual(create["errors"], ["InvalidInput", "Unauthorized"])
         self.assertEqual(ir["operations"][0]["name"], "create_item")
         self.assertEqual(next(item for item in ir["operations"] if item["name"] == "get_item")["effects"], ["repository.read"])
+
+    def test_text_and_structured_ir_fixtures_are_identical(self):
+        structured = json.loads((ROOT / "structured" / "catalog.ir.json").read_text(encoding="utf-8"))
+        self.assertEqual(Parser(EXAMPLE).parse(), structured)
+
+    def test_unknown_type_reference_is_rejected(self):
+        invalid = EXAMPLE.replace("output: Item;", "output: Unknown;")
+        with self.assertRaises(Diagnostic) as caught:
+            Parser(invalid).parse()
+        self.assertEqual(caught.exception.code, "AN020")
 
     def test_operation_order_is_canonical(self):
         source = EXAMPLE.replace(

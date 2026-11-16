@@ -141,6 +141,17 @@ class Parser:
             self.fail("AN006", "unexpected content after service declaration")
         if not operations:
             self.fail("AN007", "service must declare at least one operation")
+        known_types = {"String", "UUID", "Integer", "Boolean", "Bytes", "Float"} | type_names
+        for item_type in types:
+            for field in item_type["fields"]:
+                if field["type"] not in known_types:
+                    self.fail("AN020", f"unknown type {field['type']!r} in record field {field['name']!r}")
+        for operation in operations:
+            if operation["output"] not in known_types:
+                self.fail("AN020", f"unknown output type {operation['output']!r}")
+            for field in operation["input"]:
+                if field["type"] not in known_types:
+                    self.fail("AN020", f"unknown input type {field['type']!r} in field {field['name']!r}")
         return {
             "ir_version": 1,
             "service": {"name": name, "version": version},
