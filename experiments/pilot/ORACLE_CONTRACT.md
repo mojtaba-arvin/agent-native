@@ -116,3 +116,34 @@ The public repository contains this contract, candidate-envelope validation, tra
 6. Preserve the raw trace, candidate (if any), coarse evaluation result, finalized trace, summary, schedule, and evaluator version/hash as the immutable run record.
 
 The evaluator must not run before the model session terminates, and the model adapter must never receive the evaluator result or its output path. The private evaluator checks input/output token budgets from complete model_usage events and the wall-clock/tool-call budgets from the trusted trace and runner timestamp. Incomplete token telemetry is classified as ADAPTER_ERROR and excluded from the acceptance denominator, not interpreted as zero usage.
+
+
+## Private evaluator command contract
+
+The private evaluator utility is distributed separately from this repository. Keep its source outside the public checkout and do not expose it through model tools or prompts. Its CLI accepts one scheduled run and writes one exclusive coarse result:
+
+```sh
+python /secure/agent_native_pilot_oracle.py \
+  --repo-root /work/agent-native \
+  --schedule /secure/pilot/schedule.json \
+  --run-id '<scheduled-run-id>' \
+  --trace /secure/pilot/run.trace.jsonl \
+  --candidate /secure/pilot/candidate.json \
+  --agent-finished-at-ns '<trusted-runner-time-ns>' \
+  --output-result /secure/pilot/evaluation-result.json
+```
+
+The candidate argument may be omitted only when the agent produced no artifact. The timestamp must be captured by the trusted runner after the model session ends, using the same host wall clock as the gateway. The utility derives its evaluator version from the evaluator source SHA-256. It verifies the clean source checkout and schedule before evaluating any candidate.
+
+After the private evaluator exits successfully, run the public finalizer:
+
+```sh
+python experiments/pilot/finalize.py \
+  --trace /secure/pilot/run.trace.jsonl \
+  --evaluation-result /secure/pilot/evaluation-result.json \
+  --candidate /secure/pilot/candidate.json \
+  --output-trace /secure/pilot/finalized.trace.jsonl \
+  --output-summary /secure/pilot/summary.json
+```
+
+Omit the finalizer's candidate argument when no candidate artifact was produced. If an artifact exceeds the public size limit and has no recorded hash, do not pass that oversized file to the finalizer. All paths shown for run artifacts must remain outside the public repository and outside any model-visible context.
