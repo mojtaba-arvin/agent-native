@@ -190,6 +190,57 @@ class GatewayTests(unittest.TestCase):
             with self.assertRaises(FileExistsError):
                 JsonlTraceSink(path)
 
+    def test_successful_proposal_hash_is_written_to_trace_without_ir_body(self):
+        events = []
+        gateway = PilotGateway(
+            "upfront",
+            trace_sink=events.append,
+            trace_context={
+                "run_id": "proposal-trial",
+                "candidate_id": "upfront",
+                "model_id": "model-test",
+                "task_id": "pilot-catalog-add-readonly-operation",
+                "attempt": 1,
+            },
+        )
+        base_revision = gateway.interface.revision("catalog")
+        proposed_ir = copy.deepcopy(gateway.interface.services["catalog"])
+        proposed_ir["operations"].append({
+            "name": "get_item_by_name",
+            "method": "GET",
+            "path": "/items/by-name/{name}",
+            "input": [{"name": "name", "type": "String", "source": "path"}],
+            "output": "Item",
+            "errors": ["InvalidInput", "NotFound", "Unauthorized"],
+            "validation": ["name.non_empty"],
+            "effects": ["repository.read"],
+            "capability": "items.read",
+        })
+        response = gateway.handle_message({
+            "type": "tool_call",
+            "request_id": "propose-1",
+            "tool": "service.propose",
+            "arguments": {
+                "service_id": "catalog",
+                "base_revision": base_revision,
+                "ir": proposed_ir,
+            },
+        })
+        self.assertTrue(response["response"]["ok"])
+        proposal_events = [
+            event for event in events
+            if event["event_type"] == "tool_call"
+            and event["tool_name"] == "service.propose"
+        ]
+        self.assertEqual(len(proposal_events), 1)
+        self.assertEqual(
+            proposal_events[0]["change_set_id"],
+            response["response"]["result"]["change_set_id"],
+        )
+        self.assertNotIn("ir", proposal_events[0])
+        self.assertNotIn("arguments", proposal_events[0])
+
+
     def test_task_change_is_representable_and_does_not_mutate_service(self):
         # This deterministic fixture checks that E-005 can express the task.
         # It is not an LLM/agent trial and is not the hidden acceptance oracle.
