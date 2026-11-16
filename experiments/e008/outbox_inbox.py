@@ -161,7 +161,7 @@ class OutboxInbox:
                 """INSERT INTO outbox(
                     event_id, payload_json, payload_hash, status, available_at
                 ) VALUES (?, ?, ?, 'pending', ?)""",
-                (event_id, payload_json, _digest(payload), now),
+                (event_id, payload_json, payload_hash, now),
             )
             connection.execute(
                 "INSERT INTO producer_effects(effect_key, payload_hash, event_id) VALUES (?, ?, ?)",
