@@ -1,4 +1,4 @@
-name: E-002 native baseline build checks
+name: E-002 native and WASI baseline checks
 
 on:
   pull_request:
@@ -42,3 +42,23 @@ jobs:
       - run: cargo build --release
         working-directory: experiments/e002/rust
       - run: python experiments/e002/conformance.py --command ./target/release/agent-native-e002-rust --cwd experiments/e002/rust
+
+  wasi-p2:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-wasip2
+      - name: Build WASI 0.2 component
+        run: cargo build --release --target wasm32-wasip2
+        working-directory: experiments/e002/wasi-p2
+      - name: Install pinned Wasmtime
+        run: |
+          curl -fsSL https://github.com/bytecodealliance/wasmtime/releases/download/v50.0.1/wasmtime-v50.0.1-x86_64-linux.tar.xz -o /tmp/wasmtime.tar.xz
+          tar -xJf /tmp/wasmtime.tar.xz -C /tmp
+          WASMTIME_BIN="$(find /tmp -type f -name wasmtime -perm -111 | head -n 1)"
+          test -n "$WASMTIME_BIN"
+          echo "$(dirname "$WASMTIME_BIN")" >> "$GITHUB_PATH"
+      - name: Run shared HTTP conformance checks
+        run: python experiments/e002/conformance.py --command "wasmtime serve --addr=127.0.0.1:8080 target/wasm32-wasip2/release/agent_native_e002_wasi_p2.wasm" --cwd experiments/e002/wasi-p2
