@@ -158,7 +158,7 @@ class ScheduleTests(unittest.TestCase):
         tampered["trials"][1]["run_id"] = (
             f"pair-{pair_number:04d}-{candidate_id}-{run_hash[:12]}"
         )
-        with self.assertRaisesRegex(ScheduleError, "pair_not_balanced"):
+        with self.assertRaisesRegex(ScheduleError, "trial_run_id_missing_or_duplicate"):
             validate_schedule(tampered)
 
     def test_credentials_are_rejected_from_generation_settings(self):
