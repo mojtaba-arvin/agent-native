@@ -32,10 +32,10 @@
     },
     {
       "id": "beam",
-      "status": "implementation-added-ci-pending",
+      "status": "black-box-conformance-passed",
       "implementation": "Elixir/OTP raw gen_tcp server with BEAM process-per-connection model",
       "framework_dependency": null,
-      "notes": "No Phoenix/Plug/Bandit or existing backend framework; closes one request per connection; CI and black-box parity pending."
+      "notes": "Elixir 1.20.5 / OTP 29.1.2; raw :gen_tcp, BEAM process-per-connection, atomic in-flight cap. No Phoenix/Plug/Bandit. One request per connection; graceful draining and disconnect cancellation remain unimplemented."
     }
   ],
   "selection": null

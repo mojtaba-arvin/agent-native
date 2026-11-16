@@ -1,9 +1,11 @@
 # E-002 runtime substrate experiment — first native arms
 
-This is the first executable transport/runtime slice for E-002. It compares two low-level native HTTP implementations without using an existing backend framework:
+This is the first executable transport/runtime slice for E-002. It compares four independent execution substrates without using an existing backend framework:
 
 - Go standard library `net/http`;
-- Rust `tokio` + `hyper` directly.
+- Rust `tokio` + `hyper` directly;
+- WASI Preview 2 component using `wstd` and Wasmtime 50.0.1;
+- Elixir/OTP on BEAM using raw `:gen_tcp` and processes.
 
 Neither language is selected for Agent Native. These are disposable baseline implementations. They are not Agent Native's product runtime and do not define its final service model.
 
@@ -12,7 +14,7 @@ Neither language is selected for Agent Native. These are disposable baseline imp
 - `GET /health`: readiness response.
 - `GET /work?ms=N`: bounded concurrent work; reject overload with 503; return 504 when the fixed 750 ms operation deadline expires.
 - `GET /stream`: return three ordered body frames.
-- The service admits at most 64 concurrent work operations.
+- Go, Rust, and BEAM candidates enforce an application-level limit of 64 active connections/work handlers. WASI P2 uses a host-owned listener; its admission limit is host policy and is not equivalent to a guest-owned limit.
 - Server binds to `127.0.0.1:8080`.
 
 The first pass checks semantic parity and buildability. It is **not** a performance benchmark. A later stage must add an independent load generator, warm-up, repetitions, latency percentiles, throughput, CPU/RSS, startup, and failure injection. Cancellation and client-disconnect semantics are not yet considered equivalent.
