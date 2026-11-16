@@ -43,6 +43,7 @@ SOURCE_FILES = (
     "experiments/e007/metrics.py",
 )
 REVISION_PATTERN = re.compile(r"^[0-9a-f]{40}$")
+MAX_GENERATION_SETTINGS_BYTES = 1024 * 1024
 
 
 class ScheduleError(ValueError):
@@ -88,6 +89,52 @@ def validate_generation_settings(value: Any) -> None:
                 reject_secret_keys(child)
 
     reject_secret_keys(value)
+
+
+
+def _reject_duplicate_json_keys(pairs: list[tuple[str, Any]]) -> dict:
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ScheduleError("generation_settings_duplicate_json_key")
+        result[key] = value
+    return result
+
+
+def _reject_non_finite_json_number(value: str) -> None:
+    raise ScheduleError("generation_settings_non_finite_json_number")
+
+
+def load_generation_settings(path: str | Path) -> dict:
+    settings_path = Path(path).expanduser()
+    try:
+        raw = settings_path.read_bytes()
+    except OSError as error:
+        raise ScheduleError("generation_settings_file_unavailable") from error
+    if len(raw) > MAX_GENERATION_SETTINGS_BYTES:
+        raise ScheduleError("generation_settings_file_too_large")
+    try:
+        value = json.loads(
+            raw.decode("utf-8"),
+            object_pairs_hook=_reject_duplicate_json_keys,
+            parse_constant=_reject_non_finite_json_number,
+        )
+    except UnicodeDecodeError as error:
+        raise ScheduleError("generation_settings_invalid_utf8") from error
+    except json.JSONDecodeError as error:
+        raise ScheduleError("generation_settings_invalid_json") from error
+    validate_generation_settings(value)
+    return value
+
+
+def resolve_output_outside_checkout(path: str | Path, root: str | Path = ROOT) -> Path:
+    output = Path(path).expanduser().resolve()
+    checkout = Path(root).resolve()
+    try:
+        output.relative_to(checkout)
+    except ValueError:
+        return output
+    raise ScheduleError("schedule_output_must_be_outside_checkout")
 
 
 def hash_source_files(root: str | Path = ROOT) -> dict[str, str]:
@@ -376,12 +423,10 @@ def main() -> None:
     args = parser.parse_args()
 
     try:
-        generation_settings = json.loads(
-            args.generation_settings_file.read_text(encoding="utf-8"),
-            parse_constant=lambda value: (_ for _ in ()).throw(ValueError(f"non_finite:{value}")),
-        )
-    except (OSError, UnicodeError, json.JSONDecodeError, ValueError) as error:
-        parser.error(f"invalid generation settings file: {error}")
+        generation_settings = load_generation_settings(args.generation_settings_file)
+        output = resolve_output_outside_checkout(args.output)
+    except ScheduleError as error:
+        parser.error(str(error))
 
     schedule = create_schedule(
         pairs=args.pairs,
@@ -395,7 +440,6 @@ def main() -> None:
         generation_settings=generation_settings,
     )
     validate_schedule(schedule)
-    output = args.output.expanduser().absolute()
     output.parent.mkdir(parents=True, exist_ok=True)
     encoded = json.dumps(schedule, ensure_ascii=False, sort_keys=True, indent=2) + "\n"
     # Do not overwrite an existing schedule: it is an immutable experiment record.
