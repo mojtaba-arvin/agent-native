@@ -1,9 +1,9 @@
 # E-002 initial CI smoke matrix (not a runtime decision)
 
-<badge>Preliminary only</badge>
+> Preliminary only — not a runtime decision.
 
 - Workflow: [run #43846465352](https://github.com/mojtaba-arvin/agent-native/actions/runs/43846465352)
-- Raw request traces and per-run summaries: [download the workflow artifact](https://github.com/mojtaba-arvin/agent-native/actions/runs/43846465352)
+- Raw request traces and per-run summaries: [workflow run (artifact available under Artifacts)](https://github.com/mojtaba-arvin/agent-native/actions/runs/43846465352)
 - Source revision: `23d955b4b20b613debe694868e2104074c289386`
 - Runner: GitHub-hosted `ubuntu-latest`
 - Protocol: 3 randomized repetitions per candidate, 1,000 requests per repetition, concurrency 32, 100 warm-up requests, seed `20261116`
