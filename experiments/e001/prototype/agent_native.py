@@ -341,8 +341,8 @@ def validate_ir(ir: object) -> None:
             source = field.get("source")
             if not isinstance(source, str) or source not in {"path", "body", "query"}:
                 fail("AN010", f"unsupported input source {source!r}")
-        path_variables = re.findall(r"\\{([A-Za-z_][A-Za-z0-9_]*)\\}", path)
-        if "{" in re.sub(r"\\{[A-Za-z_][A-Za-z0-9_]*\\}", "", path) or "}" in re.sub(r"\\{[A-Za-z_][A-Za-z0-9_]*\\}", "", path):
+        path_variables = re.findall(r"\{([A-Za-z_][A-Za-z0-9_]*)\}", path)
+        if "{" in re.sub(r"\{[A-Za-z_][A-Za-z0-9_]*\}", "", path) or "}" in re.sub(r"\{[A-Za-z_][A-Za-z0-9_]*\}", "", path):
             fail("AN027", f"malformed path parameter in {path!r}")
         path_inputs = {field["name"] for field in inputs if field["source"] == "path"}
         if len(path_variables) != len(set(path_variables)) or set(path_variables) != path_inputs:
