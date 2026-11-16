@@ -43,7 +43,7 @@ class EngineSemanticsTests(unittest.TestCase):
         self.assertEqual(engine.finish("w", "ok", result="late"), "expired")
         self.assertEqual(engine.workers, {})
 
-    def test_cancellation_releases_worker_capacity(self):
+    def test_cancellation_retains_worker_capacity_until_stop(self):
         engine = self.engine(outstanding=2, concurrency=1)
         engine.submit("a", "key-a", ttl=5)
         engine.submit("b", "key-b", ttl=5)
@@ -141,6 +141,16 @@ class EngineSemanticsTests(unittest.TestCase):
             engine.finish("worker", "ok", result={"secret": "not a string"})
         with self.assertRaisesRegex(ValueError, "unsupported_outcome"):
             engine.finish("worker", ["ok"])
+
+
+    def test_cancelling_work_still_counts_against_outstanding_limit(self):
+        engine = self.engine(outstanding=1, concurrency=1)
+        engine.submit("a", "key-a", ttl=5)
+        engine.start("worker")
+        self.assertTrue(engine.cancel("a"))
+        self.assertEqual(engine.submit("b", "key-b", ttl=5).status, "backpressure")
+        self.assertEqual(engine.finish("worker", "ok"), "cancelled")
+        self.assertEqual(engine.submit("b", "key-b", ttl=5).status, "accepted")
 
 if __name__ == "__main__":
     unittest.main()

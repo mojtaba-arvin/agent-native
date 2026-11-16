@@ -66,7 +66,7 @@ class Engine:
             return Submission("shutting_down", None)
         if task_id in self.tasks:
             raise ValueError(f"task id already exists: {task_id}")
-        active = sum(t.status in {"queued", "running"} for t in self.tasks.values())
+        active = sum(t.status in {"queued", "running", "cancelling"} for t in self.tasks.values())
         if active >= self.max_outstanding:
             return Submission("backpressure", None)
         task = Task(task_id, idempotency_key, self.now + ttl, max_attempts)
