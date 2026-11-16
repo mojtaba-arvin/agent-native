@@ -23,6 +23,8 @@ The trusted adapter holds provider credentials. Credentials must never be placed
 
 The adapter and gateway may receive a run-scoped identifier and candidate label as out-of-band metadata. Those fields are not copied into model-visible messages.
 
+This is a tool-use experiment, not a code-execution benchmark: the model proposes a JSON service IR and the E-005 gateway stores/validates/plans it without executing it. A general-purpose sandbox for model-generated code is therefore outside this pilot. The trusted evaluator still runs separately from the model-facing adapter, never exposes its implementation or keys to the model, and must not execute candidate data.
+
 ## Trial startup
 
 1. Before starting any trial, the runner executes `verify_schedule.py` from the clean checkout and verifies the schedule Git revision and all pinned source hashes. A mismatch aborts the entire batch before any model request.
