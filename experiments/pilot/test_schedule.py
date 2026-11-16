@@ -201,6 +201,17 @@ class ScheduleTests(unittest.TestCase):
             )
 
 
+    def test_generation_settings_loader_checks_size_before_parsing(self):
+        from unittest.mock import patch
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "settings.json"
+            path.write_bytes(b"12345")
+            with patch("schedule.MAX_GENERATION_SETTINGS_BYTES", 4):
+                with self.assertRaisesRegex(ScheduleError, "generation_settings_file_too_large"):
+                    load_generation_settings(path)
+
+
     def test_credentials_are_rejected_from_generation_settings(self):
         with self.assertRaisesRegex(ScheduleError, "must_not_contain_credentials"):
             self.build(generation_settings={"nested": {"api_key": "must-not-be-stored"}})
