@@ -1,0 +1,123 @@
+{
+  "schema_version": 1,
+  "corpus_id": "agent-native-backend-tasks-v1",
+  "status": "task_definitions_only",
+  "oracle_policy": "Acceptance oracles are maintained outside the agent-visible workspace. This public corpus contains prompts and oracle identifiers only.",
+  "tasks": [
+    {
+      "id": "service-crud-contract",
+      "title": "Service CRUD contract",
+      "difficulty": "intermediate",
+      "prompt_file": "TASKS.md",
+      "oracle_id": "service-contract-v1",
+      "required_capabilities": [
+        "typed_contracts",
+        "validation",
+        "authorization"
+      ]
+    },
+    {
+      "id": "backward-compatible-schema-change",
+      "title": "Backward-compatible schema evolution",
+      "difficulty": "advanced",
+      "prompt_file": "TASKS.md",
+      "oracle_id": "schema-evolution-v1",
+      "required_capabilities": [
+        "schema_evolution",
+        "compatibility"
+      ]
+    },
+    {
+      "id": "tenant-isolation",
+      "title": "Multi-tenant isolation",
+      "difficulty": "advanced",
+      "prompt_file": "TASKS.md",
+      "oracle_id": "tenant-isolation-v1",
+      "required_capabilities": [
+        "tenant_identity",
+        "authorization",
+        "data_isolation"
+      ]
+    },
+    {
+      "id": "idempotent-event-processing",
+      "title": "Idempotent event processing",
+      "difficulty": "advanced",
+      "prompt_file": "TASKS.md",
+      "oracle_id": "idempotency-v1",
+      "required_capabilities": [
+        "durable_tasks",
+        "idempotency"
+      ]
+    },
+    {
+      "id": "deadline-retry-propagation",
+      "title": "Deadline and retry propagation",
+      "difficulty": "advanced",
+      "prompt_file": "TASKS.md",
+      "oracle_id": "deadline-retry-v1",
+      "required_capabilities": [
+        "deadlines",
+        "cancellation",
+        "retry_policy"
+      ]
+    },
+    {
+      "id": "stream-cancellation-backpressure",
+      "title": "Streaming and backpressure",
+      "difficulty": "expert",
+      "prompt_file": "TASKS.md",
+      "oracle_id": "streaming-backpressure-v1",
+      "required_capabilities": [
+        "streaming",
+        "backpressure",
+        "cancellation"
+      ]
+    },
+    {
+      "id": "durable-restart-recovery",
+      "title": "Durable restart recovery",
+      "difficulty": "expert",
+      "prompt_file": "TASKS.md",
+      "oracle_id": "durable-recovery-v1",
+      "required_capabilities": [
+        "durability",
+        "lease_fencing",
+        "crash_recovery"
+      ]
+    },
+    {
+      "id": "capability-attenuation",
+      "title": "Capability security and delegation",
+      "difficulty": "expert",
+      "prompt_file": "TASKS.md",
+      "oracle_id": "capability-security-v1",
+      "required_capabilities": [
+        "capability_security",
+        "effect_enforcement"
+      ]
+    },
+    {
+      "id": "debug-regression",
+      "title": "Debug and repair a regression",
+      "difficulty": "intermediate",
+      "prompt_file": "TASKS.md",
+      "oracle_id": "debug-regression-v1",
+      "required_capabilities": [
+        "debugging",
+        "regression_testing"
+      ]
+    },
+    {
+      "id": "safe-change-plan",
+      "title": "Plan a high-impact change safely",
+      "difficulty": "advanced",
+      "prompt_file": "TASKS.md",
+      "oracle_id": "safe-change-plan-v1",
+      "required_capabilities": [
+        "change_planning",
+        "human_approval"
+      ]
+    }
+  ]
+}
