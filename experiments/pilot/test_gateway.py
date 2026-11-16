@@ -2,7 +2,7 @@ import copy
 import json
 import unittest
 
-from gateway import MAX_MESSAGE_BYTES, PilotGateway
+from gateway import MAX_MESSAGE_BYTES, JsonlTraceSink, PilotGateway
 from surface import assert_fair_pair, build_surface
 
 
@@ -121,6 +121,65 @@ class GatewayTests(unittest.TestCase):
             response["response"]["diagnostics"][0]["code"],
             "MESSAGE_TOO_LARGE",
         )
+
+    def test_trace_sink_records_run_identity_surface_and_tool_failures(self):
+        events = []
+        gateway = PilotGateway(
+            "progressive",
+            trace_sink=events.append,
+            trace_context={
+                "run_id": "trial-001",
+                "candidate_id": "progressive",
+                "model_id": "model-test",
+                "task_id": "pilot-catalog-add-readonly-operation",
+                "attempt": 1,
+            },
+        )
+        self.assertEqual(events[0]["event_type"], "task_started")
+        self.assertEqual(events[1]["event_type"], "runtime_metric")
+        self.assertEqual(events[1]["metric_name"], "initial_surface_payload")
+        self.assertEqual(events[1]["metric_unit"], "bytes")
+
+        gateway.handle_message({
+            "type": "tool_call",
+            "request_id": "r1",
+            "tool": "interface.describe",
+            "arguments": {"name": "service.inspect"},
+        })
+        gateway.handle_message({
+            "type": "tool_call",
+            "request_id": "r2",
+            "tool": "not.a.real.tool",
+            "arguments": {},
+        })
+        calls = [event for event in events if event["event_type"] == "tool_call"]
+        self.assertEqual(len(calls), 2)
+        self.assertEqual(calls[0]["tool_name"], "interface.describe")
+        self.assertNotIn("failure_class", calls[0])
+        self.assertEqual(calls[1]["failure_class"], "UNKNOWN_TOOL")
+        self.assertTrue(all(event["run_id"] == "trial-001" for event in events))
+        self.assertTrue(all(event["candidate_id"] == "progressive" for event in events))
+        self.assertTrue(all(event["model_id"] == "model-test" for event in events))
+
+    def test_trace_sink_requires_complete_identity(self):
+        with self.assertRaisesRegex(ValueError, "trace_context_missing_required_identity"):
+            PilotGateway("progressive", trace_sink=lambda _event: None, trace_context={})
+
+    def test_jsonl_trace_sink_creates_exclusive_private_file(self):
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "trace.jsonl"
+            sink = JsonlTraceSink(path)
+            sink({"event_id": "e1", "event_type": "task_started"})
+            sink.close()
+            self.assertEqual(json.loads(path.read_text(encoding="utf-8")), {
+                "event_id": "e1",
+                "event_type": "task_started",
+            })
+            with self.assertRaises(FileExistsError):
+                JsonlTraceSink(path)
 
     def test_task_change_is_representable_and_does_not_mutate_service(self):
         # This deterministic fixture checks that E-005 can express the task.
