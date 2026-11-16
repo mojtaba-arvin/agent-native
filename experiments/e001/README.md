@@ -46,3 +46,8 @@ These are implementation baselines for measuring how agents express the same con
 - Go baseline: Go 1.23.12.
 - Rust baseline: Rust/Cargo 1.100.0 with committed `Cargo.lock`.
 - The parser harness uses Python 3.11.18 in CI.
+
+
+## Disposable IR reference executor
+
+`prototype/runtime.py` interprets the fixed catalog task from the parsed IR, derives routes from the declared method/path, validates typed inputs, enforces the trusted effect allowlist, calls the E-004 policy reference model, and executes in-memory create/get operations. It is intentionally a task-specific reference executor, not the product runtime and not a language/runtime selection. Its purpose is to test whether the textual and structured contracts contain enough information to drive observable behavior.

@@ -85,7 +85,7 @@ func (r *MemoryRepository) Create(name string) Item {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.nextID++
-	id := fmt.Sprintf("item-%d", r.nextID)
+	id := fmt.Sprintf("00000000-0000-0000-0000-%012d", r.nextID)
 	item := Item{ID: id, Name: name}
 	r.items[id] = item
 	return item

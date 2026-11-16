@@ -72,7 +72,7 @@ impl Repository for MemoryRepository {
         let mut state = self.state.lock().expect("repository lock poisoned");
         state.1 += 1;
         let item = Item {
-            id: format!("item-{}", state.1),
+            id: format!("00000000-0000-0000-0000-{:012}", state.1),
             name: name.to_owned(),
         };
         state.0.insert(item.id.clone(), item.clone());
