@@ -129,6 +129,27 @@
         "Threat model and machine-readable requirements"
       ],
       "reason": "Cryptographic grants, revocation, workload identity, storage isolation, sandbox enforcement, network egress, secrets, resource quotas, and human approval integration remain unimplemented."
+    },
+    {
+      "id": "D-0011",
+      "topic": "agent_facing_interface",
+      "status": "open",
+      "value": "The E-005 progressive-disclosure tool surface is a reference prototype; no transport or protocol is selected.",
+      "candidates": [
+        "native_typed_tools",
+        "json_rpc_style_protocol",
+        "mcp_compatible_exposure",
+        "cli_workflow",
+        "hybrid"
+      ],
+      "evidence": [
+        "Compact tool catalog",
+        "Immutable content-addressed proposals",
+        "Read-only validation and planning",
+        "Apply disabled by default",
+        "Automated safety-oriented interface tests"
+      ],
+      "reason": "Constrained/general/advanced agent trials, token and tool-call measurements, authenticated approval, and trusted mutation semantics remain outstanding."
     }
   ]
 }
