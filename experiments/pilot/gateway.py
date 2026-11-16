@@ -158,8 +158,14 @@ class PilotGateway:
         }
         self.trace_sink(event)
 
-    def _record_tool_call(self, tool_name: str, failure_class: str | None = None) -> None:
-        fields = {"tool_name": tool_name}
+    def _record_tool_call(
+        self,
+        tool_name: str,
+        failure_class: str | None = None,
+        *,
+        schema_lookup: bool = False,
+    ) -> None:
+        fields = {"tool_name": tool_name, "schema_lookup": schema_lookup}
         if failure_class is not None:
             fields["failure_class"] = failure_class
         self._emit_trace("tool_call", **fields)
@@ -202,7 +208,8 @@ class PilotGateway:
         })
         diagnostics = response.get("diagnostics", [])
         failure_class = diagnostics[0]["code"] if diagnostics else None
-        self._record_tool_call(tool, failure_class)
+        schema_lookup = tool == "interface.describe" and isinstance(arguments.get("name"), str) and bool(arguments["name"])
+        self._record_tool_call(tool, failure_class, schema_lookup=schema_lookup)
         return {
             "type": "tool_result",
             "request_id": request_id,
