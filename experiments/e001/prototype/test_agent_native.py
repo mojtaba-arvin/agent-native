@@ -42,6 +42,13 @@ class ParserTests(unittest.TestCase):
             validate_ir(ir)
         self.assertEqual(caught.exception.code, "AN026")
 
+    def test_structured_ir_rejects_traversal_routes(self):
+        ir = Parser(EXAMPLE).parse()
+        ir["operations"][0]["path"] = "/items/../secrets"
+        with self.assertRaises(Diagnostic) as caught:
+            validate_ir(ir)
+        self.assertEqual(caught.exception.code, "AN027")
+
     def test_operation_order_is_canonical(self):
         source = EXAMPLE.replace(
             'operation get_item {', 'operation z_item {'

@@ -306,7 +306,14 @@ def validate_ir(ir: object) -> None:
         path = operation.get("path")
         if not isinstance(method, str) or method not in {"GET", "POST"}:
             fail("AN003", f"unsupported method {method!r}")
-        if not isinstance(path, str) or not path.startswith("/") or "?" in path or "#" in path:
+        if (
+            not isinstance(path, str)
+            or not path.startswith("/")
+            or "?" in path
+            or "#" in path
+            or "//" in path
+            or any(segment in {".", ".."} for segment in path.split("/"))
+        ):
             fail("AN027", f"invalid route path {path!r}")
         route_key = (method, path)
         if route_key in route_keys:
@@ -331,8 +338,9 @@ def validate_ir(ir: object) -> None:
             input_names.add(field["name"])
             if not isinstance(field.get("type"), str) or field.get("type") not in known_types:
                 fail("AN020", f"unknown input type {field.get('type')!r}")
-            if field.get("source") not in {"path", "body", "query"}:
-                fail("AN010", f"unsupported input source {field.get('source')!r}")
+            source = field.get("source")
+            if not isinstance(source, str) or source not in {"path", "body", "query"}:
+                fail("AN010", f"unsupported input source {source!r}")
         for key in ("errors", "validation", "effects"):
             values = operation.get(key)
             if not isinstance(values, list) or any(not isinstance(value, str) or not value for value in values):
