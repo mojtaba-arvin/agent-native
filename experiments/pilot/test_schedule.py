@@ -4,7 +4,9 @@ import unittest
 from schedule import (
     ARMS,
     ScheduleError,
+    load_generation_settings,
     resolve_git_revision,
+    resolve_output_outside_checkout,
     verify_schedule_checkout,
     create_schedule,
     validate_schedule,
@@ -172,6 +174,32 @@ class ScheduleTests(unittest.TestCase):
         )
         with self.assertRaisesRegex(ScheduleError, "trial_run_id_missing_or_duplicate"):
             validate_schedule(tampered)
+
+    def test_generation_settings_loader_rejects_duplicate_keys_and_bad_values(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "settings.json"
+            path.write_text('{"temperature":0,"temperature":1}', encoding="utf-8")
+            with self.assertRaisesRegex(ScheduleError, "duplicate_json_key"):
+                load_generation_settings(path)
+            path.write_text('{"temperature":NaN}', encoding="utf-8")
+            with self.assertRaisesRegex(ScheduleError, "non_finite_json_number"):
+                load_generation_settings(path)
+            path.write_bytes(bytes([0xFF]))
+            with self.assertRaisesRegex(ScheduleError, "invalid_utf8"):
+                load_generation_settings(path)
+
+    def test_schedule_output_must_be_outside_repository_checkout(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "repo"
+            root.mkdir()
+            with self.assertRaisesRegex(ScheduleError, "must_be_outside_checkout"):
+                resolve_output_outside_checkout(root / "results" / "schedule.json", root)
+            outside = Path(directory) / "schedule.json"
+            self.assertEqual(
+                resolve_output_outside_checkout(outside, root),
+                outside.resolve(),
+            )
+
 
     def test_credentials_are_rejected_from_generation_settings(self):
         with self.assertRaisesRegex(ScheduleError, "must_not_contain_credentials"):
