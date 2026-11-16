@@ -11,7 +11,6 @@ import argparse
 import hashlib
 import json
 import sys
-import time
 import uuid
 from pathlib import Path
 from typing import Any
@@ -79,7 +78,7 @@ def load_evaluation_result(path: str | Path) -> dict:
     for field in ("run_id", "candidate_id", "task_id", "evaluator_version"):
         if not isinstance(result[field], str) or not result[field]:
             raise FinalizationError(f"evaluation_result_{field}_invalid")
-    if result["candidate_id"] not in {"progressive", "upfront"}:
+    if not isinstance(result["candidate_id"], str) or result["candidate_id"] not in {"progressive", "upfront"}:
         raise FinalizationError("evaluation_result_candidate_id_invalid")
     if result["task_id"] != "pilot-catalog-add-readonly-operation":
         raise FinalizationError("evaluation_result_task_id_invalid")
@@ -97,7 +96,7 @@ def load_evaluation_result(path: str | Path) -> dict:
         ):
             raise FinalizationError("accepted_result_requires_candidate_hash")
     else:
-        if result["failure_class"] not in RESULT_FAILURES:
+        if not isinstance(result["failure_class"], str) or result["failure_class"] not in RESULT_FAILURES:
             raise FinalizationError("rejected_result_requires_public_failure_class")
         if result["candidate_sha256"] is not None and (
             not isinstance(result["candidate_sha256"], str)
@@ -123,7 +122,16 @@ def _validate_trace_identity(events: list[dict], result: dict) -> str:
         "attempt": result["attempt"],
     }
     model_ids = set()
+    previous_timestamp = -1
+    required_event_fields = {"event_id", "task_id", "attempt", "timestamp_ns", "event_type"}
     for event in events:
+        if not isinstance(event, dict) or not required_event_fields.issubset(event):
+            raise FinalizationError("trace_event_shape_invalid")
+        if type(event["timestamp_ns"]) is not int or event["timestamp_ns"] < 0:
+            raise FinalizationError("trace_timestamp_invalid")
+        if event["timestamp_ns"] < previous_timestamp:
+            raise FinalizationError("trace_event_order_invalid")
+        previous_timestamp = event["timestamp_ns"]
         for field, value in expected.items():
             if event.get(field) != value:
                 raise FinalizationError(f"trace_identity_mismatch:{field}")
@@ -135,7 +143,7 @@ def _validate_trace_identity(events: list[dict], result: dict) -> str:
             raise FinalizationError("trace_event_after_agent_completion")
     if len(model_ids) != 1:
         raise FinalizationError("trace_model_identity_mismatch")
-    if sum(event["event_type"] == "task_started" for event in events) != 1:
+    if sum(event["event_type"] == "task_started" for event in events) != 1 or events[0]["event_type"] != "task_started":
         raise FinalizationError("trace_must_contain_one_task_start")
     if any(event["event_type"] == "task_finished" for event in events):
         raise FinalizationError("trace_already_finalized")
@@ -156,7 +164,7 @@ def _require_accepted_tool_sequence(events: list[dict], change_set_id: str) -> N
 
     def find_after(tool_name: str, start: int, *, proposal_id: str | None = None) -> int:
         for index, event in calls:
-            if index <= start or event.get("tool_name") != tool_name or event.get("failure_class"):
+            if index <= start or event.get("tool_name") != tool_name or "failure_class" in event:
                 continue
             if proposal_id is not None and event.get("change_set_id") != proposal_id:
                 continue
