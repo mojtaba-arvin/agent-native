@@ -144,6 +144,17 @@ class CandidateTests(unittest.TestCase):
         self.assertEqual(summary["change_set_id"], self.candidate["change_set_id"])
         self.assertEqual(artifact_sha, __import__("hashlib").sha256(encoded).hexdigest())
 
+    def test_candidate_loader_checks_size_before_parsing(self):
+        from unittest.mock import patch
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "oversized.json"
+            path.write_bytes(b"12345")
+            with patch("candidate.MAX_CANDIDATE_BYTES", 4):
+                with self.assertRaisesRegex(CandidateError, "candidate_file_too_large"):
+                    load_candidate(path)
+
+
     def test_candidate_loader_rejects_duplicate_json_keys(self):
         raw = (
             b'{"schema_version":1,"schema_version":1,"task_id":'
