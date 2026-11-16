@@ -174,5 +174,50 @@ class DurableQueueTests(unittest.TestCase):
         self.assertEqual(sum(result is not None for result in results), 1)
 
 
+
+    def test_submission_rejects_boolean_and_non_integer_limits(self):
+        with self.assertRaisesRegex(ValueError, "invalid_now"):
+            self.queue.submit(
+                task_id="task-1", idempotency_key="idem-1", payload={},
+                now=True, deadline_at=100, max_attempts=3,
+            )
+        with self.assertRaisesRegex(ValueError, "invalid_max_attempts"):
+            self.queue.submit(
+                task_id="task-1", idempotency_key="idem-1", payload={},
+                now=1, deadline_at=100, max_attempts=1.5,
+            )
+
+    def test_non_finite_or_non_object_payload_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, "invalid_task_payload"):
+            self.submit(payload={"amount": float("nan")})
+        with self.assertRaisesRegex(ValueError, "invalid_task_submission"):
+            self.queue.submit(
+                task_id="task-1", idempotency_key="idem-1", payload=[],
+                now=10, deadline_at=100,
+            )
+
+    def test_boolean_amount_cannot_be_persisted_as_integer_effect(self):
+        self.submit()
+        claimed = self.claim()
+        with self.assertRaisesRegex(ValueError, "invalid_amount"):
+            self.queue.complete_with_increment(
+                task_id="task-1", worker_id="worker-a",
+                lease_token=claimed["lease_token"], now=11,
+                effect_key="effect-1", state_key="balance", amount=True,
+            )
+        self.assertEqual(self.queue.get_state("balance"), 0)
+        self.assertEqual(self.queue.get_task("task-1")["status"], "running")
+
+    def test_boolean_lease_token_and_worker_identity_are_rejected(self):
+        self.submit()
+        with self.assertRaisesRegex(ValueError, "invalid_worker_id"):
+            self.queue.claim(worker_id=" ", now=10, lease_seconds=5)
+        claimed = self.claim()
+        with self.assertRaisesRegex(ValueError, "invalid_lease_token"):
+            self.queue.renew_lease(
+                task_id="task-1", worker_id="worker-a", lease_token=True,
+                now=11, lease_seconds=5,
+            )
+
 if __name__ == "__main__":
     unittest.main()

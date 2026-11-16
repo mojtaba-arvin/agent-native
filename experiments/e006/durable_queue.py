@@ -17,7 +17,23 @@ class StaleLease(Exception):
 
 
 def _canonical(value: object) -> str:
-    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return json.dumps(
+        value,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+        allow_nan=False,
+    )
+
+
+def _require_text(value: object, name: str) -> None:
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"invalid_{name}")
+
+
+def _require_int(value: object, name: str, *, minimum: int = 0) -> None:
+    if not isinstance(value, int) or isinstance(value, bool) or value < minimum:
+        raise ValueError(f"invalid_{name}")
 
 
 def _digest(value: object) -> str:
@@ -97,9 +113,17 @@ class DurableQueue:
 
     def submit(self, *, task_id: str, idempotency_key: str, payload: dict,
                now: int, deadline_at: int, max_attempts: int = 3) -> dict:
-        if not task_id or not idempotency_key or max_attempts < 1 or deadline_at <= now:
+        _require_text(task_id, "task_id")
+        _require_text(idempotency_key, "idempotency_key")
+        _require_int(now, "now")
+        _require_int(deadline_at, "deadline_at")
+        _require_int(max_attempts, "max_attempts", minimum=1)
+        if deadline_at <= now or not isinstance(payload, dict):
             raise ValueError("invalid_task_submission")
-        payload_json = _canonical(payload)
+        try:
+            payload_json = _canonical(payload)
+        except (TypeError, ValueError) as error:
+            raise ValueError("invalid_task_payload") from error
         with self._transaction() as connection:
             existing = connection.execute(
                 "SELECT * FROM tasks WHERE idempotency_key = ?", (idempotency_key,)
@@ -119,8 +143,9 @@ class DurableQueue:
             return {"duplicate": False, "task": self._task(row)}
 
     def claim(self, *, worker_id: str, now: int, lease_seconds: int) -> dict | None:
-        if not worker_id or lease_seconds < 1:
-            raise ValueError("invalid_lease_request")
+        _require_text(worker_id, "worker_id")
+        _require_int(now, "now")
+        _require_int(lease_seconds, "lease_seconds", minimum=1)
         with self._transaction() as connection:
             connection.execute(
                 """UPDATE tasks SET status = 'failed', error_code = 'deadline_exceeded',
@@ -155,8 +180,11 @@ class DurableQueue:
 
     def renew_lease(self, *, task_id: str, worker_id: str, lease_token: int,
                     now: int, lease_seconds: int) -> bool:
-        if lease_seconds < 1:
-            raise ValueError("invalid_lease_duration")
+        _require_text(task_id, "task_id")
+        _require_text(worker_id, "worker_id")
+        _require_int(lease_token, "lease_token", minimum=1)
+        _require_int(now, "now")
+        _require_int(lease_seconds, "lease_seconds", minimum=1)
         with self._transaction() as connection:
             cursor = connection.execute(
                 """UPDATE tasks SET lease_until = ?
@@ -168,8 +196,11 @@ class DurableQueue:
 
     def retry(self, *, task_id: str, worker_id: str, lease_token: int,
               now: int, delay_seconds: int) -> str:
-        if delay_seconds < 0:
-            raise ValueError("invalid_retry_delay")
+        _require_text(task_id, "task_id")
+        _require_text(worker_id, "worker_id")
+        _require_int(lease_token, "lease_token", minimum=1)
+        _require_int(now, "now")
+        _require_int(delay_seconds, "delay_seconds")
         with self._transaction() as connection:
             row = self._owned_lease(connection, task_id, worker_id, lease_token, now)
             if row["attempts"] >= row["max_attempts"]:
@@ -189,8 +220,15 @@ class DurableQueue:
     def complete_with_increment(self, *, task_id: str, worker_id: str, lease_token: int,
                                  now: int, effect_key: str, state_key: str, amount: int,
                                  fail_after_effect: bool = False) -> dict:
-        if not effect_key or not state_key:
-            raise ValueError("effect_and_state_keys_required")
+        _require_text(task_id, "task_id")
+        _require_text(worker_id, "worker_id")
+        _require_int(lease_token, "lease_token", minimum=1)
+        _require_int(now, "now")
+        _require_text(effect_key, "effect_key")
+        _require_text(state_key, "state_key")
+        _require_int(amount, "amount")
+        if not isinstance(fail_after_effect, bool):
+            raise ValueError("invalid_failure_injection_flag")
         payload_hash = _digest({"state_key": state_key, "amount": amount})
         with self._transaction() as connection:
             self._owned_lease(connection, task_id, worker_id, lease_token, now)
@@ -231,6 +269,7 @@ class DurableQueue:
             return result
 
     def cancel(self, task_id: str) -> bool:
+        _require_text(task_id, "task_id")
         with self._transaction() as connection:
             cursor = connection.execute(
                 """UPDATE tasks SET status = 'cancelled', lease_owner = NULL, lease_until = NULL
@@ -239,6 +278,7 @@ class DurableQueue:
             return cursor.rowcount == 1
 
     def expire_deadlines(self, *, now: int) -> int:
+        _require_int(now, "now")
         with self._transaction() as connection:
             cursor = connection.execute(
                 """UPDATE tasks SET status = 'failed', error_code = 'deadline_exceeded',
@@ -248,6 +288,7 @@ class DurableQueue:
             return cursor.rowcount
 
     def get_task(self, task_id: str) -> dict | None:
+        _require_text(task_id, "task_id")
         connection = self._connect()
         try:
             row = connection.execute("SELECT * FROM tasks WHERE id = ?", (task_id,)).fetchone()
@@ -256,6 +297,7 @@ class DurableQueue:
             connection.close()
 
     def get_state(self, state_key: str) -> int:
+        _require_text(state_key, "state_key")
         connection = self._connect()
         try:
             row = connection.execute("SELECT value FROM local_state WHERE state_key = ?", (state_key,)).fetchone()
@@ -264,6 +306,7 @@ class DurableQueue:
             connection.close()
 
     def get_effect(self, effect_key: str) -> dict | None:
+        _require_text(effect_key, "effect_key")
         connection = self._connect()
         try:
             row = connection.execute("SELECT * FROM effect_ledger WHERE effect_key = ?", (effect_key,)).fetchone()

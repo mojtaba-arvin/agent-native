@@ -22,3 +22,10 @@ python -m unittest discover -s experiments/e006 -v
 ## Important boundary
 
 The atomic effect demonstration covers only state stored in the same SQLite database and transaction. It does not provide exactly-once semantics for external HTTP calls, payment providers, message brokers, or other databases. Those require an outbox/inbox, idempotent receiver, saga/compensation, or another explicitly designed protocol. WAL and SQLite write serialization also do not establish multi-node availability or horizontal scaling.
+
+
+## Input and persistence-boundary validation
+
+The reference queue now rejects blank/non-string identities, boolean or non-integer timestamps/limits/lease tokens/amounts, non-object task payloads, and non-finite JSON numbers before entering a transaction. Canonical JSON hashing explicitly disables NaN/Infinity. These checks prevent Python's boolean-as-integer behavior and non-standard JSON values from silently changing durable task or effect semantics.
+
+This remains a single-node SQLite semantic model. It does not provide distributed coordination, authenticated worker identity, external-effect delivery, production retention, or a production queue substrate.
