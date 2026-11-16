@@ -17,9 +17,11 @@ def main() -> int:
     parser.add_argument("--go-command", required=True)
     parser.add_argument("--rust-command", required=True)
     parser.add_argument("--wasi-command", required=True)
+    parser.add_argument("--beam-command", required=True)
     parser.add_argument("--go-cwd", default="experiments/e002/go")
     parser.add_argument("--rust-cwd", default="experiments/e002/rust")
     parser.add_argument("--wasi-cwd", default="experiments/e002/wasi-p2")
+    parser.add_argument("--beam-cwd", default="experiments/e002/beam")
     parser.add_argument("--requests", type=int, default=5000)
     parser.add_argument("--concurrency", type=int, default=64)
     parser.add_argument("--warmup", type=int, default=250)
@@ -36,6 +38,7 @@ def main() -> int:
         {"id": "go-net-http", "command": args.go_command, "cwd": args.go_cwd},
         {"id": "rust-tokio-hyper", "command": args.rust_command, "cwd": args.rust_cwd},
         {"id": "wasi-p2-wasmtime-50.0.1", "command": args.wasi_command, "cwd": args.wasi_cwd},
+        {"id": "beam-elixir-otp", "command": args.beam_command, "cwd": args.beam_cwd},
     ]
     rng = random.Random(args.seed)
     runs: list[dict] = []

@@ -73,4 +73,5 @@ jobs:
           elixir-version: "1.20.5"
       - run: mix test
         working-directory: experiments/e002/beam
+      - run: python -m py_compile experiments/e002/conformance.py experiments/e002/benchmark.py experiments/e002/run_matrix.py
       - run: python experiments/e002/conformance.py --command "mix run -e AgentNativeE002Beam.Server.main()" --cwd experiments/e002/beam

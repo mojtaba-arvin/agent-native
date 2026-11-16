@@ -26,17 +26,33 @@ def request(path: str) -> tuple[int, bytes]:
 
 
 def proc_sample(pid: int) -> tuple[float, int] | None:
-    try:
-        stat = Path(f"/proc/{pid}/stat").read_text().split()
-        cpu_ticks = int(stat[13]) + int(stat[14])
-        rss_kib = 0
-        for line in Path(f"/proc/{pid}/status").read_text().splitlines():
-            if line.startswith("VmRSS:"):
-                rss_kib = int(line.split()[1])
-                break
-        return cpu_ticks / os.sysconf("SC_CLK_TCK"), rss_kib * 1024
-    except (OSError, ValueError, IndexError):
-        return None
+    """Aggregate CPU time and RSS for the process and its descendants."""
+    pending = [pid]
+    seen: set[int] = set()
+    cpu_seconds = 0.0
+    rss_bytes = 0
+    found = False
+    while pending:
+        current = pending.pop()
+        if current in seen:
+            continue
+        seen.add(current)
+        try:
+            stat = Path(f"/proc/{current}/stat").read_text().split()
+            cpu_ticks = int(stat[13]) + int(stat[14])
+            rss_kib = 0
+            for line in Path(f"/proc/{current}/status").read_text().splitlines():
+                if line.startswith("VmRSS:"):
+                    rss_kib = int(line.split()[1])
+                    break
+            cpu_seconds += cpu_ticks / os.sysconf("SC_CLK_TCK")
+            rss_bytes += rss_kib * 1024
+            found = True
+            children = Path(f"/proc/{current}/task/{current}/children").read_text().split()
+            pending.extend(int(child) for child in children)
+        except (OSError, ValueError, IndexError):
+            continue
+    return (cpu_seconds, rss_bytes) if found else None
 
 
 def percentile(values: list[float], percentile_value: float) -> float:

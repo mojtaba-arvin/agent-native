@@ -64,7 +64,7 @@ python experiments/e002/benchmark.py \
 Repeat with the Rust binary and randomized candidate order. Keep machine and runner identical. The script is an initial measurement harness, not yet a complete benchmark protocol: it does not isolate background noise, pin CPU frequency, measure startup distributions, or capture host/guest memory separately. Do not treat one run as a performance conclusion.
 
 
-## WASI Component Model arm
+## BEAM/OTP arm\n\nA raw Elixir/OTP server uses the BEAM process model and `:atomics` for a bounded in-flight connection count. It deliberately avoids Phoenix, Plug, Bandit, and other web frameworks. The implementation is a transport/runtime probe, not a production HTTP server; it closes each connection after one request and does not yet implement graceful draining or cancellation propagation on client disconnect.\n\n## WASI Component Model arm
 
 A WASI Preview 2 HTTP component is now included at `wasi-p2/`, using `wstd` 0.6.8 and the standard `wasi:http/proxy` world. It implements the same health, bounded-duration work response, deadline status, and streaming body contract. The component build and shared black-box conformance suite pass on Wasmtime 50.0.1. The first host run exposed a missing `wasi:cli/environment` import; explicitly enabling the CLI and HTTP WASI interfaces resolved it.
 
@@ -80,6 +80,7 @@ python experiments/e002/run_matrix.py \
   --go-command /tmp/e002-go \
   --rust-command ./target/release/agent-native-e002-rust \
   --wasi-command "wasmtime serve --addr=127.0.0.1:8080 -S cli=y -S http=y target/wasm32-wasip2/release/agent_native_e002_wasi_p2.wasm" \
+  --beam-command "mix run -e AgentNativeE002Beam.Server.main()" \
   --requests 5000 --concurrency 64 --warmup 250 --repetitions 10 \
   --output results/e002
 ```

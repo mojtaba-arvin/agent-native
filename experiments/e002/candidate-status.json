@@ -32,10 +32,10 @@
     },
     {
       "id": "beam",
-      "status": "not-implemented",
-      "implementation": "BEAM/OTP actor runtime",
+      "status": "implementation-added-ci-pending",
+      "implementation": "Elixir/OTP raw gen_tcp server with BEAM process-per-connection model",
       "framework_dependency": null,
-      "notes": "Candidate only; no implementation or measurements."
+      "notes": "No Phoenix/Plug/Bandit or existing backend framework; closes one request per connection; CI and black-box parity pending."
     }
   ],
   "selection": null
