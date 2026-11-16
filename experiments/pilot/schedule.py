@@ -155,12 +155,51 @@ def validate_schedule(schedule: Any) -> None:
         "schedule_version", "plan_id", "protocol", "trials"
     }:
         raise ScheduleError("schedule_shape_invalid")
+    if type(schedule["schedule_version"]) is not int or schedule["schedule_version"] != 1:
+        raise ScheduleError("schedule_version_unsupported")
     protocol = schedule["protocol"]
-    if not isinstance(protocol, dict):
+    protocol_fields = {
+        "protocol_version", "task_id", "source_revision", "source_sha256",
+        "model_id", "budgets", "pairs", "seed", "arms", "randomization",
+        "execution",
+    }
+    if not isinstance(protocol, dict) or set(protocol) != protocol_fields:
         raise ScheduleError("protocol_shape_invalid")
     expected_id = sha256_bytes(canonical_json(protocol))
     if schedule["plan_id"] != expected_id:
         raise ScheduleError("plan_id_mismatch")
+    if protocol.get("protocol_version") != 1 or protocol.get("task_id") != TASK_ID:
+        raise ScheduleError("protocol_identity_invalid")
+    if protocol.get("arms") != list(ARMS):
+        raise ScheduleError("protocol_arms_invalid")
+    if protocol.get("randomization") != "independent_uniform_order_within_each_pair":
+        raise ScheduleError("protocol_randomization_invalid")
+    if protocol.get("execution") != {
+        "fresh_state_per_trial": True,
+        "max_concurrent_trials": 1,
+        "agent_receives_arm_label": False,
+    }:
+        raise ScheduleError("protocol_execution_policy_invalid")
+    if not isinstance(protocol.get("model_id"), str) or not protocol["model_id"]:
+        raise ScheduleError("protocol_model_id_invalid")
+    if not isinstance(protocol.get("source_revision"), str) or not REVISION_PATTERN.fullmatch(protocol["source_revision"]):
+        raise ScheduleError("protocol_source_revision_invalid")
+    source_hashes = protocol.get("source_sha256")
+    if not isinstance(source_hashes, dict) or set(source_hashes) != set(SOURCE_FILES):
+        raise ScheduleError("protocol_source_hashes_invalid")
+    for relative, digest in source_hashes.items():
+        if not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest):
+            raise ScheduleError(f"protocol_source_hash_invalid:{relative}")
+    budgets = protocol.get("budgets")
+    if not isinstance(budgets, dict) or set(budgets) != {
+        "max_input_tokens", "max_output_tokens", "max_tool_calls", "max_wall_seconds"
+    }:
+        raise ScheduleError("protocol_budgets_invalid")
+    if any(type(value) is not int or value < 1 for value in budgets.values()):
+        raise ScheduleError("protocol_budget_value_invalid")
+    seed = protocol.get("seed")
+    if type(seed) is not int or not 0 <= seed <= 2**32 - 1:
+        raise ScheduleError("protocol_seed_invalid")
     pairs = protocol.get("pairs")
     if type(pairs) is not int or not 1 <= pairs <= 500:
         raise ScheduleError("protocol_pairs_invalid")
@@ -171,8 +210,13 @@ def validate_schedule(schedule: Any) -> None:
     seen_run_ids = set()
     seen_sequences = set()
     by_pair: dict[str, list[dict]] = {}
+    trial_fields = {
+        "sequence", "pair_id", "run_id", "candidate_id", "model_id",
+        "task_id", "attempt", "source_revision", "source_sha256",
+        "budgets", "fresh_state_required", "agent_visible_treatment_label",
+    }
     for trial in trials:
-        if not isinstance(trial, dict):
+        if not isinstance(trial, dict) or set(trial) != trial_fields:
             raise ScheduleError("trial_shape_invalid")
         if trial.get("candidate_id") not in ARMS:
             raise ScheduleError("trial_candidate_invalid")
@@ -184,9 +228,16 @@ def validate_schedule(schedule: Any) -> None:
         if type(sequence) is not int or sequence < 1 or sequence in seen_sequences:
             raise ScheduleError("trial_sequence_missing_or_duplicate")
         seen_sequences.add(sequence)
-        for key in ("model_id", "task_id", "source_revision", "pair_id"):
-            if trial.get(key) != protocol.get(key, TASK_ID if key == "task_id" else None):
-                raise ScheduleError(f"trial_{key}_mismatch")
+        if trial.get("model_id") != protocol["model_id"]:
+            raise ScheduleError("trial_model_id_mismatch")
+        if trial.get("task_id") != TASK_ID:
+            raise ScheduleError("trial_task_id_mismatch")
+        if trial.get("source_revision") != protocol["source_revision"]:
+            raise ScheduleError("trial_source_revision_mismatch")
+        if trial.get("pair_id") != f"pair-{(sequence + 1) // 2:04d}":
+            raise ScheduleError("trial_pair_id_mismatch")
+        if type(trial.get("attempt")) is not int or trial["attempt"] != 1:
+            raise ScheduleError("trial_attempt_invalid")
         if trial.get("budgets") != protocol.get("budgets"):
             raise ScheduleError("trial_budget_mismatch")
         if trial.get("source_sha256") != protocol.get("source_sha256"):
