@@ -23,4 +23,4 @@ Constraints:
 - Validate the proposal and produce a no-side-effect plan.
 - Do not apply the proposal, mutate state, access a network, or deploy anything.
 
-A successful result is a proposal whose normalized service IR contains exactly the requested additional operation and preserves all existing service definitions, passes the trusted structural/effect validator, and has a plan that reports only `repository.read` for the new operation. The acceptance oracle must verify these properties independently and must not be exposed to the agent.
+A successful result is a proposal whose normalized service IR contains exactly the requested additional operation and preserves all existing service definitions, passes the trusted structural/effect validator, and has a plan that includes `repository.read` for the new operation without introducing any effect beyond those already declared by the existing service. The plan may also report `repository.write` because the unchanged `create_item` operation already declares it. The acceptance oracle must verify these properties independently and must not be exposed to the agent.
