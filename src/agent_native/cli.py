@@ -6,13 +6,12 @@ import argparse
 import importlib.util
 import json
 import os
-import py_compile
 import sys
 from pathlib import Path
 from typing import Any
 
 from . import __version__
-from .manifest import MANIFEST_NAME, ManifestError, load_manifest
+from .manifest import MANIFEST_NAME, ManifestError, load_manifest, validate_manifest
 
 TEMPLATE_MANIFEST = {
     "schema_version": "1",
@@ -49,7 +48,12 @@ def _emit(payload: Any, as_json: bool = True) -> None:
 
 def command_init(args: argparse.Namespace) -> int:
     target = Path(args.path).resolve()
-    if target.exists() and any(target.iterdir()):
+    try:
+        validate_manifest({**TEMPLATE_MANIFEST, "name": args.name})
+    except ManifestError as exc:
+        _emit({"ok": False, "error": str(exc)})
+        return 2
+    if target.exists() and (not target.is_dir() or any(target.iterdir())):
         _emit({"ok": False, "error": "target directory is not empty", "path": str(target)})
         return 2
     target.mkdir(parents=True, exist_ok=True)
@@ -107,9 +111,9 @@ def command_verify(args: argparse.Namespace) -> int:
         if any(part in {".venv", "venv", "__pycache__", ".git"} for part in source.parts):
             continue
         try:
-            py_compile.compile(str(source), doraise=True)
-        except py_compile.PyCompileError as exc:
-            compile_errors.append({"file": str(source.relative_to(root)), "error": str(exc)})
+            compile(source.read_text(encoding="utf-8"), str(source), "exec")
+        except (OSError, SyntaxError) as exc:
+            compile_errors.append({"file": str(source.relative_to(root)), "error": f"{type(exc).__name__}: {exc}"})
     if compile_errors:
         _emit({"ok": False, "verified": False, "stage": "compile", "errors": compile_errors})
         return 1
