@@ -72,7 +72,21 @@ The adapter must enforce the scheduled maximum tool-call count and wall-clock li
 
 When the model declares the task complete, the adapter returns exactly one candidate artifact conforming to `candidate.schema.json`. It must preserve the `change_set_id` returned by the successful `service.propose` call. No prose or unstructured explanation is added to the candidate JSON.
 
-The adapter records the provider's authoritative input/output token counts and inference cost, when available, as E-007 `model_usage` events. It does not estimate missing telemetry. The run is marked incomplete when required usage data is unavailable; it is not silently assigned zero.
+The trusted adapter records the provider's authoritative input/output token counts and inference cost, when available, as E-007 `model_usage` events. It does not write to the JSONL trace file directly. Instead, after each completed model response, it sends the gateway an internal NDJSON control message on the same trusted adapter-to-gateway pipe:
+
+```json
+{
+  "type": "model_usage",
+  "request_id": "generation-001",
+  "input_tokens": 1234,
+  "output_tokens": 87,
+  "cost_usd": 0.0025
+}
+```
+
+`cost_usd` is optional when the provider does not supply authoritative cost telemetry. Token counts are required, non-negative integers. The gateway writes this as an E-007 `model_usage` event using its run identity and host timestamp, and returns a `telemetry_ack` to the adapter. This control message is not a provider function/tool, is not included in the model-visible surface, and is never returned to the model. Only the trusted adapter may send it; model function calls are mapped exclusively to `agent.invoke` tool-call messages. A rejected acknowledgement is an adapter failure and the run cannot be scored as if telemetry were zero.
+
+The gateway is the sole trace-file writer. This avoids concurrent appenders, out-of-order lines, and partially written JSONL records. The adapter must send the usage message before forwarding any tool call returned by that same model response, preserving the event's actual order. It must also send the final model response's usage event before marking the agent finished. It does not estimate missing telemetry. The run is marked incomplete when required usage data is unavailable; it is not silently assigned zero.
 
 The adapter stops after the final candidate is received or the trial budget expires. It does not call the hidden evaluator and does not receive acceptance feedback during the run.
 
