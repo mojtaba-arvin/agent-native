@@ -162,19 +162,32 @@ def _require_accepted_tool_sequence(events: list[dict], change_set_id: str) -> N
     if any(event.get("tool_name") == "service.apply" for _, event in calls):
         raise FinalizationError("accepted_result_conflicts_with_apply_attempt")
 
-    def find_after(tool_name: str, start: int, *, proposal_id: str | None = None) -> int:
+    def find_after(
+        tool_name: str,
+        start: int,
+        *,
+        proposal_id: str | None = None,
+    ) -> tuple[int, dict]:
         for index, event in calls:
             if index <= start or event.get("tool_name") != tool_name or "failure_class" in event:
                 continue
             if proposal_id is not None and event.get("change_set_id") != proposal_id:
                 continue
-            return index
+            return index, event
         raise FinalizationError(f"accepted_result_missing_successful_tool:{tool_name}")
 
-    inspect_index = find_after("service.inspect", -1)
-    propose_index = find_after("service.propose", inspect_index, proposal_id=change_set_id)
-    validate_index = find_after("service.validate", propose_index)
-    find_after("service.plan", validate_index)
+    inspect_index, _ = find_after("service.inspect", -1)
+    propose_index, _ = find_after("service.propose", inspect_index, proposal_id=change_set_id)
+    validate_index, validate_event = find_after("service.validate", propose_index)
+    if validate_event.get("validation_valid") is not True:
+        raise FinalizationError("accepted_result_requires_successful_semantic_validation")
+    _, plan_event = find_after("service.plan", validate_index)
+    if plan_event.get("plan_valid") is not True:
+        raise FinalizationError("accepted_result_requires_valid_execution_plan")
+    if plan_event.get("plan_will_mutate") is not False:
+        raise FinalizationError("accepted_result_plan_must_not_mutate")
+    if plan_event.get("plan_will_deploy") is not False:
+        raise FinalizationError("accepted_result_plan_must_not_deploy")
 
 
 def finalize_run(
