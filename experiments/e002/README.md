@@ -73,7 +73,7 @@ Important comparison boundary: `wasmtime serve` is a development/test host, not 
 WASI Preview 3 is a separate candidate, not silently substituted for Preview 2. Rust 1.100 now provides the `wasm32-wasip3` target, but the current `wasip3` bindings are still documented as a snapshot and Wasmtime's P3 HTTP host implementation is described as experimental/incomplete. Build/runtime compatibility must be established before treating it as a benchmark arm.
 
 
-For the full three-candidate randomized matrix (after building `/tmp/e002-go` and the Rust release binary):
+For the full four-candidate randomized matrix (after building `/tmp/e002-go` and the Rust release binary):
 
 ```sh
 python experiments/e002/run_matrix.py \
@@ -86,3 +86,10 @@ python experiments/e002/run_matrix.py \
 ```
 
 The matrix runner shuffles candidate order with a recorded seed, retains every run's raw JSONL and summary JSON, and reports descriptive medians only. It deliberately does not declare a winner or compute inferential statistics.
+
+
+## BEAM/OTP arm
+
+The Elixir/OTP implementation uses raw `:gen_tcp`, one BEAM process per accepted connection, and an atomic in-flight counter for the 64-connection cap. It intentionally avoids Phoenix, Plug, Bandit, or another HTTP framework. It is a runtime probe rather than a production HTTP server: it handles one request per connection and does not yet implement graceful draining or cancellation propagation when the client disconnects.
+
+The matrix runner samples the benchmark process **and its descendants** so the BEAM VM spawned by `mix` is included in CPU/RSS measurements. The benchmark is still descriptive: process-tree RSS is summed and sampled, not a complete memory-isolation or per-tenant accounting model.
