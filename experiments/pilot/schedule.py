@@ -77,6 +77,7 @@ def create_schedule(
     max_output_tokens: int,
     max_tool_calls: int,
     max_wall_seconds: int,
+    generation_settings: dict,
     root: str | Path = ROOT,
 ) -> dict:
     if type(pairs) is not int or not 1 <= pairs <= 500:
@@ -97,6 +98,27 @@ def create_schedule(
         if type(value) is not int or value < 1:
             raise ScheduleError(f"{name}_must_be_positive_integer")
 
+    if not isinstance(generation_settings, dict):
+        raise ScheduleError("generation_settings_must_be_object")
+    try:
+        canonical_json(generation_settings)
+    except (TypeError, ValueError) as error:
+        raise ScheduleError("generation_settings_must_be_finite_json") from error
+
+    def reject_secret_keys(value: Any) -> None:
+        if isinstance(value, dict):
+            for key, child in value.items():
+                if not isinstance(key, str):
+                    raise ScheduleError("generation_setting_key_must_be_string")
+                normalized = key.lower().replace("-", "_")
+                if any(marker in normalized for marker in ("api_key", "access_token", "secret", "password", "credential")):
+                    raise ScheduleError("generation_settings_must_not_contain_credentials")
+                reject_secret_keys(child)
+        elif isinstance(value, list):
+            for child in value:
+                reject_secret_keys(child)
+
+    reject_secret_keys(generation_settings)
     source_hashes = hash_source_files(root)
     protocol = {
         "protocol_version": 1,
@@ -104,6 +126,7 @@ def create_schedule(
         "source_revision": source_revision,
         "source_sha256": source_hashes,
         "model_id": model_id.strip(),
+        "generation_settings": generation_settings,
         "budgets": budgets,
         "pairs": pairs,
         "seed": seed,
@@ -133,6 +156,7 @@ def create_schedule(
                 "run_id": f"{pair_id}-{arm}-{run_hash[:12]}",
                 "candidate_id": arm,
                 "model_id": protocol["model_id"],
+                "generation_settings": protocol["generation_settings"],
                 "task_id": TASK_ID,
                 "attempt": 1,
                 "source_revision": source_revision,
@@ -160,7 +184,7 @@ def validate_schedule(schedule: Any) -> None:
     protocol = schedule["protocol"]
     protocol_fields = {
         "protocol_version", "task_id", "source_revision", "source_sha256",
-        "model_id", "budgets", "pairs", "seed", "arms", "randomization",
+        "model_id", "generation_settings", "budgets", "pairs", "seed", "arms", "randomization",
         "execution",
     }
     if not isinstance(protocol, dict) or set(protocol) != protocol_fields:
@@ -182,6 +206,12 @@ def validate_schedule(schedule: Any) -> None:
         raise ScheduleError("protocol_execution_policy_invalid")
     if not isinstance(protocol.get("model_id"), str) or not protocol["model_id"]:
         raise ScheduleError("protocol_model_id_invalid")
+    if not isinstance(protocol.get("generation_settings"), dict):
+        raise ScheduleError("protocol_generation_settings_invalid")
+    try:
+        canonical_json(protocol["generation_settings"])
+    except (TypeError, ValueError) as error:
+        raise ScheduleError("protocol_generation_settings_invalid") from error
     if not isinstance(protocol.get("source_revision"), str) or not REVISION_PATTERN.fullmatch(protocol["source_revision"]):
         raise ScheduleError("protocol_source_revision_invalid")
     source_hashes = protocol.get("source_sha256")
@@ -212,7 +242,7 @@ def validate_schedule(schedule: Any) -> None:
     by_pair: dict[str, list[dict]] = {}
     trial_fields = {
         "sequence", "pair_id", "run_id", "candidate_id", "model_id",
-        "task_id", "attempt", "source_revision", "source_sha256",
+        "generation_settings", "task_id", "attempt", "source_revision", "source_sha256",
         "budgets", "fresh_state_required", "agent_visible_treatment_label",
     }
     for trial in trials:
@@ -230,6 +260,8 @@ def validate_schedule(schedule: Any) -> None:
         seen_sequences.add(sequence)
         if trial.get("model_id") != protocol["model_id"]:
             raise ScheduleError("trial_model_id_mismatch")
+        if trial.get("generation_settings") != protocol["generation_settings"]:
+            raise ScheduleError("trial_generation_settings_mismatch")
         if trial.get("task_id") != TASK_ID:
             raise ScheduleError("trial_task_id_mismatch")
         if trial.get("source_revision") != protocol["source_revision"]:
@@ -264,6 +296,7 @@ def main() -> None:
     parser.add_argument("--pairs", type=int, required=True)
     parser.add_argument("--seed", type=int, required=True)
     parser.add_argument("--model-id", required=True)
+    parser.add_argument("--generation-settings-file", required=True, type=Path)
     parser.add_argument("--source-revision", required=True)
     parser.add_argument("--max-input-tokens", type=int, required=True)
     parser.add_argument("--max-output-tokens", type=int, required=True)
@@ -271,6 +304,14 @@ def main() -> None:
     parser.add_argument("--max-wall-seconds", type=int, required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
+
+    try:
+        generation_settings = json.loads(
+            args.generation_settings_file.read_text(encoding="utf-8"),
+            parse_constant=lambda value: (_ for _ in ()).throw(ValueError(f"non_finite:{value}")),
+        )
+    except (OSError, UnicodeError, json.JSONDecodeError, ValueError) as error:
+        parser.error(f"invalid generation settings file: {error}")
 
     schedule = create_schedule(
         pairs=args.pairs,
@@ -281,6 +322,7 @@ def main() -> None:
         max_output_tokens=args.max_output_tokens,
         max_tool_calls=args.max_tool_calls,
         max_wall_seconds=args.max_wall_seconds,
+        generation_settings=generation_settings,
     )
     validate_schedule(schedule)
     output = args.output.expanduser().absolute()
