@@ -110,18 +110,31 @@ def summarize(events):
             value = event.get("metric_value")
             if not isinstance(value, (int, float)) or isinstance(value, bool) or not math.isfinite(value):
                 raise ValueError("runtime_metric_invalid_value")
-        for key in ("input_tokens", "output_tokens"):
-            if key in event and (
-                not isinstance(event[key], int) or isinstance(event[key], bool) or event[key] < 0
-            ):
-                raise ValueError(f"invalid_{key}")
-        if "cost_usd" in event and (
-            not isinstance(event["cost_usd"], (int, float))
-            or isinstance(event["cost_usd"], bool)
-            or not math.isfinite(event["cost_usd"])
-            or event["cost_usd"] < 0
+        token_fields = ("input_tokens", "output_tokens")
+        for key in token_fields:
+            if key in event:
+                if event["event_type"] != "model_usage":
+                    raise ValueError(f"{key}_requires_model_usage_event")
+                if (
+                    not isinstance(event[key], int)
+                    or isinstance(event[key], bool)
+                    or event[key] < 0
+                ):
+                    raise ValueError(f"invalid_{key}")
+        if event["event_type"] == "model_usage" and any(
+            key not in event for key in token_fields
         ):
-            raise ValueError("invalid_cost_usd")
+            raise ValueError("model_usage_requires_token_counts")
+        if "cost_usd" in event:
+            if event["event_type"] != "model_usage":
+                raise ValueError("cost_usd_requires_model_usage_event")
+            if (
+                not isinstance(event["cost_usd"], (int, float))
+                or isinstance(event["cost_usd"], bool)
+                or not math.isfinite(event["cost_usd"])
+                or event["cost_usd"] < 0
+            ):
+                raise ValueError("invalid_cost_usd")
         if event["event_id"] in seen:
             raise ValueError("duplicate_event_id")
         seen.add(event["event_id"])
