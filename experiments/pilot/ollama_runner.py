@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import ipaddress
+import http.client
 import json
 import math
 import os
@@ -187,7 +188,7 @@ def _provider_post(endpoint: str, payload: dict, timeout: float) -> dict:
     except HTTPError as error:
         error.close()
         raise TrialFailure("PROVIDER_ERROR", f"provider_http_{error.code}") from error
-    except (URLError, TimeoutError, OSError) as error:
+    except (URLError, TimeoutError, OSError, http.client.HTTPException) as error:
         raise TrialFailure("PROVIDER_ERROR", "provider_transport_failure") from error
 
     try:
@@ -545,19 +546,22 @@ def run_one_trial(
         record["agent_finished_at_ns"] = time.monotonic_ns()
         candidate_object = None
         try:
-            if len(final_content.encode("utf-8")) > MAX_CANDIDATE_BYTES:
+            candidate_bytes = final_content.encode("utf-8")
+            if len(candidate_bytes) > MAX_CANDIDATE_BYTES:
                 raise CandidateError("candidate_too_large")
-            candidate_object = strict_json_loads(final_content)
+            candidate_object = strict_json_loads(candidate_bytes)
             if not isinstance(candidate_object, dict):
                 raise CandidateError("candidate_must_be_object")
-            candidate_bytes = final_content.encode("utf-8")
             if not candidate_bytes.endswith(b"\n"):
                 candidate_bytes += b"\n"
-            _write_exclusive(candidate_path, candidate_bytes)
-            record["candidate_path"] = str(candidate_path)
-            record["candidate_sha256"] = hashlib.sha256(candidate_bytes).hexdigest()
-        except (UnicodeEncodeError, json.JSONDecodeError, UnicodeDecodeError, ValueError, OSError) as error:
+        except (UnicodeEncodeError, json.JSONDecodeError, UnicodeDecodeError, ValueError) as error:
             raise TrialFailure("INVALID_CANDIDATE", f"candidate_output_invalid:{type(error).__name__}") from error
+        try:
+            _write_exclusive(candidate_path, candidate_bytes)
+        except OSError as error:
+            raise TrialFailure("ADAPTER_ERROR", "candidate_artifact_write_failed") from error
+        record["candidate_path"] = str(candidate_path)
+        record["candidate_sha256"] = hashlib.sha256(candidate_bytes).hexdigest()
 
     except TrialFailure as error:
         failure = error
