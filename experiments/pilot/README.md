@@ -142,12 +142,9 @@ python experiments/pilot/schedule.py \
   --max-wall-seconds 900 \
   --output /secure/path/pilot-wiring-check.json
 
-for sequence in 1 2; do
-  python experiments/pilot/ollama_runner.py \
-    --schedule /secure/path/pilot-wiring-check.json \
-    --trial-sequence "$sequence" \
-    --results-dir /secure/path/pilot-wiring-runs
-done
+python experiments/pilot/run_schedule.py \
+  --schedule /secure/path/pilot-wiring-check.json \
+  --results-dir /secure/path/pilot-wiring-runs
 ```
 
 Only after the wiring check succeeds, create a fresh 10-pair screening schedule with a new seed and run all 20 sequence numbers serially:
@@ -164,12 +161,9 @@ python experiments/pilot/schedule.py \
   --max-wall-seconds 900 \
   --output /secure/path/pilot-screening-schedule.json
 
-for sequence in $(seq 1 20); do
-  python experiments/pilot/ollama_runner.py \
-    --schedule /secure/path/pilot-screening-schedule.json \
-    --trial-sequence "$sequence" \
-    --results-dir /secure/path/pilot-screening-runs
-done
+python experiments/pilot/run_schedule.py \
+  --schedule /secure/path/pilot-screening-schedule.json \
+  --results-dir /secure/path/pilot-screening-runs
 ```
 
 Each run directory contains the raw gateway trace, the model's final response, the candidate artifact when it is parseable, and a run.json manifest. The manifest reports either candidate_ready_for_external_evaluation or a classified failure. It never claims acceptance. Do not reuse run directories or run IDs, and preserve failed runs.
