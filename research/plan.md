@@ -303,3 +303,14 @@ These controls do not change E-007 acceptance criteria or authorize a full lifec
 No further increase to Qwen3 wall time, context, or token ceilings is authorized. The next full-task attempt requires successful deterministic compaction tests and the bounded schema/infrastructure probes. After the redesigned prompt is validated, if three consecutive full-task runs each produce a Gateway-accepted proposal, complete prompt prefill, but still fail to invoke model-driven service.validate, trigger an architecture review. Runs that fail before an accepted proposal or do not complete prefill do not satisfy this trigger.
 
 E-002 remains diagnostic and no runtime is selected. Set the decision review deadline to 14 days after E-007's redesigned evaluation contract is validated; until then, preserve the preregistered CPU gate without retroactively changing it.
+
+
+### Meta-work stop rule and benchmark deadline
+
+**Execution priority:** produce and inspect benchmark evidence before adding further process or methodology decisions. After D-027, do not add another methodological decision until the current real benchmark artifact has been inspected, unless a newly observed measurement defect requires a narrowly scoped correction. Do not run the short/long schema probes in parallel with the prefill benchmark. CI completion is not a prerequisite for inspecting or continuing the benchmark; CI results remain a separate implementation-verification track.
+
+**Hard deadline:** workflow 44195269778 started at 2026-11-17T22:59:24Z. Its 48-hour deadline is **2026-11-19T22:59:24Z**. If no artifact is available by that deadline, stop treating the run as an active experiment, mark it timed out/stalled, and inspect the runner/script path before dispatching another run. Do not silently extend the deadline.
+
+**Partial-evidence handling:** the current run began before the later `OLLAMA_NUM_THREADS` capture change. If its artifact is produced, classify it as **partial but usable infrastructure evidence**: retain measured prompt counts, prefill/load durations, cache telemetry, CPU/cgroup observations, server logs, and effective Ollama thread telemetry where available; explicitly mark the environment-variable field as not captured by this run. Do not merge its measurements with a later run. The next workflow version writes an atomic checkpoint after every prefill observation and uploads the checkpoint even when the benchmark step fails or reaches the workflow timeout.
+
+**No parallel behavior probe:** do not run short-vs-eight-turn schema probes until this prefill/cache/thread benchmark has completed or reached the hard deadline and its partial artifact (if any) has been inspected.
