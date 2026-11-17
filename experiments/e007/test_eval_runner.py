@@ -238,6 +238,17 @@ class EvalRunnerTests(unittest.TestCase):
         self.assertNotIn("timeout", categories)
         self.assertNotIn("resource_budget_exceeded", categories)
 
+    def test_repeated_invalid_tool_call_below_wall_ceiling_is_agent_failure(self):
+        record = {
+            "failure": "AgentRunError:repeated_invalid_tool_call",
+            "duration_ms": 267784.561,
+        }
+        categories = _failure_categories(record, max_wall_seconds=3000.0)
+        self.assertIn("repeated_tool_or_repair", categories)
+        self.assertNotIn("timeout", categories)
+        self.assertNotIn("resource_budget_exceeded", categories)
+        self.assertTrue(_eligible(record))
+
     def test_failure_taxonomy_preserves_schema_and_repeated_proposal_evidence(self):
         with tempfile.TemporaryDirectory() as temporary:
             root=Path(temporary)
