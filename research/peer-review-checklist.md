@@ -33,7 +33,7 @@
 | Application update/delete attempts are blocked | Pass (defense in depth) | SQLite triggers reject update/delete; not cryptographic tamper-proofing |
 | Audit store failure prevents handler execution | Pass | Integration test verifies fail-closed service response |
 | E-005 interface suite | Pass | 17 tests pass in CI [44102058544](https://github.com/mojtaba-arvin/agent-native/actions/runs/44102058544) |
-| E-009 suite | Pass | 75 tests pass in CI [44102058563](https://github.com/mojtaba-arvin/agent-native/actions/runs/44102058563) |
+| E-009 suite | Pass | 76 tests pass in CI [44102058563](https://github.com/mojtaba-arvin/agent-native/actions/runs/44102058563) |
 
 ## E-002 runtime decision evidence
 
