@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+from collections import Counter
 import json
 import math
 import os
@@ -295,6 +296,18 @@ def _wilson(successes: int, total: int, z: float = 1.959963984540054) -> dict:
     return {
         "lower": round(max(0.0, center - margin), 4),
         "upper": round(min(1.0, center + margin), 4),
+    }
+
+
+def _describe(values: list[float]) -> dict:
+    if not values:
+        return {"n": 0, "mean": None, "sample_stddev": None, "median": None, "range": None}
+    return {
+        "n": len(values),
+        "mean": statistics.mean(values),
+        "sample_stddev": statistics.stdev(values) if len(values) >= 2 else None,
+        "median": statistics.median(values),
+        "range": [min(values), max(values)],
     }
 
 
@@ -600,26 +613,13 @@ def run_eval(args: argparse.Namespace) -> dict:
         "eligible_runs": eligible,
         "acceptance_rate": (accepted / eligible) if eligible else None,
         "wilson_95": _wilson(accepted, eligible),
-        "duration_ms": {
-            "median": statistics.median(durations) if durations else None,
-            "range": [min(durations), max(durations)] if durations else None,
-        },
-        "input_tokens": {
-            "median": statistics.median(inputs) if inputs else None,
-            "range": [min(inputs), max(inputs)] if inputs else None,
-        },
-        "output_tokens": {
-            "median": statistics.median(outputs) if outputs else None,
-            "range": [min(outputs), max(outputs)] if outputs else None,
-        },
-        "tool_calls": {
-            "median": statistics.median(calls) if calls else None,
-            "range": [min(calls), max(calls)] if calls else None,
-        },
-        "failure_classes": {
-            key: sum(1 for item in run_results if item.get("failure") and key in str(item["failure"]))
-            for key in sorted({str(item["failure"]).split(":")[-1].split("_")[0] for item in run_results if item.get("failure")})
-        },
+        "duration_ms": _describe(durations),
+        "input_tokens": _describe(inputs),
+        "output_tokens": _describe(outputs),
+        "tool_calls": _describe(calls),
+        "failure_classes": dict(Counter(
+            _failure_class(item) for item in run_results if item.get("failure")
+        )),
         "metrics": metric_summary,
         "runs": run_results,
         "claims_boundary": (
