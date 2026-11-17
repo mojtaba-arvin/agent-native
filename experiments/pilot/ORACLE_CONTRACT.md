@@ -115,7 +115,7 @@ The public repository contains this contract, candidate-envelope validation, tra
 5. Run the public finalize.py against the original raw trace, evaluator result, and candidate (when one exists). The finalizer rechecks artifact/hash correlation, run identity, lifecycle order, and no-side-effect plan flags; then it appends task_finished and produces the E-007 summary.
 6. Preserve the raw trace, candidate (if any), coarse evaluation result, finalized trace, summary, schedule, and evaluator version/hash as the immutable run record.
 
-The evaluator must not run before the model session terminates, and the model adapter must never receive the evaluator result or its output path. The private evaluator checks input/output token budgets from complete model_usage events and the wall-clock/tool-call budgets from the trusted trace and runner timestamp. Incomplete token telemetry is classified as ADAPTER_ERROR and excluded from the acceptance denominator, not interpreted as zero usage.
+The evaluator must not run before the model session terminates, and the model adapter must never receive the evaluator result or its output path. The private evaluator checks input/output token budgets from complete model_usage events and the wall-clock/tool-call budgets from the trusted trace and runner timestamp. The gateway enforces the scheduled tool-call ceiling before dispatching an over-budget call; any `TOOL_CALL_BUDGET_EXCEEDED` event makes the run an eligible `AGENT_BUDGET_EXHAUSTED` failure. Incomplete token telemetry is classified as ADAPTER_ERROR and excluded from the acceptance denominator, not interpreted as zero usage.
 
 
 ## Private evaluator command contract
