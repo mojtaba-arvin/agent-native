@@ -20,67 +20,29 @@
       "additionalProperties": false,
       "required": [
         ".gitignore",
+        "experiments/pilot/README.md",
+        "experiments/pilot/AGENT_ADAPTER.md",
+        "experiments/pilot/ORACLE_CONTRACT.md",
+        "experiments/pilot/PROMPT.md",
+        "experiments/pilot/TASK.md",
         "experiments/e001/examples/catalog.an",
         "experiments/e001/prototype/agent_native.py",
         "experiments/e005/interface.py",
         "experiments/e005/tools.json",
-        "experiments/e007/metrics.py",
-        "experiments/e007/trace.schema.json",
-        "experiments/pilot/AGENT_ADAPTER.md",
-        "experiments/pilot/ORACLE_CONTRACT.md",
-        "experiments/pilot/PROMPT.md",
-        "experiments/pilot/README.md",
-        "experiments/pilot/TASK.md",
+        "experiments/pilot/surface.py",
+        "experiments/pilot/gateway.py",
+        "experiments/pilot/ollama_runner.py",
         "experiments/pilot/candidate.py",
         "experiments/pilot/candidate.schema.json",
         "experiments/pilot/evaluation-result.schema.json",
         "experiments/pilot/finalize.py",
-        "experiments/pilot/gateway.py",
         "experiments/pilot/schedule.py",
-        "experiments/pilot/surface.py",
-        "experiments/pilot/verify_schedule.py"
+        "experiments/pilot/verify_schedule.py",
+        "experiments/e007/trace.schema.json",
+        "experiments/e007/metrics.py"
       ],
       "properties": {
-        "0": {
-          "$ref": "#/$defs/sha256"
-        },
-        "1": {
-          "$ref": "#/$defs/sha256"
-        },
-        "2": {
-          "$ref": "#/$defs/sha256"
-        },
-        "3": {
-          "$ref": "#/$defs/sha256"
-        },
-        "4": {
-          "$ref": "#/$defs/sha256"
-        },
-        "5": {
-          "$ref": "#/$defs/sha256"
-        },
-        "6": {
-          "$ref": "#/$defs/sha256"
-        },
-        "7": {
-          "$ref": "#/$defs/sha256"
-        },
-        "8": {
-          "$ref": "#/$defs/sha256"
-        },
-        "9": {
-          "$ref": "#/$defs/sha256"
-        },
-        "10": {
-          "$ref": "#/$defs/sha256"
-        },
-        "11": {
-          "$ref": "#/$defs/sha256"
-        },
-        "12": {
-          "$ref": "#/$defs/sha256"
-        },
-        "experiments/pilot/schedule.py": {
+        ".gitignore": {
           "$ref": "#/$defs/sha256"
         },
         "experiments/pilot/README.md": {
@@ -89,16 +51,58 @@
         "experiments/pilot/AGENT_ADAPTER.md": {
           "$ref": "#/$defs/sha256"
         },
-        "experiments/pilot/verify_schedule.py": {
+        "experiments/pilot/ORACLE_CONTRACT.md": {
           "$ref": "#/$defs/sha256"
         },
         "experiments/pilot/PROMPT.md": {
           "$ref": "#/$defs/sha256"
         },
-        ".gitignore": {
+        "experiments/pilot/TASK.md": {
           "$ref": "#/$defs/sha256"
         },
-        "experiments/pilot/ORACLE_CONTRACT.md": {
+        "experiments/e001/examples/catalog.an": {
+          "$ref": "#/$defs/sha256"
+        },
+        "experiments/e001/prototype/agent_native.py": {
+          "$ref": "#/$defs/sha256"
+        },
+        "experiments/e005/interface.py": {
+          "$ref": "#/$defs/sha256"
+        },
+        "experiments/e005/tools.json": {
+          "$ref": "#/$defs/sha256"
+        },
+        "experiments/pilot/surface.py": {
+          "$ref": "#/$defs/sha256"
+        },
+        "experiments/pilot/gateway.py": {
+          "$ref": "#/$defs/sha256"
+        },
+        "experiments/pilot/ollama_runner.py": {
+          "$ref": "#/$defs/sha256"
+        },
+        "experiments/pilot/candidate.py": {
+          "$ref": "#/$defs/sha256"
+        },
+        "experiments/pilot/candidate.schema.json": {
+          "$ref": "#/$defs/sha256"
+        },
+        "experiments/pilot/evaluation-result.schema.json": {
+          "$ref": "#/$defs/sha256"
+        },
+        "experiments/pilot/finalize.py": {
+          "$ref": "#/$defs/sha256"
+        },
+        "experiments/pilot/schedule.py": {
+          "$ref": "#/$defs/sha256"
+        },
+        "experiments/pilot/verify_schedule.py": {
+          "$ref": "#/$defs/sha256"
+        },
+        "experiments/e007/trace.schema.json": {
+          "$ref": "#/$defs/sha256"
+        },
+        "experiments/e007/metrics.py": {
           "$ref": "#/$defs/sha256"
         }
       }
