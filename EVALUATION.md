@@ -148,3 +148,14 @@ E-008 adds an executable transactional outbox/inbox model for producer atomicity
 
 
 The bounded continuation [workflow 44189163401](https://github.com/mojtaba-arvin/agent-native/actions/runs/44189163401), artifact [14376970288](https://github.com/mojtaba-arvin/agent-native/actions/runs/44189163401/artifacts/14376970288), has been inspected. Despite context 16,384 and a 3,000-second wall cap, Qwen3 repeated `service.inspect` with empty arguments twice and was stopped as `repeated_invalid_tool_call` after 267.785 seconds. This is an agent/tool-schema failure, not a timeout. No further Qwen3 budget increase is authorized. The 1,800-second proposal-accepted run did not reach a completed validation request because its next prompt prefill was cancelled at the wall deadline. See the [forensic continuation analysis](experiments/e007/results/2026-11-17-post-proposal-continuation-analysis.md).
+
+
+## Infrastructure validity update — 18 November 2026
+
+The raw Ollama daemon logs for workflows [44149712970](https://github.com/mojtaba-arvin/agent-native/actions/runs/44149712970) and [44189163401](https://github.com/mojtaba-arvin/agent-native/actions/runs/44189163401) show CPU-only inference, CPU model buffers, and two model threads on standard GitHub-hosted workers. No GPU backend or GPU model buffer was loaded.
+
+For the 1,800s run, the final prompt was 7,734 tokens in an 8,192-token context, with 764 cached prefix tokens and about 240 seconds left in the global run budget when the request began. Ollama logged prefill checkpoints at 20.09, 19.05, 18.05, and 17.04 tokens/second; prompt prefill was incomplete at the wall deadline. The 2.38 tokens/second figure in the preceding request is decode throughput, not prefill. The wall budget includes all prior model calls and Gateway work; it must not be treated as time available to the final prompt alone.
+
+This is a threat to validity: the 1,800s run cannot be used to claim the model ignored or refused service.validate, because the model never completed prefill for the post-proposal turn and no decode/tool call was recorded. The separate 3,000s run remains a repeated empty-arguments tool-contract failure.
+
+A deterministic prompt-compaction implementation now replaces repeated assistant/tool history with an exact Gateway-state ledger while retaining raw provider/tool traces. Its provider-double regression test checks exact inspected declarations and recent diagnostics. Real-model behavior is not yet validated. The isolated fixed-1,000-token prefill benchmark and short schema probe are still pending. No further full-task Qwen3 budget increase is authorized.
