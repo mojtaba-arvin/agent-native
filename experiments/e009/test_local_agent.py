@@ -339,6 +339,10 @@ class LocalAgentRunnerTests(unittest.TestCase):
                     [item["prompt_state_sha256"] for item in provider_rows],
                     [item["state_sha256"] for item in prompt_states],
                 )
+                self.assertTrue(all(len(item["payload_sha256"]) == 64 for item in provider_rows))
+                self.assertEqual([item["payload_metadata"]["turn"] for item in provider_rows],
+                                 list(range(1, len(provider_rows) + 1)))
+                self.assertTrue(all(item["payload_metadata"]["keep_alive"] == "10m" for item in provider_rows))
                 self.assertEqual(stat.S_IMODE((run_dir / "candidate.json").stat().st_mode), 0o600)
                 self.assertEqual(stat.S_IMODE(run_dir.stat().st_mode), 0o700)
                 self.assertEqual(Handler.index, len(responses))

@@ -314,3 +314,8 @@ E-002 remains diagnostic and no runtime is selected. Set the decision review dea
 **Partial-evidence handling:** the current run began before the later `OLLAMA_NUM_THREADS` capture change. If its artifact is produced, classify it as **partial but usable infrastructure evidence**: retain measured prompt counts, prefill/load durations, cache telemetry, CPU/cgroup observations, server logs, and effective Ollama thread telemetry where available; explicitly mark the environment-variable field as not captured by this run. Do not merge its measurements with a later run. The next workflow version writes an atomic checkpoint after every prefill observation and uploads the checkpoint even when the benchmark step fails or reaches the workflow timeout.
 
 **No parallel behavior probe:** do not run short-vs-eight-turn schema probes until this prefill/cache/thread benchmark has completed or reached the hard deadline and its partial artifact (if any) has been inspected.
+
+
+### Measurement progress criterion
+
+Progress is measured by completed, analyzable observations—not by the number of decisions, notes, or documents produced.

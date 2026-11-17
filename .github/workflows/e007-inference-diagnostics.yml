@@ -67,7 +67,11 @@ jobs:
         run: |
           python experiments/e007/ollama_diagnostics.py \
             --model qwen3:8b \
-            --thread-counts 2,4,16 \
+            --thread-counts 2,4 \
+            --word-sizes 1000,4000 \
+            --budget-seconds 1200 \
+            --probe-timeout-seconds 120 \
+            --request-timeout-seconds 600 \
             --output /tmp/e007-ollama-diagnostics/diagnostics.json \
             --checkpoint /tmp/e007-ollama-diagnostics/prefill-checkpoint.json
 

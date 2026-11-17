@@ -59,3 +59,8 @@
 ### Live run status snapshot — 2026-11-18T03:16:14+04:00
 
 For workflow [44195269778](https://github.com/mojtaba-arvin/agent-native/actions/runs/44195269778), the GitHub Actions run API and its sole job (ID 134434946211) both reported `in_progress`. Steps 1–6 completed successfully; step 7, `Run bounded prefill and short-schema probes`, remained `in_progress`; artifact-upload and post-job steps were pending. The workflow YAML explicitly sets `timeout-minutes: 45`. The run API's `updated_at` remained `2026-11-17T22:59:28Z`; fetching the job log returned `404 BlobNotFound`; the artifacts endpoint returned an empty list. These observations establish neither a probe hang nor completed benchmark measurements. No artifact or per-measurement checkpoint was available at this snapshot. Preserve the existing hard deadline, 2026-11-19T22:59:24Z; do not cancel or redispatch before the deadline.
+
+
+### Freeze closure — 2026-11-17T23:43:48.482Z
+
+Freeze closed at 2026-11-17T23:43:48.482Z; the exception condition (discovery of a confirmed measurement defect) was met. Workflow 44195269778 is `completed/failure`, not a hang: its benchmark request ended with the recorded client-side `TimeoutError` at the 300-second `post_json` timeout, while model-placement recording and artifact upload succeeded. Corrective Commit A is authorized. No new benchmark dispatch is permitted until Commit A's deterministic CI checks pass; after they pass, only the eight-observation phase-1 matrix (1k/4k words × 2/4 threads, two repetitions) may run under a 20-minute total budget. E-007 remains open; this diagnostic run is not lifecycle acceptance evidence.

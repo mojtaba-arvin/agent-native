@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -30,7 +31,7 @@ class OllamaDiagnosticsTests(unittest.TestCase):
         ]
         requests = []
 
-        def fake_post(url, payload, timeout=300.0):
+        def fake_post(url, payload, timeout=600.0, deadline=None):
             requests.append(payload)
             return responses.pop(0)
 
@@ -81,7 +82,7 @@ class OllamaDiagnosticsTests(unittest.TestCase):
                 )
             saved = json.loads(checkpoint.read_text(encoding="utf-8"))
         self.assertEqual(len(observations), 8)
-        self.assertEqual(saved["status"], "prefill_in_progress")
+        self.assertEqual(saved["status"], "prefill_completed")
         self.assertEqual(saved["completed_observations"], 8)
         self.assertEqual(saved["expected_observations"], 8)
         self.assertEqual(len(saved["observations"]), 8)
@@ -107,6 +108,73 @@ class OllamaDiagnosticsTests(unittest.TestCase):
         self.assertIn('"required": ["service_id"]', encoded_surface)
         self.assertIn("upfront disclosure arm", messages[0]["content"])
         self.assertEqual(messages[1]["content"], "Inspect the Catalog service using service.inspect.")
+
+    def test_gateway_surface_read_has_an_independent_hard_timeout(self):
+        read_fd, write_fd = os.pipe()
+        stdout = os.fdopen(read_fd, "rb", buffering=0)
+
+        class FakeProcess:
+            def __init__(self):
+                self.stdout = stdout
+                self.stdin = None
+                self.stderr = None
+                self.killed = False
+            def kill(self):
+                self.killed = True
+            def wait(self, timeout=None):
+                return 0
+
+        process = FakeProcess()
+        try:
+            with patch.object(ollama_diagnostics.subprocess, "Popen", return_value=process):
+                with self.assertRaisesRegex(TimeoutError, "gateway_surface_timeout"):
+                    ollama_diagnostics.read_gateway_surface(timeout=0.01)
+            self.assertTrue(process.killed)
+        finally:
+            stdout.close()
+            os.close(write_fd)
+
+    def test_gateway_surface_read_returns_one_complete_session_line(self):
+        read_fd, write_fd = os.pipe()
+        os.write(write_fd, b'{"type":"session","surface":{}}\n')
+        stdout = os.fdopen(read_fd, "rb", buffering=0)
+
+        class FakeProcess:
+            def __init__(self):
+                self.stdout = stdout
+                self.stdin = None
+                self.stderr = None
+            def kill(self):
+                raise AssertionError("successful gateway process must not be killed")
+            def wait(self, timeout=None):
+                return 0
+
+        try:
+            with patch.object(ollama_diagnostics.subprocess, "Popen", return_value=FakeProcess()):
+                process, session = ollama_diagnostics.read_gateway_surface(timeout=1.0)
+            self.assertEqual(session, {"type": "session", "surface": {}})
+        finally:
+            stdout.close()
+            os.close(write_fd)
+
+    def test_phase_one_is_exactly_eight_observations_and_hashes_each_payload(self):
+        responses = [{"prompt_eval_count": 100, "prompt_eval_cached_count": 0,
+            "prompt_eval_duration": 1_000_000_000, "load_duration": 0,
+            "eval_count": 1, "eval_duration": 10_000_000} for _ in range(8)]
+        with patch.object(ollama_diagnostics, "post_json", side_effect=responses):
+            observations = ollama_diagnostics.benchmark_prefill(
+                "http://127.0.0.1:11434", "qwen3:8b", [2, 4], word_sizes=[1000, 4000])
+        self.assertEqual(len(observations), 8)
+        self.assertEqual([(x["target_words"], x["num_threads_requested"], x["phase"]) for x in observations], [
+            (1000, 2, "growth_or_cold"), (1000, 2, "exact_warm_repeat"),
+            (4000, 2, "growth_or_cold"), (4000, 2, "exact_warm_repeat"),
+            (1000, 4, "growth_or_cold"), (1000, 4, "exact_warm_repeat"),
+            (4000, 4, "growth_or_cold"), (4000, 4, "exact_warm_repeat")])
+        for row in observations:
+            self.assertEqual(len(row["payload_sha256"]), 64)
+            self.assertEqual(len(row["prompt_sha256"]), 64)
+            self.assertEqual(row["keep_alive"], "10m")
+            self.assertEqual(row["payload_metadata"]["num_ctx"], 16384)
 
     def test_missing_cache_telemetry_is_unknown_not_zero(self):
         response = {

@@ -641,6 +641,7 @@ def run(args: argparse.Namespace) -> dict:
                 "messages": messages,
                 "tools": [tool_definition],
                 "stream": False,
+                "keep_alive": "10m",
                 "options": {
                     "temperature": args.temperature,
                     "top_p": args.top_p,
@@ -650,6 +651,16 @@ def run(args: argparse.Namespace) -> dict:
                 },
                 "think": args.think,
             }
+            payload_sha256 = hashlib.sha256(canonical_json(payload)).hexdigest()
+            payload_metadata = {
+                "turn": turn,
+                "message_count": len(messages),
+                "message_roles": [item.get("role") for item in messages],
+                "tool_definition_count": len(payload["tools"]),
+                "keep_alive": payload["keep_alive"],
+                "num_ctx": payload["options"]["num_ctx"],
+                "num_predict": payload["options"]["num_predict"],
+            }
             response = provider_chat(endpoint, payload, timeout=max(0.1, remaining))
             message = response.get("message")
             if isinstance(message, dict):
@@ -658,6 +669,8 @@ def run(args: argparse.Namespace) -> dict:
                     "response_index": turn,
                     "prompt_state_sha256": prompt_state_sha256,
                     "prompt_messages_sha256": prompt_messages_sha256,
+                    "payload_sha256": payload_sha256,
+                    "payload_metadata": payload_metadata,
                     "model": response.get("model"),
                     "done": response.get("done"),
                     "done_reason": response.get("done_reason"),
