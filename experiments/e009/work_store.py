@@ -36,6 +36,10 @@ class JobConflict(WorkStoreError):
     pass
 
 
+class JobBackpressure(WorkStoreError):
+    pass
+
+
 class InboxConflict(WorkStoreError):
     pass
 
@@ -69,11 +73,25 @@ def _digest(value: Any) -> str:
 class DurableWorkStore:
     """Transactional job, lease, outbox, and inbox store on the Catalog DB."""
 
-    def __init__(self, database: str | Path):
+    def __init__(
+        self,
+        database: str | Path,
+        *,
+        max_outstanding: int = 1000,
+        max_concurrency: int = 16,
+    ):
         raw = str(database)
         if raw == ":memory:":
             raise ValueError("file_backed_database_required_for_durable_work")
+        if type(max_outstanding) is not int or max_outstanding < 1:
+            raise ValueError("max_outstanding_must_be_positive_integer")
+        if type(max_concurrency) is not int or max_concurrency < 1:
+            raise ValueError("max_concurrency_must_be_positive_integer")
+        if max_concurrency > max_outstanding:
+            raise ValueError("max_concurrency_cannot_exceed_max_outstanding")
         self.database = str(Path(raw).expanduser().resolve())
+        self.max_outstanding = max_outstanding
+        self.max_concurrency = max_concurrency
 
     def _connect(self) -> sqlite3.Connection:
         connection = sqlite3.connect(
@@ -165,6 +183,15 @@ class DurableWorkStore:
                 ).fetchone()
                 connection.commit()
                 return self._job(row), True
+
+            active = connection.execute(
+                """
+                SELECT COUNT(*) AS count FROM durable_jobs
+                WHERE state IN ('queued', 'running', 'cancellation_requested')
+                """
+            ).fetchone()["count"]
+            if active >= self.max_outstanding:
+                raise JobBackpressure("durable_work_queue_at_capacity")
 
             task_id = str(uuid.uuid4())
             connection.execute(
@@ -258,6 +285,16 @@ class DurableWorkStore:
                     },
                     now=now,
                 )
+            running = connection.execute(
+                """
+                SELECT COUNT(*) AS count FROM durable_jobs
+                WHERE state IN ('running', 'cancellation_requested')
+                """
+            ).fetchone()["count"]
+            if running >= self.max_concurrency:
+                connection.commit()
+                return None
+
             row = connection.execute(
                 """
                 SELECT task_id FROM durable_jobs
