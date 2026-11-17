@@ -38,6 +38,7 @@
         "experiments/pilot/finalize.py",
         "experiments/pilot/schedule.py",
         "experiments/pilot/verify_schedule.py",
+        "experiments/pilot/schedule.schema.json",
         "experiments/e007/trace.schema.json",
         "experiments/e007/metrics.py"
       ],
@@ -97,6 +98,9 @@
           "$ref": "#/$defs/sha256"
         },
         "experiments/pilot/verify_schedule.py": {
+          "$ref": "#/$defs/sha256"
+        },
+        "experiments/pilot/schedule.schema.json": {
           "$ref": "#/$defs/sha256"
         },
         "experiments/e007/trace.schema.json": {
