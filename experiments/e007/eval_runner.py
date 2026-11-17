@@ -422,6 +422,12 @@ def _source_manifest(case_path: Path) -> dict:
         E009_ROOT / "catalog.an",
         E009_ROOT / "local_agent.py",
         E009_ROOT / "agent_gateway.py",
+        E009_ROOT / "kernel.py",
+        E009_ROOT / "catalog.py",
+        ROOT / "experiments" / "e005" / "interface.py",
+        ROOT / "experiments" / "e005" / "tools.json",
+        ROOT / "experiments" / "e004" / "security_model.py",
+        ROOT / "experiments" / "e001" / "prototype" / "agent_native.py",
         E007_ROOT / "eval_runner.py",
     ]
     hashes = {}
@@ -454,11 +460,25 @@ def run_eval(args: argparse.Namespace) -> dict:
     required = {
         "schema_version", "eval_id", "task_id", "service_id",
         "candidate_id", "task_file", "expected_operation", "scorers",
+        "model_id", "repetitions", "model_settings",
     }
     if not isinstance(case, dict) or set(case) != required:
         raise ValueError("eval_case_fields_invalid")
     if case["schema_version"] != 1 or case["task_id"] != "e009-add-readonly-operation":
         raise ValueError("unsupported_eval_case")
+    if case.get("task_file") != "experiments/e009/AGENT_TASK.md":
+        raise ValueError("eval_task_file_not_pinned")
+    if case.get("model_id") != args.model or case.get("repetitions") != args.repetitions:
+        raise ValueError("eval_model_or_repetition_mismatch")
+    pinned = case.get("model_settings")
+    actual = {
+        "arm": args.arm, "temperature": args.temperature, "top_p": args.top_p,
+        "seed": args.seed, "num_ctx": args.num_ctx, "num_predict": args.num_predict,
+        "max_input_tokens": args.max_input_tokens, "max_output_tokens": args.max_output_tokens,
+        "max_tool_calls": args.max_tool_calls, "max_wall_seconds": args.max_wall_seconds,
+    }
+    if pinned != actual:
+        raise ValueError("eval_model_settings_mismatch")
     scorer_names = [item.get("name") for item in case["scorers"]]
     if scorer_names != ["candidate_contract", "proposal_lifecycle", "behavioral_safety"]:
         raise ValueError("eval_scorer_set_invalid")
