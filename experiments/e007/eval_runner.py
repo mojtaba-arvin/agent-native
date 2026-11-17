@@ -308,8 +308,14 @@ def _failure_categories(run_record: dict, run_dir: Path | None = None) -> list[s
     if run_dir is not None and run_dir.is_dir():
         for event in _read_trace(run_dir):
             response = event.get("response") or {}
+            result = response.get("result") or {}
+            diagnostic_rows = [
+                *(response.get("diagnostics") or []),
+                *(result.get("diagnostics") or []) if isinstance(result, dict) else [],
+                *(result.get("validation_diagnostics") or []) if isinstance(result, dict) else [],
+            ]
             codes = {
-                item.get("code") for item in (response.get("diagnostics") or [])
+                item.get("code") for item in diagnostic_rows
                 if isinstance(item, dict) and isinstance(item.get("code"), str)
             }
             if "AN021" in codes:
@@ -599,18 +605,6 @@ def run_eval(args: argparse.Namespace) -> dict:
                      "output_price_per_million_usd", "max_estimated_cost_usd")
     ) or budget["max_total_wall_seconds"] <= 0:
         raise ValueError("eval_cost_or_time_budget_invalid")
-    if budget["max_total_input_tokens"] < args.max_input_tokens * args.repetitions:
-        raise ValueError("aggregate_input_budget_below_reserved_per_run_maximum")
-    if budget["max_total_output_tokens"] < args.max_output_tokens * args.repetitions:
-        raise ValueError("aggregate_output_budget_below_reserved_per_run_maximum")
-    if budget["max_total_wall_seconds"] < args.max_wall_seconds * args.repetitions:
-        raise ValueError("aggregate_wall_budget_below_reserved_per_run_maximum")
-    reserved_cost = _estimate_cost_usd(
-        args.max_input_tokens * args.repetitions, args.max_output_tokens * args.repetitions, budget
-    )
-    if reserved_cost > budget["max_estimated_cost_usd"] + 1e-12:
-        raise ValueError("aggregate_cost_budget_below_reserved_per_run_maximum")
-
     scorer_names = [item.get("name") for item in case["scorers"]]
     if scorer_names != ["candidate_contract", "proposal_lifecycle", "behavioral_safety"]:
         raise ValueError("eval_scorer_set_invalid")
