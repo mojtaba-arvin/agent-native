@@ -1,13 +1,14 @@
 {
   "schema_version": 1,
-  "eval_id": "e009-readonly-operation-postfix-expanded-budget-v1",
+  "eval_id": "e009-readonly-operation-postfix-extended-context-v2",
   "model_id": "qwen3:8b",
   "repetitions": 1,
   "arm": "upfront",
-  "dispatched_at": "2026-11-17T22:35:00+04:00",
-  "purpose": "One bounded deterministic follow-up after the prior run exhausted its 48,000 input-token cap at 5/6 inspections. Increase only cumulative input tokens to 96,000 and wall time to 1,800 seconds; keep Qwen3, temperature=0, seed=42, task, context, output/tool caps, Gateway preservation, validation gate, scorers, and no-apply policy unchanged.",
+  "dispatched_at": "2026-11-18T02:10:00+04:00",
+  "purpose": "One bounded deterministic continuation after the prior 1,800-second run produced a Gateway-accepted exact-preserving proposal but timed out before validate/plan. Keep Qwen3, temperature=0, seed=42, task, Gateway preservation, scorers, validation gate and no-apply policy unchanged. Explicitly instruct the upfront action order and skip interface.describe; increase context to 16,384, input ceiling to 120,000 and wall ceiling to 3,000 seconds so the next model turn can complete. This is exploratory follow-up, not statistical evidence.",
   "temperature": 0,
   "seed": 42,
-  "max_wall_seconds": 1800,
-  "max_input_tokens": 96000
+  "max_wall_seconds": 3000,
+  "max_input_tokens": 120000,
+  "num_ctx": 16384
 }
