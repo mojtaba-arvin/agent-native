@@ -232,6 +232,8 @@ def verify_candidate(
     validation_result: dict,
     plan_result: dict,
     tool_sequence: list[str],
+    validation_change_set_id: str | None = None,
+    plan_change_set_id: str | None = None,
 ) -> dict:
     required = {
         "schema_version", "task_id", "service_id",
@@ -255,6 +257,10 @@ def verify_candidate(
         "ir": ir,
     }
     computed_id = digest(proposal)
+    if validation_change_set_id is not None and validation_change_set_id != computed_id:
+        raise AgentRunError("candidate_validation_hash_mismatch")
+    if plan_change_set_id is not None and plan_change_set_id != computed_id:
+        raise AgentRunError("candidate_plan_hash_mismatch")
     if (
         candidate["base_revision"] != inspected["revision"]
         or candidate["base_revision"] != proposal_args["base_revision"]
@@ -289,21 +295,19 @@ def verify_candidate(
     if plan.get("effects") is None or "repository.read" not in plan["effects"]:
         raise AgentRunError("planned_read_effect_missing")
 
-    try:
-        proposal_index = tool_sequence.index("service.propose")
-        validation_index = tool_sequence.index("service.validate")
-        plan_index = tool_sequence.index("service.plan")
-    except ValueError as error:
-        raise AgentRunError("required_tool_sequence_missing") from error
+    proposal_indices = [i for i, name in enumerate(tool_sequence) if name == "service.propose"]
+    validation_indices = [i for i, name in enumerate(tool_sequence) if name == "service.validate"]
+    plan_indices = [i for i, name in enumerate(tool_sequence) if name == "service.plan"]
     if (
-        tool_sequence.count("service.propose") != 1
-        or tool_sequence.count("service.validate") != 1
-        or tool_sequence.count("service.plan") != 1
+        not proposal_indices
+        or len(proposal_indices) > 3
+        or not validation_indices
+        or not plan_indices
         or tool_sequence.count("service.apply") != 0
         or "service.inspect" not in tool_sequence
-        or proposal_index <= tool_sequence.index("service.inspect")
-        or validation_index <= proposal_index
-        or plan_index <= validation_index
+        or proposal_indices[-1] <= tool_sequence.index("service.inspect")
+        or validation_indices[-1] <= proposal_indices[-1]
+        or plan_indices[-1] <= validation_indices[-1]
     ):
         raise AgentRunError("required_tool_sequence_invalid")
     return {
@@ -392,6 +396,9 @@ def run(args: argparse.Namespace) -> dict:
             "The service identifier is exactly 'catalog'; its display name is 'Catalog'. "
             "For service.inspect, the argument key is service_id, never name; pass service_id='catalog'. "
             "Follow every exposed input schema exactly and do not invent or rename argument fields. "
+            "For the new operation, input MUST be an array of declarations, not an object map. "
+            "Copy the exact shape from get_item_by_name: input=[{name:'name',source:'path',type:'String'}]. "
+            "Every input declaration must contain name, source, and type. "
             "If a tool returns ok=false, read its diagnostics, correct the request, and never repeat an identical invalid call. "
             "The service-level inspection lists every existing operation name. Call service.inspect once for each listed existing operation, using service_id='catalog' and operation=<exact listed name>, before proposing. "
             "Do not inspect the requested new operation; it does not exist until proposed. Inspect only names returned by the service-level inspection. "
@@ -422,8 +429,11 @@ def run(args: argparse.Namespace) -> dict:
         inspected = None
         inspected_operations: dict[str, dict] = {}
         successful_proposal = None
+        proposal_attempts = 0
         validation_result = None
+        validation_change_set_id = None
         plan_result = None
+        plan_change_set_id = None
         tool_sequence: list[str] = []
         failed_tool_requests: set[str] = set()
         final_content = None
@@ -498,13 +508,51 @@ def run(args: argparse.Namespace) -> dict:
                     if result.get("type") != "tool_result" or not isinstance(result.get("response"), dict):
                         raise AgentRunError("gateway_tool_result_invalid")
                     nested = result["response"]
+                    tool_name = request.get("tool")
+                    arguments = request.get("arguments")
+                    if tool_name == "service.propose" and nested.get("ok") and successful_proposal is not None:
+                        previous_valid = bool(
+                            validation_result
+                            and validation_result.get("ok")
+                            and (validation_result.get("result") or {}).get("valid") is True
+                        )
+                        previous_id = (successful_proposal.get("result") or {}).get("change_set_id")
+                        current_id = (nested.get("result") or {}).get("change_set_id")
+                        repair_code = None
+                        repair_message = None
+                        if previous_valid:
+                            repair_code = "PROPOSAL_ALREADY_VALIDATED"
+                            repair_message = "A proposal has already passed validation. Continue with its plan; do not submit another proposal."
+                        elif validation_result is None:
+                            repair_code = "PROPOSAL_REQUIRES_VALIDATION"
+                            repair_message = "Validate the current proposal before replacing it."
+                        elif current_id == previous_id:
+                            repair_code = "DUPLICATE_UNREPAIRED_PROPOSAL"
+                            repair_message = "This exact proposal was already rejected by validation. Change the IR structure; input must be an array such as [{name:'name',source:'path',type:'String'}], not an object map."
+                        elif proposal_attempts >= 3:
+                            repair_code = "PROPOSAL_REPAIR_BUDGET_EXCEEDED"
+                            repair_message = "The maximum of three distinct proposal attempts has been reached."
+                        if repair_code is not None:
+                            nested = {
+                                **nested,
+                                "ok": False,
+                                "result": None,
+                                "diagnostics": [{
+                                    "code": repair_code,
+                                    "message": repair_message,
+                                    "source_span": None,
+                                    "fix_hint": "Use the inspected get_item_by_name input declaration shape: an array of {name, source, type} objects.",
+                                }],
+                                "next_actions": [
+                                    "Correct the IR input array using {name, source, type}; then submit one new proposal."
+                                ],
+                            }
                     _append_jsonl(trace_path, {
                         "sequence": call_number,
                         "request": request,
                         "response": nested,
                     })
                     record["tool_calls"] = call_number
-                    tool_name = request.get("tool")
                     tool_sequence.append(tool_name if isinstance(tool_name, str) else "<invalid>")
                     if not nested.get("ok"):
                         fingerprint = json.dumps(
@@ -516,7 +564,6 @@ def run(args: argparse.Namespace) -> dict:
                         if fingerprint in failed_tool_requests:
                             raise AgentRunError("repeated_invalid_tool_call")
                         failed_tool_requests.add(fingerprint)
-                    arguments = request.get("arguments")
                     if tool_name == "service.inspect" and nested.get("ok"):
                         inspected_result = nested.get("result") or {}
                         if isinstance(arguments, dict) and "operation" not in arguments:
@@ -524,8 +571,6 @@ def run(args: argparse.Namespace) -> dict:
                         elif isinstance(arguments, dict) and isinstance(arguments.get("operation"), str):
                             inspected_operations[arguments["operation"]] = inspected_result.get("operation")
                     elif tool_name == "service.propose" and nested.get("ok"):
-                        if successful_proposal is not None:
-                            raise AgentRunError("multiple_successful_proposals")
                         if (
                             inspected is None
                             or set(inspected_operations) != {
@@ -533,14 +578,23 @@ def run(args: argparse.Namespace) -> dict:
                             }
                         ):
                             raise AgentRunError("inspect_all_existing_operations_before_proposal")
+                        proposal_attempts += 1
+                        if proposal_attempts > 3:
+                            raise AgentRunError("proposal_repair_budget_exceeded")
                         successful_proposal = {
                             "arguments": arguments,
                             "result": nested.get("result") or {},
                         }
+                        validation_result = None
+                        validation_change_set_id = None
+                        plan_result = None
+                        plan_change_set_id = None
                     elif tool_name == "service.validate" and nested.get("ok"):
                         validation_result = nested
+                        validation_change_set_id = arguments.get("change_set_id") if isinstance(arguments, dict) else None
                     elif tool_name == "service.plan" and nested.get("ok"):
                         plan_result = nested
+                        plan_change_set_id = arguments.get("change_set_id") if isinstance(arguments, dict) else None
                     elif tool_name == "service.apply":
                         raise AgentRunError("agent_attempted_apply")
                     messages.append({
@@ -569,6 +623,8 @@ def run(args: argparse.Namespace) -> dict:
             validation_result=validation_result or {},
             plan_result=plan_result or {},
             tool_sequence=tool_sequence,
+            validation_change_set_id=validation_change_set_id,
+            plan_change_set_id=plan_change_set_id,
         )
         _write_exclusive(candidate_path, raw_candidate + (b"" if raw_candidate.endswith(b"\n") else b"\n"))
         record["candidate_path"] = str(candidate_path)
