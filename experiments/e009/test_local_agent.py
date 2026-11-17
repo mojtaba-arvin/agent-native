@@ -457,7 +457,7 @@ class LocalAgentRunnerTests(unittest.TestCase):
         self.assertEqual(compacted[:3], base)
         self.assertEqual(len(compacted), 4)
         self.assertEqual([item["role"] for item in compacted], ["system", "user", "user", "user"])
-        ledger = json.loads(compacted[3]["content"].split("\\n", 1)[1])
+        ledger = json.loads(compacted[3]["content"].split("\n", 1)[1])
         self.assertEqual(ledger["service_inspection"], self.inspected)
         self.assertEqual(
             ledger["operation_inspections"]["get_item_by_name"],
