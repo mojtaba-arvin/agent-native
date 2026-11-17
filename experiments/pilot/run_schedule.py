@@ -106,6 +106,7 @@ def run_schedule(
         "failure_counts": {},
         "trials": [],
         "runner_error": None,
+        "batch_manifest_path": str(batch_path),
     }
 
     runner_error: Exception | None = None
