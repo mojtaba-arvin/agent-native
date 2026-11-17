@@ -1,11 +1,12 @@
 {
   "schema_version": 1,
-  "eval_id": "e009-readonly-operation-stochastic-postfix-v1",
+  "eval_id": "e009-readonly-operation-postfix-deterministic-v1",
   "model_id": "qwen3:8b",
   "repetitions": 1,
   "arm": "upfront",
-  "dispatched_at": "2026-11-17T18:00:00+04:00",
-  "purpose": "One bounded stochastic post-fix Qwen3 probe after complete-IR contract, AN021 guidance, semantic plan gate, and aggregate budget changes. Exploratory, not statistical.",
-  "temperature": 0.7,
-  "seed": 20261117
+  "dispatched_at": "2026-11-17T22:10:00+04:00",
+  "purpose": "One deterministic post-fix Qwen3 trial after Gateway-side exact-preservation enforcement, complete-IR schema, AN021 guidance, semantic plan gate, candidate retention, and refined timeout/transport taxonomy. Exploratory single run, not statistical.",
+  "temperature": 0,
+  "seed": 42,
+  "max_wall_seconds": 1200
 }
