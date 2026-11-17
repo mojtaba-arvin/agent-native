@@ -331,6 +331,14 @@ class LocalAgentRunnerTests(unittest.TestCase):
                 self.assertEqual(prompt_states[0]["kind"], "initial_session_surface")
                 self.assertEqual(prompt_states[1]["kind"], "gateway_state_ledger")
                 self.assertTrue(all(item["state_sha256"] == digest(item["state"]) for item in prompt_states))
+                provider_rows = [
+                    json.loads(line)
+                    for line in (run_dir / "provider-responses.jsonl").read_text(encoding="utf-8").splitlines()
+                ]
+                self.assertEqual(
+                    [item["prompt_state_sha256"] for item in provider_rows],
+                    [item["state_sha256"] for item in prompt_states],
+                )
                 self.assertEqual(stat.S_IMODE((run_dir / "candidate.json").stat().st_mode), 0o600)
                 self.assertEqual(stat.S_IMODE(run_dir.stat().st_mode), 0o700)
                 self.assertEqual(Handler.index, len(responses))
