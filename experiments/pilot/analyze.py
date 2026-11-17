@@ -15,7 +15,6 @@ import random
 import statistics
 import sys
 from pathlib import Path
-from typing import Any
 
 PILOT_ROOT = Path(__file__).resolve().parent
 ROOT = PILOT_ROOT.parents[1]
@@ -144,19 +143,20 @@ def _arm_summary(rows: list[dict]) -> dict:
         "infrastructure_exclusions": len(rows) - len(eligible),
         "accepted_trials": accepted,
         "acceptance_rate": accepted / len(eligible) if eligible else None,
-        "median_input_tokens": _descriptive([
+        "token_usage_complete": bool(eligible) and all(row["token_usage_complete"] for row in eligible),
+        "input_tokens": _descriptive([
             row["input_tokens"] for row in eligible if row["input_tokens"] is not None
         ]),
-        "median_output_tokens": _descriptive([
+        "output_tokens": _descriptive([
             row["output_tokens"] for row in eligible if row["output_tokens"] is not None
         ]),
-        "median_total_tokens": _descriptive([
+        "total_tokens": _descriptive([
             row["total_tokens"] for row in eligible if row["total_tokens"] is not None
         ]),
-        "median_tool_calls": _descriptive([row["tool_calls"] for row in eligible]),
-        "median_tool_errors": _descriptive([row["tool_errors"] for row in eligible]),
-        "median_schema_lookups": _descriptive([row["schema_lookup_calls"] for row in eligible]),
-        "median_wall_clock_seconds": _descriptive([
+        "tool_calls": _descriptive([row["tool_calls"] for row in eligible]),
+        "tool_errors": _descriptive([row["tool_errors"] for row in eligible]),
+        "schema_lookup_calls": _descriptive([row["schema_lookup_calls"] for row in eligible]),
+        "wall_clock_seconds": _descriptive([
             row["wall_clock_seconds"]
             for row in eligible
             if row["wall_clock_seconds"] is not None
@@ -218,7 +218,7 @@ def analyze_schedule(
 
     aggregate = summarize(all_events)
     rows_by_run = {row["run_id"]: row for row in aggregate["tasks"]}
-    if set(rows_by_run) != set(expected_by_run):
+    if len(aggregate["tasks"]) != len(expected_by_run) or set(rows_by_run) != set(expected_by_run):
         missing = sorted(set(expected_by_run) - set(rows_by_run))
         extra = sorted(set(rows_by_run) - set(expected_by_run))
         raise AnalysisError(f"trace_run_set_mismatch:missing={missing}:extra={extra}")
@@ -252,11 +252,12 @@ def analyze_schedule(
         else:
             excluded_acceptance_pairs.append(pair_id)
 
-        for metric in PAIRED_METRICS:
-            left, right = progressive.get(metric), upfront.get(metric)
-            if left is not None and right is not None:
-                paired_deltas[metric].append(float(right) - float(left))
-                metric_pair_counts[metric] += 1
+        if progressive["eligible_for_acceptance"] and upfront["eligible_for_acceptance"]:
+            for metric in PAIRED_METRICS:
+                left, right = progressive.get(metric), upfront.get(metric)
+                if left is not None and right is not None:
+                    paired_deltas[metric].append(float(right) - float(left))
+                    metric_pair_counts[metric] += 1
 
     acceptance_pairs = len(paired_acceptance_progressive)
     acceptance_difference = (
@@ -311,8 +312,8 @@ def analyze_schedule(
         "trace_sha256": trace_hashes,
     }
 
-    _write_exclusive(output, result)
     result["analysis_output"] = str(output)
+    _write_exclusive(output, result)
     return result
 
 
