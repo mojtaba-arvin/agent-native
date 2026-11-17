@@ -59,7 +59,7 @@ Previous trial progression, as recorded in the project history:
 4. All six operations were inspected, but the 24,000 cumulative input-token budget was exhausted before proposal processing.
 5. All six operations were inspected within the 48,000-token budget; malformed IR was proposed and repeated after validation failure.
 
-The older `REPORT.md` still says no live-model trial has occurred, and `research/github-resource-policy.md` still describes trial 5 as in progress. Both statements are stale as of this snapshot.
+The full trace reconstruction, raw proposal shapes, validation response, provider diagnostics, and daemon-log checks are preserved in the [fifth-trial case study](../experiments/e009/fifth-qwen3-trial-case-study.md). It confirms the repeated proposal used the same malformed IR/hash after `AN021`; the Ollama log contains no observed OOM, cancellation, or provider-error marker.
 
 ### E-007 three-run Qwen3 artifact — inspected result
 
