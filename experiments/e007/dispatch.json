@@ -1,12 +1,13 @@
 {
   "schema_version": 1,
-  "eval_id": "e009-readonly-operation-postfix-deterministic-v1",
+  "eval_id": "e009-readonly-operation-postfix-expanded-budget-v1",
   "model_id": "qwen3:8b",
   "repetitions": 1,
   "arm": "upfront",
-  "dispatched_at": "2026-11-17T22:10:00+04:00",
-  "purpose": "One deterministic post-fix Qwen3 trial after Gateway-side exact-preservation enforcement, complete-IR schema, AN021 guidance, semantic plan gate, candidate retention, and refined timeout/transport taxonomy. Exploratory single run, not statistical.",
+  "dispatched_at": "2026-11-17T22:35:00+04:00",
+  "purpose": "One bounded deterministic follow-up after the prior run exhausted its 48,000 input-token cap at 5/6 inspections. Increase only cumulative input tokens to 96,000 and wall time to 1,800 seconds; keep Qwen3, temperature=0, seed=42, task, context, output/tool caps, Gateway preservation, validation gate, scorers, and no-apply policy unchanged.",
   "temperature": 0,
   "seed": 42,
-  "max_wall_seconds": 1200
+  "max_wall_seconds": 1800,
+  "max_input_tokens": 96000
 }
