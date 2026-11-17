@@ -25,6 +25,7 @@ from local_agent import (
     run,
     validate_ollama_endpoint,
     verify_candidate,
+    _plan_gate_response,
 )
 
 
@@ -423,6 +424,42 @@ class LocalAgentRunnerTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             validate_ollama_endpoint("http://127.0.0.1:11434/api/chat")
 
+
+
+    def test_invalid_validation_blocks_plan_even_when_outer_tool_ok_is_true(self):
+        proposal_id = "a" * 64
+        request = {"request_id": "premature-plan", "arguments": {"change_set_id": proposal_id}}
+        response = _plan_gate_response(
+            request,
+            {"result": {"change_set_id": proposal_id}},
+            {"ok": True, "result": {"valid": False, "diagnostics": [{"code": "AN021"}]}},
+            proposal_id,
+        )
+        self.assertFalse(response["ok"])
+        self.assertEqual(response["diagnostics"][0]["code"], "VALIDATION_REQUIRED")
+        self.assertIn("complete IR snapshot", response["diagnostics"][0]["fix_hint"])
+
+    def test_plan_guard_requires_validation_for_the_same_proposal_hash(self):
+        first_id, second_id = "a" * 64, "b" * 64
+        request = {"request_id": "mismatched-plan", "arguments": {"change_set_id": second_id}}
+        response = _plan_gate_response(
+            request,
+            {"result": {"change_set_id": first_id}},
+            {"ok": True, "result": {"valid": True}},
+            first_id,
+        )
+        self.assertEqual(response["diagnostics"][0]["code"], "VALIDATION_REQUIRED")
+
+    def test_plan_guard_allows_only_the_validated_current_proposal(self):
+        proposal_id = "c" * 64
+        request = {"request_id": "valid-plan", "arguments": {"change_set_id": proposal_id}}
+        response = _plan_gate_response(
+            request,
+            {"result": {"change_set_id": proposal_id}},
+            {"ok": True, "result": {"valid": True}},
+            proposal_id,
+        )
+        self.assertIsNone(response)
 
 if __name__ == "__main__":
     unittest.main()
