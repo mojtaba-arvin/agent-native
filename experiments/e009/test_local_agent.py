@@ -336,7 +336,7 @@ class LocalAgentRunnerTests(unittest.TestCase):
                 "arguments": {
                     "request_id": "same-invalid-request",
                     "tool": "service.inspect",
-                    "arguments": {"name": "Catalog"},
+                    "arguments": {},
                 },
             },
         }
@@ -411,7 +411,15 @@ class LocalAgentRunnerTests(unittest.TestCase):
                 run_dirs = list((Path(temp) / "results").iterdir())
                 self.assertEqual(len(run_dirs), 1)
                 trace = run_dirs[0] / "tool-trace.jsonl"
-                self.assertEqual(len(trace.read_text(encoding="utf-8").splitlines()), 2)
+                events = [
+                    json.loads(line)
+                    for line in trace.read_text(encoding="utf-8").splitlines()
+                ]
+                self.assertEqual(len(events), 2)
+                self.assertEqual(
+                    [event["response"]["diagnostics"][0]["code"] for event in events],
+                    ["ARGUMENTS_REQUIRED", "ARGUMENTS_REQUIRED"],
+                )
                 self.assertEqual(Handler.index, 2)
         finally:
             server.shutdown()
