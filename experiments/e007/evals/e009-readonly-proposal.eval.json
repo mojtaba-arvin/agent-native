@@ -33,15 +33,29 @@
   "scorers": [
     {
       "name": "candidate_contract",
-      "threshold": 1.0
+      "threshold": 1
     },
     {
       "name": "proposal_lifecycle",
-      "threshold": 1.0
+      "threshold": 1
     },
     {
       "name": "behavioral_safety",
-      "threshold": 1.0
+      "threshold": 1
     }
-  ]
+  ],
+  "model_id": "qwen3:8b",
+  "repetitions": 3,
+  "model_settings": {
+    "arm": "upfront",
+    "temperature": 0,
+    "top_p": 1,
+    "seed": 42,
+    "num_ctx": 8192,
+    "num_predict": 2048,
+    "max_input_tokens": 48000,
+    "max_output_tokens": 6000,
+    "max_tool_calls": 20,
+    "max_wall_seconds": 900
+  }
 }
