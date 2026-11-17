@@ -24,7 +24,7 @@ The project may create a purpose-built language, DSL, compiler, virtual machine,
 
 ## Current status
 
-Active research with executable E-001 representation prototypes, E-002 Go/Rust/WASI P2/BEAM runtime baselines, an E-003 concurrency/failure model, an E-004 capability-security reference model with a threat model, an E-005 progressive-disclosure agent-interface prototype, an E-006 durable execution reference model, an E-007 backend-agent task corpus with trace metrics, and an E-008 transactional outbox/inbox delivery reference model. A preliminary CI smoke matrix is preserved but is not decision-grade. No production framework, language, syntax, or runtime has been selected. Earlier FastAPI-based vertical-slice experiments are not the product direction and are not a foundation for implementation.
+Active research with executable E-001 through E-008 prototypes and a reproducible agent-interface pilot. The pilot now includes immutable paired schedules, a local-only Ollama adapter, a serial batch runner, strict trace/candidate validation, and a separately specified hidden-evaluator boundary. Automated CI covers the adapter with a deterministic HTTP test double; no real model trial or evaluator-backed result has yet been recorded. Existing E-002 CI smoke matrices are preserved but are not decision-grade. No production framework, language, syntax, or runtime has been selected. Earlier FastAPI-based vertical-slice experiments are not the product direction and are not a foundation for implementation.
 
 ## Canonical project contract
 
@@ -35,3 +35,8 @@ Active research with executable E-001 representation prototypes, E-002 Go/Rust/W
 - `DECISIONS.json` — machine-readable decision register.
 
 All implementation work must satisfy these contracts. Research must converge into executable comparative experiments.
+
+
+## Research report
+
+See [REPORT.md](REPORT.md) for the current research status, completed experiments, evidence boundaries, evaluation gates, and next milestones. The focused [agent-interface pilot guide](experiments/pilot/README.md) documents the reproducible local-model trial procedure.
