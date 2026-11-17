@@ -208,6 +208,20 @@ Update the stale fifth-trial status in `research/github-resource-policy.md`. Pre
 
 P1 is the critical path. P2 and P3 can proceed after their contracts are fixed and must not delay the first executable eval.
 
+## Execution status — 17 November 2026
+
+| Work package | Status | Evidence |
+|---|---|---|
+| P0 — Freeze eval contract | Complete | `experiments/e007/evals/e009-readonly-proposal.eval.json` pins the task, model, generation settings, budgets, and scorer thresholds |
+| P1.1–P1.3 — Eval runner, scorers, bounded repair | Implemented; deterministic tests pass | Python runner, three deterministic scorers, source manifest, provider-failure eligibility handling, and E-009 proposal-repair guard; 36 E-007 tests pass |
+| P1.4 — Three real Qwen3 repetitions | Pending | Corrected run [44087982547](https://github.com/mojtaba-arvin/agent-native/actions/runs/44087982547) is in progress; no acceptance claim yet |
+| P2 — Durable E-009 audit sink | Complete | SQLite sink wired into `serve.py`; allow/deny, reopen, concurrent append, append-only, and fail-closed tests; 72 E-009 tests pass |
+| P3.1 — E-002 decision criteria | Complete | Weighted criteria, provisional gates, ecosystem rubric, failure-semantics assertions, and artifact-size protocol documented |
+| P3.2 — E-002 diagnostic matrix | Complete, no runtime selection | 10 repetitions × 5,000 requests per candidate; distributions and partial scores in [result report](../experiments/e002/results/2026-11-17-ten-run-diagnostic.md); all candidates fail the provisional CPU gate |
+| P4 — Validation and reporting | Partially complete | Deterministic CI is green; [peer-review checklist](peer-review-checklist.md), `REPORT.md`, `EVALUATION.md`, and resource policy updated. Final reconciliation awaits P1.4 |
+
+The RPI cycle is **not complete** until the corrected Qwen3 run is inspected, its raw traces and scorer results are validated, and the final report/checklist are reconciled with the artifact.
+
 ## Explicit scope limits for this cycle
 
 - No implementation-language, service-language, compiler, runtime, database, broker, or transport selection.
