@@ -65,6 +65,10 @@ Implement the same fan-out/fan-in workflow with bounded concurrency, deadline pr
 
 Measure correctness under fault injection, latency, memory, and agent implementation/repair cost.
 
+## Next integrated step
+
+After the E-009 real-model Agent trial is accepted, the next bounded vertical slice is [E-010 — Inter-service communication and distributed failure semantics](e010-interservice-communication-plan.md). It extends the existing contract, capability, and outbox/inbox semantics across two independent service processes; it does not preselect a transport or broker.
+
 ## Required artifacts per experiment
 
 - task specification and hash;
