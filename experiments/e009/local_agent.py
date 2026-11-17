@@ -424,6 +424,7 @@ def run(args: argparse.Namespace) -> dict:
         validation_result = None
         plan_result = None
         tool_sequence: list[str] = []
+        failed_tool_requests: set[str] = set()
         final_content = None
         turn = 0
         call_number = 0
@@ -504,6 +505,16 @@ def run(args: argparse.Namespace) -> dict:
                     record["tool_calls"] = call_number
                     tool_name = request.get("tool")
                     tool_sequence.append(tool_name if isinstance(tool_name, str) else "<invalid>")
+                    if not nested.get("ok"):
+                        fingerprint = json.dumps(
+                            request,
+                            ensure_ascii=False,
+                            sort_keys=True,
+                            separators=(",", ":"),
+                        )
+                        if fingerprint in failed_tool_requests:
+                            raise AgentRunError("repeated_invalid_tool_call")
+                        failed_tool_requests.add(fingerprint)
                     arguments = request.get("arguments")
                     if tool_name == "service.inspect" and nested.get("ok"):
                         inspected_result = nested.get("result") or {}
