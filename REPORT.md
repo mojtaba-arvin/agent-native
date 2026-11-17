@@ -123,3 +123,12 @@ The raw artifact for [workflow 44149712970](https://github.com/mojtaba-arvin/age
 The one bounded follow-up [workflow 44189163401](https://github.com/mojtaba-arvin/agent-native/actions/runs/44189163401), artifact [14376970288](https://github.com/mojtaba-arvin/agent-native/actions/runs/44189163401/artifacts/14376970288), used context 16,384 and a 3,000-second ceiling but failed after 267.785 seconds: Qwen3 repeated `service.inspect` with empty arguments and received `ARGUMENTS_REQUIRED` twice. No proposal or validation occurred. This is a distinct tool-schema adherence failure.
 
 No further Qwen3 wall/context/token budget increase is authorized. The next step is interaction-protocol redesign and adversarial provider-double coverage. Validation remains model-invoked; any automatic validation experiment must be scored separately as orchestrator behavior. These are fixed-seed, single-task observations, not statistical evidence.
+
+
+## E-007 infrastructure threat to validity (18 November 2026)
+
+The two latest Qwen3 workflows ran on CPU-only GitHub-hosted workers: Ollama loaded CPU backends/model buffers and used two model threads; no GPU backend was loaded. In the 1,800s artifact, the final 7,734-token prompt was still being prefetched when the global wall budget expired. Ollama recorded 20.09, 19.05, 18.05, and 17.04 prompt tokens/second at successive checkpoints. The 2.38 tokens/second figure from the preceding request is generation/decode speed, not prefill speed. The 1,800 seconds covered the entire agent run, not only the final prompt.
+
+Therefore, the 1,800s artifact is evidence of a Gateway-accepted proposal followed by incomplete prefill; it is not evidence that Qwen3 ignored the validate instruction. The 3,000s artifact is a distinct repeated-empty-arguments failure and remains an agent/tool-contract failure. Neither trial establishes model capability or incapability. Full details and raw-log interpretation are in [the CPU/prefill baseline](experiments/e007/results/2026-11-18-ollama-cpu-prefill-baseline.md).
+
+The E-009 adapter now compacts repeated assistant/tool history into an exact Gateway-state ledger while preserving raw provider responses and tool traces. The new provider-double regression verifies preservation of exact inspected declarations and recent diagnostics. Deterministic CI is pending for the full E-009 suite; no further full Qwen3 run or resource increase is authorized before compaction CI, a short schema probe, and an isolated prefill baseline. E-007 remains open.
