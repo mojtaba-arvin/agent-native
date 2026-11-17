@@ -22,6 +22,7 @@ from http_server import create_server  # noqa: E402
 from identity import MemoryIdentityProvider  # noqa: E402
 from kernel import ServiceRuntime, load_service_ir  # noqa: E402
 from repository import SQLiteCatalogRepository  # noqa: E402
+from work_store import DurableWorkStore  # noqa: E402
 from security_model import Grant, RequestContext  # noqa: E402
 
 
@@ -39,6 +40,7 @@ def main() -> None:
     grants = (
         Grant("local-operator", "demo-tenant", "items.read", "/items"),
         Grant("local-operator", "demo-tenant", "items.create", "/items"),
+        Grant("local-operator", "demo-tenant", "jobs.submit", "/items"),
     )
     trusted_context = RequestContext(
         principal_id="local-operator",
@@ -50,11 +52,12 @@ def main() -> None:
     source = (E009_ROOT / "catalog.an").read_text(encoding="utf-8")
     ir = load_service_ir(source)
     repository = SQLiteCatalogRepository(args.database)
+    work_store = DurableWorkStore(repository.database)
     runtime = ServiceRuntime(
         ir,
-        handlers=build_catalog_handlers(repository),
+        handlers=build_catalog_handlers(repository, work_store),
         repository=repository,
-        trusted_effects={"repository.read", "repository.write"},
+        trusted_effects={"repository.read", "repository.write", "queue.submit"},
     )
     server = create_server(
         runtime,
