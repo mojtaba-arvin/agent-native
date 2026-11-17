@@ -387,6 +387,23 @@ def _compact_tool_outcome(tool_name: str, arguments: Any, response: dict) -> dic
     return outcome
 
 
+def _build_compaction_ledger(
+    inspected: dict | None,
+    inspected_operations: dict[str, dict],
+    tool_sequence: list[str],
+    tool_outcomes: list[dict],
+) -> dict:
+    """Extract a deterministic, reviewable state snapshot from trusted tool results."""
+    return {
+        "service_inspection": inspected,
+        "operation_inspections": {
+            name: inspected_operations[name] for name in inspected_operations
+        },
+        "tool_sequence": list(tool_sequence),
+        "recent_tool_outcomes": tool_outcomes[-12:],
+    }
+
+
 def _compact_conversation(
     base_messages: list[dict],
     inspected: dict | None,
@@ -395,14 +412,9 @@ def _compact_conversation(
     tool_outcomes: list[dict],
 ) -> list[dict]:
     """Replace repeated assistant/tool history with an exact Gateway-state ledger."""
-    ledger = {
-        "service_inspection": inspected,
-        "operation_inspections": {
-            name: inspected_operations[name] for name in inspected_operations
-        },
-        "tool_sequence": tool_sequence,
-        "recent_tool_outcomes": tool_outcomes[-12:],
-    }
+    ledger = _build_compaction_ledger(
+        inspected, inspected_operations, tool_sequence, tool_outcomes
+    )
     return [
         *base_messages,
         {
@@ -474,6 +486,8 @@ def run(args: argparse.Namespace) -> dict:
     _write_exclusive(trace_path, b"")
     provider_diagnostics_path = run_dir / "provider-responses.jsonl"
     _write_exclusive(provider_diagnostics_path, b"")
+    prompt_states_path = run_dir / "prompt-states.jsonl"
+    _write_exclusive(prompt_states_path, b"")
     candidate_path = run_dir / "candidate.json"
     result_path = run_dir / "run.json"
 
@@ -493,6 +507,7 @@ def run(args: argparse.Namespace) -> dict:
         "output_tokens": 0,
         "tool_calls": 0,
         "candidate_path": None,
+        "prompt_states_path": str(prompt_states_path),
         "verification": None,
         "failure": None,
     }
@@ -603,6 +618,24 @@ def run(args: argparse.Namespace) -> dict:
             remaining_output = args.max_output_tokens - record["output_tokens"]
             if remaining_output <= 0:
                 raise AgentRunError("output_token_budget_exhausted")
+            prompt_state = (
+                {"session_surface": surface}
+                if turn == 1
+                else _build_compaction_ledger(
+                    inspected, inspected_operations, tool_sequence, tool_outcomes
+                )
+            )
+            prompt_state_kind = "initial_session_surface" if turn == 1 else "gateway_state_ledger"
+            prompt_state_sha256 = digest(prompt_state)
+            prompt_messages_sha256 = digest(messages)
+            _append_jsonl(prompt_states_path, {
+                "turn": turn,
+                "kind": prompt_state_kind,
+                "state_sha256": prompt_state_sha256,
+                "prompt_messages_sha256": prompt_messages_sha256,
+                "base_messages_sha256": digest(base_messages),
+                "state": prompt_state,
+            })
             payload = {
                 "model": args.model,
                 "messages": messages,
@@ -623,6 +656,8 @@ def run(args: argparse.Namespace) -> dict:
                 calls_for_diagnostics = message.get("tool_calls")
                 _append_jsonl(provider_diagnostics_path, {
                     "response_index": turn,
+                    "prompt_state_sha256": prompt_state_sha256,
+                    "prompt_messages_sha256": prompt_messages_sha256,
                     "model": response.get("model"),
                     "done": response.get("done"),
                     "done_reason": response.get("done_reason"),
