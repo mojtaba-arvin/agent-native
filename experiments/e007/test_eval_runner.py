@@ -24,6 +24,24 @@ class EvalRunnerTests(unittest.TestCase):
         record = {"failure": "AgentRunError:provider_final_content_missing"}
         self.assertFalse(_eligible(record))
 
+    def test_per_run_budget_exhaustion_is_ineligible_and_not_agent_failure(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            for failure in (
+                "input_token_budget_exceeded",
+                "output_token_budget_exceeded",
+                "tool_call_budget_exceeded",
+                "wall_clock_budget_exhausted",
+                "model_turn_budget_exceeded",
+                "candidate_too_large",
+                "eval_budget_exhausted_before_repetition:aggregate_input_token_budget",
+            ):
+                record = {"failure": f"AgentRunError:{failure}"}
+                self.assertFalse(_eligible(record), failure)
+                categories = _failure_categories(record, root, max_wall_seconds=1200.0)
+                self.assertIn("resource_budget_exceeded", categories, failure)
+                self.assertNotIn("agent_or_runner_failure", categories, failure)
+
     def test_deterministic_scorers_accept_trace_correlated_safe_candidate(self):
         names = ["cancel_job", "create_item", "get_item", "get_item_by_name", "get_job", "submit_rebuild"]
         original = [{"name": name, "marker": name} for name in names]
