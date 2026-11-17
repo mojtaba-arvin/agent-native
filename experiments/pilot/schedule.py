@@ -333,6 +333,13 @@ def validate_schedule(schedule: Any) -> None:
     seen_run_ids = set()
     seen_sequences = set()
     by_pair: dict[str, list[dict]] = {}
+    expected_arm_order: dict[str, list[str]] = {}
+    randomizer = random.Random(seed)
+    for pair_number in range(1, pairs + 1):
+        arms = list(ARMS)
+        randomizer.shuffle(arms)
+        expected_arm_order[f"pair-{pair_number:04d}"] = arms
+
     trial_fields = {
         "sequence", "pair_id", "run_id", "candidate_id", "model_id",
         "generation_settings", "task_id", "attempt", "source_revision", "source_sha256",
@@ -360,8 +367,12 @@ def validate_schedule(schedule: Any) -> None:
         if trial.get("source_revision") != protocol["source_revision"]:
             raise ScheduleError("trial_source_revision_mismatch")
         pair_number = (sequence + 1) // 2
-        if trial.get("pair_id") != f"pair-{pair_number:04d}":
+        expected_pair_id = f"pair-{pair_number:04d}"
+        if trial.get("pair_id") != expected_pair_id:
             raise ScheduleError("trial_pair_id_mismatch")
+        pair_position = (sequence - 1) % 2
+        if trial["candidate_id"] != expected_arm_order[expected_pair_id][pair_position]:
+            raise ScheduleError(f"trial_randomized_order_mismatch:{expected_pair_id}")
         expected_run_hash = sha256_bytes(
             f"{schedule['plan_id']}:{pair_number}:{trial['candidate_id']}".encode("utf-8")
         )
