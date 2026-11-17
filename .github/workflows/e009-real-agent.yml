@@ -2,6 +2,11 @@ name: E-009 real-model agent trial
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - research/reboot-core
+    paths:
+      - experiments/e009/dispatch.json
 
 permissions:
   contents: read
