@@ -34,7 +34,7 @@ The E-005 `_propose` handler deep-copies and stores the submitted IR as-is. `_va
 
 **Decision:** keep per-run input/output/tool/wall ceilings and add an aggregate run-level budget for tokens, elapsed agent time, and estimated local inference charge. Before every repetition, the runner reserves the configured worst-case per-run allowance; if the next repetition cannot fit, it records remaining repetitions as `not_started` and excludes them from agent acceptance rather than labelling them model failures. Missing usage after a run fails closed for further repetitions.
 
-**Cost semantics:** the current Ollama run has no per-token provider tariff. Its billable inference charge is therefore not priced; electricity, hardware depreciation, and shared runner-hosting cost are not estimated. A zero configured local tariff is not a claim that total compute cost is zero.
+**Cost semantics:** local Ollama has no configured per-token provider tariff. The case now uses an explicit `unpriced_local` mode with null token rates and a null currency ceiling. The runner emits no `cost_usd` value and reports currency cost as unknown; it does not encode the absence of a tariff as $0. Electricity, hardware depreciation, and shared runner-hosting cost are also not estimated.
 
 **Implemented:** aggregate budget settings, fail-fast reservation, explicit `resource_budget_exceeded` taxonomy, and an integration-style mock runner test that executes one fake run then refuses two further repetitions when aggregate input reservation would exceed the ceiling. CI passed. The real-model three-run artifact predates this budget implementation.
 
@@ -53,3 +53,9 @@ The 0.5 CPU-second/5,000-request limit was registered before the ten-run matrix,
 ## D-007 — Three repetitions do not establish model superiority or statistical reliability
 
 The E-007 trial has one task, one model version, one temperature/seed configuration, and three deterministic failure reproductions. It supports a reproducible failure analysis only. A broader evaluation requires multiple model capability/size levels, diverse tasks and difficulty strata, and a pre-registered stochastic seed schedule with a power/sample-size rationale. That design is future work, not current evidence.
+
+## D-008 — Cost without a tariff is unknown, not zero
+
+An Ollama-local run does not have a provider invoice or a configured per-token tariff. Setting input/output rates and maximum estimated cost to numeric zero would create a misleading statement in E-007 metrics, where `cost_usd=0` means known zero priced inference cost. The eval case now uses `cost_pricing_mode=unpriced_local` and null price/ceiling fields. The runner omits `cost_usd` from model-usage events in this mode, leaves inference currency cost null, and still enforces input/output-token and wall-time limits. Explicit per-token tariffs remain supported via `per_token` mode.
+
+**Verification:** deterministic runner tests cover unpriced cost as `None`, explicit per-token arithmetic, and aggregate budget fail-fast. The real-model 3-run artifact predates this refinement.
