@@ -15,15 +15,16 @@ from http_server import create_server
 from identity import MemoryIdentityProvider
 from kernel import ServiceRuntime, load_service_ir
 from repository import SQLiteCatalogRepository
+from work_store import DurableWorkStore
 from security_model import Grant, RequestContext
 
 
 SOURCE = (Path(__file__).parent / "catalog.an").read_text(encoding="utf-8")
-TRUSTED_EFFECTS = {"repository.read", "repository.write"}
+TRUSTED_EFFECTS = {"repository.read", "repository.write", "queue.submit"}
 
 
 def make_context(principal, tenant, grants=True):
-    capabilities = ("items.read", "items.create") if grants else ()
+    capabilities = ("items.read", "items.create", "jobs.submit") if grants else ()
     return RequestContext(
         principal_id=principal,
         tenant_id=tenant,
@@ -41,9 +42,10 @@ class KernelHTTPServerTests(unittest.TestCase):
         self.repository = SQLiteCatalogRepository(
             Path(self.temporary.name) / "http.sqlite3"
         )
+        self.work_store = DurableWorkStore(self.repository.database)
         self.runtime = ServiceRuntime(
             load_service_ir(SOURCE),
-            handlers=build_catalog_handlers(self.repository),
+            handlers=build_catalog_handlers(self.repository, self.work_store),
             repository=self.repository,
             trusted_effects=TRUSTED_EFFECTS,
             clock=lambda: 100,
@@ -119,6 +121,29 @@ class KernelHTTPServerTests(unittest.TestCase):
         self.assertEqual(by_name_status, 200)
         self.assertEqual(fetched["data"], created["data"])
         self.assertEqual(by_name["data"], created["data"])
+
+    def test_http_submission_creates_durable_job_and_is_idempotent(self):
+        first = self.request(
+            "POST",
+            "/items/rebuild",
+            body={},
+            headers={"Idempotency-Key": "http-rebuild-001"},
+        )
+        second = self.request(
+            "POST",
+            "/items/rebuild",
+            body={},
+            headers={"Idempotency-Key": "http-rebuild-001"},
+        )
+        self.assertEqual(first[0], 202)
+        self.assertEqual(first[2]["data"]["state"], "queued")
+        self.assertEqual(second[0], 200)
+        self.assertEqual(first[2]["data"], second[2]["data"])
+        job = self.work_store.get_job(
+            tenant_id="tenant-a",
+            task_id=first[2]["data"]["id"],
+        )
+        self.assertEqual(job["state"], "queued")
 
     def test_replayed_idempotency_key_returns_original_item(self):
         first = self.request(
