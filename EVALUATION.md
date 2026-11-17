@@ -135,7 +135,7 @@ The generic runner for all ten tasks, isolated hidden-oracle execution boundary/
 
 For statistical evaluation, do not count same-seed, temperature-zero, prefix-cache-reused reruns as independent model samples. Keep deterministic replay for debugging; stochastic comparisons require non-zero sampling temperature, varied recorded seeds, and a sample-size/power plan.
 
-The runner's failure taxonomy now distinguishes provider HTTP responses, transport exceptions, local/outer runner timeouts, resource-budget exhaustion, and explicit out-of-memory evidence. A transport exception at the configured wall boundary retains its raw transport category and is additionally marked wall-budget-terminal; Ollama logs are required to distinguish runner cancellation from an independent provider outage. The expanded-budget trace shows cancellation at the wall boundary and no OOM evidence.
+The runner's failure taxonomy distinguishes provider transport loss before the wall deadline from a provider symptom correlated with a proven wall-deadline cancellation. At the configured deadline, the derived failure class is `wall_clock_budget_exhausted` with `timeout` and `resource_budget_exceeded`; the immutable raw provider symptom remains in the run record. Explicit OOM evidence is separate. Regression tests cover both deadline cancellation and pre-deadline transport loss.
 
 
 E-008 adds an executable transactional outbox/inbox model for producer atomicity, fenced relay leases, at-least-once delivery, retry exhaustion, and consumer deduplication after publish-before-ack crashes. It does not claim exactly-once delivery to arbitrary external APIs.
