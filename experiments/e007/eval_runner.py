@@ -294,8 +294,14 @@ def _failure_categories(
     """Classify observed failures while preserving the raw failure code."""
     failure = _failure_class(run_record) or ""
     categories = set()
-    if failure.startswith(("provider_transport_failure", "provider_http_")):
-        categories.add("provider_transport")
+    if failure.startswith("provider_transport_failure"):
+        categories.add("transport_error")
+    elif failure.startswith("provider_http_"):
+        categories.add("provider_http_error")
+    if any(marker in failure.lower() for marker in (
+        "out_of_memory", "oom_killed", "memory_allocation_failed", "killed_by_oom"
+    )):
+        categories.add("resource_exhaustion")
     if failure.startswith(("provider_final_content_missing", "provider_assistant_message_missing",
                            "provider_tool_calls_invalid", "provider_token_usage_missing")):
         categories.add("model_configuration_or_adapter")
@@ -310,12 +316,13 @@ def _failure_categories(
         categories.add("resource_budget_exceeded")
     if failure in {"proposal_validation_not_successful", "proposal_plan_not_successful"}:
         categories.add("validation_rejection")
-    if (
+    wall_ceiling_reached = (
         max_wall_seconds is not None
         and isinstance(run_record.get("duration_ms"), (int, float))
-        and run_record["duration_ms"] >= max_wall_seconds * 1000
-    ):
-        categories.add("resource_budget_exceeded")
+        and run_record["duration_ms"] >= max_wall_seconds * 1000 - 1000
+    )
+    if wall_ceiling_reached:
+        categories.update({"timeout", "resource_budget_exceeded"})
     if failure and not categories:
         categories.add("agent_or_runner_failure")
     if run_dir is not None and run_dir.is_dir():
