@@ -7,7 +7,6 @@ AI provider and are not evidence about model-agent performance.
 from __future__ import annotations
 
 import json
-import os
 import stat
 import subprocess
 import sys
