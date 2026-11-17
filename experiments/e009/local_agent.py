@@ -388,7 +388,11 @@ def run(args: argparse.Namespace) -> dict:
         system_prompt = (
             "You are an engineering agent working on the live Agent Native E-009 service. "
             "Use only the single agent.invoke function and the session surface. "
-            "In progressive mode, call interface.describe to retrieve each missing tool schema. "
+            "In progressive mode, call interface.describe to retrieve each missing tool schema before using that tool. "
+            "The service identifier is exactly 'catalog'; its display name is 'Catalog'. "
+            "For service.inspect, the argument key is service_id, never name; pass service_id='catalog'. "
+            "Follow every exposed input schema exactly and do not invent or rename argument fields. "
+            "If a tool returns ok=false, read its diagnostics, correct the request, and never repeat an identical invalid call. "
             "Inspect the service, then inspect every existing operation by name before proposing. "
             "Preserve every existing type and operation exactly. Propose exactly the task operation. "
             "Use the inspected revision. Call service.validate and service.plan on the returned change_set_id. "
@@ -542,6 +546,8 @@ def run(args: argparse.Namespace) -> dict:
         if len(raw_candidate) > MAX_CANDIDATE_BYTES:
             raise AgentRunError("candidate_too_large")
         candidate = strict_json(raw_candidate)
+        if successful_proposal is None:
+            raise AgentRunError("proposal_not_successfully_created")
         verification = verify_candidate(
             candidate,
             inspected=inspected or {},
