@@ -2,6 +2,12 @@ name: E-002 native, WASI, and BEAM baseline checks
 
 on:
   workflow_dispatch:
+    inputs:
+      run_benchmark_matrix:
+        description: Run the three-repetition cross-runtime benchmark (smoke data only)
+        required: false
+        default: false
+        type: boolean
   pull_request:
     paths:
       - "experiments/e002/**"
@@ -79,8 +85,9 @@ jobs:
       - run: python experiments/e002/conformance.py --command "mix run -e AgentNativeE002Beam.Server.main()" --cwd experiments/e002/beam
 
   benchmark-matrix:
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && contains(github.event.head_commit.message, '[benchmark]'))
+    if: (github.event_name == 'workflow_dispatch' && inputs.run_benchmark_matrix) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[benchmark]'))
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -126,3 +133,4 @@ jobs:
           name: e002-initial-runtime-matrix
           path: /tmp/e002-results/
           if-no-files-found: error
+          retention-days: 14
