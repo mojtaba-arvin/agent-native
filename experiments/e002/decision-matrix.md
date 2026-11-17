@@ -41,13 +41,14 @@ The failure-semantics score is passed assertions divided by total assertions, an
 
 Measure the complete deployable unit, not compiler caches: native executable plus required runtime/shared libraries; BEAM release plus OTP runtime; WASI component plus the selected Wasmtime runtime. Record both component-only and complete deployable sizes where the distinction matters. Do not claim the numbers are directly comparable if the packaging model differs.
 
-### Hard gates
+### Eligibility gates for a decision-grade comparison
 
 1. 100% shared black-box conformance for all candidates.
 2. Zero security or data-integrity violations.
 3. 100% pass on every deadline, overload, cancellation, and fault-injection assertion included in the comparison workload.
 4. No candidate may bypass the framework-owned service contract, authorization, or effect semantics.
-5. All required measurements must be present and collected under the same host/toolchain/request configuration. Missing data is **not measured**, never zero.
+5. The preregistered CPU screening limit of 0.5 seconds per 5,000-request batch. This is currently an **experimental eligibility screen only**, not a product SLO or a demonstrated capacity requirement. All four candidates missed it in both ten-run cohorts; do not relax it retrospectively. Before a new decision cycle, either derive a replacement/reaffirmed threshold from a documented product capacity/cost model and preregister it, or explicitly remove CPU as an eligibility gate with a dated rationale before collecting new data.
+6. All required measurements must be present and collected under the same host/toolchain/request configuration. Missing data is **not measured**, never zero.
 
 ### Normalization and total score
 
@@ -76,7 +77,7 @@ The first ten-run matrix is [workflow 44087449181](https://github.com/mojtaba-ar
 
 The second workflow also measured one Linux x86_64 uncompressed deployable payload per candidate: Go 10,012,310 B (9.55 MiB), Rust 4,991,320 B (4.76 MiB), WASI P2 + Wasmtime 71,947,386 B (68.61 MiB), and BEAM release + ERTS 74,856,626 B (71.39 MiB), including resolved external ELF dependencies. The method and packaging caveats are documented in the [second-pass report](results/2026-11-17-second-ten-run-artifact-diagnostic.md). These are host-specific payload estimates, not directly comparable container/package distributions.
 
-Artifact size is now **measured once per candidate** under that Linux packaging rule. Ecosystem/operability and injected failure semantics remain not measured. All candidates still fail the CPU hard gate; the complete weighted score remains ineligible and no runtime is selected. The CPU gate is not changed retrospectively.
+Artifact size is now **measured once per candidate** under that Linux packaging rule. Ecosystem/operability and injected failure semantics remain not measured. All candidates still miss the provisional CPU eligibility screen; the complete weighted score remains ineligible and no runtime is selected. The screen is not a product SLO and must be revisited only before a new measurement cycle. The CPU gate is not changed retrospectively.
 
 ## Next measurement protocol
 
