@@ -396,15 +396,21 @@ def run(args: argparse.Namespace) -> dict:
             "The service identifier is exactly 'catalog'; its display name is 'Catalog'. "
             "For service.inspect, the argument key is service_id, never name; pass service_id='catalog'. "
             "Follow every exposed input schema exactly and do not invent or rename argument fields. "
-            "For the new operation, input MUST be an array of declarations, not an object map. "
-            "Copy the exact shape from get_item_by_name: input=[{name:'name',source:'path',type:'String'}]. "
-            "Every input declaration must contain name, source, and type. "
+            "The ir argument to service.propose is a COMPLETE canonical service IR snapshot, never a patch or delta. "
+            "It MUST have exactly these top-level fields: ir_version (integer 1), service, types, operations. "
+            "Copy the complete service name/version and every existing type/field from the service inspection. "
+            "Copy every existing operation in full from its own service.inspect result, preserving every property exactly, then append exactly the requested operation. "
+            "The new operation input MUST be an array of declarations, not an object map: [{name:'name',source:'path',type:'String'}]. "
+            "Every input declaration must contain name, source, and type. Do not omit ir_version or existing operations. "
+            "A service.validate response can have outer ok=true while result.valid=false. Treat valid=false as a validation failure. "
+            "When validation fails, do not call service.plan. Read result.diagnostics and next_actions, fix the COMPLETE IR, and submit a different proposal hash. "
+            "Call service.plan only after service.validate returns result.valid=true for the same change_set_id. "
             "If a tool returns ok=false, read its diagnostics, correct the request, and never repeat an identical invalid call. "
             "The service-level inspection lists every existing operation name. Call service.inspect once for each listed existing operation, using service_id='catalog' and operation=<exact listed name>, before proposing. "
             "Do not inspect the requested new operation; it does not exist until proposed. Inspect only names returned by the service-level inspection. "
             "Follow the gateway next_actions and diagnostics; never propose while an inspection is still missing. "
             "Preserve every existing type and operation exactly. Propose exactly the task operation. "
-            "Use the inspected revision. Call service.validate and service.plan on the returned change_set_id. "
+            "Use the inspected revision. Validate the exact proposal, then plan it. "
             "Never call service.apply. No shell, files, network, secrets, or deployment tools exist. "
             "Return only the exact final JSON candidate requested by the task. Never invent tool results."
         )
@@ -504,12 +510,42 @@ def run(args: argparse.Namespace) -> dict:
                     if call_number > args.max_tool_calls:
                         raise AgentRunError("tool_call_budget_exceeded")
                     request = map_tool_call(provider_call, call_number)
-                    result = gateway_exchange(process, request)
-                    if result.get("type") != "tool_result" or not isinstance(result.get("response"), dict):
-                        raise AgentRunError("gateway_tool_result_invalid")
-                    nested = result["response"]
                     tool_name = request.get("tool")
                     arguments = request.get("arguments")
+                    if tool_name == "service.plan":
+                        current_id = (successful_proposal or {}).get("result", {}).get("change_set_id")
+                        validation_ok = bool(
+                            validation_result
+                            and validation_result.get("ok")
+                            and (validation_result.get("result") or {}).get("valid") is True
+                            and validation_change_set_id == current_id
+                            and isinstance(current_id, str)
+                            and arguments.get("change_set_id") == current_id
+                        )
+                        if not validation_ok:
+                            nested = {
+                                "protocol_version": "0.1",
+                                "request_id": request.get("request_id", "invalid"),
+                                "ok": False,
+                                "result": None,
+                                "diagnostics": [{
+                                    "code": "VALIDATION_REQUIRED",
+                                    "message": "Planning is blocked until the current complete IR proposal passes validation.",
+                                    "source_span": None,
+                                    "fix_hint": "Check result.valid, not only the outer ok flag. Rebuild the complete IR snapshot (ir_version=1, service, types, all existing operations plus the new operation), then propose and validate it.",
+                                }],
+                                "next_actions": ["service.propose a corrected complete IR; then service.validate the new change_set_id"],
+                            }
+                        else:
+                            result = gateway_exchange(process, request)
+                            if result.get("type") != "tool_result" or not isinstance(result.get("response"), dict):
+                                raise AgentRunError("gateway_tool_result_invalid")
+                            nested = result["response"]
+                    else:
+                        result = gateway_exchange(process, request)
+                        if result.get("type") != "tool_result" or not isinstance(result.get("response"), dict):
+                            raise AgentRunError("gateway_tool_result_invalid")
+                        nested = result["response"]
                     if tool_name == "service.propose" and nested.get("ok") and successful_proposal is not None:
                         previous_valid = bool(
                             validation_result
