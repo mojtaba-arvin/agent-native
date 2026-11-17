@@ -256,6 +256,27 @@ class FinalizeTests(unittest.TestCase):
             )
 
 
+    def test_accepted_result_requires_provider_token_telemetry(self):
+        events = [
+            event for event in self.events
+            if event["event_type"] != "model_usage"
+        ]
+        self.trace_path.write_text(
+            "".join(json.dumps(event, sort_keys=True) + "\n" for event in events),
+            encoding="utf-8",
+        )
+        with self.assertRaisesRegex(
+            FinalizationError,
+            "accepted_result_requires_model_usage_events",
+        ):
+            finalize_run(
+                trace_path=self.trace_path,
+                evaluation_result_path=self.result_path,
+                candidate_path=self.candidate_path,
+                output_trace_path=self.output_trace_path,
+            )
+
+
     def test_candidate_hash_mismatch_is_rejected(self):
         self.result["candidate_sha256"] = "0" * 64
         self.write_result()
@@ -341,6 +362,7 @@ class FinalizeTests(unittest.TestCase):
         failed_events = [
             self.events[0],
             self.events[1],
+            self.events[2],
             {
                 **prior_call,
                 "event_id": "failed-call",
