@@ -141,7 +141,7 @@ class LocalAgentRunnerTests(unittest.TestCase):
             self.verify(*values)
 
         values = list(self.fixture())
-        values[4].remove("service.inspect")
+        values[4] = [item for item in values[4] if item != "service.inspect"]
         with self.assertRaisesRegex(AgentRunError, "required_tool_sequence_invalid"):
             self.verify(*values)
 
