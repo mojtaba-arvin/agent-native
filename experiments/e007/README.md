@@ -18,20 +18,26 @@ Provider adapters must preserve raw traces and must not invent missing token or 
 
 ## First executable real-agent eval case
 
-`evals/e009-readonly-proposal.eval.json` defines one structured proposal task using the integrated E-009 Agent Gateway. `eval_runner.py` invokes the real `local_agent.py` Ollama adapter, preserves per-run traces/candidates, applies three deterministic scorers (candidate contract, proposal/validation/plan hash continuity, and behavioral safety), emits E-007 JSONL telemetry, and returns a non-zero exit if any repetition fails.
+`evals/e009-readonly-proposal.eval.json` defines one structured complete-IR proposal task using the integrated E-009 Agent Gateway. `eval_runner.py` invokes the real `local_agent.py` Ollama adapter, preserves per-run traces/candidates, applies three deterministic scorers (candidate contract, proposal/validation/plan hash continuity, and behavioral safety), emits E-007 telemetry, and returns non-zero if a required scorer fails.
 
-Run locally with the Qwen3-compatible Ollama template renderer:
+The case pins per-run input/output/token/tool/wall ceilings and an aggregate token/time budget. Before starting each repetition, the runner reserves the configured worst-case allowance. If the next run cannot fit, it records the remaining repetitions as `not_started`, marks them ineligible, and classifies them as `resource_budget_exceeded`, not an agent failure. Unknown provider usage fails closed before another repetition. Monetary cost is estimated only when explicit token tariffs are configured. Local Ollama is marked `unpriced_local`; currency cost is unknown, not zero. A mock integration test exercises the over-budget path.
 
-```sh
-sudo systemctl stop ollama.service 2>/dev/null || true
-OLLAMA_GO_TEMPLATE=false OLLAMA_HOST=127.0.0.1:11434 ollama serve
-# In another terminal:
-ollama pull qwen3:8b
-python experiments/e007/eval_runner.py --model qwen3:8b --arm upfront --repetitions 3
-```
+## First three-run Qwen3 result — not accepted
 
-The GitHub workflow `.github/workflows/e007-real-agent-eval.yml` runs the same three-repetition Qwen3 trial when explicitly dispatched or when `experiments/e007/dispatch.json` changes. It is intentionally not part of ordinary PR CI or a deployment gate.
+The corrected real-model workflow [44087982547](https://github.com/mojtaba-arvin/agent-native/actions/runs/44087982547), artifact [14332334550](https://github.com/mojtaba-arvin/agent-native/actions/runs/44087982547/artifacts/14332334550), ran `qwen3:8b` via Ollama three times. All three attempts failed at `service.validate` with `AN021`:
 
-This is the first executable eval loop, not yet the full ten-task E-007 benchmark. Its trusted evaluator checks a fixed structured proposal; it does not execute arbitrary agent-generated code and is not a general-purpose sandbox or private oracle service. Three repetitions are a repeatability smoke check, not statistically strong evidence. No productivity or cost advantage is claimed.
+| Attempt | Result | Input tokens | Output tokens | Duration |
+|---|---|---:|---:|---:|
+| 1 | Failed — AN021 | 35,984 | 1,602 | 894.95 s |
+| 2 | Failed — AN021 | 35,984 | 1,602 | 843.78 s |
+| 3 | Failed — AN021 | 35,984 | 1,602 | 844.69 s |
 
-The task manifest, workspace preparation, trace schema, metric aggregation, and first eval case are executable. The general isolated evaluator for arbitrary code tasks and the hidden E-007 oracle package remain unimplemented. For broader model comparisons, pin model IDs, tool policies, context limits, machine images, oracle versions, repetitions, and failure classification.
+The input declaration was already the correct array containing `name`, `source`, and `type`. The submitted IR was incomplete: it omitted top-level `ir_version=1` and included only the new operation rather than all existing operations plus the requested one. The validator therefore rejected the top-level shape with AN021. The semantic response had outer `ok=true` but `result.valid=false`; the model then called plan rather than repairing the IR. The successful-proposal repair limit was not exhausted, although the runs approached the 900-second wall ceiling.
+
+All attempts used temperature 0 and seed 42 and generated matching token counts/tool paths. The Ollama server log confirms prompt/KV prefix-cache reuse; it does not show response-cache replay. These are three deterministic reproductions of one failure path, not independent statistical observations. Currency inference cost was not priced for local Ollama. The earlier standalone E-009 trial [44081733833](https://github.com/mojtaba-arvin/agent-native/actions/runs/44081733833) is a separate older failure in which the operation input was an object; this later artifact had a correct input array but an incomplete top-level IR.
+
+## Corrective changes and remaining limits
+
+The E-005 tool schema now publishes the full canonical IR object; `AN021` adds an actionable fix hint; the E-009 task and system prompt require a complete snapshot, not a patch; and the local runner blocks `service.plan` until the current proposal hash has `result.valid=true`. These changes pass deterministic tests, but a post-fix real-model run is still required.
+
+This is the first executable single-case eval loop, not the full ten-task benchmark. It does not execute arbitrary agent-generated code and is not a general-purpose sandbox or private oracle service. The task manifest, workspace preparation, trace schema, metric aggregation, and first eval case are executable. The general isolated evaluator and hidden E-007 oracle package remain unimplemented. The proposed multi-tier/model cohort and expanded task design are future work only: [E-007 future evaluation plan](../../research/e007-future-evaluation-plan.md).
