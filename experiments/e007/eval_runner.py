@@ -330,10 +330,15 @@ def _failure_categories(run_record: dict, run_dir: Path | None = None) -> list[s
     return sorted(categories)
 
 
-def _estimate_cost_usd(input_tokens: int, output_tokens: int, budget: dict) -> float:
+def _estimate_cost_usd(input_tokens: int, output_tokens: int, budget: dict) -> float | None:
+    if budget.get("cost_pricing_mode") == "unpriced_local":
+        return None
+    input_rate = budget.get("input_price_per_million_usd")
+    output_rate = budget.get("output_price_per_million_usd")
+    if input_rate is None or output_rate is None:
+        return None
     return (
-        input_tokens * budget["input_price_per_million_usd"]
-        + output_tokens * budget["output_price_per_million_usd"]
+        input_tokens * input_rate + output_tokens * output_rate
     ) / 1_000_000
 
 
@@ -352,7 +357,9 @@ def _budget_snapshot(run_results: list[dict], budget: dict) -> dict:
         "output_tokens": output_tokens if complete else None,
         "wall_seconds": round(wall_seconds, 3),
         "estimated_inference_cost_usd": (
-            round(_estimate_cost_usd(input_tokens, output_tokens, budget), 8) if complete else None
+            round(_estimate_cost_usd(input_tokens, output_tokens, budget), 8)
+            if complete and _estimate_cost_usd(input_tokens, output_tokens, budget) is not None
+            else None
         ),
     }
 
@@ -364,8 +371,13 @@ def _budget_can_start_next(run_results: list[dict], budget: dict, per_run: dict)
     reserve_input = actual["input_tokens"] + per_run["max_input_tokens"]
     reserve_output = actual["output_tokens"] + per_run["max_output_tokens"]
     reserve_wall = actual["wall_seconds"] + per_run["max_wall_seconds"]
-    reserve_cost = actual["estimated_inference_cost_usd"] + _estimate_cost_usd(
+    per_run_cost = _estimate_cost_usd(
         per_run["max_input_tokens"], per_run["max_output_tokens"], budget
+    )
+    reserve_cost = (
+        actual["estimated_inference_cost_usd"] + per_run_cost
+        if actual["estimated_inference_cost_usd"] is not None and per_run_cost is not None
+        else None
     )
     if reserve_input > budget["max_total_input_tokens"]:
         return False, "aggregate_input_token_budget"
@@ -373,7 +385,7 @@ def _budget_can_start_next(run_results: list[dict], budget: dict, per_run: dict)
         return False, "aggregate_output_token_budget"
     if reserve_wall > budget["max_total_wall_seconds"]:
         return False, "aggregate_wall_time_budget"
-    if reserve_cost > budget["max_estimated_cost_usd"] + 1e-12:
+    if reserve_cost is not None and reserve_cost > budget["max_estimated_cost_usd"] + 1e-12:
         return False, "aggregate_estimated_cost_budget"
     return True, None
 
@@ -503,9 +515,11 @@ def _e007_events(run_record: dict, run_dir: Path, case: dict, attempt: int, scor
             "model_usage",
             input_tokens=run_record.get("input_tokens", 0),
             output_tokens=run_record.get("output_tokens", 0),
-            cost_usd=round(_estimate_cost_usd(
+            **({
+                "cost_usd": round(cost, 8)
+            } if (cost := _estimate_cost_usd(
                 run_record.get("input_tokens", 0), run_record.get("output_tokens", 0), budget
-            ), 8),
+            )) is not None else {}),
         ))
     events.append(_event(
         run_id,
@@ -591,7 +605,8 @@ def run_eval(args: argparse.Namespace) -> dict:
     budget = case["budget"]
     budget_fields = {
         "max_total_input_tokens", "max_total_output_tokens", "max_total_wall_seconds",
-        "input_price_per_million_usd", "output_price_per_million_usd", "max_estimated_cost_usd",
+        "cost_pricing_mode", "input_price_per_million_usd",
+        "output_price_per_million_usd", "max_estimated_cost_usd",
     }
     if not isinstance(budget, dict) or set(budget) != budget_fields:
         raise ValueError("eval_budget_fields_invalid")
@@ -599,13 +614,27 @@ def run_eval(args: argparse.Namespace) -> dict:
         "max_total_input_tokens", "max_total_output_tokens"
     )):
         raise ValueError("eval_token_budget_invalid")
-    if any(
-        isinstance(budget[name], bool) or not isinstance(budget[name], (int, float))
-        or not math.isfinite(budget[name]) or budget[name] < 0
-        for name in ("max_total_wall_seconds", "input_price_per_million_usd",
-                     "output_price_per_million_usd", "max_estimated_cost_usd")
-    ) or budget["max_total_wall_seconds"] <= 0:
+    if (
+        isinstance(budget["max_total_wall_seconds"], bool)
+        or not isinstance(budget["max_total_wall_seconds"], (int, float))
+        or not math.isfinite(budget["max_total_wall_seconds"])
+        or budget["max_total_wall_seconds"] <= 0
+    ):
         raise ValueError("eval_cost_or_time_budget_invalid")
+    if budget["cost_pricing_mode"] == "unpriced_local":
+        if any(budget[name] is not None for name in (
+            "input_price_per_million_usd", "output_price_per_million_usd", "max_estimated_cost_usd"
+        )):
+            raise ValueError("unpriced_local_must_not_claim_zero_currency_cost")
+    elif budget["cost_pricing_mode"] == "per_token":
+        if any(
+            isinstance(budget[name], bool) or not isinstance(budget[name], (int, float))
+            or not math.isfinite(budget[name]) or budget[name] < 0
+            for name in ("input_price_per_million_usd", "output_price_per_million_usd", "max_estimated_cost_usd")
+        ):
+            raise ValueError("eval_cost_pricing_invalid")
+    else:
+        raise ValueError("eval_cost_pricing_mode_invalid")
     scorer_names = [item.get("name") for item in case["scorers"]]
     if scorer_names != ["candidate_contract", "proposal_lifecycle", "behavioral_safety"]:
         raise ValueError("eval_scorer_set_invalid")
