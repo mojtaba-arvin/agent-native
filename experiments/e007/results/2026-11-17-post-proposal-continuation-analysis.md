@@ -78,3 +78,14 @@ The 1,800-second and 3,000-second attempts are the bounded resource experiments.
 5. Only then preregister a redesigned, bounded experiment with the existing semantic, preservation, and no-apply gates unchanged.
 
 These are one-task, fixed-seed observations. They do not establish model reliability, statistical significance, or model superiority.
+
+
+## 6. Follow-up infrastructure analysis (18 November 2026)
+
+The original forensic conclusion that prompt prefill was incomplete remains correct, but the throughput interpretation is refined by the full Ollama logs. Both the 1,800s and 3,000s workflows used CPU-only Ollama backends with two model threads; neither loaded a GPU backend or GPU model buffer. The first host was AMD EPYC 9V74 / ggml-cpu-zen4, and the second AMD EPYC 7763 / ggml-cpu-haswell.
+
+For the final 7,734-token prompt in the 1,800s run, Ollama logged prefill at 20.09, 19.05, 18.05, and 17.04 tokens/second. The request began with about 240 seconds left in the global run budget, and 764 prompt tokens were reusable from the cache. At cancellation, 4,860 total prompt tokens (4,096 newly evaluated tokens) had been processed. The preceding request's 2.38 tokens/second was generation/decode throughput, not prefill. The 1,800 seconds covered the entire agent run, not the final prompt alone.
+
+This confirms CPU-only execution as a threat to validity, but does not justify the proposed 2.7 tok/s prefill estimate. A rough extrapolation from the last prefill checkpoint suggests about 169 seconds would have been needed for the remaining uncached prompt under the same rate; that is not a measured completion time. No assistant decoding began and no validate tool call was emitted before the global deadline.
+
+The full analysis and implementation response are recorded in [the CPU/prefill baseline report](2026-11-18-ollama-cpu-prefill-baseline.md). The adapter now compacts repeated assistant/tool history into an exact Gateway-state ledger while preserving raw traces. Deterministic verification is pending; no new full-task Qwen3 run is authorized yet.
