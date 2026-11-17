@@ -60,7 +60,6 @@ def build_catalog_handlers(
                 task_type="catalog.rebuild",
                 payload={
                     "requested_by": context.identity.principal_id,
-                    "request_id": context.request_id,
                 },
                 idempotency_key=str(context.values["idempotency_key"]),
                 now=context.now,
