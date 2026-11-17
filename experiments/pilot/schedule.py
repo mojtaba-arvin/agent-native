@@ -34,6 +34,7 @@ SOURCE_FILES = (
     "experiments/pilot/surface.py",
     "experiments/pilot/gateway.py",
     "experiments/pilot/ollama_runner.py",
+    "experiments/pilot/run_schedule.py",
     "experiments/pilot/candidate.py",
     "experiments/pilot/candidate.schema.json",
     "experiments/pilot/evaluation-result.schema.json",
