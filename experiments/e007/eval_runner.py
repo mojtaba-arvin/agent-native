@@ -286,13 +286,18 @@ def _failure_class(run_record: dict) -> str | None:
     return text.split(":", 1)[0][:100]
 
 
-def _failure_categories(run_record: dict, run_dir: Path | None = None) -> list[str]:
+def _failure_categories(
+    run_record: dict,
+    run_dir: Path | None = None,
+    max_wall_seconds: float | None = None,
+) -> list[str]:
     """Classify observed failures while preserving the raw failure code."""
     failure = _failure_class(run_record) or ""
     categories = set()
-    if failure.startswith(("provider_transport_failure", "provider_http_", "provider_final_content_missing",
-                          "provider_assistant_message_missing", "provider_tool_calls_invalid",
-                          "provider_token_usage_missing")):
+    if failure.startswith(("provider_transport_failure", "provider_http_")):
+        categories.add("provider_transport")
+    if failure.startswith(("provider_final_content_missing", "provider_assistant_message_missing",
+                           "provider_tool_calls_invalid", "provider_token_usage_missing")):
         categories.add("model_configuration_or_adapter")
     if failure in {"multiple_successful_proposals", "repeated_invalid_tool_call", "proposal_repair_budget_exceeded"}:
         categories.add("repeated_tool_or_repair")
@@ -304,6 +309,12 @@ def _failure_categories(run_record: dict, run_dir: Path | None = None) -> list[s
         categories.add("resource_budget_exceeded")
     if failure in {"proposal_validation_not_successful", "proposal_plan_not_successful"}:
         categories.add("validation_rejection")
+    if (
+        max_wall_seconds is not None
+        and isinstance(run_record.get("duration_ms"), (int, float))
+        and run_record["duration_ms"] >= max_wall_seconds * 1000
+    ):
+        categories.add("resource_budget_exceeded")
     if failure and not categories:
         categories.add("agent_or_runner_failure")
     if run_dir is not None and run_dir.is_dir():
@@ -775,7 +786,11 @@ def run_eval(args: argparse.Namespace) -> dict:
                 )
             ),
             "eligible_for_acceptance": _eligible(run_record),
-            "failure_categories": _failure_categories(run_record, agent_root / run_record["run_id"]),
+            "failure_categories": _failure_categories(
+                run_record,
+                agent_root / run_record["run_id"],
+                max_wall_seconds=args.max_wall_seconds,
+            ),
             "estimated_inference_cost_usd": (
                 round(_estimate_cost_usd(run_record.get("input_tokens", 0),
                                          run_record.get("output_tokens", 0), budget), 8)
