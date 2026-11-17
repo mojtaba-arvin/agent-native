@@ -37,6 +37,8 @@ jobs:
           set -euo pipefail
           uname -a | tee /tmp/host.txt
           lscpu | tee /tmp/lscpu.txt
+          printf 'OLLAMA_NUM_THREADS=%s\n' "${OLLAMA_NUM_THREADS-<unset>}" | tee /tmp/ollama-env.txt
+          env | sort | grep '^OLLAMA_' | tee -a /tmp/ollama-env.txt || true
           if command -v nvidia-smi >/dev/null 2>&1; then
             nvidia-smi -q > /tmp/nvidia-smi.txt
           else
@@ -84,6 +86,7 @@ jobs:
             /tmp/lscpu.txt
             /tmp/nvidia-smi.txt
             /tmp/ollama-version.txt
+            /tmp/ollama-env.txt
             /tmp/ollama-models.txt
             /tmp/qwen3-modelfile.txt
             /tmp/ollama-serve.log
