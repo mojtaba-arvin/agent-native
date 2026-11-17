@@ -325,6 +325,17 @@ class EvalRunnerTests(unittest.TestCase):
             self.assertIn("resource_exhaustion", categories)
             self.assertNotIn("timeout", categories)
 
+    def test_runner_and_agent_wall_expirations_are_timeouts(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            for failure in (
+                "AgentRunError:wall_clock_budget_exhausted",
+                "runner_timeout",
+            ):
+                categories = _failure_categories({"failure": failure}, root, max_wall_seconds=900.0)
+                self.assertIn("timeout", categories)
+                self.assertIn("resource_budget_exceeded", categories)
+
 
     def test_nested_preservation_validation_and_repair_budget_codes_have_distinct_categories(self):
         with tempfile.TemporaryDirectory() as temporary:
