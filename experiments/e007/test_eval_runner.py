@@ -8,7 +8,7 @@ from argparse import Namespace
 from pathlib import Path
 from unittest.mock import patch
 
-from eval_runner import (score_run, _wilson, _eligible, _failure_categories, _budget_can_start_next, _estimate_cost_usd, run_eval)
+from eval_runner import (score_run, _wilson, _eligible, _failure_class, _failure_categories, _budget_can_start_next, _estimate_cost_usd, run_eval)
 
 
 class EvalRunnerTests(unittest.TestCase):
@@ -222,6 +222,11 @@ class EvalRunnerTests(unittest.TestCase):
         self.assertIn("resource_budget_exceeded", categories)
         self.assertNotIn("transport_error", categories)
         self.assertNotIn("agent_or_runner_failure", categories)
+        self.assertEqual(_failure_class(record), "provider_transport_failure")
+        self.assertEqual(
+            _failure_class(record, max_wall_seconds=1800.0),
+            "wall_clock_budget_exhausted",
+        )
 
     def test_provider_transport_failure_before_wall_deadline_remains_transport_error(self):
         record = {
