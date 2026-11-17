@@ -9,6 +9,7 @@ import sys
 import tempfile
 import time
 import unittest
+from unittest.mock import patch
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -209,6 +210,34 @@ class CatalogWorkerTests(unittest.TestCase):
                     process.wait(timeout=5)
             stderr = process.stderr.read()
             self.assertEqual(process.returncode, 0, stderr)
+
+    def test_outbox_retries_consumer_failures_then_dead_letters(self):
+        self.store.submit_job(
+            tenant_id="tenant-a",
+            task_type="catalog.rebuild",
+            payload={},
+            idempotency_key="relay-retry-job",
+            now=1,
+            deadline_at=100,
+        )
+        relay = OutboxRelay(self.store, consumer_id="retry-observer", lease_seconds=5)
+        outcomes = []
+        for attempt in range(1, 9):
+            now = attempt + 1
+            with patch.object(
+                self.store,
+                "consume_delta_event",
+                side_effect=OSError("consumer storage unavailable"),
+            ):
+                outcome = relay.run_once(relay_id="retry-relay", now=now)
+            outcomes.append(outcome)
+            self.assertTrue(outcome.claimed)
+            self.assertFalse(outcome.acknowledged)
+            self.assertEqual(outcome.failure_class, "OSERROR")
+            self.assertEqual(outcome.retry_scheduled, attempt < 8)
+
+        self.assertEqual(self.store.outbox_counts()["failed"], 1)
+        self.assertFalse(relay.run_once(relay_id="retry-relay", now=20).claimed)
 
     def test_stop_request_is_not_acknowledged_by_expired_lease_alone(self):
         job, _ = self.store.submit_job(
