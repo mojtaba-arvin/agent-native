@@ -36,6 +36,14 @@ The input declaration was already the correct array containing `name`, `source`,
 
 All attempts used temperature 0 and seed 42 and generated matching token counts/tool paths. The Ollama server log confirms prompt/KV prefix-cache reuse; it does not show response-cache replay. These are three deterministic reproductions of one failure path, not independent statistical observations. Currency inference cost was not priced for local Ollama. The earlier standalone E-009 trial [44081733833](https://github.com/mojtaba-arvin/agent-native/actions/runs/44081733833) is a separate older failure in which the operation input was an object; this later artifact had a correct input array but an incomplete top-level IR.
 
+## One stochastic post-fix probe — still not accepted
+
+Workflow [44105440141](https://github.com/mojtaba-arvin/agent-native/actions/runs/44105440141), artifact [14337879630](https://github.com/mojtaba-arvin/agent-native/actions/runs/44105440141/artifacts/14337879630), used `temperature=0.7` and seed `20261117` for one exploratory attempt. It consumed 44,377 input and 1,399 output tokens and reached the 900-second wall ceiling with a provider transport failure. Currency cost is unpriced for local Ollama.
+
+The model generated the full top-level IR shape (`ir_version=1`, service, types, seven operation entries) and the new operation's array input correctly. However, it changed five existing operation declarations rather than preserving the inspected versions. Its first proposal was rejected by the Gateway with `INSPECTION_INCOMPLETE`; after inspecting all six existing operations, it did not submit a second proposal before the wall budget expired. No successful proposal, validation, or plan occurred. The proposal payload and six inspection results are preserved in the raw trace. See the [stochastic probe analysis](results/2026-11-17-stochastic-qwen3-probe.md).
+
+This one run establishes a different failure path under non-zero temperature; it does not establish improvement, statistical reliability, or model superiority. The later candidate-preservation code was committed after this workflow, so this particular run did not save a separate final candidate JSON.
+
 ## Corrective changes and remaining limits
 
 The E-005 tool schema now publishes the full canonical IR object; `AN021` adds an actionable fix hint; the E-009 task and system prompt require a complete snapshot, not a patch; and the local runner blocks `service.plan` until the current proposal hash has `result.valid=true`. These changes pass deterministic tests, but a post-fix real-model run is still required.
