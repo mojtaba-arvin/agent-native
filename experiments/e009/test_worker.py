@@ -163,6 +163,8 @@ class CatalogWorkerTests(unittest.TestCase):
                 headers = {"Authorization": f"Bearer {token}"}
                 if raw is not None:
                     headers["Content-Type"] = "application/json"
+                if method == "POST" and path == "/items/rebuild":
+                    headers["Idempotency-Key"] = "process-rebuild-001"
                 req = urllib.request.Request(
                     base_url + path,
                     data=raw,
@@ -209,6 +211,10 @@ class CatalogWorkerTests(unittest.TestCase):
                     process.kill()
                     process.wait(timeout=5)
             stderr = process.stderr.read()
+            if process.stdout and not process.stdout.closed:
+                process.stdout.close()
+            if process.stderr and not process.stderr.closed:
+                process.stderr.close()
             self.assertEqual(process.returncode, 0, stderr)
 
     def test_outbox_retries_consumer_failures_then_dead_letters(self):
