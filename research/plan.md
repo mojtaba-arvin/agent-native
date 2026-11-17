@@ -212,15 +212,37 @@ P1 is the critical path. P2 and P3 can proceed after their contracts are fixed a
 
 | Work package | Status | Evidence |
 |---|---|---|
-| P0 — Freeze eval contract | Complete | `experiments/e007/evals/e009-readonly-proposal.eval.json` pins the task, model, generation settings, budgets, and scorer thresholds |
-| P1.1–P1.3 — Eval runner, scorers, bounded repair | Implemented; deterministic tests pass | Python runner, three deterministic scorers, source manifest, provider-failure eligibility handling, and E-009 proposal-repair guard; 36 E-007 tests pass |
-| P1.4 — Three real Qwen3 repetitions | Pending | Corrected run [44087982547](https://github.com/mojtaba-arvin/agent-native/actions/runs/44087982547) is in progress; no acceptance claim yet |
-| P2 — Durable E-009 audit sink | Complete | SQLite sink wired into `serve.py`; allow/deny, reopen, concurrent append, append-only, and fail-closed tests; 72 E-009 tests pass |
-| P3.1 — E-002 decision criteria | Complete | Weighted criteria, provisional gates, ecosystem rubric, failure-semantics assertions, and artifact-size protocol documented |
-| P3.2 — E-002 diagnostic matrix | Complete, no runtime selection | 10 repetitions × 5,000 requests per candidate; distributions and partial scores in [result report](../experiments/e002/results/2026-11-17-ten-run-diagnostic.md); all candidates fail the provisional CPU gate |
-| P4 — Validation and reporting | Partially complete | Deterministic CI is green; [peer-review checklist](peer-review-checklist.md), `REPORT.md`, `EVALUATION.md`, and resource policy updated. Final reconciliation awaits P1.4 |
+| P0 — Freeze evaluation contract | Complete | One fixed E-007 case pins Qwen3, generation settings, budgets, expected operation, and three scorer thresholds |
+| P1.1–P1.3 — E-007 runner/scorers/repair controls | Implemented; deterministic CI passes | 42 E-007 tests pass; includes exact provenance scoring, nested AN021 classification, aggregate token/time budget reservation, mock fail-fast, and ineligible budget-stop records |
+| P1.4 — Original three Qwen3 repetitions | Complete as an experiment; acceptance failed | Run [44087982547](https://github.com/mojtaba-arvin/agent-native/actions/runs/44087982547), artifact [14332334550](https://github.com/mojtaba-arvin/agent-native/actions/runs/44087982547/artifacts/14332334550): 0/3 accepted, all failed validation with AN021; input array was correct, but IR omitted ir_version and existing operations; model planned despite result.valid=false |
+| P1.5 — Complete-IR and validation-gate correction | Implemented; real-model verification open | E-005 publishes a complete IR JSON schema and AN021 fix hint; E-009 task/prompt specify full snapshots; plan gate requires result.valid=true for exact current proposal hash; deterministic tests pass |
+| P1.6 — Stochastic post-fix probe | Planned next, not yet run | One bounded Qwen3 run at temperature 0.7 and a distinct seed; exploratory only, not a statistical cohort |
+| P2 — Durable E-009 audit sink | Complete | SQLite sink wired into serve.py; allow/deny, reopen, concurrent append, append-only, and fail-closed tests; 75 E-009 tests pass |
+| P3.1 — E-002 decision criteria | Complete | Weighted criteria and provisional gates registered before the ten-run matrix; [CPU gate analysis](../experiments/e002/cpu-gate-analysis.md) documents the missing product-side provenance |
+| P3.2 — E-002 ten-run matrix | Complete, diagnostic only | 10 repetitions × 5,000 requests per candidate; all functional, p99, throughput, RSS, startup gates pass; all four candidates fail the provisional CPU screen; ecosystem/fault-injection/artifact-size criteria remain unmeasured |
+| P4 — Validation and reporting | Partially complete | E-005 17 tests, E-007 42 tests, E-009 75 tests pass; peer checklist records the 0/3 failure and keeps post-fix real-model acceptance open |
+| P5 — Evidence synthesis | In progress | [Evidence index](evidence-index.md), [design decisions](design-decisions.md), [CPU analysis](../experiments/e002/cpu-gate-analysis.md), and [E-009 IR contract](../experiments/e009/ir-contract.md) created; report/resource-policy/docs reconciliation continues |
 
-The RPI cycle is **not complete** until the corrected Qwen3 run is inspected, its raw traces and scorer results are validated, and the final report/checklist are reconciled with the artifact.
+## RPI phase 0 — Continuous evaluation-infrastructure validation
+
+This phase runs in parallel with P1–P5 and remains open as the runner evolves.
+
+- Hostile-path tests cover repeated successful proposals, malformed input shapes, empty provider responses, nested AN021 validation diagnostics, and budget exhaustion before the next run.
+- Aggregate budgets cover input/output tokens and wall time. Monetary inference cost is enforced only when a provider tariff is known; local Ollama cost is unpriced, not a fabricated zero.
+- Failure taxonomy retains the raw failure code and categorizes schema incompatibility, repeated tool/repair behavior, validation rejection, model/adapter configuration, runner/gateway failure, and resource-budget exhaustion.
+- Budget exhaustion is not an agent failure: not-started repetitions are preserved with `eligible_for_acceptance=false` and `resource_budget_exceeded`.
+- CI implementation evidence does not substitute for real-model artifact inspection.
+
+## RPI phase 5 — Evidence synthesis
+
+The final report must distinguish:
+1. What is demonstrated by deterministic implementation tests.
+2. What the real model did in each retained run.
+3. What was corrected in schema, prompts, diagnostics, runner, and planning gate.
+4. Whether those corrections have been verified by a post-fix real-model artifact.
+5. What remains diagnostic, not measured, unpriced, or future work.
+
+The three-run Qwen3 cohort is 0/3 accepted and is a deterministic failure reproduction. E-002 is diagnostic, not decision-grade. No runtime is selected. The model-tier/corpus expansion is a documented future plan, not executed evidence.
 
 ## Explicit scope limits for this cycle
 
