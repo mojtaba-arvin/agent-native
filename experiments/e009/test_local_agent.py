@@ -26,6 +26,7 @@ from local_agent import (
     validate_ollama_endpoint,
     verify_candidate,
     _plan_gate_response,
+    _persist_candidate_response,
 )
 
 
@@ -460,6 +461,21 @@ class LocalAgentRunnerTests(unittest.TestCase):
             proposal_id,
         )
         self.assertIsNone(response)
+
+
+    def test_final_json_candidate_is_preserved_before_semantic_verification(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            candidate_path = root / "candidate.json"
+            record = {"candidate_path": None}
+            raw = b'{"ir_version":1,"service":{"name":"Catalog","version":"1"}}'
+            _persist_candidate_response(candidate_path, raw, record)
+            self.assertEqual(record["candidate_path"], str(candidate_path))
+            self.assertEqual(json.loads(candidate_path.read_text(encoding="utf-8")), {
+                "ir_version": 1,
+                "service": {"name": "Catalog", "version": "1"},
+            })
+            self.assertEqual(stat.S_IMODE(candidate_path.stat().st_mode), 0o600)
 
 if __name__ == "__main__":
     unittest.main()
