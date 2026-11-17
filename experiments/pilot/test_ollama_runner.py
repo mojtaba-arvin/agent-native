@@ -196,6 +196,7 @@ class OllamaRunnerTests(unittest.TestCase):
         self.assertEqual(len(requests[0]["tools"]), 1)
         self.assertEqual(requests[0]["tools"][0]["function"]["name"], "agent.invoke")
         self.assertEqual(requests[0]["options"]["num_predict"], 4000)
+        self.assertEqual(requests[1]["options"]["num_predict"], 3966)
         self.assertNotIn("candidate_id", json.dumps(requests[0]["messages"]))
         self.assertNotIn('"progressive"', json.dumps(requests[0]["messages"]))
         self.assertTrue(any(message["role"] == "tool" for message in requests[1]["messages"]))
