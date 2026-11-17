@@ -63,4 +63,30 @@ service Catalog {
     effects: [queue.submit];
     capability: "jobs.submit";
   }
+
+  operation get_job {
+    method: GET;
+    path: "/jobs/{id}";
+    input {
+      id: UUID from path;
+    }
+    output: WorkTicket;
+    errors: [InvalidInput, NotFound, ServiceUnavailable, Unauthorized];
+    validation: [];
+    effects: [queue.read];
+    capability: "jobs.read";
+  }
+
+  operation cancel_job {
+    method: POST;
+    path: "/jobs/{id}/cancel";
+    input {
+      id: UUID from path;
+    }
+    output: WorkTicket;
+    errors: [InvalidInput, NotFound, ServiceUnavailable, Unauthorized];
+    validation: [];
+    effects: [queue.cancel];
+    capability: "jobs.cancel";
+  }
 }
