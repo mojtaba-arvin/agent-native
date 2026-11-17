@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "matrix": "runtime-screening-v1",
+  "candidates": [
+    "go-net-http",
+    "rust-tokio-hyper",
+    "wasi-p2-wasmtime-50.0.1",
+    "beam-elixir-otp"
+  ],
+  "repetitions": 10,
+  "requests_per_repetition": 5000,
+  "concurrency": 32,
+  "warmup": 250,
+  "dispatched_at": "2026-11-17",
+  "interpretation": "diagnostic only; no runtime selection"
+}
