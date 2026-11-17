@@ -132,14 +132,14 @@ class DurableWorkStoreTests(unittest.TestCase):
 
     def test_deadline_expiry_cancels_running_work_after_stop_ack(self):
         queued, _ = self.submit(key="queued-deadline", deadline=5)
-        running, _ = self.submit(key="running-deadline", now=0, deadline=50)
-        claim = self.store.claim_job(worker_id="worker-a", now=1, lease_seconds=60)
-
         expired = self.store.request_expirations(now=5)
         self.assertEqual(expired["queued_expired"], 1)
         queued_row = self.store.get_job(tenant_id="tenant-a", task_id=queued["task_id"])
         self.assertEqual(queued_row["state"], "expired")
 
+        running, _ = self.submit(key="running-deadline", now=6, deadline=50)
+        claim = self.store.claim_job(worker_id="worker-a", now=7, lease_seconds=60)
+        self.assertEqual(claim["task_id"], running["task_id"])
         running_expiry = self.store.request_expirations(now=51)
         self.assertEqual(running_expiry["running_stop_requested"], 1)
         pending_stop = self.store.get_job(tenant_id="tenant-a", task_id=running["task_id"])
