@@ -281,5 +281,21 @@ class EvalRunnerTests(unittest.TestCase):
             "output_price_per_million_usd": None,
         }))
 
+
+    def test_provider_transport_at_the_wall_ceiling_is_budget_not_agent_failure(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            categories = _failure_categories(
+                {
+                    "failure": "AgentRunError:provider_transport_failure",
+                    "duration_ms": 900030.0,
+                },
+                root,
+                max_wall_seconds=900.0,
+            )
+            self.assertIn("provider_transport", categories)
+            self.assertIn("resource_budget_exceeded", categories)
+            self.assertNotIn("model_configuration_or_adapter", categories)
+
 if __name__ == "__main__":
     unittest.main()
