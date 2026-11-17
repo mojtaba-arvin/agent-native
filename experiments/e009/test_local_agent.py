@@ -28,6 +28,7 @@ from local_agent import (
     _plan_gate_response,
     _persist_candidate_response,
     _proposal_budget_response,
+    _proposal_attempt_gate,
 )
 
 
@@ -478,6 +479,18 @@ class LocalAgentRunnerTests(unittest.TestCase):
             })
             self.assertEqual(stat.S_IMODE(candidate_path.stat().st_mode), 0o600)
 
+
+    def test_proposal_attempt_gate_counts_rejected_attempts_and_blocks_attempt_four(self):
+        request = {"request_id": "budget"}
+        attempts = 0
+        for expected in (1, 2, 3):
+            attempts, response = _proposal_attempt_gate(request, attempts)
+            self.assertEqual(attempts, expected)
+            self.assertIsNone(response)
+        attempts, response = _proposal_attempt_gate(request, attempts)
+        self.assertEqual(attempts, 4)
+        self.assertFalse(response["ok"])
+        self.assertEqual(response["diagnostics"][0]["code"], "PROPOSAL_REPAIR_BUDGET_EXCEEDED")
 
     def test_proposal_repair_budget_response_is_explicit_and_fail_closed(self):
         response = _proposal_budget_response({"request_id": "fourth-proposal"})
