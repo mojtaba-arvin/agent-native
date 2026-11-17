@@ -24,7 +24,7 @@ The project may create a purpose-built language, DSL, compiler, virtual machine,
 
 ## Current status
 
-Active research with executable E-001 through E-008 prototypes and a reproducible agent-interface pilot. The pilot now includes immutable paired schedules, a local-only Ollama adapter, a serial batch runner, strict trace/candidate validation, and a separately specified hidden-evaluator boundary. Automated CI covers the adapter with a deterministic HTTP test double; no real model trial or evaluator-backed result has yet been recorded. Existing E-002 CI smoke matrices are preserved but are not decision-grade. No production framework, language, syntax, or runtime has been selected. Earlier FastAPI-based vertical-slice experiments are not the product direction and are not a foundation for implementation.
+Active research with E-001 through E-008 executable experiments and an E-009 integrated framework-kernel vertical slice. E-009 composes the E-001 service IR/parser, E-004 default-deny capability checks, tenant-scoped persistent storage, a bounded HTTP host, durable jobs with lease/fencing and stop acknowledgements, transactional outbox/inbox delivery, and an Agent Gateway for inspect/propose/validate/plan with apply disabled. E-009 has 51 passing automated tests in its latest verified CI run. The separate E-005 disclosure pilot has a local-only Ollama runner and paired analysis harness, but no real-model trial or evaluator-backed acceptance result has yet been recorded. E-002 smoke matrices remain non-decision-grade. No production framework, language, syntax, runtime, or public protocol has been selected.
 
 ## Canonical project contract
 
@@ -39,4 +39,4 @@ All implementation work must satisfy these contracts. Research must converge int
 
 ## Research report
 
-See [REPORT.md](REPORT.md) for the current research status, completed experiments, evidence boundaries, evaluation gates, and next milestones. The focused [agent-interface pilot guide](experiments/pilot/README.md) documents the reproducible local-model trial procedure.
+See [REPORT.md](REPORT.md) for the current research status, completed experiments, evidence boundaries, evaluation gates, and next milestones. [E-009](experiments/e009/README.md) demonstrates the integrated service/HTTP/security/data/jobs/agent-control path. The focused [agent-interface pilot guide](experiments/pilot/README.md) documents the separate progressive-disclosure experiment.
