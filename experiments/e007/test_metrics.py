@@ -151,7 +151,7 @@ class MetricsTests(unittest.TestCase):
             summarize([event])
 
     def test_non_finite_cost_is_rejected(self):
-        event = {"event_id":"1","task_id":"a","attempt":1,"timestamp_ns":1,"event_type":"model_usage","cost_usd":float("nan")}
+        event = {"event_id":"1","task_id":"a","attempt":1,"timestamp_ns":1,"event_type":"model_usage","input_tokens":1,"output_tokens":1,"cost_usd":float("nan")}
         with self.assertRaisesRegex(ValueError, "invalid_cost_usd"):
             summarize([event])
 
