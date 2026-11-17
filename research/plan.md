@@ -263,3 +263,33 @@ The three-run Qwen3 cohort is 0/3 accepted and is a deterministic failure reprod
 
 
 **E-007 continuation decision (17 Nov 2026):** the 1,800s artifact and the bounded 3,000s/context-16,384 follow-up have both been inspected. No further resource increase is allowed for this Qwen3 task. Redesign the tool interaction and test required-argument/schema alignment with adversarial provider doubles before another real-model run. Validation remains model-invoked; a runner-invoked validation control, if ever tested, must be reported as orchestration-driven rather than autonomous model behavior.
+
+
+## RPI update — infrastructure validity and prompt compaction (18 November 2026)
+
+### P1.12 — Treat CPU-only inference as a confounder, not an agent decision
+
+The raw Ollama logs for workflows 44149712970 and 44189163401 show CPU-only backends, CPU model buffers, and two model threads on standard GitHub-hosted workers. The 1,800s run's final 7,734-token prompt was not fully prefetched before the global wall deadline. Logged prefill checkpoints were 20.09, 19.05, 18.05, and 17.04 tok/s. The often-quoted 2.38 tok/s is decode throughput from the preceding request, not prefill. See [the infrastructure baseline](../experiments/e007/results/2026-11-18-ollama-cpu-prefill-baseline.md).
+
+**Acceptance:** report this as an explicit threat to validity; do not infer model refusal/forgetfulness from the 1,800s run; keep the 3,000s empty-arguments failure separate.
+
+### P1.13 — Compact model-visible interaction history before another full run
+
+Implemented in experiments/e009/local_agent.py: replace repeated assistant/tool transcript after each tool batch with an authoritative state ledger containing exact service inspection, exact inspected operation declarations, tool sequence, and compact recent outcomes/diagnostics. Raw provider responses and append-only tool traces remain unchanged.
+
+**Validation:** a provider-double test checks exact inspection declaration and diagnostic preservation. This is implementation evidence only; await full E-009 CI and do not dispatch another full Qwen3 lifecycle run before it passes.
+
+### P1.14 — Short schema probe and infrastructure baseline
+
+Next bounded experiments, separate from lifecycle acceptance:
+1. Single-turn, short-context Qwen3 probe of the upfront service.inspect schema and required service_id argument.
+2. Isolated approximately 1,000-token prompt-prefill benchmark, multiple repetitions, recording provider prompt_eval_count and prompt_eval_duration. Report the exact Ollama build, model digest, CPU, thread count, quantization, context, cache conditions, and repetitions.
+3. Compare a short schema probe against the long-context failure only as a diagnostic; do not infer a causal model capability difference from one observation.
+
+No GPU runner is currently provisioned. A GPU comparison is not a prerequisite for protocol debugging, but the current CPU-only host must remain visible as a validity limitation.
+
+### Hard stop and architecture review threshold
+
+No further increase to Qwen3 wall time, context, or token ceilings is authorized. The next full-task attempt requires successful deterministic compaction tests and the bounded schema/infrastructure probes. After the redesigned prompt is validated, if three consecutive full-task runs each produce a Gateway-accepted proposal, complete prompt prefill, but still fail to invoke model-driven service.validate, trigger an architecture review. Runs that fail before an accepted proposal or do not complete prefill do not satisfy this trigger.
+
+E-002 remains diagnostic and no runtime is selected. Set the decision review deadline to 14 days after E-007's redesigned evaluation contract is validated; until then, preserve the preregistered CPU gate without retroactively changing it.
