@@ -175,8 +175,8 @@ No trial result may be claimed until actual agent executions have been performed
 - Protocol: specified here.
 - Task source: pilot-specific `TASK.md`, constrained to the E-005 capability.
 - Candidate interface: E-005.
-- Equivalent blinded arm manifests, fixed system prompt, common NDJSON gateway with enforced tool-call ceiling, replay-safe provider-usage telemetry, monotonic timestamps, strict candidate-artifact envelope checks, same-proposal trace correlation through propose/validate/plan, validation/no-side-effect gates, E-007 tool-error/schema-lookup and infrastructure-eligibility metrics, deterministic paired schedules and clean-checkout verification, public oracle contract, and provider-neutral adapter contract: implemented.
-- A deterministic mock conformance test exercises the complete gateway-to-finalizer-to-metrics path in both arms. Its synthetic evaluator result is test scaffolding only; it is not an AI-agent trial or acceptance evidence.
+- Equivalent blinded arm manifests, fixed system prompt, common NDJSON gateway with enforced input/output-token and tool-call ceilings, replay-safe provider-usage telemetry, monotonic timestamps, strict candidate-artifact envelope checks, same-proposal trace correlation through propose/validate/plan, validation/no-side-effect gates, E-007 tool-error/schema-lookup and infrastructure-eligibility metrics, deterministic paired schedules and clean-checkout verification, public oracle contract, and provider-neutral adapter contract: implemented.
+- Deterministic mock conformance tests exercise both the complete gateway-to-finalizer-to-metrics path and the gateway's real CLI subprocess protocol. Their synthetic provider/evaluator results are test scaffolding only; they are not AI-agent trials or acceptance evidence.
 - GitHub Actions protocol checks: running on current branch head; no agent trial has been performed.
 - Public acceptance-oracle contract: specified in ORACLE_CONTRACT.md; evaluator implementation must remain private and external.
 - Provider-specific model adapter and protected evaluator implementation/deployment: not provisioned.
