@@ -100,7 +100,7 @@ python experiments/pilot/schedule.py \
   --output /secure/path/pilot-screening-schedule.json
 ```
 
-The settings file must be a JSON object containing the provider's non-secret generation parameters. The output path is exclusive: an existing schedule is never overwritten. For confirmatory trials, use at least 30 pairs and a separately recorded seed; do not reuse a screening schedule.
+The settings file must be a JSON object containing the provider's non-secret generation parameters. The runner must pass each selected trial's `budgets.max_tool_calls` to `gateway.py`; traced gateway sessions reject startup without this positive limit. The output path is exclusive: an existing schedule is never overwritten. For confirmatory trials, use at least 30 pairs and a separately recorded seed; do not reuse a screening schedule.
 
 Keep the schedule and generation-settings file outside the repository checkout: the scheduler refuses a dirty worktree and the schedule contains treatment labels. `AGENT_ADAPTER.md` specifies the provider-neutral bridge and insists on exactly one identical provider-facing `agent.invoke` function in both arms.
 
