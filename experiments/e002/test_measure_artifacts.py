@@ -47,7 +47,7 @@ class ArtifactMeasurementTests(unittest.TestCase):
     def test_libraries_are_resolved_when_system_elf_is_dynamic(self):
         binary = Path("/bin/true")
         with binary.open("rb") as stream:
-            self.assertEqual(stream.read(4), b"\\x7fELF")
+            self.assertEqual(stream.read(4), bytes((127,)) + b"ELF")
         dependencies = elf_dependencies(binary)
         self.assertIsInstance(dependencies, list)
         self.assertTrue(all(path.is_file() for path in dependencies))
