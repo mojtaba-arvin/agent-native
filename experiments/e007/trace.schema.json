@@ -244,6 +244,55 @@
           }
         }
       }
+    },
+    {
+      "if": {
+        "required": [
+          "event_type"
+        ],
+        "properties": {
+          "event_type": {
+            "const": "model_usage"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "input_tokens",
+          "output_tokens"
+        ]
+      }
+    },
+    {
+      "if": {
+        "anyOf": [
+          {
+            "required": [
+              "input_tokens"
+            ]
+          },
+          {
+            "required": [
+              "output_tokens"
+            ]
+          },
+          {
+            "required": [
+              "cost_usd"
+            ]
+          }
+        ]
+      },
+      "then": {
+        "required": [
+          "event_type"
+        ],
+        "properties": {
+          "event_type": {
+            "const": "model_usage"
+          }
+        }
+      }
     }
   ]
 }
