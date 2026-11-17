@@ -92,17 +92,17 @@ jobs:
                   )
               })
           output = pathlib.Path("/tmp/e009-trial-summary.json")
-          output.write_text(json.dumps(summary, indent=2, sort_keys=True) + "\\n")
+          output.write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n")
           with open("${{ github.step_summary }}", "a") as stream:
-              stream.write("## E-009 real-model trial\\n\\n")
-              stream.write("- Model: `qwen3:8b` (Ollama)\\n")
-              stream.write(f"- Trial records: {len(records)}\\n")
+              stream.write("## E-009 real-model trial\n\n")
+              stream.write("- Model: `qwen3:8b` (Ollama)\n")
+              stream.write(f"- Trial records: {len(records)}\n")
               for run in summary["runs"]:
                   stream.write(f"- `{run['run_id']}`: **{run['status']}**")
                   if run.get("failure"):
                       stream.write(f" — `{run['failure']}`")
-                  stream.write("\\n")
-              stream.write("\\nA locally verified candidate is not an independently accepted candidate.\\n")
+                  stream.write("\n")
+              stream.write("\nA locally verified candidate is not an independently accepted candidate.\n")
           PY
 
       - name: Upload immutable trial evidence
