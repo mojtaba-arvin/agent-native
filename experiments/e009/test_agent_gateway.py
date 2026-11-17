@@ -247,5 +247,70 @@ class AgentGatewayTests(unittest.TestCase):
                     stream.close()
 
 
+
+    def _inspect_complete_catalog(self, gateway, prefix="preserve"):
+        inspected = self.call(
+            gateway, f"{prefix}-service", "service.inspect", {"service_id": "catalog"}
+        )
+        self.assertTrue(inspected["ok"])
+        for item in inspected["result"]["operations"]:
+            response = self.call(
+                gateway,
+                f"{prefix}-{item['name']}",
+                "service.inspect",
+                {"service_id": "catalog", "operation": item["name"]},
+            )
+            self.assertTrue(response["ok"])
+        return inspected["result"]
+
+    def test_gateway_rejects_proposal_that_rewrites_an_existing_operation(self):
+        inspected = self._inspect_complete_catalog(self.progressive, "rewrite")
+        ir = load_service_ir(SOURCE)
+        ir["operations"].append({
+            "name": "get_item_by_status",
+            "method": "GET",
+            "path": "/items/by-status/{name}",
+            "input": [{"name": "name", "type": "String", "source": "path"}],
+            "output": "Item",
+            "errors": ["InvalidInput", "NotFound", "Unauthorized"],
+            "validation": ["name.non_empty"],
+            "effects": ["repository.read"],
+            "capability": "items.read",
+        })
+        existing = next(item for item in ir["operations"] if item["name"] == "cancel_job")
+        existing["capability"] = "jobs.read"
+        response = self.call(
+            self.progressive,
+            "rewrite-existing",
+            "service.propose",
+            {
+                "service_id": "catalog",
+                "base_revision": inspected["revision"],
+                "ir": ir,
+            },
+        )
+        self.assertFalse(response["ok"])
+        self.assertEqual(response["diagnostics"][0]["code"], "IR_PRESERVATION_MISMATCH")
+        self.assertIn("cancel_job", response["diagnostics"][0]["message"])
+        self.assertIn("capability", response["diagnostics"][0]["fix_hint"])
+
+    def test_gateway_rejects_changed_service_identity_or_types(self):
+        inspected = self._inspect_complete_catalog(self.progressive, "identity")
+        ir = load_service_ir(SOURCE)
+        ir["service"]["version"] = "99"
+        response = self.call(
+            self.progressive,
+            "changed-service",
+            "service.propose",
+            {
+                "service_id": "catalog",
+                "base_revision": inspected["revision"],
+                "ir": ir,
+            },
+        )
+        self.assertFalse(response["ok"])
+        self.assertEqual(response["diagnostics"][0]["code"], "IR_PRESERVATION_MISMATCH")
+        self.assertIn("service", response["diagnostics"][0]["message"])
+
 if __name__ == "__main__":
     unittest.main()
