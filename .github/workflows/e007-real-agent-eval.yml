@@ -1,4 +1,4 @@
-name: E-007 real-agent evaluation
+name: E-007 stochastic post-fix probe
 
 on:
   workflow_dispatch:
@@ -16,7 +16,7 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  qwen3-eval:
+  qwen3-stochastic-probe:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -44,25 +44,27 @@ jobs:
           ollama pull qwen3:8b
           ollama show qwen3:8b --modelfile > /tmp/qwen3-modelfile.txt
           ollama list > /tmp/ollama-models.txt
-      - name: Run three real-agent eval repetitions
+      - name: Run one stochastic post-fix real-agent eval
         run: |
           python experiments/e007/eval_runner.py \
-            --case experiments/e007/evals/e009-readonly-proposal.eval.json \
+            --case experiments/e007/evals/e009-readonly-proposal-stochastic.eval.json \
             --model qwen3:8b \
             --arm upfront \
-            --repetitions 3 \
+            --repetitions 1 \
             --max-input-tokens 48000 \
             --max-output-tokens 6000 \
             --max-tool-calls 20 \
             --max-wall-seconds 900 \
             --num-ctx 8192 \
             --num-predict 2048 \
+            --temperature 0.7 \
+            --seed 20261117 \
             --output-dir /tmp/agent-native-e007-evals
       - name: Upload eval evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: e007-qwen3-real-agent-eval
+          name: e007-qwen3-stochastic-postfix-probe
           path: |
             /tmp/agent-native-e007-evals/
             /tmp/ollama-version.txt
