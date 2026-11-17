@@ -43,3 +43,13 @@
 - Three fixed-seed temperature-zero attempts are deterministic failure reproductions; the single non-zero-temperature probe is one exploratory observation, not a statistical comparison. The post-Gateway-preservation deterministic trial (44144939813) is a resource-budget-ineligible observation; it did not reach validation. The 96k-token/1,800s follow-up is planned.
 - The E-007 aggregate token/time budget and wall-limit taxonomy are runner-level controls. Local Ollama currency cost remains unpriced, not zero.
 - No runtime has been selected; no production-readiness, model-superiority, or Agent Native productivity claim is supported.
+
+
+### E-007 infrastructure validity — CPU-only Ollama and prompt-prefill telemetry
+
+| Evidence | Location | Classification | What it supports | What remains open |
+|---|---|---|---|---|
+| Ollama host/backend and prompt timing logs | [1,800s run artifact 14360782135](https://github.com/mojtaba-arvin/agent-native/actions/runs/44149712970/artifacts/14360782135); [3,000s run artifact 14376970288](https://github.com/mojtaba-arvin/agent-native/actions/runs/44189163401/artifacts/14376970288); [analysis](../experiments/e007/results/2026-11-18-ollama-cpu-prefill-baseline.md) | **Initial infrastructure evidence / threat to validity** | Both workers loaded CPU-only Ollama backends and CPU model buffers with two model threads. The 1,800s final prompt prefetched at approximately 17–20 tok/s and was incomplete when the global wall deadline expired. The 2.38 tok/s metric in the preceding request is decode speed, not prefill. | No controlled GPU/CPU comparison; no isolated fixed-1,000-token benchmark; no evidence that faster hardware would complete the lifecycle or change tool choice |
+| Prompt-history compaction | experiments/e009/local_agent.py; experiments/e009/test_local_agent.py | **Implementation in CI validation** | Replaces repeated assistant/tool transcript with exact Gateway inspection ledger, tool sequence, and compact recent diagnostics while retaining raw trace files | Deterministic CI and provider-double tests do not establish real-model behavior; short schema probe and isolated prefill baseline remain pending |
+
+**Interpretation constraint:** the 1,800s failure is not evidence that Qwen3 ignored the validate instruction. It did not complete prefill for the post-proposal turn. The 3,000s failure is a separate repeated-empty-arguments tool-contract failure. The diagnostic label prefill_not_completed_at_wall_deadline is artifact-derived from Ollama daemon telemetry; it is not inferred from provider_transport_failure alone. Neither run establishes model capability or incapability.
