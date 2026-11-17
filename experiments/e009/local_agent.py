@@ -687,9 +687,6 @@ def run(args: argparse.Namespace) -> dict:
                         elif current_id == previous_id:
                             repair_code = "DUPLICATE_UNREPAIRED_PROPOSAL"
                             repair_message = "This exact proposal was already rejected by validation. Change the IR structure; input must be an array such as [{name:'name',source:'path',type:'String'}], not an object map."
-                        elif proposal_attempts >= 3:
-                            repair_code = "PROPOSAL_REPAIR_BUDGET_EXCEEDED"
-                            repair_message = "The maximum of three distinct proposal attempts has been reached."
                         if repair_code is not None:
                             nested = {
                                 **nested,
