@@ -120,7 +120,9 @@ All candidates passed functional, p99, throughput, RSS, and startup screens, but
 
 The 0.5 s threshold was pre-registered but is not traceable to a product SLO, vCPU capacity target, or deployment-cost model. It equals 0.1 ms CPU/request (10,000 requests per CPU-second), stricter than all observed means. CPU accounting uses process-tree `/proc` snapshots at the start/end of the batch; the 20 ms monitor is used for RSS, not CPU, leaving a possible short-lived-child accounting gap. Do not revise the gate retrospectively or treat it as a validated product requirement. A future threshold must be derived from a documented capacity/cost model before a new run. See [CPU gate analysis](../experiments/e002/cpu-gate-analysis.md).
 
-Ecosystem/operability, injected failure semantics, and comparable artifact size remain unmeasured. No final weighted score or runtime decision is justified; E-002 remains diagnostic.
+A second ten-repetition matrix completed in [workflow 44124537511](https://github.com/mojtaba-arvin/agent-native/actions/runs/44124537511). All four candidates again passed 10/10 functional runs and again failed the CPU gate. That workflow also measured uncompressed Linux x86_64 deployment payloads, including resolved shared ELF dependencies: Go 10,012,310 B (9.55 MiB), Rust 4,991,320 B (4.76 MiB), WASI P2 + Wasmtime 71,947,386 B (68.61 MiB), and BEAM release + ERTS 74,856,626 B (71.39 MiB). Package models differ; these are host-specific payload estimates, not directly comparable portable package/container sizes.
+
+Artifact size is now measured once per candidate under this explicit method. Ecosystem/operability and comparable injected failure semantics remain not measured. The 0.5 CPU-second threshold has no documented product capacity/cost provenance and was failed by all candidates in both cohorts. No complete weighted score or runtime selection is justified; E-002 remains diagnostic. See [second-pass report](../experiments/e002/results/2026-11-17-second-ten-run-artifact-diagnostic.md).
 
 ## 5. Threat model and behavioral governance
 
@@ -144,7 +146,7 @@ The external [Agent-Native CI Eval Gate documentation](https://www.agent-native.
 - A non-zero exit when a scorer misses its threshold.
 - JSON output for CI and promotion of a completed trace into a regression case.
 
-The repository has analogous building blocks in separate places, but lacks the integrated case → real agent run → scorer → threshold → CI result path. The file extension and TypeScript API are implementation choices of that external system, not a standard that Agent Native must copy. This repository's current research harness is Python; a Python case format and runner avoid introducing a second runtime merely to imitate syntax.
+The repository now has an analogous **specialized single-case** path: declarative E-007 JSON case → real Qwen3/Ollama execution through E-009 Gateway → three deterministic scorers → threshold check → non-zero CI result and raw evidence artifact. The implementation is in `experiments/e007/eval_runner.py` and the case is `experiments/e007/evals/e009-readonly-proposal.eval.json`. It is not yet a generic runner for all ten public tasks, and it does not provide a general isolated hidden-oracle/sandbox execution environment. The file extension and TypeScript API are implementation choices of the external system, not a standard Agent Native must copy. The repository's research harness remains Python to avoid a second runtime for syntax imitation.
 
 ## 7. Failure patterns and design reversals from branch history
 
@@ -182,6 +184,12 @@ It is too broad to say that token cost always grows quadratically with the numbe
 8. E-009's durable audit sink and fail-closed plan control are tested as a single-node reference implementation, not a production security/audit architecture.
 
 **No implementation language, service syntax, runtime substrate, broker, production database, or transport is selected by this audit.**
+
+### Latest validation implementation status
+
+- E-007: 45 deterministic tests passed in workflow [44126229777](https://github.com/mojtaba-arvin/agent-native/actions/runs/44126229777), including failure taxonomy for preservation/validation/repair-budget diagnostics and wall-time/provider failure overlap.
+- E-009: 81 tests passed in workflow [44126229781](https://github.com/mojtaba-arvin/agent-native/actions/runs/44126229781), including exact inspected-operation preservation preflight, fail-closed plan gate, candidate retention before verification, and a bounded proposal-attempt budget.
+- E-002: 9 Python tests for matrix/artifact measurement passed as part of workflow [44124537511](https://github.com/mojtaba-arvin/agent-native/actions/runs/44124537511); the matrix and artifact-size manifest completed successfully. Ecosystem and injected-failure comparisons remain open.
 
 ## 10. Evidence and decisions
 
