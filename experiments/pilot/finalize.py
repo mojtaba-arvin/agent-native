@@ -20,7 +20,7 @@ E007_ROOT = PILOT_ROOT.parent / "e007"
 sys.path.insert(0, str(PILOT_ROOT))
 sys.path.insert(0, str(E007_ROOT))
 
-from candidate import MAX_CANDIDATE_BYTES, CandidateError, load_candidate, load_trace_proposal_ids  # noqa: E402
+from candidate import MAX_CANDIDATE_BYTES, CandidateError, extract_trace_proposal_ids, load_candidate  # noqa: E402
 from metrics import load_jsonl, summarize  # noqa: E402
 
 RESULT_FIELDS = {
@@ -222,7 +222,10 @@ def finalize_run(
     result = load_evaluation_result(evaluation_result_path)
     events = load_jsonl(trace_path)
     model_id = _validate_trace_identity(events, result)
-    traced_ids = load_trace_proposal_ids(trace_path)
+    try:
+        traced_ids = extract_trace_proposal_ids(events)
+    except CandidateError as error:
+        raise FinalizationError(f"trace_proposal_index_invalid:{error}") from error
 
     candidate_sha256 = None
     candidate_summary = None
