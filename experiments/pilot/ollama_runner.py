@@ -20,7 +20,7 @@ import uuid
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
-from urllib.request import Request, urlopen
+from urllib.request import Request, ProxyHandler, build_opener
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -177,8 +177,10 @@ def _provider_post(endpoint: str, payload: dict, timeout: float) -> dict:
         headers={"Content-Type": "application/json"},
         method="POST",
     )
+    # Do not inherit HTTP(S)_PROXY settings: this runner is local-only.
+    opener = build_opener(ProxyHandler({}))
     try:
-        with urlopen(request, timeout=timeout) as response:
+        with opener.open(request, timeout=timeout) as response:
             raw = response.read(MAX_PROVIDER_RESPONSE_BYTES + 1)
             if len(raw) > MAX_PROVIDER_RESPONSE_BYTES:
                 raise TrialFailure("PROVIDER_ERROR", "provider_response_too_large")
@@ -436,6 +438,7 @@ def run_one_trial(
         )
         turn_number = 0
         call_number = 0
+        total_output_tokens = 0
         final_content = None
 
         while final_content is None:
@@ -446,12 +449,19 @@ def run_one_trial(
             if turn_number > trial["budgets"]["max_tool_calls"] + 1:
                 raise TrialFailure("AGENT_BUDGET_EXHAUSTED", "model_turn_budget_exhausted")
 
+            remaining_output_tokens = trial["budgets"]["max_output_tokens"] - total_output_tokens
+            if remaining_output_tokens < 1:
+                raise TrialFailure("AGENT_BUDGET_EXHAUSTED", "output_token_budget_exhausted")
+            response_options = {
+                **options,
+                "num_predict": min(options["num_predict"], remaining_output_tokens),
+            }
             provider_request = {
                 "model": trial["model_id"],
                 "messages": messages,
                 "tools": [tool_definition],
                 "stream": False,
-                "options": options,
+                "options": response_options,
                 "think": think,
             }
             response = _provider_post(endpoint, provider_request, timeout=max(0.1, remaining))
@@ -465,6 +475,7 @@ def run_one_trial(
                 or type(output_tokens) is not int or output_tokens < 0
             ):
                 raise TrialFailure("ADAPTER_ERROR", "provider_token_usage_missing_or_invalid")
+            total_output_tokens += output_tokens
 
             usage_id = f"usage-{turn_number}-{uuid.uuid4().hex}"
             acknowledgement = _gateway_exchange(process, {
