@@ -45,4 +45,22 @@ service Catalog {
     effects: [repository.read];
     capability: "items.read";
   }
+
+  type WorkTicket {
+    id: UUID;
+    state: String;
+  }
+
+  operation submit_rebuild {
+    method: POST;
+    path: "/items/rebuild";
+    input {
+      idempotency_key: String from header;
+    }
+    output: WorkTicket;
+    errors: [Conflict, InvalidInput, ServiceUnavailable, Unauthorized];
+    validation: [idempotency_key.non_empty];
+    effects: [queue.submit];
+    capability: "jobs.submit";
+  }
 }
