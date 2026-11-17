@@ -125,3 +125,22 @@ The earlier deterministic cohort completed its three attempts in 843.78–894.95
 **Decision:** retain this as a distinct, fully traced failure case rather than collapse it into the later E-007 array-input/partial-IR failure. It demonstrates why inspection gating, complete-IR schema, semantic validation gating, and repeated-proposal classification must be separate controls. The case study is [fifth-qwen3-trial-case-study.md](../experiments/e009/fifth-qwen3-trial-case-study.md).
 
 **Limit:** one run supports only the causal account of this trace; it does not establish a failure rate or model-wide behavior. Subsequent fixes are supported by deterministic tests but require a fresh real-model artifact for behavioral confirmation.
+
+
+## D-017 — Per-run token exhaustion is resource-budget-ineligible, not an agent failure
+
+**Evidence:** post-Gateway-preservation Qwen3 workflow [44144939813](https://github.com/mojtaba-arvin/agent-native/actions/runs/44144939813), artifact [14357367813](https://github.com/mojtaba-arvin/agent-native/actions/runs/44144939813/artifacts/14357367813), source SHA `f476e5a5ead74317da7c831c48460934b75bcf4e`. At temperature 0 / seed 42, the run used 48,307 input tokens against a 48,000 cap, 1,373 output tokens, 11 tool calls, and 1,020.139 seconds against a 1,200-second wall limit. It inspected five of six existing operations; the first proposal was rejected with `INSPECTION_INCOMPLETE`; the token ceiling stopped the run before a second proposal, validation, or plan. The Ollama log shows completed HTTP 200 responses and no observed OOM, cancellation, or provider error.
+
+The raw artifact's original `eligible_for_acceptance` flag was `true`, despite `failure=AgentRunError:input_token_budget_exceeded` and `failure_categories=[resource_budget_exceeded]`. This is an evaluator eligibility bug, not evidence that the model completed or failed semantic validation.
+
+**Decision:** per-run input/output/tool/wall/model-turn/candidate-size budget exhaustion is ineligible for the agent-acceptance denominator and remains separately reported as `resource_budget_exceeded`. Aggregate budget exhaustion before launching a repetition is likewise ineligible. Keep the raw artifact immutable; record the post-hoc classification correction rather than rewriting its JSON. Proposal-repair exhaustion remains an agent/task failure because it is a semantic repair limit, not an infrastructure budget stop.
+
+**Verification:** E-007's 51-test suite [44149051059](https://github.com/mojtaba-arvin/agent-native/actions/runs/44149051059) covers the per-run budget codes and asserts they are ineligible and not categorized as `agent_or_runner_failure`.
+
+## D-018 — Expand the next deterministic probe's resource envelope once, based on measured consumption
+
+The 48,000-input-token cap stopped the post-Gateway run after five of six inspections. The 1,200-second wall ceiling was not reached (observed 1,020.139 seconds). The provider prompt-token sequence increased from 2,388 to 5,733 tokens per successive request; cumulative input usage counts repeated conversation context across requests. The remaining operation inspection and a corrected proposal/validation/plan sequence were therefore not covered by the run.
+
+**Decision:** authorize one bounded follow-up at 96,000 cumulative input tokens and 1,800 seconds wall time, keeping model, task, temperature 0, seed 42, top-p, context, output/tool ceilings, Gateway preservation rules, scorers, and no-apply policy unchanged. The larger envelope is a preregistered correction to a demonstrably insufficient per-run resource cap; it does not relax any IR, preservation, validation, or authority requirement. If this single attempt still exhausts budget, stop and optimize the interaction/prompt protocol before any further resource increase.
+
+**Limit:** this is a single deterministic debugging attempt, not an independent statistical sample or evidence of model reliability. Local Ollama currency cost remains unpriced.
