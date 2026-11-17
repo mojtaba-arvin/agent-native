@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any
 
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 
 class RepositoryError(RuntimeError):
@@ -116,6 +116,96 @@ class SQLiteCatalogRepository:
                     "INSERT INTO schema_migrations(version, applied_at) VALUES (1, 0)"
                 )
                 connection.execute("PRAGMA user_version = 1")
+                version = 1
+            if version < 2:
+                connection.execute(
+                    """
+                    CREATE TABLE durable_jobs (
+                        task_id TEXT PRIMARY KEY,
+                        tenant_id TEXT NOT NULL,
+                        task_type TEXT NOT NULL,
+                        payload_json TEXT NOT NULL,
+                        idempotency_key TEXT NOT NULL,
+                        request_sha256 TEXT NOT NULL,
+                        state TEXT NOT NULL CHECK (
+                            state IN ('queued', 'running', 'cancellation_requested',
+                                      'completed', 'failed', 'cancelled', 'expired')
+                        ),
+                        available_at INTEGER NOT NULL,
+                        deadline_at INTEGER NOT NULL,
+                        attempts INTEGER NOT NULL,
+                        max_attempts INTEGER NOT NULL,
+                        lease_owner TEXT,
+                        lease_until INTEGER,
+                        lease_token INTEGER NOT NULL DEFAULT 0,
+                        terminal_reason TEXT,
+                        result_json TEXT,
+                        last_error TEXT,
+                        created_at INTEGER NOT NULL,
+                        updated_at INTEGER NOT NULL,
+                        UNIQUE (tenant_id, idempotency_key)
+                    )
+                    """
+                )
+                connection.execute(
+                    """
+                    CREATE INDEX durable_jobs_claim_idx
+                    ON durable_jobs(state, available_at, created_at)
+                    """
+                )
+                connection.execute(
+                    """
+                    CREATE TABLE durable_outbox (
+                        event_id TEXT PRIMARY KEY,
+                        tenant_id TEXT NOT NULL,
+                        topic TEXT NOT NULL,
+                        payload_json TEXT NOT NULL,
+                        status TEXT NOT NULL CHECK (
+                            status IN ('pending', 'leased', 'published', 'failed')
+                        ),
+                        available_at INTEGER NOT NULL,
+                        attempts INTEGER NOT NULL,
+                        max_attempts INTEGER NOT NULL,
+                        lease_owner TEXT,
+                        lease_until INTEGER,
+                        lease_token INTEGER NOT NULL DEFAULT 0,
+                        last_error TEXT,
+                        created_at INTEGER NOT NULL
+                    )
+                    """
+                )
+                connection.execute(
+                    """
+                    CREATE INDEX durable_outbox_claim_idx
+                    ON durable_outbox(status, available_at, created_at)
+                    """
+                )
+                connection.execute(
+                    """
+                    CREATE TABLE durable_inbox (
+                        consumer_id TEXT NOT NULL,
+                        event_id TEXT NOT NULL,
+                        payload_sha256 TEXT NOT NULL,
+                        payload_json TEXT NOT NULL,
+                        created_at INTEGER NOT NULL,
+                        PRIMARY KEY (consumer_id, event_id)
+                    )
+                    """
+                )
+                connection.execute(
+                    """
+                    CREATE TABLE consumer_totals (
+                        consumer_id TEXT NOT NULL,
+                        state_key TEXT NOT NULL,
+                        total INTEGER NOT NULL,
+                        PRIMARY KEY (consumer_id, state_key)
+                    )
+                    """
+                )
+                connection.execute(
+                    "INSERT INTO schema_migrations(version, applied_at) VALUES (2, 0)"
+                )
+                connection.execute("PRAGMA user_version = 2")
             connection.commit()
         except Exception:
             connection.rollback()
