@@ -85,7 +85,7 @@ def elf_dependencies(path: Path) -> list[Path]:
         text=True,
         check=False,
     )
-    output = (completed.stdout or "") + "\\n" + (completed.stderr or "")
+    output = (completed.stdout or "") + "\n" + (completed.stderr or "")
     if "not a dynamic executable" in output or "statically linked" in output:
         return []
     if completed.returncode != 0:
@@ -96,7 +96,7 @@ def elf_dependencies(path: Path) -> list[Path]:
     for line in output.splitlines():
         if "not found" in line:
             raise ArtifactMeasurementError(f"unresolved_elf_dependency:{path}:{line.strip()}")
-        match = re.search(r"=>\\s+(/[^\\s]+)", line)
+        match = re.search(r"=>\s+(/[^\s]+)", line)
         candidate = match.group(1) if match else None
         if candidate is None:
             first = line.strip().split(maxsplit=1)[0] if line.strip() else ""
@@ -126,9 +126,19 @@ def measure_candidate(name: str, kind: str, inputs: list[tuple[str, Path]]) -> d
         })
         elf_files.extend(path for path in files if _elf(path))
 
+    bundled_inodes = {
+        (path.stat().st_dev, path.stat().st_ino)
+        for raw_path in inputs
+        for path in payload_files(raw_path[1])
+        if path.is_file()
+    }
     dependencies = set()
     for binary in sorted(set(elf_files), key=str):
         dependencies.update(elf_dependencies(binary))
+    dependencies = {
+        path for path in dependencies
+        if (path.stat().st_dev, path.stat().st_ino) not in bundled_inodes
+    }
     dep_manifest = _unique_file_entries(dependencies)
     app_bytes = sum(item["bytes"] for item in input_manifest)
     dependency_bytes = sum(item["bytes"] for item in dep_manifest)
