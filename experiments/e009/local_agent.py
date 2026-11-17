@@ -307,17 +307,6 @@ def verify_candidate(
         or plan_index <= validation_index
     ):
         raise AgentRunError("required_tool_sequence_invalid")
-    if any(
-        tool_sequence.index("service.inspect") > proposal_index
-        for _ in [0]
-    ):
-        raise AgentRunError("service_inspection_must_precede_proposal")
-    if any(
-        tool_sequence.index("service.inspect") > proposal_index
-        for _ in [0]
-    ):
-        raise AgentRunError("service_inspection_must_precede_proposal")
-
     return {
         "task_id": TASK_ID,
         "service_id": SERVICE_ID,
@@ -505,6 +494,13 @@ def run(args: argparse.Namespace) -> dict:
                     elif tool_name == "service.propose" and nested.get("ok"):
                         if successful_proposal is not None:
                             raise AgentRunError("multiple_successful_proposals")
+                        if (
+                            inspected is None
+                            or set(inspected_operations) != {
+                                item["name"] for item in inspected["operations"]
+                            }
+                        ):
+                            raise AgentRunError("inspect_all_existing_operations_before_proposal")
                         successful_proposal = {
                             "arguments": arguments,
                             "result": nested.get("result") or {},
