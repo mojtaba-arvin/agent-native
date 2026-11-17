@@ -114,3 +114,12 @@ This description intentionally distinguishes an ambitious product direction from
 E-007 has 53 passing deterministic tests in [workflow 44188566011](https://github.com/mojtaba-arvin/agent-native/actions/runs/44188566011), including proposal-only contract scoring without lifecycle false positives, wall-budget-terminal transport classification, per-run budget ineligibility, and aggregate cost/time fail-fast. E-009 has 80 passing tests in [workflow 44128413303](https://github.com/mojtaba-arvin/agent-native/actions/runs/44128413303), including Gateway-owned exact-base preservation and plan gating. E-005 has 17 passing interface tests. These are implementation checks, not real-model acceptance.
 
 See the [evidence index](research/evidence-index.md), [design decisions](research/design-decisions.md), and [second E-002 diagnostic report](experiments/e002/results/2026-11-17-second-ten-run-artifact-diagnostic.md).
+
+
+## E-007 bounded continuation findings (17 November 2026)
+
+The raw artifact for [workflow 44149712970](https://github.com/mojtaba-arvin/agent-native/actions/runs/44149712970) confirms one Gateway-accepted complete proposal with matching hash, but no validate/plan call: the subsequent 7,734-token prompt was still being prefetched when the 1,800-second wall deadline cancelled the request. The Gateway response and system prompt both explicitly directed the model to call `service.validate`; the trace does not establish whether the model would have complied because decoding of that turn did not begin.
+
+The one bounded follow-up [workflow 44189163401](https://github.com/mojtaba-arvin/agent-native/actions/runs/44189163401), artifact [14376970288](https://github.com/mojtaba-arvin/agent-native/actions/runs/44189163401/artifacts/14376970288), used context 16,384 and a 3,000-second ceiling but failed after 267.785 seconds: Qwen3 repeated `service.inspect` with empty arguments and received `ARGUMENTS_REQUIRED` twice. No proposal or validation occurred. This is a distinct tool-schema adherence failure.
+
+No further Qwen3 wall/context/token budget increase is authorized. The next step is interaction-protocol redesign and adversarial provider-double coverage. Validation remains model-invoked; any automatic validation experiment must be scored separately as orchestrator behavior. These are fixed-seed, single-task observations, not statistical evidence.
