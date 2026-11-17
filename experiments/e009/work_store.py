@@ -624,6 +624,58 @@ class DurableWorkStore:
         finally:
             connection.close()
 
+    def request_expired_job_stops(self, *, now: int) -> int:
+        """Fence expired leases and request an explicit worker stop acknowledgement.
+
+        Lease expiry is not treated as proof that the worker process has stopped.
+        The worker slot remains represented until acknowledge_stopped is committed.
+        """
+        _integer(now, "now")
+        connection = self._connect()
+        try:
+            connection.execute("BEGIN IMMEDIATE")
+            rows = connection.execute(
+                """
+                SELECT task_id FROM durable_jobs
+                WHERE state = 'running' AND lease_until <= ?
+                """,
+                (now,),
+            ).fetchall()
+            for row in rows:
+                connection.execute(
+                    """
+                    UPDATE durable_jobs
+                    SET state = 'cancellation_requested',
+                        terminal_reason = 'lease_expired', updated_at = ?
+                    WHERE task_id = ? AND state = 'running'
+                    """,
+                    (now, row["task_id"]),
+                )
+            connection.commit()
+            return len(rows)
+        except Exception:
+            connection.rollback()
+            raise
+        finally:
+            connection.close()
+
+    def worker_crashed(
+        self,
+        *,
+        task_id: str,
+        worker_id: str,
+        lease_token: int,
+        now: int,
+    ) -> dict:
+        """Record a trusted supervisor's confirmation that a worker has stopped."""
+        return self.acknowledge_stopped(
+            task_id=task_id,
+            worker_id=worker_id,
+            lease_token=lease_token,
+            now=now,
+            reason="worker_crashed",
+        )
+
     def claim_outbox(
         self,
         *,
@@ -637,6 +689,29 @@ class DurableWorkStore:
         connection = self._connect()
         try:
             connection.execute("BEGIN IMMEDIATE")
+            expired = connection.execute(
+                """
+                SELECT event_id, attempts, max_attempts
+                FROM durable_outbox
+                WHERE status = 'leased' AND lease_until <= ?
+                """,
+                (now,),
+            ).fetchall()
+            for item in expired:
+                connection.execute(
+                    """
+                    UPDATE durable_outbox
+                    SET status = ?, available_at = ?, lease_owner = NULL,
+                        lease_until = NULL,
+                        last_error = COALESCE(last_error, 'relay_lease_expired')
+                    WHERE event_id = ? AND status = 'leased'
+                    """,
+                    (
+                        "failed" if item["attempts"] >= item["max_attempts"] else "pending",
+                        now,
+                        item["event_id"],
+                    ),
+                )
             row = connection.execute(
                 """
                 SELECT * FROM durable_outbox
