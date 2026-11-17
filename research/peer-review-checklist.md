@@ -24,6 +24,9 @@
 
 | Current real-model compliance | **Open** | Complete-IR schema, AN021 hint, corrected prompt/task, same-hash plan gate, and budget taxonomy still need an artifact showing exact preservation, successful validation, safe plan, and no apply |
 
+| Post-fix stochastic probe | **Fail — exploratory only** | [Run 44105440141](https://github.com/mojtaba-arvin/agent-native/actions/runs/44105440141), [artifact 14337879630](https://github.com/mojtaba-arvin/agent-native/actions/runs/44105440141/artifacts/14337879630): complete top-level IR and array inputs, but five existing operations rewritten; inspection gate then followed, but no corrected resubmission before wall-time failure |
+| Wall-time/provider classification | Pass (deterministic test) | E-007 run [44123795574](https://github.com/mojtaba-arvin/agent-native/actions/runs/44123795574) verifies provider transport failure at the configured max-wall boundary is also classified as `resource_budget_exceeded`, not just as an agent failure |
+
 ## E-005 interface and E-009 kernel
 
 | Review item | Status | Evidence / note |
