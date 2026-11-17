@@ -410,7 +410,7 @@ def _compact_conversation(
             "content": (
                 "Verified Gateway interaction state (authoritative tool results; "
                 "use these exact declarations and continue from the latest outcome):\n"
-                + json.dumps(ledger, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+                + json.dumps(ledger, ensure_ascii=False, separators=(",", ":"))
             ),
         },
     ]
