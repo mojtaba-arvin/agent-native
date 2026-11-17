@@ -330,6 +330,69 @@ def verify_candidate(
     }
 
 
+def _proposal_preservation_response(
+    request: dict,
+    inspected: dict | None,
+    inspected_operations: dict[str, dict],
+) -> dict | None:
+    """Give task-specific repair feedback for changed existing declarations.
+
+    The Gateway remains responsible for its inspect-all prerequisite and
+    canonical IR validation. This adapter adds an explicit comparison after
+    the complete existing operation set has been inspected.
+    """
+    if request.get("tool") != "service.propose" or not isinstance(inspected, dict):
+        return None
+    existing = inspected.get("operations")
+    if not isinstance(existing, list):
+        return None
+    names = [item.get("name") for item in existing if isinstance(item, dict)]
+    if not names or len(names) != len(existing) or set(inspected_operations) != set(names):
+        return None
+
+    arguments = request.get("arguments")
+    ir = arguments.get("ir") if isinstance(arguments, dict) else None
+    provided = ir.get("operations") if isinstance(ir, dict) else None
+    if not isinstance(provided, list):
+        return None
+
+    changed = []
+    for index, name in enumerate(names):
+        if index >= len(provided) or provided[index] != inspected_operations[name]:
+            changed.append(name)
+    if len(provided) < len(names):
+        changed.extend(name for name in names[len(provided):] if name not in changed)
+    elif len(provided) > len(names) + 1:
+        changed.append("<unexpected-operation-count>")
+
+    if not changed:
+        return None
+
+    changed_names = list(dict.fromkeys(changed))
+    return {
+        "protocol_version": "0.1",
+        "request_id": request.get("request_id", "invalid"),
+        "ok": False,
+        "result": None,
+        "diagnostics": [{
+            "code": "IR_PRESERVATION_MISMATCH",
+            "message": (
+                "The complete IR proposal changed existing inspected operations: "
+                + ", ".join(changed_names)
+            ),
+            "source_span": None,
+            "fix_hint": (
+                "Copy each existing operation JSON object exactly from its successful service.inspect result. "
+                "Do not normalize, infer, or edit method, path, inputs, errors, validation, effects, or capability. "
+                "Keep the inspected service and types unchanged, then append exactly the requested new operation."
+            ),
+        }],
+        "next_actions": [
+            "Rebuild operations from the exact inspected operation objects in their original order, append the requested operation, and submit a new complete IR proposal."
+        ],
+    }
+
+
 def _plan_gate_response(
     request: dict,
     successful_proposal: dict | None,
@@ -448,7 +511,9 @@ def run(args: argparse.Namespace) -> dict:
             "The ir argument to service.propose is a COMPLETE canonical service IR snapshot, never a patch or delta. "
             "It MUST have exactly these top-level fields: ir_version (integer 1), service, types, operations. "
             "Copy the complete service name/version and every existing type/field from the service inspection. "
-            "Copy every existing operation in full from its own service.inspect result, preserving every property exactly, then append exactly the requested operation. "
+            "Copy every existing operation as the exact JSON object returned by its own service.inspect result; do not recreate, normalize, infer, or edit any field. Preserve method, path, input declarations, errors, validation, effects, and capability exactly, then append the requested operation. "
+            "If a proposal is rejected with INSPECTION_INCOMPLETE, inspect every operation named in next_actions and then immediately resubmit the corrected complete IR. "
+            "If you receive IR_PRESERVATION_MISMATCH, copy the named existing operation objects exactly from the retained inspect results and retry with a new proposal. "
             "The new operation input MUST be an array of declarations, not an object map: [{name:'name',source:'path',type:'String'}]. "
             "Every input declaration must contain name, source, and type. Do not omit ir_version or existing operations. "
             "A service.validate response can have outer ok=true while result.valid=false. Treat valid=false as a validation failure. "
@@ -564,6 +629,10 @@ def run(args: argparse.Namespace) -> dict:
                     if tool_name == "service.plan":
                         nested = _plan_gate_response(
                             request, successful_proposal, validation_result, validation_change_set_id
+                        )
+                    elif tool_name == "service.propose":
+                        nested = _proposal_preservation_response(
+                            request, inspected, inspected_operations
                         )
                     else:
                         nested = None
