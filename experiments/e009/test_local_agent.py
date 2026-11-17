@@ -290,6 +290,95 @@ class LocalAgentRunnerTests(unittest.TestCase):
             server.server_close()
             thread.join(timeout=5)
 
+    def test_runner_stops_after_repeating_an_identical_invalid_tool_call(self):
+        invalid_call = {
+            "function": {
+                "name": "agent.invoke",
+                "arguments": {
+                    "request_id": "same-invalid-request",
+                    "tool": "service.inspect",
+                    "arguments": {"name": "Catalog"},
+                },
+            },
+        }
+        responses = [
+            {
+                "message": {
+                    "role": "assistant",
+                    "content": "",
+                    "tool_calls": [copy.deepcopy(invalid_call)],
+                },
+                "prompt_eval_count": 30,
+                "eval_count": 12,
+            },
+            {
+                "message": {
+                    "role": "assistant",
+                    "content": "",
+                    "tool_calls": [copy.deepcopy(invalid_call)],
+                },
+                "prompt_eval_count": 35,
+                "eval_count": 12,
+            },
+        ]
+
+        class Handler(BaseHTTPRequestHandler):
+            index = 0
+            response_values = responses
+
+            def do_POST(self):
+                length = int(self.headers["Content-Length"])
+                self.rfile.read(length)
+                if type(self).index >= len(type(self).response_values):
+                    self.send_error(500)
+                    return
+                value = type(self).response_values[type(self).index]
+                type(self).index += 1
+                raw = json.dumps(value, separators=(",", ":")).encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(raw)))
+                self.end_headers()
+                self.wfile.write(raw)
+
+            def log_message(self, *_args):
+                return
+
+        server = HTTPServer(("127.0.0.1", 0), Handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            with tempfile.TemporaryDirectory(prefix="agent-native-e009-", dir="/tmp") as temp:
+                args = SimpleNamespace(
+                    model="deterministic-test-double",
+                    ollama_url=f"http://127.0.0.1:{server.server_port}",
+                    arm="upfront",
+                    results_dir=Path(temp) / "results",
+                    max_input_tokens=2000,
+                    max_output_tokens=1000,
+                    max_tool_calls=20,
+                    max_wall_seconds=30.0,
+                    num_ctx=4096,
+                    num_predict=256,
+                    temperature=0.0,
+                    top_p=1.0,
+                    seed=7,
+                    think=False,
+                )
+                result = run(args)
+                self.assertEqual(result["status"], "failed")
+                self.assertEqual(result["failure"], "AgentRunError:repeated_invalid_tool_call")
+                self.assertEqual(result["tool_calls"], 2)
+                run_dirs = list((Path(temp) / "results").iterdir())
+                self.assertEqual(len(run_dirs), 1)
+                trace = run_dirs[0] / "tool-trace.jsonl"
+                self.assertEqual(len(trace.read_text(encoding="utf-8").splitlines()), 2)
+                self.assertEqual(Handler.index, 2)
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=5)
+
     def test_ollama_endpoint_is_strictly_loopback_ip(self):
         self.assertEqual(validate_ollama_endpoint("http://127.0.0.1:11434"), ("127.0.0.1", 11434))
         with self.assertRaises(ValueError):
