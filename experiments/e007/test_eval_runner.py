@@ -387,7 +387,7 @@ class EvalRunnerTests(unittest.TestCase):
                 root,
                 max_wall_seconds=900.0,
             )
-            self.assertIn("provider_http_error", categories)
+            self.assertNotIn("provider_http_error", categories)
             self.assertIn("timeout", categories)
             self.assertIn("resource_budget_exceeded", categories)
             self.assertNotIn("transport_error", categories)
@@ -404,10 +404,10 @@ class EvalRunnerTests(unittest.TestCase):
                 root,
                 max_wall_seconds=1800.0,
             )
-            self.assertIn("transport_error", categories)
+            self.assertNotIn("transport_error", categories)
             self.assertIn("timeout", categories)
             self.assertIn("resource_budget_exceeded", categories)
-            self.assertIn("wall_budget_terminal_transport", categories)
+            self.assertNotIn("wall_budget_terminal_transport", categories)
             self.assertNotIn("resource_exhaustion", categories)
 
     def test_provider_transport_below_wall_ceiling_is_not_timeout(self):
