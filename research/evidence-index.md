@@ -20,7 +20,7 @@
 | Corrected three-run Qwen3 execution | [Workflow 44087982547](https://github.com/mojtaba-arvin/agent-native/actions/runs/44087982547); [artifact 14332334550](https://github.com/mojtaba-arvin/agent-native/actions/runs/44087982547/artifacts/14332334550) | **Initial / deterministic failure reproduction** | Three Qwen3/Ollama task attempts reached proposal validation; all failed with `AN021`; raw per-run tool traces and provider token diagnostics retained for 14 days | `temperature=0`, fixed seed 42, prompt cache reused, one task only; no successful validation/plan, no independent statistical observations, no broad corpus/model cohort |
 | Deterministic runner and scoring tests | [E-007 workflow 44105439881](https://github.com/mojtaba-arvin/agent-native/actions/runs/44102058506) | **Implementation verification** | 43 E-007 tests pass, including duplicate proposal lifecycle, nested failure taxonomy, and mock aggregate-budget fail-fast | Mocked control-flow tests are not real-model acceptance |
 | E-005 schema and diagnostic tests | [E-005 workflow 44102058544](https://github.com/mojtaba-arvin/agent-native/actions/runs/44102058544) | **Implementation verification** | 17 E-005 interface tests pass, including complete IR schema publication and AN021 fix-hint behavior | Does not demonstrate model compliance |
-| E-009 runner and kernel tests | [E-009 workflow 44102058563](https://github.com/mojtaba-arvin/agent-native/actions/runs/44102058563) | **Implementation verification** | 75 E-009 tests pass, including fail-closed plan gating | Does not demonstrate real-model repair after AN021 |
+| E-009 runner and kernel tests | [E-009 workflow 44102058563](https://github.com/mojtaba-arvin/agent-native/actions/runs/44102058563) | **Implementation verification** | 76 E-009 tests pass, including fail-closed plan gating | Does not demonstrate real-model repair after AN021 |
 
 **E-007 conclusion:** not accepted. The model correctly used an input declaration array, but submitted a partial IR snapshot with no `ir_version` and only the new operation. It then called plan after `result.valid=false`; the original runner did not prevent this. The latest code/schema fixes require a new real-model run before reassessment.
 
@@ -28,7 +28,7 @@
 
 | Evidence | Location | Classification | What it supports | What remains open |
 |---|---|---|---|---|
-| Durable authorization audit sink | [E-009 workflow 44102058563](https://github.com/mojtaba-arvin/agent-native/actions/runs/44102058563), 75-test suite | **Implementation verification** | SQLite audit persistence, reopen, concurrency, append-only triggers, fail-closed behavior, plus local-agent provenance and plan-gate coverage | Single-node demo; not tamper-proof, remotely replicated, or production-ready |
+| Durable authorization audit sink | [E-009 workflow 44102058563](https://github.com/mojtaba-arvin/agent-native/actions/runs/44102058563), 76-test suite | **Implementation verification** | SQLite audit persistence, reopen, concurrency, append-only triggers, fail-closed behavior, plus local-agent provenance and plan-gate coverage | Single-node demo; not tamper-proof, remotely replicated, or production-ready |
 | IR proposal contract | [IR contract](../experiments/e009/ir-contract.md) | **Design contract** | Complete-snapshot vs patch semantics and correct validation-result handling | Real model must still demonstrate compliance |
 
 ## Cross-cutting decisions and limitations
