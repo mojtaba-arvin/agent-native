@@ -29,7 +29,7 @@ No implementation language, service syntax, compiler architecture, runtime, or p
 | E-006 — Durable execution | SQLite reference model with idempotent submission, lease fencing, recovery, retries, deadlines, and atomic local effects | Durable semantics are tested in isolation, not yet part of an integrated framework |
 | E-007 — Agent benchmark | Public backend-agent task corpus, oracle-isolation contract, trace schema, metrics aggregation, and workspace packager | No agent performance result is claimed until real runs are independently evaluated |
 | E-008 — External-effect delivery | SQLite transactional outbox/inbox model with fenced relay leases, retry exhaustion, at-least-once delivery, and consumer deduplication | It does not claim exactly-once delivery to arbitrary external APIs |
-| E-009 — Integrated kernel | Contract-driven HTTP runtime, default-deny authorization and audit, tenant-scoped SQLite, idempotent jobs, fenced workers, transactional outbox/inbox, and Agent inspect/propose/validate/plan gateway | 51 E-009 tests pass in CI; a single-node semantic integration proof, not a production framework or technology choice |
+| E-009 — Integrated kernel | Contract-driven HTTP runtime, default-deny authorization and audit, tenant-scoped SQLite, idempotent jobs, fenced workers, transactional outbox/inbox, and Agent inspect/propose/validate/plan gateway | 63 E-009 tests pass in CI, including a bounded local Ollama runner with candidate-preservation and no-apply checks; a single-node semantic integration proof, not a production framework or technology choice |
 
 ## First agent-interface experiment
 
@@ -60,7 +60,7 @@ The adapter is pilot infrastructure only. It does not define the future Agent Na
 **Supported:**
 - E-001 through E-008 retain independent executable research implementations; E-009 composes the service representation, authority model, durable jobs, and external-event handling into one runnable HTTP service slice.
 - Go, Rust, WASI P2, and BEAM prototype baselines have passed the shared black-box conformance suite.
-- The E-009 kernel has a live Agent Gateway for schema discovery, inspect, immutable proposal, validation, safe planning, and disabled apply; a stdlib HTTP host; tenant-scoped durable persistence; and a queue/worker/outbox/inbox path covered by automated tests.
+- The E-009 kernel has a live Agent Gateway for schema discovery, inspect, immutable proposal, validation, safe planning, and disabled apply; a bounded local Ollama runner for a real-model trial; a stdlib HTTP host; tenant-scoped durable persistence; and a queue/worker/outbox/inbox path covered by automated tests.
 - The E-005 pilot gateway, paired schedule, local adapter, batch runner, trace handling, and candidate/finalization path are covered by automated protocol tests.
 - Experiment inputs and source revisions can be pinned and checked before a run.
 - Model usage is recorded from provider telemetry rather than inferred from elapsed time or message size.
