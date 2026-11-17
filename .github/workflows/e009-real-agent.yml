@@ -65,7 +65,7 @@ jobs:
             --model qwen3:8b \
             --arm upfront \
             --results-dir /tmp/agent-native-e009-runs \
-            --max-input-tokens 24000 \
+            --max-input-tokens 48000 \
             --max-output-tokens 6000 \
             --max-tool-calls 20 \
             --max-wall-seconds 900 \
