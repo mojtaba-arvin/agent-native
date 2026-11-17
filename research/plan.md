@@ -213,7 +213,7 @@ P1 is the critical path. P2 and P3 can proceed after their contracts are fixed a
 | Work package | Status | Evidence |
 |---|---|---|
 | P0 — Freeze evaluation contract | Complete | One fixed E-007 case pins Qwen3, generation settings, budgets, expected operation, and three scorer thresholds |
-| P1.1–P1.3 — E-007 runner/scorers/repair controls | Implemented; deterministic CI passes | 42 E-007 tests pass; includes exact provenance scoring, nested AN021 classification, aggregate token/time budget reservation, mock fail-fast, and ineligible budget-stop records |
+| P1.1–P1.3 — E-007 runner/scorers/repair controls | Implemented; deterministic CI passes | 43 E-007 tests pass; includes exact provenance scoring, nested AN021 classification, aggregate token/time budget reservation, mock fail-fast, and ineligible budget-stop records |
 | P1.4 — Original three Qwen3 repetitions | Complete as an experiment; acceptance failed | Run [44087982547](https://github.com/mojtaba-arvin/agent-native/actions/runs/44087982547), artifact [14332334550](https://github.com/mojtaba-arvin/agent-native/actions/runs/44087982547/artifacts/14332334550): 0/3 accepted, all failed validation with AN021; input array was correct, but IR omitted ir_version and existing operations; model planned despite result.valid=false |
 | P1.5 — Complete-IR and validation-gate correction | Implemented; real-model verification open | E-005 publishes a complete IR JSON schema and AN021 fix hint; E-009 task/prompt specify full snapshots; plan gate requires result.valid=true for exact current proposal hash; deterministic tests pass |
 | P1.6 — Stochastic post-fix probe | Planned next, not yet run | One bounded Qwen3 run at temperature 0.7 and a distinct seed; exploratory only, not a statistical cohort |
