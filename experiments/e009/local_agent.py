@@ -354,6 +354,68 @@ def _proposal_budget_response(request: dict) -> dict:
     }
 
 
+def _compact_tool_outcome(tool_name: str, arguments: Any, response: dict) -> dict:
+    """Keep control-relevant outcomes; exact inspection data lives in the ledger."""
+    outcome = {"tool": tool_name, "ok": response.get("ok") is True}
+    if tool_name == "service.inspect":
+        if isinstance(arguments, dict):
+            outcome["operation"] = arguments.get("operation")
+            outcome["service_id"] = arguments.get("service_id")
+    elif tool_name in {"service.validate", "service.plan"}:
+        if isinstance(arguments, dict):
+            outcome["change_set_id"] = arguments.get("change_set_id")
+        result = response.get("result")
+        if isinstance(result, dict):
+            for key in ("valid", "will_mutate", "will_deploy", "effects"):
+                if key in result:
+                    outcome[key] = result[key]
+            if isinstance(result.get("diagnostics"), list):
+                outcome["result_diagnostics"] = result["diagnostics"]
+    elif tool_name == "service.propose":
+        result = response.get("result")
+        if isinstance(result, dict):
+            outcome["change_set_id"] = result.get("change_set_id")
+            outcome["base_revision"] = result.get("base_revision")
+    elif isinstance(arguments, dict):
+        outcome["arguments"] = arguments
+    diagnostics = response.get("diagnostics")
+    if isinstance(diagnostics, list) and diagnostics:
+        outcome["diagnostics"] = diagnostics
+    next_actions = response.get("next_actions")
+    if isinstance(next_actions, list) and next_actions:
+        outcome["next_actions"] = next_actions
+    return outcome
+
+
+def _compact_conversation(
+    base_messages: list[dict],
+    inspected: dict | None,
+    inspected_operations: dict[str, dict],
+    tool_sequence: list[str],
+    tool_outcomes: list[dict],
+) -> list[dict]:
+    """Replace repeated assistant/tool history with an exact Gateway-state ledger."""
+    ledger = {
+        "service_inspection": inspected,
+        "operation_inspections": {
+            name: inspected_operations[name] for name in sorted(inspected_operations)
+        },
+        "tool_sequence": tool_sequence,
+        "recent_tool_outcomes": tool_outcomes[-12:],
+    }
+    return [
+        *base_messages,
+        {
+            "role": "user",
+            "content": (
+                "Verified Gateway interaction state (authoritative tool results; "
+                "use these exact declarations and continue from the latest outcome):\n"
+                + json.dumps(ledger, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+            ),
+        },
+    ]
+
+
 def _plan_gate_response(
     request: dict,
     successful_proposal: dict | None,
@@ -499,14 +561,15 @@ def run(args: argparse.Namespace) -> dict:
             "Return only the exact final JSON candidate requested by the task. Never invent tool results."
         )
         task = (E009_ROOT / "AGENT_TASK.md").read_text(encoding="utf-8")
-        messages = [
+        base_messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": task},
             {
                 "role": "user",
-                "content": "Session surface JSON:\n" + json.dumps(surface, ensure_ascii=False, sort_keys=True),
+                "content": "Session surface JSON:\\n" + json.dumps(surface, ensure_ascii=False, sort_keys=True),
             },
         ]
+        messages = list(base_messages)
         tool_definition = {
             "type": "function",
             "function": {
@@ -525,6 +588,7 @@ def run(args: argparse.Namespace) -> dict:
         plan_result = None
         plan_change_set_id = None
         tool_sequence: list[str] = []
+        tool_outcomes: list[dict] = []
         failed_tool_requests: set[str] = set()
         final_content = None
         turn = 0
@@ -652,6 +716,7 @@ def run(args: argparse.Namespace) -> dict:
                     })
                     record["tool_calls"] = call_number
                     tool_sequence.append(tool_name if isinstance(tool_name, str) else "<invalid>")
+                    tool_outcomes.append(_compact_tool_outcome(tool_name, arguments, nested))
                     if not nested.get("ok"):
                         fingerprint = json.dumps(
                             request,
@@ -697,6 +762,13 @@ def run(args: argparse.Namespace) -> dict:
                         "tool_name": "agent.invoke",
                         "content": json.dumps(nested, ensure_ascii=False, sort_keys=True, separators=(",", ":")),
                     })
+                messages = _compact_conversation(
+                    base_messages,
+                    inspected,
+                    inspected_operations,
+                    tool_sequence,
+                    tool_outcomes,
+                )
                 continue
 
             content = message.get("content")
