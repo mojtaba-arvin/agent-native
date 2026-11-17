@@ -1,0 +1,36 @@
+name: E-009 integrated framework-kernel checks
+
+on:
+  pull_request:
+    paths:
+      - "experiments/e009/**"
+      - "experiments/e001/prototype/**"
+      - "experiments/e004/**"
+      - ".github/workflows/e009-kernel.yml"
+  push:
+    branches:
+      - main
+      - "research/**"
+    paths:
+      - "experiments/e009/**"
+      - "experiments/e001/prototype/**"
+      - "experiments/e004/**"
+      - ".github/workflows/e009-kernel.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  integrated-kernel:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11.18"
+      - name: Validate E-001 parser and IR
+        run: python -m unittest discover -s experiments/e001/prototype -v
+      - name: Validate E-004 capability model
+        run: python -m unittest discover -s experiments/e004 -v
+      - name: Validate integrated E-009 kernel
+        run: python -m unittest discover -s experiments/e009 -v
