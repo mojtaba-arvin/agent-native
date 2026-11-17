@@ -59,7 +59,7 @@ class EvalRunnerTests(unittest.TestCase):
             "effects": ["repository.read"],
             "capability": "items.read",
         }
-        ir = {"service": service, "types": types, "operations": original + [expected]}
+        ir = {"ir_version": 1, "service": service, "types": types, "operations": original + [expected]}
         proposal = {"service_id": "catalog", "base_revision": revision, "ir": ir}
         import hashlib
         change_set_id = hashlib.sha256(
@@ -159,7 +159,7 @@ class EvalRunnerTests(unittest.TestCase):
             "input":[{"name":"name","type":"String","source":"path"}],"output":"Item",
             "errors":["InvalidInput","NotFound","Unauthorized"],"validation":["name.non_empty"],
             "effects":["repository.read"],"capability":"items.read"}
-        ir={"service":service,"types":types,"operations":original+[expected]}
+        ir={"ir_version":1,"service":service,"types":types,"operations":original+[expected]}
         proposal={"service_id":"catalog","base_revision":revision,"ir":ir}
         change_id=hashlib.sha256(json.dumps(proposal,sort_keys=True,separators=(",",":")).encode()).hexdigest()
         candidate={"schema_version":1,"task_id":"e009-add-readonly-operation","service_id":"catalog",
