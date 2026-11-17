@@ -52,6 +52,30 @@ curl -i -X POST http://127.0.0.1:8080/items \
 
 Read it by ID or name using the `id` or `name` returned in the response.
 
+## Let an agent inspect and propose service changes
+
+The integrated Agent Gateway is a separate stdio process backed by the same `catalog.an` contract and E-005 validation/plan implementation. It supports the progressive or upfront disclosure arm and exposes only the E-005 inspect/propose/validate/plan tools. The common dispatch function is `agent.invoke`; no shell, arbitrary filesystem/network, secrets, deployment, or apply capability is exposed.
+
+Start a session:
+
+```sh
+python experiments/e009/agent_gateway.py --arm progressive
+```
+
+The first NDJSON line is the session manifest. Send a tool call on stdin:
+
+```json
+{"type":"tool_call","request_id":"inspect-001","tool":"service.inspect","arguments":{"service_id":"catalog"}}
+```
+
+To discover one tool's exact input schema in the progressive arm:
+
+```json
+{"type":"tool_call","request_id":"describe-001","tool":"interface.describe","arguments":{"name":"service.propose"}}
+```
+
+An agent may then submit an immutable proposal against the inspected revision, validate it, and inspect its no-side-effect plan. The gateway does not apply a proposal; `service.apply` remains disabled. The session's arm changes only initial schema disclosure, not the operation catalog or dispatcher. This is an integrated control-surface prototype, not a final public protocol selection or a production authorization channel.
+
 ## Submit and process durable work
 
 The demo server now exposes a job-submission operation protected by the `jobs.submit` capability. The idempotency key is required and belongs to the durable submission envelope:
@@ -76,7 +100,7 @@ curl -i -X POST http://127.0.0.1:8080/jobs/<task-id>/cancel \
   -H "Authorization: Bearer $AGENT_NATIVE_DEMO_TOKEN"
 ```
 
-Run one worker iteration and one outbox relay iteration:
+Run one worker iteration and one outbox relay iteration. A worker claims a lease, runs the registered `catalog.rebuild` handler against only the job's tenant, and commits completion together with its outbox event:
 
 ```sh
 python experiments/e009/work_cli.py --database /tmp/agent-native-e009.sqlite3 worker-once --worker-id worker-1
@@ -98,7 +122,7 @@ python experiments/e009/work_cli.py --database /tmp/agent-native-e009.sqlite3 jo
   --tenant-id demo-tenant --task-id '<task-id>'
 ```
 
-All commands use the same SQLite database as the HTTP kernel. The worker and relay CLIs run one iteration; scheduling/supervision is still an external host responsibility in this reference slice.
+All commands use the same SQLite database as the HTTP kernel. The worker and relay CLIs run one iteration; scheduling/supervision is still an external host responsibility in this reference slice. The demo identity provider is in-memory and is intentionally not reusable as a production identity system.
 
 ## Evidence boundary
 
