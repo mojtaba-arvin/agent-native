@@ -330,6 +330,14 @@ def verify_candidate(
     }
 
 
+def _proposal_attempt_gate(request: dict, attempts: int) -> tuple[int, dict | None]:
+    """Count every proposal request and block the fourth attempt."""
+    next_attempt = attempts + 1
+    if next_attempt > 3:
+        return next_attempt, _proposal_budget_response(request)
+    return next_attempt, None
+
+
 def _proposal_budget_response(request: dict) -> dict:
     return {
         "protocol_version": "0.1",
@@ -584,11 +592,8 @@ def run(args: argparse.Namespace) -> dict:
                             request, successful_proposal, validation_result, validation_change_set_id
                         )
                     elif tool_name == "service.propose":
-                        proposal_attempts += 1
-                        nested = (
-                            _proposal_budget_response(request)
-                            if proposal_attempts > 3
-                            else None
+                        proposal_attempts, nested = _proposal_attempt_gate(
+                            request, proposal_attempts
                         )
                     else:
                         nested = None
