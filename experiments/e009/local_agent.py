@@ -330,76 +330,6 @@ def verify_candidate(
     }
 
 
-def _proposal_preservation_response(
-    request: dict,
-    inspected: dict | None,
-    inspected_operations: dict[str, dict],
-) -> dict | None:
-    """Give task-specific repair feedback for changed existing declarations.
-
-    The Gateway remains responsible for its inspect-all prerequisite and
-    canonical IR validation. This adapter adds an explicit comparison after
-    the complete existing operation set has been inspected.
-    """
-    if request.get("tool") != "service.propose" or not isinstance(inspected, dict):
-        return None
-    existing = inspected.get("operations")
-    if not isinstance(existing, list):
-        return None
-    names = [item.get("name") for item in existing if isinstance(item, dict)]
-    if not names or len(names) != len(existing) or set(inspected_operations) != set(names):
-        return None
-
-    arguments = request.get("arguments")
-    ir = arguments.get("ir") if isinstance(arguments, dict) else None
-    provided = ir.get("operations") if isinstance(ir, dict) else None
-    if not isinstance(provided, list):
-        return None
-
-    changed = []
-    changed_sections = []
-    if ir.get("service") != inspected.get("service"):
-        changed_sections.append("service")
-    if ir.get("types") != inspected.get("types"):
-        changed_sections.append("types")
-    for index, name in enumerate(names):
-        if index >= len(provided) or provided[index] != inspected_operations[name]:
-            changed.append(name)
-    if len(provided) != len(names) + 1:
-        changed_sections.append("operation_count")
-    elif provided[-1] != EXPECTED_OPERATION:
-        changed_sections.append("requested_operation")
-    if changed:
-        changed_sections.append("existing_operations")
-    if not changed_sections:
-        return None
-
-    details = []
-    if changed:
-        details.append("changed existing operations: " + ", ".join(dict.fromkeys(changed)))
-    if changed_sections:
-        details.append("changed sections: " + ", ".join(changed_sections))
-    return {
-        "protocol_version": "0.1",
-        "request_id": request.get("request_id", "invalid"),
-        "ok": False,
-        "result": None,
-        "diagnostics": [{
-            "code": "IR_PRESERVATION_MISMATCH",
-            "message": "The proposed complete IR does not exactly preserve the inspected base: " + "; ".join(details),
-            "source_span": None,
-            "fix_hint": (
-                "Copy the service object, types array, and each existing operation JSON object exactly from inspection. "
-                "Do not normalize, infer, or edit method, path, inputs, errors, validation, effects, or capability. "
-                "Append only the exact requested operation after the existing operations."
-            ),
-        }],
-        "next_actions": [
-            "Rebuild the complete IR from the exact inspected base snapshot, append the requested operation, and submit a corrected proposal."
-        ],
-    }
-
-
 def _proposal_budget_response(request: dict) -> dict:
     return {
         "protocol_version": "0.1",
@@ -655,12 +585,11 @@ def run(args: argparse.Namespace) -> dict:
                         )
                     elif tool_name == "service.propose":
                         proposal_attempts += 1
-                        if proposal_attempts > 3:
-                            nested = _proposal_budget_response(request)
-                        else:
-                            nested = _proposal_preservation_response(
-                                request, inspected, inspected_operations
-                            )
+                        nested = (
+                            _proposal_budget_response(request)
+                            if proposal_attempts > 3
+                            else None
+                        )
                     else:
                         nested = None
                     if nested is None:
