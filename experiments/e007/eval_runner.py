@@ -310,6 +310,8 @@ def _failure_categories(
         categories.add("repeated_tool_or_repair")
     if failure in {"runner_timeout", "runner_result_missing"} or failure.startswith("gateway_"):
         categories.add("runner_or_gateway_error")
+    if failure in {"runner_timeout", "wall_clock_budget_exhausted"}:
+        categories.update({"timeout", "resource_budget_exceeded"})
     if failure in {"input_token_budget_exceeded", "output_token_budget_exceeded",
                    "tool_call_budget_exceeded", "wall_clock_budget_exhausted",
                    "eval_budget_exhausted_before_repetition"}:
