@@ -281,6 +281,36 @@ class FinalizeTests(unittest.TestCase):
                 output_trace_path=self.output_trace_path,
             )
 
+    def test_accepted_result_rejects_gateway_tool_budget_overrun(self):
+        overrun_event = {
+            **self.events[-1],
+            "event_id": "budget-overrun",
+            "timestamp_ns": max(event["timestamp_ns"] for event in self.events) + 1,
+            "event_type": "tool_call",
+            "tool_name": "service.inspect",
+            "failure_class": "TOOL_CALL_BUDGET_EXCEEDED",
+        }
+        events = [*self.events, overrun_event]
+        self.trace_path.write_text(
+            "".join(json.dumps(event, sort_keys=True) + "\n" for event in events),
+            encoding="utf-8",
+        )
+        self.agent_finished = overrun_event["timestamp_ns"] + 1000
+        self.result["agent_finished_at_ns"] = self.agent_finished
+        self.result["evaluated_at_ns"] = self.agent_finished + 1000
+        self.write_result()
+        with self.assertRaisesRegex(
+            FinalizationError,
+            "accepted_result_conflicts_with_tool_budget_overrun",
+        ):
+            finalize_run(
+                trace_path=self.trace_path,
+                evaluation_result_path=self.result_path,
+                candidate_path=self.candidate_path,
+                output_trace_path=self.output_trace_path,
+            )
+
+
     def test_accepted_result_cannot_follow_apply_attempt(self):
         self.gateway_call("service.apply", {"change_set_id": self.change_set_id})
         self.write_trace()
