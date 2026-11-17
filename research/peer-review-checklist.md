@@ -50,7 +50,7 @@
 | Deployable payload size | Pass — one diagnostic measurement/candidate | [Second artifact 14347795200](https://github.com/mojtaba-arvin/agent-native/actions/runs/44124537511/artifacts/14347795200): Go 10,012,310 B; Rust 4,991,320 B; WASI+Wasmtime 71,947,386 B; BEAM+ERTS 74,856,626 B. Linux x86_64, uncompressed payload + resolved ELF dependencies; package models differ |
 | Ecosystem/operability rubric | Not measured | Rubric exists; candidate scores and supporting evidence not completed |
 | Comparable fault injection | Not measured | Deadline, overload, cancellation, worker crash/reclaim, retries, idempotent replay, outbox/inbox and tenant/data-integrity assertions are not yet run across all arms |
-| Final weighted ranking/runtime selection | Not performed | Correctly deferred; CPU hard gate failed and two dimensions remain unmeasured |
+| Final weighted ranking/runtime selection | Not performed | Correctly deferred; provisional CPU eligibility screen was missed by all candidates and two dimensions remain unmeasured |
 
 ## Overall review decision
 
