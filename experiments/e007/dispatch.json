@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "eval_id": "e009-readonly-operation-v1",
+  "model_id": "qwen3:8b",
+  "repetitions": 3,
+  "arm": "upfront",
+  "dispatched_at": "2026-11-17",
+  "purpose": "First real-agent E-007 eval validation after IR-shape and bounded-repair changes"
+}
