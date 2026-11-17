@@ -161,5 +161,39 @@ class AgentInterfaceTests(unittest.TestCase):
         self.assertEqual(plan["result"]["validation_diagnostics"][0]["code"], "AN026")
         self.assertFalse(plan["result"]["will_mutate"])
 
+
+    def test_service_propose_publishes_complete_ir_and_input_array_schema(self):
+        response = self.request("interface.describe", {"name": "service.propose"})
+        self.assertTrue(response["ok"])
+        schema = response["result"]["input_schema"]["properties"]["ir"]
+        self.assertEqual(
+            schema["required"],
+            ["ir_version", "service", "types", "operations"],
+        )
+        self.assertEqual(schema["properties"]["ir_version"]["enum"], [1])
+        operation = schema["properties"]["operations"]["items"]
+        self.assertEqual(operation["properties"]["input"]["type"], "array")
+        declaration = operation["properties"]["input"]["items"]
+        self.assertEqual(
+            set(declaration["required"]),
+            {"name", "source", "type"},
+        )
+
+    def test_an021_explains_full_ir_snapshot_and_version_requirement(self):
+        changed = copy.deepcopy(IR)
+        changed.pop("ir_version")
+        proposal = self.propose(changed)
+        self.assertTrue(proposal["ok"])
+        validated = self.request(
+            "service.validate",
+            {"change_set_id": proposal["result"]["change_set_id"]},
+        )
+        self.assertFalse(validated["result"]["valid"])
+        diagnostic = validated["result"]["diagnostics"][0]
+        self.assertEqual(diagnostic["code"], "AN021")
+        self.assertIn("ir_version", diagnostic["fix_hint"])
+        self.assertIn("complete canonical IR snapshot", diagnostic["fix_hint"])
+        self.assertIn("not a patch", diagnostic["fix_hint"])
+
 if __name__ == "__main__":
     unittest.main()
