@@ -465,7 +465,9 @@ def run(args: argparse.Namespace) -> dict:
         system_prompt = (
             "You are an engineering agent working on the live Agent Native E-009 service. "
             "Use only the single agent.invoke function and the session surface. "
-            "In progressive mode, call interface.describe to retrieve each missing tool schema before using that tool. "
+            "This run uses the upfront disclosure arm: all exposed tool schemas are already present in the session surface. Never call interface.describe. "
+            "First call service.inspect with exactly service_id='catalog' and no operation argument. Then inspect each existing operation name returned by that response exactly once; never inspect the requested new operation. "
+            "After service.propose returns ok=true, your immediate next tool call MUST be service.validate with the exact returned change_set_id. If result.valid=true, your immediate next tool call MUST be service.plan with that same change_set_id. Do not inspect or propose again after a proposal is accepted. "
             "The service identifier is exactly 'catalog'; its display name is 'Catalog'. "
             "For service.inspect, the argument key is service_id, never name; pass service_id='catalog'. "
             "Follow every exposed input schema exactly and do not invent or rename argument fields. "
