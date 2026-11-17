@@ -261,6 +261,11 @@ def finalize_run(
     if result["accepted"]:
         if not any(event["event_type"] == "model_usage" for event in events):
             raise FinalizationError("accepted_result_requires_model_usage_events")
+        if any(
+            event.get("failure_class") == "MODEL_TOKEN_BUDGET_EXCEEDED"
+            for event in events
+        ):
+            raise FinalizationError("accepted_result_conflicts_with_model_token_budget_overrun")
         assert candidate_summary is not None
         _require_accepted_tool_sequence(events, candidate_summary["change_set_id"])
 
