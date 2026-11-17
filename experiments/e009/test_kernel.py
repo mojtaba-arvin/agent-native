@@ -7,16 +7,17 @@ from pathlib import Path
 from catalog import build_catalog_handlers
 from kernel import ConfigurationError, HandlerContext, HandlerResult, ServiceRuntime, load_service_ir
 from repository import SQLiteCatalogRepository
+from work_store import DurableWorkStore
 from security_model import Grant, RequestContext
 
 
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE = (Path(__file__).parent / "catalog.an").read_text(encoding="utf-8")
-TRUSTED_EFFECTS = {"repository.read", "repository.write"}
+TRUSTED_EFFECTS = {"repository.read", "repository.write", "queue.submit"}
 
 
 def context(principal="user-a", tenant="tenant-a", capabilities=None):
-    capabilities = capabilities or ("items.read", "items.create")
+    capabilities = capabilities or ("items.read", "items.create", "jobs.submit")
     return RequestContext(
         principal_id=principal,
         tenant_id=tenant,
@@ -34,11 +35,12 @@ class KernelTests(unittest.TestCase):
         self.repository = SQLiteCatalogRepository(
             Path(self.temporary.name) / "catalog.sqlite3"
         )
+        self.work_store = DurableWorkStore(self.repository.database)
         self.ir = load_service_ir(SOURCE)
         self.audit = []
         self.runtime = ServiceRuntime(
             self.ir,
-            handlers=build_catalog_handlers(self.repository),
+            handlers=build_catalog_handlers(self.repository, self.work_store),
             repository=self.repository,
             trusted_effects=TRUSTED_EFFECTS,
             clock=lambda: 100,
@@ -171,7 +173,7 @@ class KernelTests(unittest.TestCase):
         with self.assertRaisesRegex(ConfigurationError, "untrusted_effect"):
             ServiceRuntime(
                 invalid_ir,
-                handlers=build_catalog_handlers(self.repository),
+                handlers=build_catalog_handlers(self.repository, self.work_store),
                 repository=self.repository,
                 trusted_effects=TRUSTED_EFFECTS,
             )
@@ -179,7 +181,7 @@ class KernelTests(unittest.TestCase):
     def test_audit_failure_is_fail_closed_before_application_handler(self):
         runtime = ServiceRuntime(
             self.ir,
-            handlers=build_catalog_handlers(self.repository),
+            handlers=build_catalog_handlers(self.repository, self.work_store),
             repository=self.repository,
             trusted_effects=TRUSTED_EFFECTS,
             clock=lambda: 100,
@@ -195,6 +197,46 @@ class KernelTests(unittest.TestCase):
         self.assertIsNone(
             self.repository.get_item_by_name(tenant_id="tenant-a", name="No write")
         )
+
+    def test_http_contract_handler_submits_durable_work_idempotently(self):
+        first = self.dispatch(
+            "POST",
+            "/items/rebuild",
+            {},
+            headers={"idempotency-key": "rebuild-001"},
+        )
+        replay = self.dispatch(
+            "POST",
+            "/items/rebuild",
+            {},
+            headers={"idempotency-key": "rebuild-001"},
+        )
+        self.assertEqual(first.status_code, 202)
+        self.assertEqual(first.body["data"]["state"], "queued")
+        self.assertEqual(replay.status_code, 200)
+        self.assertEqual(first.body["data"], replay.body["data"])
+        job = self.work_store.get_job(
+            tenant_id="tenant-a",
+            task_id=first.body["data"]["id"],
+        )
+        self.assertEqual(job["task_type"], "catalog.rebuild")
+        self.assertEqual(job["state"], "queued")
+
+    def test_durable_job_submission_requires_capability(self):
+        denied_identity = context(
+            "restricted-user",
+            "tenant-a",
+            capabilities=("items.read",),
+        )
+        result = self.dispatch(
+            "POST",
+            "/items/rebuild",
+            {},
+            identity=denied_identity,
+            headers={"idempotency-key": "rebuild-denied-001"},
+        )
+        self.assertEqual(result.status_code, 403)
+        self.assertEqual(result.body["error"]["code"], "Unauthorized")
 
     def test_unknown_route_and_method_mismatch_are_distinct(self):
         missing = self.dispatch("GET", "/missing")
