@@ -333,6 +333,8 @@ def run(args: argparse.Namespace) -> dict:
     run_dir.mkdir(mode=0o700, exist_ok=False)
     trace_path = run_dir / "tool-trace.jsonl"
     _write_exclusive(trace_path, b"")
+    provider_diagnostics_path = run_dir / "provider-responses.jsonl"
+    _write_exclusive(provider_diagnostics_path, b"")
     candidate_path = run_dir / "candidate.json"
     result_path = run_dir / "run.json"
 
@@ -446,6 +448,20 @@ def run(args: argparse.Namespace) -> dict:
             }
             response = provider_chat(endpoint, payload, timeout=max(0.1, remaining))
             message = response.get("message")
+            if isinstance(message, dict):
+                calls_for_diagnostics = message.get("tool_calls")
+                _append_jsonl(provider_diagnostics_path, {
+                    "response_index": turn,
+                    "model": response.get("model"),
+                    "done": response.get("done"),
+                    "done_reason": response.get("done_reason"),
+                    "prompt_eval_count": response.get("prompt_eval_count"),
+                    "eval_count": response.get("eval_count"),
+                    "message_keys": sorted(message.keys()),
+                    "content_chars": len(message.get("content")) if isinstance(message.get("content"), str) else None,
+                    "thinking_chars": len(message.get("thinking")) if isinstance(message.get("thinking"), str) else None,
+                    "tool_calls_count": len(calls_for_diagnostics) if isinstance(calls_for_diagnostics, list) else None,
+                })
             if not isinstance(message, dict) or message.get("role") != "assistant":
                 raise AgentRunError("provider_assistant_message_missing")
             input_tokens = response.get("prompt_eval_count")
