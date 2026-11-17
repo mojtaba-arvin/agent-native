@@ -189,3 +189,22 @@ The earlier candidate-contract scorer returned zero when no final candidate JSON
 **Evidence:** workflow [44149712970](https://github.com/mojtaba-arvin/agent-native/actions/runs/44149712970) ended at 1,800.116 seconds; the Ollama daemon log shows the active request cancelled at the runner wall boundary and an HTTP 500 symptom. No independent outage or OOM evidence was observed.
 
 **Decision:** preserve the raw historical failure code, but classify this boundary-correlated event as `timeout` and `resource_budget_exceeded`, not `transport_error`. A transport failure well before the wall deadline remains `transport_error`. The evaluator regression tests both cases. Historical artifact contents are not rewritten.
+
+
+## D-022 — CPU-only inference and prefill/decode metrics must be separated
+
+**Evidence:** raw Ollama daemon logs retained in artifacts [14360782135](https://github.com/mojtaba-arvin/agent-native/actions/runs/44149712970/artifacts/14360782135) and [14376970288](https://github.com/mojtaba-arvin/agent-native/actions/runs/44189163401); detailed analysis in [the CPU/prefill baseline](../experiments/e007/results/2026-11-18-ollama-cpu-prefill-baseline.md).
+
+Both real-model workflows loaded a CPU backend only, with CPU model buffers and two llama.cpp threads on four visible logical CPUs. The first host reported AMD EPYC 9V74 / ggml-cpu-zen4; the second AMD EPYC 7763 / ggml-cpu-haswell. No GPU backend or GPU model buffer was loaded.
+
+For the 1,800-second run, the final request prompt was 7,734 tokens in an 8,192-token context, with 764 cached prefix tokens. The global run budget had only about 240 seconds remaining when that request began. Ollama logged prefill at 20.09, 19.05, 18.05, and 17.04 tokens/second across successive 1,024-token checkpoints, reaching 4,860 total prompt tokens before cancellation. The preceding request's 2.38 tokens/second was decode throughput (863 generated tokens / 362.45 seconds), not prefill. The run-level 1,800 seconds must not be divided into the final prompt token count to estimate prefill throughput.
+
+**Decision:** classify CPU-only inference and the global wall ceiling as an explicit threat to validity. The 1,800-second artifact demonstrates an accepted proposal followed by incomplete prompt prefill; it does not show that the model ignored or refused the validate instruction. The 3,000-second artifact remains a separate repeated-empty-tool-arguments failure. No model capability conclusion is drawn from either run.
+
+The diagnostic label for the first artifact is prefill_not_completed_at_wall_deadline, derived only by correlating the raw run with Ollama daemon telemetry. Do not infer this phase label from provider_transport_failure alone; the runner does not currently receive structured prompt-prefill progress. The historical run.json and provider response files remain immutable.
+
+**Implementation decision:** compact repeated assistant/tool history after each tool batch into a verified Gateway-state ledger containing the exact service inspection, exact inspected operation declarations, tool sequence, and compact recent outcomes/diagnostics. Preserve raw provider responses and append-only tool traces. This reduces prompt replay without relaxing IR, preservation, validation, planning, or no-apply gates.
+
+**Decision threshold:** after the redesigned prompt is validated, if three consecutive full-task runs each produce a Gateway-accepted proposal, complete prefill, but still fail to invoke model-driven service.validate, trigger an architecture review. A runner-invoked validation control may then be evaluated as a separately labelled orchestration arm; it must not count as autonomous model behavior. Earlier runs with incomplete prefill or no accepted proposal do not satisfy this trigger's preconditions.
+
+**Open measurement:** a fixed approximately 1,000-token isolated prefill benchmark has not yet been run. The daemon checkpoints are preliminary host-specific observations, not a standalone benchmark. No further full-task Qwen3 budget increase is authorized before prompt-compaction CI, a short schema probe, and the bounded infrastructure baseline.
