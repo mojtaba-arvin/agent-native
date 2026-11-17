@@ -50,8 +50,26 @@ class ArtifactMeasurementTests(unittest.TestCase):
             self.assertEqual(stream.read(4), bytes((127,)) + b"ELF")
         dependencies = elf_dependencies(binary)
         self.assertIsInstance(dependencies, list)
+        self.assertTrue(dependencies, "the Ubuntu ELF fixture should have dynamic dependencies")
         self.assertTrue(all(path.is_file() for path in dependencies))
+        self.assertTrue(any(path.name.startswith("libc.so") for path in dependencies))
 
+
+
+    def test_unique_bundle_size_does_not_count_resolved_bundled_libraries_twice(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            payload = root / "runtime"
+            payload.mkdir()
+            binary = payload / "program"
+            binary.write_bytes(b"binary-payload")
+            result = measure_candidate("fixture", "directory", [("release", payload)])
+            self.assertEqual(result["application_and_runtime_payload_bytes"], len(b"binary-payload"))
+            self.assertEqual(
+                result["estimated_uncompressed_deployable_payload_bytes"],
+                result["application_and_runtime_payload_bytes"]
+                + result["external_shared_dependency_bytes"],
+            )
 
 if __name__ == "__main__":
     unittest.main()
