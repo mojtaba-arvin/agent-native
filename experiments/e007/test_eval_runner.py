@@ -3,9 +3,12 @@ from __future__ import annotations
 import json
 import tempfile
 import unittest
+import subprocess
+from argparse import Namespace
 from pathlib import Path
+from unittest.mock import patch
 
-from eval_runner import (score_run, _wilson, _eligible, _failure_categories, _budget_can_start_next, _estimate_cost_usd)
+from eval_runner import (score_run, _wilson, _eligible, _failure_categories, _budget_can_start_next, _estimate_cost_usd, run_eval)
 
 
 class EvalRunnerTests(unittest.TestCase):
@@ -198,6 +201,74 @@ class EvalRunnerTests(unittest.TestCase):
     def test_inference_cost_uses_explicit_token_rates(self):
         self.assertAlmostEqual(_estimate_cost_usd(100000,20000,
             {"input_price_per_million_usd":0.5,"output_price_per_million_usd":1.0}),0.07)
+
+
+    def test_mock_runner_stops_before_next_repetition_when_aggregate_budget_would_be_exceeded(self):
+        from pathlib import Path
+        source_case = Path(__file__).parent / "evals" / "e009-readonly-proposal.eval.json"
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            case = json.loads(source_case.read_text(encoding="utf-8"))
+            case["model_settings"].update({
+                "temperature": 0.0, "top_p": 1.0, "seed": 42,
+                "num_ctx": 8192, "num_predict": 50,
+                "max_input_tokens": 100, "max_output_tokens": 50,
+                "max_tool_calls": 20, "max_wall_seconds": 10,
+            })
+            case["budget"].update({
+                "max_total_input_tokens": 150,
+                "max_total_output_tokens": 150,
+                "max_total_wall_seconds": 30,
+                "input_price_per_million_usd": 0.0,
+                "output_price_per_million_usd": 0.0,
+                "max_estimated_cost_usd": 0.0,
+            })
+            case_path = root / "case.json"
+            case_path.write_text(json.dumps(case), encoding="utf-8")
+            args = Namespace(
+                case=case_path, model="qwen3:8b", arm="upfront", repetitions=3,
+                output_dir=root / "results", max_input_tokens=100, max_output_tokens=50,
+                max_tool_calls=20, max_wall_seconds=10.0, num_ctx=8192,
+                num_predict=50, temperature=0.0, top_p=1.0, seed=42,
+            )
+            invocation_count = {"agent": 0}
+
+            def fake_run(command, **kwargs):
+                if command[0] == "git":
+                    output = "mock-revision\\n" if command[1] == "rev-parse" else ""
+                    return subprocess.CompletedProcess(command, 0, stdout=output, stderr="")
+                invocation_count["agent"] += 1
+                results_dir = Path(command[command.index("--results-dir") + 1])
+                run_id = "mock-first-run"
+                run_dir = results_dir / run_id
+                run_dir.mkdir(parents=True)
+                record = {
+                    "run_id": run_id, "task_id": case["task_id"], "model": "qwen3:8b",
+                    "status": "failed", "failure": "AgentRunError:agent_task_failed",
+                    "duration_ms": 1000.0, "input_tokens": 95, "output_tokens": 20,
+                    "tool_calls": 1, "candidate_path": None,
+                }
+                (run_dir / "run.json").write_text(json.dumps(record), encoding="utf-8")
+                (run_dir / "provider-responses.jsonl").write_text(
+                    json.dumps({"prompt_eval_count": 95, "eval_count": 20}) + "\\n",
+                    encoding="utf-8",
+                )
+                return subprocess.CompletedProcess(
+                    command, 0, stdout=json.dumps(record), stderr=""
+                )
+
+            with patch("eval_runner.subprocess.run", side_effect=fake_run):
+                result = run_eval(args)
+
+            self.assertEqual(invocation_count["agent"], 1)
+            self.assertEqual(len(result["runs"]), 3)
+            self.assertEqual(result["runs"][0]["failure"], "AgentRunError:agent_task_failed")
+            self.assertEqual(result["runs"][1]["status"], "not_started")
+            self.assertEqual(result["runs"][2]["status"], "not_started")
+            self.assertEqual(result["eligible_runs"], 1)
+            self.assertEqual(result["budget"]["actual"]["input_tokens"], 95)
+            self.assertEqual(result["failure_categories"]["resource_budget_exceeded"], 2)
+            self.assertFalse(result["runs"][1]["eligible_for_acceptance"])
 
 if __name__ == "__main__":
     unittest.main()
