@@ -89,12 +89,11 @@ Mock-provider CI verifies adapter behavior and trace integrity. It is not a real
 
 ## Next evidence milestones
 
-1. Improve the Qwen3 agent loop's exact-preservation behavior and bounded repair path; the first stochastic probe showed a full IR shape but rewrote five existing operation contracts and timed out before a second proposal.
-2. Add candidate capture before verification (now implemented in E-009 runner) and validate it in the next real-model artifact; the stochastic probe predates this capture change.
-3. Keep E-007 acceptance open until a real-model artifact proves the complete IR snapshot, exact preservation, successful validation, matching safe plan, and no apply.
+1. Inspect the in-progress post-Gateway-preservation deterministic Qwen3 trial [44144939813](https://github.com/mojtaba-arvin/agent-native/actions/runs/44144939813), including raw tool trace, final candidate, scorer outputs, provider usage and Ollama daemon log. The run uses temperature 0 / seed 42 and a 1,200-second wall cap; do not close E-007 from CI status alone.
+2. If the model fails, classify the observed path with the refined taxonomy and decide whether the next correction belongs in the prompt, Gateway contract, provider adapter, or resource envelope. Do not weaken exact preservation or validation gates to obtain acceptance.
 3. Extend E-007 to the public task corpus and a separate evaluator trust boundary/sandbox; then test constrained, general, and advanced model tiers as future work (see [evaluation expansion plan](research/e007-future-evaluation-plan.md)).
 4. Run the E-005 paired disclosure pilot with real model/provider usage and independent evaluator results; missing traces or run identities must stop analysis rather than disappear from the sample.
-5. Derive any future E-002 CPU gate from a product capacity/cost model before preregistration; then measure controlled-host persistence, authorization, serialization, inter-service, fault-injection, ecosystem, and artifact-size criteria. The artifact-size measurement tool is now integrated into the next matrix workflow, but actual bundle sizes remain pending until that workflow artifact is inspected. No runtime is selected.
+5. Derive any future E-002 CPU gate from a product capacity/cost model before preregistration; then measure controlled-host persistence, authorization, serialization, inter-service, fault-injection and ecosystem criteria. One host-specific artifact-size measurement per candidate is complete, but does not make the matrix decision-grade. No runtime is selected.
 6. Extend E-009 with process supervision, remote/tamper-evident audit retention, streaming/cancellation semantics, and versioned service migrations with rollback.
 7. Publish raw distributions, uncertainty intervals, failures, and counter-evidence. Keep language/runtime choices open until those comparisons justify a decision.
 
@@ -112,6 +111,6 @@ This description intentionally distinguishes an ambitious product direction from
 
 ## Latest implementation verification
 
-E-007 has 45 passing deterministic tests in [workflow 44126229777](https://github.com/mojtaba-arvin/agent-native/actions/runs/44126229777). E-009 has 80 passing tests in [workflow 44128413303](https://github.com/mojtaba-arvin/agent-native/actions/runs/44128413303), including Gateway-owned exact-base preservation and plan gating. E-005 has 17 passing interface tests. These are implementation checks, not real-model acceptance.
+E-007 has 48 passing deterministic tests in [workflow 44145390001](https://github.com/mojtaba-arvin/agent-native/actions/runs/44145390001), including explicit timeout, provider HTTP, transport-loss, and OOM classification tests. E-009 has 80 passing tests in [workflow 44128413303](https://github.com/mojtaba-arvin/agent-native/actions/runs/44128413303), including Gateway-owned exact-base preservation and plan gating. E-005 has 17 passing interface tests. These are implementation checks, not real-model acceptance.
 
 See the [evidence index](research/evidence-index.md), [design decisions](research/design-decisions.md), and [second E-002 diagnostic report](experiments/e002/results/2026-11-17-second-ten-run-artifact-diagnostic.md).
