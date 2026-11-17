@@ -306,6 +306,23 @@ class SQLiteCatalogRepository:
         finally:
             connection.close()
 
+    def list_items(self, *, tenant_id: str) -> list[dict[str, str]]:
+        """Return only the authenticated tenant's items in deterministic order."""
+        tenant_id = _require_text(tenant_id, "tenant_id")
+        connection = self._connect()
+        try:
+            rows = connection.execute(
+                """
+                SELECT id, name FROM items
+                WHERE tenant_id = ?
+                ORDER BY created_at, id
+                """,
+                (tenant_id,),
+            ).fetchall()
+            return [self._item(row) for row in rows]
+        finally:
+            connection.close()
+
     def close(self) -> None:
         """Connections are scoped to operations; retained for lifecycle symmetry."""
         return None
