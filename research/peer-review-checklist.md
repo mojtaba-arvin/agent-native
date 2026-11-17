@@ -8,62 +8,58 @@
 
 | Review item | Status | Evidence / note |
 |---|---|---|
-| Eval case excludes scorer implementation and hidden oracle identifiers | Pass | Case/scorers stay runner-side; the model receives the task and Gateway surface |
-| Runner invokes a real model and live E-009 Gateway | Pass (implementation) | `eval_runner.py` calls `local_agent.py`, Ollama, and the E-009 Gateway |
-| Every repetition has a distinct run identity and retained trace | Pass (implementation) | Unique eval/run directories and raw JSONL retained in the Actions artifact |
-| Candidate/proposal/validation/plan provenance is checked | Pass (scorer implementation) | Deterministic scorer checks exact proposal/candidate hash continuity; the three-run real cohort produced no candidate to pass it |
-| Three deterministic scorers and thresholds are explicit | Pass | Contract, lifecycle, and behavioral-safety scorers all require 1.0 |
-| Provider usage is recorded without inferring missing counts | Pass (implementation) | Per-request Ollama token usage is captured and validated |
-| Failure taxonomy inspects nested validation diagnostics | Pass (implementation) | Classifier reads both outer diagnostics and nested `result.diagnostics`; E-007 tests pass |
-| Aggregate token/time/cost budget fails fast | Pass (mock) | Mock runner executes one run, then records two repetitions as not started when the next reservation exceeds the aggregate input budget; budget stops use a separate resource category |
-| E-009 task now defines complete IR snapshot semantics | Pass (contract/tests) | `ir_version`, full service/types/operations, array inputs, and semantic `result.valid` behavior documented and published in tool schema |
-| Plan is blocked without a valid matching proposal hash | Pass (implementation/tests) | E-009 returns `VALIDATION_REQUIRED` before forwarding a premature/mismatched plan to the Gateway |
-| Corrected real-model outcome | **Fail — not accepted** | Workflow [44087982547](https://github.com/mojtaba-arvin/agent-native/actions/runs/44087982547), artifact [14332334550](https://github.com/mojtaba-arvin/agent-native/actions/runs/44087982547/artifacts/14332334550): 3/3 Qwen3 attempts failed at validation with `AN021`; no validated plan or candidate |
-| Independence of three model runs | **Not established** | All used temperature 0 and seed 42; per-request usage and tool traces matched. Ollama logs show prompt/KV cache reuse. Treat as deterministic failure reproduction, not independent statistical samples |
-| Stochastic post-fix probe | **Fail / 0 accepted** | Run [44105440141](https://github.com/mojtaba-arvin/agent-native/actions/runs/44105440141), artifact [14337879630](https://github.com/mojtaba-arvin/agent-native/actions/runs/44105440141/artifacts/14337879630), used temperature 0.7/seed 20261117; the model produced full top-level IR but rewrote five existing operations, then hit wall ceiling after inspecting all six; no second proposal, validate, or plan |
-
-| Current real-model compliance | **Open** | Complete-IR schema, AN021 hint, corrected prompt/task, same-hash plan gate, and budget taxonomy still need an artifact showing exact preservation, successful validation, safe plan, and no apply |
-
-| Post-fix stochastic probe | **Fail — exploratory only** | [Run 44105440141](https://github.com/mojtaba-arvin/agent-native/actions/runs/44105440141), [artifact 14337879630](https://github.com/mojtaba-arvin/agent-native/actions/runs/44105440141/artifacts/14337879630): complete top-level IR and array inputs, but five existing operations rewritten; inspection gate then followed, but no corrected resubmission before wall-time failure |
-| Wall-time/provider classification | Pass (deterministic test) | E-007 run [44123795574](https://github.com/mojtaba-arvin/agent-native/actions/runs/44123795574) verifies provider transport failure at the configured max-wall boundary is also classified as `resource_budget_exceeded`, not just as an agent failure |
+| Eval case keeps scorer/oracle data outside model-visible prompt | Pass | Declarative case and deterministic scorer code remain runner-side |
+| Runner uses real model + live E-009 Gateway | Pass (implementation) | `eval_runner.py` invokes `local_agent.py`, Ollama, and the E-009 Gateway |
+| Per-run identity, trace and usage retention | Pass (implementation) | Unique run IDs and raw JSONL in short-retention workflow artifacts; token counts come from Ollama responses |
+| Candidate/proposal/validation/plan provenance | Pass (scorer implementation) | Three deterministic scorers check exact candidate contract, hash lifecycle, and behavioral safety |
+| Failure taxonomy | Pass (implementation) | Handles nested validation diagnostics, IR preservation, validation-required, repair-budget, provider transport and wall-budget overlap; see E-007 tests |
+| Aggregate token/time budget | Pass (mock) | Mock runner proves next repetition is not started when worst-case token/time reservation does not fit; resource stops are ineligible and distinct from agent failures |
+| Local inference currency cost | Correctly unpriced | Ollama tariff is null; no fake $0 usage is emitted. Electricity, hardware depreciation and hosted-runner cost are not estimated |
+| Deterministic Qwen3 cohort | **Fail — 0/3 accepted** | [Run 44087982547](https://github.com/mojtaba-arvin/agent-native/actions/runs/44087982547), [artifact 14332334550](https://github.com/mojtaba-arvin/agent-native/actions/runs/44087982547/artifacts/14332334550): all fail validate with AN021; array input was correct, but IR omitted `ir_version` and existing operations; model called plan after `result.valid=false` |
+| Independence of deterministic repetitions | **Not established** | All temp 0 / seed42, matching token/tool path, Ollama prompt/KV reuse. Reproductions of one failure path, not independent model samples |
+| Stochastic Qwen3 probe | **Fail — exploratory only** | [Run 44105440141](https://github.com/mojtaba-arvin/agent-native/actions/runs/44105440141), [artifact 14337879630](https://github.com/mojtaba-arvin/agent-native/actions/runs/44105440141/artifacts/14337879630): temp 0.7/seed20261117 produced full top-level IR and array inputs, but changed five existing operation contracts; first proposal blocked by inspect-all gate; after all six inspections no second proposal before 900s wall timeout |
+| Corrected preservation/repair implementation | Pass (deterministic tests) | E-009 Gateway now captures inspected service/types/operation objects and rejects same-revision proposals that rewrite the existing base with `IR_PRESERVATION_MISMATCH`; local adapter counts all proposal attempts, caps them at three and preserves final JSON before semantic verification |
+| Latest E-007 deterministic suite | Pass | 45 tests pass in [workflow 44126229777](https://github.com/mojtaba-arvin/agent-native/actions/runs/44126229777) |
+| Current real-model acceptance | **Open / not passed** | No real-model artifact after Gateway-owned exact-preservation enforcement, bounded proposal-attempt fix, and final-candidate retention proves the complete successful proposal → validate → safe plan path |
 
 ## E-005 interface and E-009 kernel
 
 | Review item | Status | Evidence / note |
 |---|---|---|
-| Complete proposed IR schema is published | Pass | E-005 tool schema requires `ir_version`, `service`, `types`, and `operations`; nested operation inputs are arrays of declarations |
-| AN021 includes actionable repair guidance | Pass (implementation/tests) | Missing or malformed top-level IR receives a fix hint explaining full-snapshot semantics |
-| Plan requires successful validation of the same hash | Pass (implementation/tests) | E-009 runner gate checks `result.valid=true` and exact proposal hash |
-| Durable audit records persist before handlers and survive reopen | Pass | SQLite integration tests cover allow/deny, reopen, fail-closed, and concurrent append |
-| Application update/delete attempts are blocked | Pass (defense in depth) | SQLite triggers reject update/delete; not cryptographic tamper-proofing |
-| Audit store failure prevents handler execution | Pass | Integration test verifies fail-closed service response |
-| E-005 interface suite | Pass | 17 tests pass in CI [44102058544](https://github.com/mojtaba-arvin/agent-native/actions/runs/44102058544) |
-| E-009 suite | Pass | 81 tests pass in CI [44126229781](https://github.com/mojtaba-arvin/agent-native/actions/runs/44126229781) [44106101942](https://github.com/mojtaba-arvin/agent-native/actions/runs/44106101942) |
+| Complete IR proposal schema | Pass | E-005 schema requires `ir_version`, `service`, `types`, and `operations`; operation inputs are declaration arrays |
+| AN021 fix guidance | Pass | Validation returns actionable full-snapshot guidance |
+| Semantic plan gate | Pass | Local agent blocks plan without `result.valid=true` on the current proposal hash |
+| Gateway base-preservation gate | Pass | Same-revision proposal must preserve inspected service, types and each original operation exactly and in order |
+| Bounded proposal-attempt budget | Pass | Counts all proposal calls, including Gateway-rejected calls, and rejects attempt 4+ |
+| Final candidate evidence preservation | Pass | Parsed final JSON is saved before trusted verification with private file permissions |
+| Durable audit sink | Pass | SQLite allow/deny persistence, reopen, concurrent append, append-only triggers and fail-closed handler prevention |
+| E-005 suite | Pass | 17 tests in [workflow 44102058544](https://github.com/mojtaba-arvin/agent-native/actions/runs/44102058544) |
+| Latest E-009 suite | Pass | 79 tests in [workflow 44127273582](https://github.com/mojtaba-arvin/agent-native/actions/runs/44127273582) |
 
-## E-002 runtime decision evidence
+## E-002 runtime-decision evidence
 
 | Review item | Status | Evidence / note |
 |---|---|---|
-| Weights and provisional gates registered before the ten-run matrix | Pass | Matrix protocol and thresholds were committed before run [44087449181](https://github.com/mojtaba-arvin/agent-native/actions/runs/44087449181) |
-| Comparable request mix and run protocol | Pass | Four candidates; 10 repetitions × 5,000 requests, concurrency 32, warm-up 250, randomized order |
-| Raw runs and distributions retained | Pass | 40 run summaries plus request-level JSONL in the 14-day artifact |
-| Functional, p99, throughput, RSS, and startup screens | Pass | All candidates passed these measured screens |
-| CPU threshold's product provenance | **Open** | 0.5 s/5,000 requests is pre-registered but not derived from a documented product SLO/capacity/cost target; see [CPU analysis](../experiments/e002/cpu-gate-analysis.md) |
-| CPU result | Diagnostic | All four candidates exceeded the provisional screen; this is not a basis for post-hoc threshold change or a runtime choice |
-| Ecosystem/operability score | Not measured | Evidence rubric exists; candidate scoring is absent |
-| Injected failure semantics | Not measured | Required assertions are documented but not run comparably across all candidates |
-| Deployable payload size | Pass — one diagnostic measurement/candidate | Second matrix workflow [44124537511](https://github.com/mojtaba-arvin/agent-native/actions/runs/44124537511), artifact [14347795200](https://github.com/mojtaba-arvin/agent-native/actions/runs/44124537511/artifacts/14347795200): Go 10,012,310 B; Rust 4,991,320 B; WASI+Wasmtime 71,947,386 B; BEAM+ERTS 74,856,626 B. Linux x86_64, uncompressed, packaging models differ; not an apples-to-apples container comparison |
-| Final weighted ranking/runtime selection | Not performed | Correctly deferred |
+| Pre-registered weights and screening gates | Pass | Registered before matrix runs; [first workflow 44087449181](https://github.com/mojtaba-arvin/agent-native/actions/runs/44087449181) |
+| Two comparable ten-run diagnostic cohorts | Pass (diagnostic) | [First run](../experiments/e002/results/2026-11-17-ten-run-diagnostic.md) and [second run 44124537511](https://github.com/mojtaba-arvin/agent-native/actions/runs/44124537511): each four candidates × 10 × 5,000 requests, concurrency32, warm-up250, randomized order |
+| Functional/p99/throughput/RSS/startup screens | Pass | All four candidates completed 10/10 functional repetitions and passed these measured screens in both cohorts |
+| CPU screen | **Fail for all candidates** | Every candidate exceeded 0.5 CPU seconds/5,000 requests in both cohorts; threshold not changed after observation |
+| CPU threshold product provenance | **Open** | Pre-registered experiment screen, but no product SLO, vCPU capacity target or cost model justifies 0.5 s/5k; see [CPU analysis](../experiments/e002/cpu-gate-analysis.md) |
+| Deployable payload size | Pass — one diagnostic measurement/candidate | [Second artifact 14347795200](https://github.com/mojtaba-arvin/agent-native/actions/runs/44124537511/artifacts/14347795200): Go 10,012,310 B; Rust 4,991,320 B; WASI+Wasmtime 71,947,386 B; BEAM+ERTS 74,856,626 B. Linux x86_64, uncompressed payload + resolved ELF dependencies; package models differ |
+| Ecosystem/operability rubric | Not measured | Rubric exists; candidate scores and supporting evidence not completed |
+| Comparable fault injection | Not measured | Deadline, overload, cancellation, worker crash/reclaim, retries, idempotent replay, outbox/inbox and tenant/data-integrity assertions are not yet run across all arms |
+| Final weighted ranking/runtime selection | Not performed | Correctly deferred; CPU hard gate failed and two dimensions remain unmeasured |
 
 ## Overall review decision
 
-- [x] Research, plan, evidence index, and design-decision log exist.
-- [x] E-009 durable audit implementation is integrated and passes CI.
-- [x] E-005 complete-IR schema and AN021 guidance pass deterministic tests.
-- [x] E-007 aggregate budget reservation and mock fail-fast behavior pass deterministic tests.
-- [x] E-002 ten-run diagnostic data is published without selecting a runtime.
-- [ ] Re-run Qwen3 after the complete-IR and validation-gate corrections.
-- [ ] Verify the model produces `ir_version=1` and all existing operations plus the requested operation; inspect the resulting artifact before closing E-007 validation.
-- [ ] Resolve E-002 CPU-gate provenance from a product capacity/cost model and measure fault injection/ecosystem criteria and derive the CPU gate from product capacity/cost requirements before any decision-grade matrix.
+- [x] Research, plan, evidence index and design-decision log exist.
+- [x] E-009 durable audit sink is integrated and passes CI.
+- [x] E-005 full-IR schema and AN021 fix hint pass deterministic tests.
+- [x] E-007 runner taxonomy and aggregate budget fail-fast pass deterministic tests.
+- [x] E-009 Gateway enforces exact base preservation and blocks invalid plans.
+- [x] Two E-002 ten-run diagnostics and one package-size measurement are published without selecting a runtime.
+- [ ] Run one bounded real-model attempt after the latest Gateway preservation and candidate-retention changes; inspect the artifact before closing E-007.
+- [ ] Derive or reaffirm CPU gate from a product capacity/cost model before a new pre-registered run.
+- [ ] Complete comparable fault-injection and evidence-based ecosystem/operability scoring before any runtime decision.
 
-**Cycle status:** partially validated. Implementation and diagnostic evidence have advanced, but E-007 real-agent acceptance is still negative and post-fix model behavior is unknown. E-002 remains diagnostic. Do not declare the RPI cycle complete or choose a runtime yet.
+**Cycle status:** partially validated. Deterministic implementation evidence is substantially stronger, but no real Qwen3 attempt has completed a valid proposal/validate/plan cycle. E-002 remains diagnostic, not decision-grade. Do not declare the RPI cycle complete or select a runtime.
