@@ -76,6 +76,34 @@ class AgentGatewayTests(unittest.TestCase):
         base_revision = inspected["result"]["revision"]
 
         candidate_ir = load_service_ir(SOURCE)
+        blocked = self.call(
+            self.progressive,
+            "propose-before-full-inspection",
+            "service.propose",
+            {
+                "service_id": "catalog",
+                "base_revision": base_revision,
+                "ir": candidate_ir,
+            },
+        )
+        self.assertFalse(blocked["ok"])
+        self.assertEqual(blocked["diagnostics"][0]["code"], "INSPECTION_INCOMPLETE")
+        self.assertEqual(
+            blocked["next_actions"],
+            [
+                f"service.inspect with operation={name}"
+                for name in sorted(item["name"] for item in candidate_ir["operations"])
+            ],
+        )
+        for operation in candidate_ir["operations"]:
+            inspected_operation = self.call(
+                self.progressive,
+                f"inspect-{operation['name']}",
+                "service.inspect",
+                {"service_id": "catalog", "operation": operation["name"]},
+            )
+            self.assertTrue(inspected_operation["ok"])
+
         candidate_ir["operations"].append({
             "name": "get_item_by_status",
             "method": "GET",
