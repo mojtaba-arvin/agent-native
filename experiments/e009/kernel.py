@@ -284,26 +284,21 @@ class ServiceRuntime:
             name, source, type_name = item["name"], item["source"], item["type"]
             if source == "path":
                 raw = path_values.get(name)
-                try:
-                value = _coerce_text(type_name, raw) if raw is not None else None
-            except (ValueError, OverflowError):
-                raise RuntimeFault("InvalidInput", 400, detail=name) from None
             elif source == "query":
                 raw = query.get(name)
-                try:
-                    value = _coerce_text(type_name, raw) if raw is not None else None
-                except (ValueError, OverflowError):
-                    raise RuntimeFault("InvalidInput", 400, detail=name) from None
             elif source == "header":
                 raw = headers.get(name.lower())
-                try:
-                    value = _coerce_text(type_name, raw) if raw is not None else None
-                except (ValueError, OverflowError):
-                    raise RuntimeFault("InvalidInput", 400, detail=name) from None
             elif source == "body":
+                raw = None
                 value = body.get(name)
             else:
                 raise RuntimeFault("UNSUPPORTED_INPUT_SOURCE", 500)
+
+            if source in {"path", "query", "header"}:
+                try:
+                    value = _coerce_text(type_name, raw) if raw is not None else None
+                except (ValueError, OverflowError):
+                    raise RuntimeFault("InvalidInput", 400, detail=name) from None
             if not _is_type(type_name, value):
                 raise RuntimeFault("InvalidInput", 400, detail=name)
             values[name] = value
