@@ -109,7 +109,7 @@ The stochastic Qwen3 run ended at the configured 900-second boundary. The Ollama
 
 **Decision:** preserve the raw provider failure code and classify (a) connection/transport exceptions as `transport_error`, (b) non-200 provider responses as `provider_http_error`, (c) reaching the configured wall ceiling as `timeout` plus `resource_budget_exceeded`, and (d) explicit OOM/allocation-kill evidence as `resource_exhaustion`. Do not infer OOM from HTTP 500, or infer timeout from an early transport failure. The categories may coexist when the raw provider symptom occurs at the wall boundary.
 
-**Verification:** E-007 deterministic tests cover HTTP 500 at the wall ceiling, transport failure well below the ceiling, and explicit OOM evidence separately. The new one-run deterministic workflow uses a 1,200-second per-run wall limit because the previous deterministic cohort approached 900 seconds; this is an exploratory budget adjustment, not a retroactive reinterpretation of the earlier artifact.
+**Verification:** E-007's 48-test deterministic suite covers HTTP 500 at the wall ceiling, transport failure well below the ceiling, local/outer runner wall expiration, explicit OOM evidence, and budget exhaustion without misclassifying it as an agent failure. The new one-run deterministic workflow uses a 1,200-second per-run wall limit because the previous deterministic cohort approached 900 seconds; this is an exploratory budget adjustment, not a retroactive reinterpretation of the earlier artifact.
 
 ## D-015 — The 900-second wall limit was too close to observed deterministic runtimes
 
