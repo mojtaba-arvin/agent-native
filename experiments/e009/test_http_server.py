@@ -31,7 +31,12 @@ def make_context(principal, tenant, grants=True):
         tenant_id=tenant,
         now=0,
         grants=tuple(
-            Grant(principal, tenant, capability, "/items")
+            Grant(
+                principal,
+                tenant,
+                capability,
+                "/jobs" if capability in {"jobs.read", "jobs.cancel"} else "/items",
+            )
             for capability in capabilities
         ),
     )
