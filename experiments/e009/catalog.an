@@ -1,0 +1,48 @@
+service Catalog {
+  version: "1";
+
+  type Item {
+    id: UUID;
+    name: String;
+  }
+
+  operation get_item {
+    method: GET;
+    path: "/items/{id}";
+    input {
+      id: UUID from path;
+    }
+    output: Item;
+    errors: [InvalidInput, NotFound, Unauthorized];
+    validation: [];
+    effects: [repository.read];
+    capability: "items.read";
+  }
+
+  operation create_item {
+    method: POST;
+    path: "/items";
+    input {
+      idempotency_key: String from header;
+      name: String from body;
+    }
+    output: Item;
+    errors: [Conflict, InvalidInput, Unauthorized];
+    validation: [name.non_empty, idempotency_key.non_empty];
+    effects: [repository.write];
+    capability: "items.create";
+  }
+
+  operation get_item_by_name {
+    method: GET;
+    path: "/items/by-name/{name}";
+    input {
+      name: String from path;
+    }
+    output: Item;
+    errors: [InvalidInput, NotFound, Unauthorized];
+    validation: [name.non_empty];
+    effects: [repository.read];
+    capability: "items.read";
+  }
+}
