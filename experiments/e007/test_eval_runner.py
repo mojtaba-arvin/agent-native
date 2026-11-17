@@ -185,7 +185,8 @@ class EvalRunnerTests(unittest.TestCase):
 
     def test_budget_reserves_worst_case_and_fails_fast_when_remaining_budget_is_insufficient(self):
         budget={"max_total_input_tokens":300,"max_total_output_tokens":90,"max_total_wall_seconds":30,
-                "input_price_per_million_usd":1.0,"output_price_per_million_usd":2.0,"max_estimated_cost_usd":0.001}
+                "cost_pricing_mode":"per_token","input_price_per_million_usd":1.0,
+                "output_price_per_million_usd":2.0,"max_estimated_cost_usd":0.001}
         per_run={"max_input_tokens":100,"max_output_tokens":30,"max_wall_seconds":10}
         self.assertEqual(_budget_can_start_next([],budget,per_run),(True,None))
         prior=[{"status":"failed","usage_available":True,"input_tokens":250,"output_tokens":20,"duration_ms":1000}]
@@ -193,14 +194,15 @@ class EvalRunnerTests(unittest.TestCase):
 
     def test_unknown_usage_fails_closed_before_next_repetition(self):
         budget={"max_total_input_tokens":300,"max_total_output_tokens":90,"max_total_wall_seconds":30,
-                "input_price_per_million_usd":0.0,"output_price_per_million_usd":0.0,"max_estimated_cost_usd":0.0}
+                "cost_pricing_mode":"unpriced_local","input_price_per_million_usd":None,
+                "output_price_per_million_usd":None,"max_estimated_cost_usd":None}
         per_run={"max_input_tokens":100,"max_output_tokens":30,"max_wall_seconds":10}
         prior=[{"status":"failed","usage_available":False,"duration_ms":1000}]
         self.assertEqual(_budget_can_start_next(prior,budget,per_run),(False,"usage_unknown_after_previous_repetition"))
 
     def test_inference_cost_uses_explicit_token_rates(self):
         self.assertAlmostEqual(_estimate_cost_usd(100000,20000,
-            {"input_price_per_million_usd":0.5,"output_price_per_million_usd":1.0}),0.07)
+            {"cost_pricing_mode":"per_token","input_price_per_million_usd":0.5,"output_price_per_million_usd":1.0}),0.07)
 
 
     def test_mock_runner_stops_before_next_repetition_when_aggregate_budget_would_be_exceeded(self):
@@ -219,9 +221,10 @@ class EvalRunnerTests(unittest.TestCase):
                 "max_total_input_tokens": 150,
                 "max_total_output_tokens": 150,
                 "max_total_wall_seconds": 30,
-                "input_price_per_million_usd": 0.0,
-                "output_price_per_million_usd": 0.0,
-                "max_estimated_cost_usd": 0.0,
+                "cost_pricing_mode": "unpriced_local",
+                "input_price_per_million_usd": None,
+                "output_price_per_million_usd": None,
+                "max_estimated_cost_usd": None,
             })
             case_path = root / "case.json"
             case_path.write_text(json.dumps(case), encoding="utf-8")
@@ -269,6 +272,14 @@ class EvalRunnerTests(unittest.TestCase):
             self.assertEqual(result["budget"]["actual"]["input_tokens"], 95)
             self.assertEqual(result["failure_categories"]["resource_budget_exceeded"], 2)
             self.assertFalse(result["runs"][1]["eligible_for_acceptance"])
+
+
+    def test_unpriced_local_inference_is_unknown_not_zero(self):
+        self.assertIsNone(_estimate_cost_usd(100000, 20000, {
+            "cost_pricing_mode": "unpriced_local",
+            "input_price_per_million_usd": None,
+            "output_price_per_million_usd": None,
+        }))
 
 if __name__ == "__main__":
     unittest.main()
