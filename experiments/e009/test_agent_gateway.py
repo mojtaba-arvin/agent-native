@@ -12,7 +12,7 @@ from surface import assert_fair_pair, build_surface
 
 
 PILOT_ROOT = Path(__file__).resolve().parents[1]
-REPOSITORY_ROOT = PILOT_ROOT.parents[1]
+REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE = (Path(__file__).parent / "catalog.an").read_text(encoding="utf-8")
 
 
