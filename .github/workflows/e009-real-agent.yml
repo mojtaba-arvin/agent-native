@@ -36,11 +36,15 @@ jobs:
           curl --fail --silent --show-error --location https://ollama.com/install.sh | sh
           ollama --version
 
-      - name: Start Ollama and pull the pinned model tag
+      - name: Start Ollama with the Qwen3-compatible template renderer
         shell: bash
         run: |
           set -euo pipefail
-          ollama serve > /tmp/ollama-serve.log 2>&1 &
+          ollama --version | tee /tmp/ollama-version.txt
+          # The installer may have already started the system service. Stop it so
+          # the renderer setting below is applied to the only Ollama daemon.
+          sudo systemctl stop ollama.service 2>/dev/null || true
+          OLLAMA_GO_TEMPLATE=false OLLAMA_HOST=127.0.0.1:11434 ollama serve > /tmp/ollama-serve.log 2>&1 &
           for attempt in $(seq 1 60); do
             if ollama list >/dev/null 2>&1; then
               break
@@ -120,6 +124,7 @@ jobs:
             /tmp/agent-native-e009-runs/
             /tmp/e009-trial-summary.json
             /tmp/e009-agent-console.json
+            /tmp/ollama-version.txt
             /tmp/ollama-models.txt
             /tmp/qwen3-modelfile.txt
             /tmp/ollama-serve.log
