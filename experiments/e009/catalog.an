@@ -58,7 +58,7 @@ service Catalog {
       idempotency_key: String from header;
     }
     output: WorkTicket;
-    errors: [Conflict, InvalidInput, ServiceUnavailable, Unauthorized];
+    errors: [Conflict, InvalidInput, RateLimited, ServiceUnavailable, Unauthorized];
     validation: [idempotency_key.non_empty];
     effects: [queue.submit];
     capability: "jobs.submit";
