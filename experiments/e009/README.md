@@ -74,7 +74,7 @@ To discover one tool's exact input schema in the progressive arm:
 {"type":"tool_call","request_id":"describe-001","tool":"interface.describe","arguments":{"name":"service.propose"}}
 ```
 
-An agent may then submit an immutable proposal against the inspected revision, validate it, and inspect its no-side-effect plan. The gateway does not apply a proposal; `service.apply` remains disabled. The session's arm changes only initial schema disclosure, not the operation catalog or dispatcher. This is an integrated control-surface prototype, not a final public protocol selection or a production authorization channel.
+An agent may then submit an immutable proposal against the inspected revision, validate it, and inspect its no-side-effect plan. The gateway does not apply a proposal; `service.apply` remains disabled. The session's arm changes only initial schema disclosure, not the operation catalog or dispatcher. The gateway enforces inspection-before-proposal: the agent must inspect the service and each existing operation at the same base revision; an incomplete inspection returns a diagnostic and explicit next actions. This is an integrated control-surface prototype, not a final public protocol selection or a production authorization channel.
 
 ## Submit and process durable work
 
