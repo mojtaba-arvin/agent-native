@@ -324,14 +324,27 @@ def score_run(
     }
 
 
-def _failure_class(run_record: dict) -> str | None:
+def _failure_class(
+    run_record: dict,
+    max_wall_seconds: float | None = None,
+) -> str | None:
     failure = run_record.get("failure")
     if not failure:
         return None
     text = str(failure)
     if ":" in text:
         text = text.split(":", 1)[1]
-    return text.split(":", 1)[0][:100]
+    code = text.split(":", 1)[0][:100]
+    wall_ceiling_reached = (
+        max_wall_seconds is not None
+        and isinstance(run_record.get("duration_ms"), (int, float))
+        and run_record["duration_ms"] >= max_wall_seconds * 1000 - 1000
+    )
+    if wall_ceiling_reached and (
+        code == "provider_transport_failure" or code.startswith("provider_http_")
+    ):
+        return "wall_clock_budget_exhausted"
+    return code
 
 
 def _failure_categories(
@@ -340,7 +353,7 @@ def _failure_categories(
     max_wall_seconds: float | None = None,
 ) -> list[str]:
     """Classify observed failures while preserving the raw failure code."""
-    failure = _failure_class(run_record) or ""
+    failure = _failure_class(run_record, max_wall_seconds) or ""
     categories = set()
     wall_ceiling_reached = (
         max_wall_seconds is not None
@@ -932,7 +945,7 @@ def run_eval(args: argparse.Namespace) -> dict:
         "output_tokens": _describe(outputs),
         "tool_calls": _describe(calls),
         "failure_classes": dict(Counter(
-            _failure_class(item) for item in run_results if item.get("failure")
+            _failure_class(item, per_run["max_wall_seconds"]) for item in run_results if item.get("failure")
         )),
         "failure_categories": dict(Counter(
             category for item in run_results for category in item.get("failure_categories", [])
