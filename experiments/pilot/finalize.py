@@ -177,6 +177,11 @@ def _require_accepted_tool_sequence(events: list[dict], change_set_id: str) -> N
     ]
     if any(event.get("tool_name") == "service.apply" for _, event in calls):
         raise FinalizationError("accepted_result_conflicts_with_apply_attempt")
+    if any(
+        event.get("failure_class") == "TOOL_CALL_BUDGET_EXCEEDED"
+        for _, event in calls
+    ):
+        raise FinalizationError("accepted_result_conflicts_with_tool_budget_overrun")
 
     def find_after(
         tool_name: str,
