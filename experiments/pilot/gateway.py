@@ -266,13 +266,8 @@ class PilotGateway:
         if not isinstance(message, dict):
             self._record_protocol_error(message, "REQUEST_SHAPE")
             return _error_response("invalid", "REQUEST_SHAPE", "Message must be a JSON object.")
-        request_id = message.get("request_id", "invalid")
-        if not isinstance(request_id, str) or not request_id or len(request_id) > MAX_REQUEST_ID_LENGTH:
-            self._record_protocol_error(message, "REQUEST_ID")
-            return _error_response("invalid", "REQUEST_ID", "request_id must be a non-empty string of at most 128 characters.")
-        if message.get("type") == "model_usage":
-            return self._handle_model_usage(message, request_id)
-        if message.get("type") == "tool_call":
+        is_tool_call = message.get("type") == "tool_call"
+        if is_tool_call:
             self.tool_call_count += 1
             if (
                 self.max_tool_calls is not None
@@ -283,10 +278,16 @@ class PilotGateway:
                     tool_name = "<invalid>"
                 self._record_tool_call(tool_name[:128], "TOOL_CALL_BUDGET_EXCEEDED")
                 return _error_response(
-                    request_id,
+                    "invalid",
                     "TOOL_CALL_BUDGET_EXCEEDED",
                     "The scheduled tool-call budget is exhausted.",
                 )
+        request_id = message.get("request_id", "invalid")
+        if not isinstance(request_id, str) or not request_id or len(request_id) > MAX_REQUEST_ID_LENGTH:
+            self._record_protocol_error(message, "REQUEST_ID")
+            return _error_response("invalid", "REQUEST_ID", "request_id must be a non-empty string of at most 128 characters.")
+        if message.get("type") == "model_usage":
+            return self._handle_model_usage(message, request_id)
         if set(message) != ENVELOPE_FIELDS:
             self._record_protocol_error(message, "REQUEST_FIELDS")
             return _error_response(request_id, "REQUEST_FIELDS", "Message must contain exactly type, request_id, tool, and arguments.")
