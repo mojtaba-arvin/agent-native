@@ -945,7 +945,7 @@ def run_eval(args: argparse.Namespace) -> dict:
         "output_tokens": _describe(outputs),
         "tool_calls": _describe(calls),
         "failure_classes": dict(Counter(
-            _failure_class(item, per_run["max_wall_seconds"]) for item in run_results if item.get("failure")
+            _failure_class(item, args.max_wall_seconds) for item in run_results if item.get("failure")
         )),
         "failure_categories": dict(Counter(
             category for item in run_results for category in item.get("failure_categories", [])
