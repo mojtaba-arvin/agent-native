@@ -156,11 +156,23 @@ def run_schedule(
     return batch
 
 
+def assert_candidate_ready(batch: dict) -> None:
+    if batch.get("status") != "completed":
+        raise RuntimeError("batch_did_not_complete")
+    if batch.get("candidate_ready_count") != batch.get("scheduled_trials"):
+        raise RuntimeError("candidate_not_ready_for_every_scheduled_trial")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--schedule", required=True, type=Path)
     parser.add_argument("--results-dir", required=True, type=Path)
     parser.add_argument("--ollama-url", default="http://127.0.0.1:11434")
+    parser.add_argument(
+        "--require-candidate-ready",
+        action="store_true",
+        help="Exit nonzero unless every scheduled trial produced a trace-correlated candidate.",
+    )
     args = parser.parse_args()
 
     try:
@@ -172,6 +184,8 @@ def main() -> None:
             results_dir=args.results_dir,
             base_url=args.ollama_url,
         )
+        if args.require_candidate_ready:
+            assert_candidate_ready(result)
     except (ScheduleError, ValueError, OSError, RuntimeError) as error:
         print(f"BATCH_RUN_ERROR: {error}", file=sys.stderr)
         raise SystemExit(2)
