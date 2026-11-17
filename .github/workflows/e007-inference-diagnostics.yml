@@ -66,7 +66,7 @@ jobs:
           python experiments/e007/ollama_diagnostics.py \
             --model qwen3:8b \
             --thread-counts 2,4,16 \
-            --output /tmp/e007-ollama-diagnostics/diagnostics.json \\
+            --output /tmp/e007-ollama-diagnostics/diagnostics.json \
             --checkpoint /tmp/e007-ollama-diagnostics/prefill-checkpoint.json
 
       - name: Record loaded model placement
