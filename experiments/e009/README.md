@@ -20,6 +20,7 @@ It is deliberately implemented with the Python standard library as a semantic re
 - **External-effect boundary:** job completion and its outbox event commit together. The relay uses at-least-once delivery; the SQLite inbox and consumer state change atomically so redelivery of the same event does not double-apply the local consumer effect.
 - **HTTP host:** the standard-library host enforces a body-size limit, strict JSON, duplicate-header rejection, loopback binding, request IDs, bounded concurrent admission, and 503 load shedding.
 - **Audit:** every capability decision is sent to an injected trusted audit sink before application code is called. Audit-sink failure is fail-closed.
+- **Durable audit:** the runnable `serve.py` path wires `SQLiteAuditSink` to the shared file-backed database. Allow and deny decisions are committed before handlers, survive database reopen, and fail closed on storage errors. Application-level triggers reject updates/deletes, but this is not cryptographic tamper evidence or remote audit replication.
 
 ## Run tests
 
@@ -150,6 +151,6 @@ The run record includes provider-reported input/output token counts, tool-call c
 
 ## Evidence boundary
 
-This integrated slice proves only that the selected reference contracts can be composed in one runnable backend path. The demo identity provider is an in-memory fixture; there is no cryptographic workload identity, key rotation, distributed revocation, or production token validation. SQLite is single-node. The HTTP host is a bounded development host, not a hardened internet-facing server. The audit sink contract is fail-closed but does not itself provide durable remote audit storage. The worker/relay are single-node process prototypes; there is no distributed scheduler, authenticated remote worker identity, broker, multi-node consensus, worker kill escalation, schema rollback, distributed service discovery, inter-service transport, streaming, or production deployment story yet.
+This integrated slice proves only that the selected reference contracts can be composed in one runnable backend path. The demo identity provider is an in-memory fixture; there is no cryptographic workload identity, key rotation, distributed revocation, or production token validation. SQLite is single-node. The HTTP host is a bounded development host, not a hardened internet-facing server. The runnable service now persists authorization decisions in the shared SQLite file and fails closed on audit-store errors, but there is no remote replication, retention policy, external access control, or cryptographic tamper evidence. The worker/relay are single-node process prototypes; there is no distributed scheduler, authenticated remote worker identity, broker, multi-node consensus, worker kill escalation, schema rollback, distributed service discovery, inter-service transport, streaming, or production deployment story yet.
 
 These limitations are now integration work in one kernel path rather than disconnected prose-only gaps. Any replacement language/runtime/database/transport candidate must pass the same black-box semantics before a product decision is made.
