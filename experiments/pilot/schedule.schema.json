@@ -33,6 +33,7 @@
         "experiments/pilot/gateway.py",
         "experiments/pilot/ollama_runner.py",
         "experiments/pilot/run_schedule.py",
+        "experiments/pilot/analyze.py",
         "experiments/pilot/candidate.py",
         "experiments/pilot/candidate.schema.json",
         "experiments/pilot/evaluation-result.schema.json",
@@ -84,6 +85,9 @@
           "$ref": "#/$defs/sha256"
         },
         "experiments/pilot/run_schedule.py": {
+          "$ref": "#/$defs/sha256"
+        },
+        "experiments/pilot/analyze.py": {
           "$ref": "#/$defs/sha256"
         },
         "experiments/pilot/candidate.py": {
