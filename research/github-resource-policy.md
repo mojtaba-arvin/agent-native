@@ -48,9 +48,9 @@ This document records the practical resource envelope and the operating policy f
 - The E-009 real-model workflow has one job, uses a 45-minute job timeout, serializes runs, and has `contents: read` permissions. On the research branch it is triggered by changes to `experiments/e009/dispatch.json`; this avoids requiring the workflow file to exist on the default branch for `workflow_dispatch`.
 - The E-002 cross-runtime benchmark matrix is now explicitly opt-in on manual dispatch (or a deliberately tagged `[benchmark]` push), has a 30-minute job timeout, and retains its artifact for 14 days. Routine manual dispatches still run conformance checks without launching the benchmark matrix.
 - The trial is bounded to 24,000 input tokens, 6,000 output tokens, 20 tool calls, 900 seconds of agent wall time, and an 8,192-token model context.
-- The workflow uploads the run record, tool trace, candidate, summary, console output, and model/runtime metadata for 14 days. It does not upload the model weights.
+- The workflow uploads the run record, tool trace, candidate when one is produced, summary, console output, provider-response diagnostics, and model/runtime metadata for 14 days. It does not upload the model weights.
 - Real-model trial evidence is retained for 14 days. The first trial exposed a provider-response issue; the second confirmed Ollama tool-call transport but exposed an invalid `service.inspect` argument from the model. A third trial using the upfront schema-disclosure arm and explicit service-ID guidance is in progress. No successful real-agent completion is claimed until its candidate passes the independent local verifier.
-- The latest inspected branch HEAD, `65234a604c015bf69d01acbd881097088ea69102`, has successful runs for the ten existing CI workflows (E-001–E-009 and the Agent Native pilot). This does not include a run of the manual-only real-model workflow.
+- Deterministic conformance workflows remain separate from real-model trials: their green result proves the reference tests passed, not that a model-driven change was completed. The E-009 real-model workflow is evaluated independently from those checks.
 
 ## Decision
 
