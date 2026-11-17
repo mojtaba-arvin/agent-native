@@ -34,9 +34,26 @@ Values are mean ± sample standard deviation; bracketed values are the bootstrap
 
 All candidates fail the pre-registered CPU gate. The threshold is intentionally not relaxed after observing the data. The next cycle may revise it only before a new run, with a documented rationale and a repeat of the same workload across all candidates.
 
+## Second ten-run diagnostic and deployable payload sizes
+
+A second independent matrix workflow completed later on 17 November: [workflow 44124537511](https://github.com/mojtaba-arvin/agent-native/actions/runs/44124537511), artifact [14347795200](https://github.com/mojtaba-arvin/agent-native/actions/runs/44124537511/artifacts/14347795200), source SHA `f32425acacbec79b442db4293286bafb263dcba0`. It repeated the 10 × 5,000-request protocol with the same pinned candidate/toolchain set. All four candidates again passed 10/10 functional runs and again exceeded the 0.5 CPU-second gate. The run-level details are in [the second-pass report](2026-11-17-second-ten-run-artifact-diagnostic.md).
+
+The same workflow measured an uncompressed Linux x86_64 deployment payload, including candidate package and resolved shared ELF dependencies:
+
+| Candidate | Application/runtime payload | External shared dependencies | Total payload |
+|---|---:|---:|---:|
+| Go / net-http | 7,554,550 B | 2,457,760 B | **10,012,310 B (9.55 MiB)** |
+| Rust / Tokio + Hyper | 1,430,704 B | 3,560,616 B | **4,991,320 B (4.76 MiB)** |
+| WASI P2 + Wasmtime 50.0.1 | 68,357,954 B | 3,589,432 B | **71,947,386 B (68.61 MiB)** |
+| BEAM production release + ERTS | 68,197,850 B | 6,658,776 B | **74,856,626 B (71.39 MiB)** |
+
+The manifest records per-file byte size and SHA-256 and avoids double-counting shared libraries already bundled in a release. The packaging definitions differ: native executable + shared libraries for Go/Rust, component + Wasmtime for WASI, and a self-contained Mix release + external shared libraries for BEAM. This is a host-specific uncompressed payload estimate, not a universal or compressed package/image comparison. All measured totals are below the provisional 100 MiB screen under this exact method, but this does not offset the CPU hard-gate failure.
+
+**Updated coverage:** deployable payload size is now measured once per candidate on one Linux x86_64 shared runner. Ecosystem/operability scoring and comparable injected-failure semantics remain **not measured**. E-002 remains diagnostic; the CPU gate is still failed by every candidate, and no weighted ranking/runtime selection is justified.
+
 ## Partial score visibility (not a final ranking)
 
-Only five weighted metrics were measured. Their provisional normalized contributions sum to 75 points: p99 25, throughput 20, RSS 15, CPU 10, startup 5. The other 25 points (ecosystem/operability 10, failure semantics 10, artifact size 5) are not measured. In addition, every candidate fails the CPU hard gate, so none is eligible for a final weighted score.
+Only five weighted metrics were measured. Their provisional normalized contributions sum to 75 points: p99 25, throughput 20, RSS 15, CPU 10, startup 5. The other 25 points are now partially covered: ecosystem/operability (10) and failure semantics (10) remain not measured; deployable artifact size (5) has a single host-specific payload measurement per candidate in the second matrix run. In addition, every candidate fails the CPU hard gate, so none is eligible for a final weighted score.
 
 | Candidate | Partial weighted contribution / 75 | CPU normalized score | Final score / 100 |
 |---|---:|---:|---|
@@ -51,6 +68,6 @@ These partial contributions are descriptive only. They do not establish a runtim
 
 **It proves:** the four pinned candidate implementations each completed 10 repetitions of the same trivial in-memory HTTP workload; the run-level measurements and raw response traces were retained; distributions and bootstrap intervals can be computed reproducibly from the matrix output; the pre-registered CPU screen was not met by any candidate.
 
-**It does not prove:** comparative performance on persistence, authorization, serialization-heavy, inter-service, or failure workloads; production SLO compliance; ecosystem/maintenance superiority; artifact-size suitability; distributed semantics; or that any candidate runtime should be selected. The runner is a shared GitHub-hosted machine and the workload is intentionally narrow.
+**It does not prove:** comparative performance on persistence, authorization, serialization-heavy, inter-service, or failure workloads; production SLO compliance; ecosystem/maintenance superiority; ecosystem/failure semantics and controlled-host artifact-size suitability; distributed semantics; or that any candidate runtime should be selected. The runner is a shared GitHub-hosted machine and the workload is intentionally narrow.
 
 **Decision:** no runtime selected. Retain this result as diagnostic evidence only.
