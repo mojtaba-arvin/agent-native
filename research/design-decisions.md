@@ -83,3 +83,13 @@ Unlike the fixed temperature-zero cohort, the attempted proposal included `ir_ve
 ## D-011 — Complete IR shape is distinct from exact operation preservation
 
 The deterministic Qwen3 cohort omitted `ir_version` and existing operations. The stochastic probe included the correct top-level keys and all seven operation entries, but rewrote five existing operation contracts. A top-level JSON schema can guarantee presence and type shape; it cannot prove the model copied the inspected semantic declarations unchanged. The E-007 exact candidate contract scorer remains necessary, and any future server-side preservation rule must explicitly bind the proposal to the inspected base revision and declarations. Do not conflate "complete IR" with "preserved IR."
+
+## D-012 — Enforce base preservation in the E-009 Agent Gateway, not only in the local model adapter
+
+The stochastic Qwen3 probe reached a proposal shape containing all seven operation slots, but rewrote five existing contracts. A task scorer can detect this only after a candidate is produced; prompt text alone is not an enforcement boundary. An adapter-only comparison would also be bypassable by another client of the Gateway.
+
+**Decision:** the E-009 Gateway now snapshots the inspected service identity, types, and every existing operation declaration for the inspected revision. Before forwarding a same-revision `service.propose`, it checks that the submitted complete IR retains the service/types and exact ordered existing-operation declarations. A mismatch returns `IR_PRESERVATION_MISMATCH` with named operations and a fix hint. The Gateway still enforces the inspect-all prerequisite. The local adapter retains only the bounded total proposal-attempt budget; there is one authoritative preservation check at the Gateway rather than duplicate adapter and Gateway rules.
+
+**Scope:** this is an E-009 Gateway policy for this fixed task environment, not a claim that all future Agent Native services must forbid operation deletion/change. A general change protocol needs explicit, typed change intent and migration/compatibility semantics rather than an implicit preservation rule.
+
+**Tests:** Gateway tests cover exact service/types/operation preservation, reject a mutated existing capability, and verify actionable `IR_PRESERVATION_MISMATCH` diagnostics. The E-009 workflow at source SHA `cdc3758df8098a0ac1feaf49bcd5776b1627e76d` passed 83 tests, including these checks. The subsequent local-adapter refactor removes redundant preservation code and leaves the same Gateway policy authoritative; its newer CI run is pending at the current snapshot.
