@@ -30,6 +30,7 @@ from local_agent import (
     _proposal_budget_response,
     _proposal_attempt_gate,
     _compact_conversation,
+    _build_compaction_ledger,
 )
 
 
@@ -473,6 +474,22 @@ class LocalAgentRunnerTests(unittest.TestCase):
         self.assertEqual(ledger["recent_tool_outcomes"][-1]["next_actions"], ["Correct the complete IR"])
         self.assertNotIn("assistant", [item["role"] for item in compacted])
         self.assertNotIn("tool_calls", compacted[3]["content"])
+
+    def test_compaction_ledger_is_deterministic_and_traceable(self):
+        tool_sequence = ["service.inspect", "service.propose"]
+        outcomes = [{"tool": "service.inspect", "ok": True}]
+        first = _build_compaction_ledger(
+            self.inspected, self.inspected_operations, tool_sequence, outcomes
+        )
+        second = _build_compaction_ledger(
+            self.inspected, self.inspected_operations, tool_sequence, outcomes
+        )
+        self.assertEqual(first, second)
+        self.assertEqual(digest(first), digest(second))
+        self.assertEqual(first["service_inspection"], self.inspected)
+        self.assertEqual(first["operation_inspections"], self.inspected_operations)
+        self.assertEqual(first["tool_sequence"], tool_sequence)
+        self.assertEqual(first["recent_tool_outcomes"], outcomes)
 
     def test_ollama_endpoint_is_strictly_loopback_ip(self):
         self.assertEqual(validate_ollama_endpoint("http://127.0.0.1:11434"), ("127.0.0.1", 11434))
