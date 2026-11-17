@@ -299,7 +299,8 @@ def _failure_categories(
     if failure.startswith(("provider_final_content_missing", "provider_assistant_message_missing",
                            "provider_tool_calls_invalid", "provider_token_usage_missing")):
         categories.add("model_configuration_or_adapter")
-    if failure in {"multiple_successful_proposals", "repeated_invalid_tool_call", "proposal_repair_budget_exceeded"}:
+    if failure in {"multiple_successful_proposals", "repeated_invalid_tool_call",
+                   "proposal_repair_budget_exceeded", "PROPOSAL_REPAIR_BUDGET_EXCEEDED"}:
         categories.add("repeated_tool_or_repair")
     if failure in {"runner_timeout", "runner_result_missing"} or failure.startswith("gateway_"):
         categories.add("runner_or_gateway_error")
@@ -332,6 +333,12 @@ def _failure_categories(
             }
             if "AN021" in codes:
                 categories.update({"schema_incompatibility", "validation_rejection"})
+            if "IR_PRESERVATION_MISMATCH" in codes:
+                categories.update({"schema_incompatibility", "preservation_violation"})
+            if "VALIDATION_REQUIRED" in codes:
+                categories.add("validation_rejection")
+            if "PROPOSAL_REPAIR_BUDGET_EXCEEDED" in codes:
+                categories.add("repeated_tool_or_repair")
             if codes.intersection({"ARGUMENT_SHAPE", "ARGUMENT_FIELDS", "ARGUMENT_TYPE", "REQUEST_SHAPE"}):
                 categories.add("schema_incompatibility")
             if codes.intersection({"UNKNOWN_TOOL", "REPEATED_INVALID_TOOL_CALL"}):
