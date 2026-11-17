@@ -173,6 +173,36 @@ Each run directory contains the raw gateway trace, the model's final response, t
 
 **Current evidence boundary:** CI validates the adapter against a deterministic local HTTP test double. That proves protocol handling, trace recording, and budget wiring—not model quality. Actual Ollama trials must be run on a machine with the pinned local model. The private evaluator must then independently score each candidate before acceptance rates or comparative results can be published.
 
+## Evaluate and analyze a completed study
+
+A batch marked `completed` means every scheduled model invocation returned a run record; it does not mean the agent solved the task. After the private evaluator has been deployed separately, evaluate each immutable run after the model has stopped. Keep the evaluator source outside this public checkout and outside model-visible context.
+
+For each run directory, the private evaluator consumes the schedule entry, raw `gateway.jsonl`, `run.json`, and `candidate.json` when present. It writes only the coarse `evaluation-result.json`. Then use the public finalizer to bind that result to the original trace:
+
+```sh
+python experiments/pilot/finalize.py \
+  --trace /secure/path/pilot-runs/<run-id>/gateway.jsonl \
+  --evaluation-result /secure/path/pilot-runs/<run-id>/evaluation-result.json \
+  --candidate /secure/path/pilot-runs/<run-id>/candidate.json \
+  --output-trace /secure/path/pilot-runs/<run-id>/finalized.jsonl \
+  --output-summary /secure/path/pilot-runs/<run-id>/summary.json
+```
+
+Omit `--candidate` when the run produced no candidate. Do not create or edit a `task_finished` event by hand; the finalizer appends it only after checking the evaluator result and trace/candidate identities.
+
+Once every scheduled run has a `finalized.jsonl`, generate the paired analysis:
+
+```sh
+python experiments/pilot/analyze.py \
+  --schedule /secure/path/pilot-screening-schedule.json \
+  --results-dir /secure/path/pilot-screening-runs \
+  --output /secure/path/pilot-screening-analysis.json
+```
+
+The analyzer verifies the schedule against the clean pinned checkout, requires every scheduled run exactly once, checks trace identities, and refuses missing or incomplete finalized traces. It reports per-arm acceptance and effort summaries, paired upfront-minus-progressive differences, deterministic 95% paired-bootstrap percentile intervals, exact two-sided McNemar results for acceptance, and the E-007 aggregate. Infrastructure-excluded pairs are reported and omitted from primary paired acceptance and effort estimates. Preserve the schedules, raw traces, candidates, evaluation results, finalized traces, per-run summaries, batch manifest, analysis JSON, and evaluator version together as the immutable study record.
+
+The analysis is descriptive evidence for the registered task and model only. A screening run is not enough to select a framework design; use the pre-registered confirmatory repetitions and the broader E-007 corpus before drawing general conclusions.
+
 ## Protocol
 
 1. Freeze and hash the task, service fixture, backend, schemas, evaluator, and both arm configurations.
