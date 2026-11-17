@@ -30,6 +30,12 @@ Each operation has the complete E-001 operation shape: `name`, `method`, `path`,
 
 When a task says to preserve an existing service, type, field, or operation, the agent must copy the full inspected declarations into the proposed snapshot and make only the requested change. The interface prototype validates canonical structure and effect allowlists; the E-009 evaluation scorer additionally checks that all existing declarations are preserved exactly. The scorer is not a substitute for server-side validation in a future production protocol.
 
+## Exact preservation enforcement in the E-009 Gateway
+
+For the E-009 fixed Catalog task, the Gateway retains the inspected service identity, type declarations, the original operation order, and each exact inspected operation object for the inspected revision. Before forwarding a proposal based on that same revision, it compares those declarations with the submitted complete IR. The existing service, types, and ordered operation prefix must be identical. A mismatch is rejected with `IR_PRESERVATION_MISMATCH`, naming changed operations and instructing the agent to copy the exact inspected objects.
+
+This check is in the Gateway boundary, not just the local model adapter. It does not silently normalize or repair the proposal. The model must submit a corrected full snapshot. The generic E-005 proposal API still accepts immutable proposals and validates canonical IR; the stronger preserve-the-existing-Catalog policy is scoped to the E-009 Gateway experiment.
+
 ## Validation response semantics
 
 The outer tool response can be `ok=true` while `result.valid=false`. The outer flag means the tool request was handled; it is not the semantic acceptance result.
