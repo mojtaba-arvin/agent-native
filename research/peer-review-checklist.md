@@ -62,7 +62,9 @@
 - [x] E-007 runner taxonomy and aggregate budget fail-fast pass deterministic tests.
 - [x] E-009 Gateway enforces exact base preservation and blocks invalid plans.
 - [x] Two E-002 ten-run diagnostics and one package-size measurement are published without selecting a runtime.
-- [ ] Run one bounded real-model attempt after the latest Gateway preservation and candidate-retention changes; inspect the artifact before closing E-007.
+- [x] Inspect the 1,800s proposal-accepted artifact and the bounded 3,000s/context-16,384 follow-up artifact, including raw tool traces and Ollama daemon logs.
+- [x] Add regression coverage so a provider symptom at the proven wall-deadline boundary is classified as timeout/resource-budget exhaustion, while an earlier transport loss remains transport_error.
+- [ ] Complete one real-model propose → valid validate → safe matching plan lifecycle. Do not increase Qwen3 budgets again before interaction-protocol redesign and adversarial provider-double tests.
 - [ ] Derive or reaffirm CPU gate from a product capacity/cost model before a new pre-registered run.
 - [ ] Complete comparable fault-injection and evidence-based ecosystem/operability scoring before any runtime decision.
 
