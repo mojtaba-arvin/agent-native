@@ -121,3 +121,18 @@ A second smoke matrix has completed with pinned Go/Rust/Elixir/OTP/Wasmtime tool
 The opt-in matrix workflow now supports ten randomized repetitions per candidate at 5,000 requests, concurrency 32, and warm-up 250. It records startup time and reports per-run distributions (mean, sample standard deviation, median, min/max, and bootstrap interval for the mean). Shared GitHub-hosted results remain diagnostic; a controlled machine and representative persistence, authorization, inter-service, and failure workloads are still required before any runtime decision.
 
 Latest 10-run diagnostic results are recorded in [the 2026-11-17 report](results/2026-11-17-ten-run-diagnostic.md). All candidates passed functional HTTP checks but failed the provisional CPU gate; no weighted final score or runtime selection is made.
+
+
+## Deployable artifact-size diagnostic
+
+The optional ten-run matrix workflow also writes `artifact-sizes.json` using `measure_artifacts.py`. It measures one built payload per candidate on the same Linux x86_64 runner:
+
+- Go and Rust: application executable plus all resolved shared ELF dependencies reported by `ldd`.
+- WASI P2: the component plus the pinned Wasmtime host executable and its resolved shared ELF dependencies.
+- BEAM: the production Mix release including bundled ERTS, plus resolved shared ELF dependencies for ELF files inside that release.
+
+The report records each input file's byte size and SHA-256, the host platform, package components, and the uncompressed total. Files are deduplicated by device/inode; a shared library already bundled in a release is not counted twice.
+
+This is a **Linux payload-size diagnostic**, not an apples-to-apples portable package or container image comparison. It excludes the kernel, base image, OS configuration, CA roots, and service manager. It does not measure compressed downloads, image layers, runtime memory, installation time, or operational complexity. BEAM and WASI have different packaging models from native binaries; record the breakdown and do not use size alone to rank or select a runtime.
+
+Run the complete matrix (including this size measurement) explicitly through the workflow dispatch input or a deliberate commit whose message contains `[benchmark]`. The committed ten-run diagnostic from 17 November predates this size measurement; artifact sizes remain **not measured** until the next matrix artifact includes `artifact-sizes.json`.
