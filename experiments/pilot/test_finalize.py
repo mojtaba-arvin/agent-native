@@ -31,6 +31,12 @@ class FinalizeTests(unittest.TestCase):
                 "attempt": 1,
             },
         )
+        self.gateway.handle_message({
+            "type": "model_usage",
+            "request_id": "mock-generation-1",
+            "input_tokens": 500,
+            "output_tokens": 120,
+        })
         self.base_revision = self.gateway.interface.revision("catalog")
         self.ir = copy.deepcopy(self.gateway.interface.services["catalog"])
         self.ir["operations"].append({
