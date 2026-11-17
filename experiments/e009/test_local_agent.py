@@ -8,6 +8,7 @@ import sys
 import tempfile
 import threading
 import unittest
+from unittest.mock import patch
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from types import SimpleNamespace
@@ -15,6 +16,7 @@ from types import SimpleNamespace
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(Path(__file__).parent))
 
+import local_agent
 from kernel import load_service_ir
 from local_agent import (
     AgentRunError,
@@ -426,9 +428,11 @@ class LocalAgentRunnerTests(unittest.TestCase):
                     seed=7,
                     think=False,
                 )
-                result = run(args)
+                with patch.object(local_agent, "gateway_exchange", side_effect=AssertionError("invalid call reached Gateway")) as gateway_call:
+                    result = run(args)
+                self.assertEqual(gateway_call.call_count, 0)
                 self.assertEqual(result["status"], "failed")
-                self.assertEqual(result["failure"], "AgentRunError:repeated_invalid_tool_call")
+                self.assertEqual(result["failure"], "AgentRunError:prevalidation_repair_failed")
                 self.assertEqual(result["tool_calls"], 2)
                 run_dirs = list((Path(temp) / "results").iterdir())
                 self.assertEqual(len(run_dirs), 1)
@@ -452,6 +456,8 @@ class LocalAgentRunnerTests(unittest.TestCase):
                     [event["response"]["diagnostics"][0]["code"] for event in events],
                     ["ARGUMENTS_REQUIRED", "ARGUMENTS_REQUIRED"],
                 )
+                self.assertTrue(all(event["execution_origin"] == "runner_prevalidation" for event in events))
+                self.assertIn('service_id: "catalog"', events[0]["response"]["diagnostics"][0]["message"])
                 self.assertEqual(Handler.index, 2)
         finally:
             server.shutdown()
