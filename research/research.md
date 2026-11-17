@@ -177,7 +177,7 @@ It is too broad to say that token cost always grows quadratically with the numbe
 1. E-007 has an executable real-agent runner for one fixed E-009 task. The deterministic three-run Qwen3 cohort failed 0/3 with AN021; the one stochastic post-fix probe also failed to complete a valid proposal/validate/plan cycle.
 2. The deterministic cohort submitted a partial IR missing `ir_version=1` and existing operations, then attempted plan despite `result.valid=false`.
 3. The stochastic probe generated a complete top-level IR with array inputs, but rewrote five existing operation contracts, was blocked at the inspect-all gate, and hit the wall-time ceiling before submitting a second proposal.
-4. The E-005 full-IR tool schema, AN021 fix hint, E-009 task/prompt and same-hash plan gate, candidate-preservation path, and E-007 wall-budget taxonomy are implemented and covered by deterministic tests. No post-fix real-model success has been demonstrated.
+4. The E-005 full-IR tool schema, AN021 fix hint, E-009 task/prompt and same-hash plan gate, candidate-preservation path, and E-007 wall-budget taxonomy are implemented and covered by deterministic tests. No post-Gateway-preservation real-model success has been demonstrated. A one-run deterministic probe with temperature 0, seed 42 and a 1,200-second wall ceiling is running in [workflow 44144939813](https://github.com/mojtaba-arvin/agent-native/actions/runs/44144939813); its artifact is not yet evidence until independently inspected.
 5. Aggregate token/time budgets fail fast before an unaffordable next repetition; local Ollama currency cost is retained as unknown. These are research-runner controls, not a production multi-agent cost service.
 6. Three fixed-seed temperature-zero attempts are deterministic failure reproductions; the single nonzero-temperature probe is only exploratory. No statistical or model superiority claim is supported.
 7. E-002's ten-run shared-host data is diagnostic. The 0.5 CPU-second gate has no demonstrated product-capacity origin; ecosystem, fault injection and the newly added artifact-size measurement have not yet been measured in the matrix. No runtime is selected.
@@ -187,9 +187,9 @@ It is too broad to say that token cost always grows quadratically with the numbe
 
 ### Latest validation implementation status
 
-- E-007: 45 deterministic tests passed in workflow [44126229777](https://github.com/mojtaba-arvin/agent-native/actions/runs/44126229777), including failure taxonomy for preservation/validation/repair-budget diagnostics and wall-time/provider failure overlap.
+- E-007: 47 deterministic tests passed in workflow [44144903660](https://github.com/mojtaba-arvin/agent-native/actions/runs/44144903660), including distinct timeout, provider HTTP, transport, and explicit OOM classifications. A one-run deterministic post-Gateway-preservation Qwen3 trial is in progress in [workflow 44144939813](https://github.com/mojtaba-arvin/agent-native/actions/runs/44144939813); it is not yet reviewed or accepted.
 - E-009: 80 tests passed in workflow [44128413303](https://github.com/mojtaba-arvin/agent-native/actions/runs/44128413303), including exact inspected-operation preservation preflight, fail-closed plan gate, candidate retention before verification, and a bounded proposal-attempt budget.
-- E-002: 9 Python tests for matrix/artifact measurement passed as part of workflow [44124537511](https://github.com/mojtaba-arvin/agent-native/actions/runs/44124537511); the matrix and artifact-size manifest completed successfully. Ecosystem and injected-failure comparisons remain open.
+- E-002: 9 Python tests for matrix/artifact measurement passed as part of workflow [44124537511](https://github.com/mojtaba-arvin/agent-native/actions/runs/44124537511); two 10×5,000 shared-host diagnostic cohorts show all four candidates above the provisional CPU screen. The second cohort measured one host-specific deployable payload per candidate. CPU-gate provenance analysis now covers both cohorts; the threshold still has no product-capacity basis. Ecosystem and injected-failure comparisons remain open.
 
 ## 10. Evidence and decisions
 
