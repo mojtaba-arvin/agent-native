@@ -28,7 +28,7 @@ python experiments/pilot/ollama_runner.py \\
   --results-dir /secure/path/pilot-runs
 ```
 
-Run scheduled sequence numbers in order, one at a time. The schedule and results directory must remain outside the repository checkout. Preserve each run directory; never reuse a run ID.
+Use `run_schedule.py` to execute the full schedule serially and write an immutable batch manifest. It continues after classified per-trial failures, but stops and records an interrupted batch for runner-level errors. The schedule and results directory must remain outside the repository checkout. Preserve each run directory; never reuse a run ID.
 
 ## Trust boundary
 
