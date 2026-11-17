@@ -29,6 +29,8 @@ class MockPipelineConformanceTests(unittest.TestCase):
         gateway = PilotGateway(
             arm,
             max_tool_calls=40,
+            max_input_tokens=16000,
+            max_output_tokens=4000,
             trace_sink=events.append,
             trace_context={
                 "run_id": run_id,
