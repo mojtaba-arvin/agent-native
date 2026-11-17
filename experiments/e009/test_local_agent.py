@@ -1,9 +1,16 @@
 from __future__ import annotations
 
 import copy
+import json
+import os
+import stat
 import sys
+import tempfile
+import threading
 import unittest
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
+from types import SimpleNamespace
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(Path(__file__).parent))
@@ -15,6 +22,7 @@ from local_agent import (
     SERVICE_ID,
     TASK_ID,
     digest,
+    run,
     validate_ollama_endpoint,
     verify_candidate,
 )
@@ -159,6 +167,128 @@ class LocalAgentRunnerTests(unittest.TestCase):
         values[1]["result"]["change_set_id"] = change_set_id
         with self.assertRaisesRegex(AgentRunError, "candidate_new_operation_does_not_match_task"):
             self.verify(*values)
+
+    def test_full_runner_gateway_provider_protocol_with_deterministic_provider(self):
+        candidate_ir = copy.deepcopy(self.ir)
+        candidate_ir["operations"].append(copy.deepcopy(EXPECTED_OPERATION))
+        proposal = {
+            "service_id": SERVICE_ID,
+            "base_revision": self.inspected["revision"],
+            "ir": candidate_ir,
+        }
+        change_set_id = digest(proposal)
+        calls = [
+            ("interface.describe", {"name": "service.inspect"}),
+            ("service.inspect", {"service_id": SERVICE_ID}),
+        ]
+        calls.extend(
+            ("service.inspect", {"service_id": SERVICE_ID, "operation": name})
+            for name in self.inspected_operations
+        )
+        calls.extend([
+            ("service.propose", proposal),
+            ("service.validate", {"change_set_id": change_set_id}),
+            ("service.plan", {"change_set_id": change_set_id}),
+        ])
+        responses = []
+        for index, (tool, arguments) in enumerate(calls, 1):
+            responses.append({
+                "message": {
+                    "role": "assistant",
+                    "content": "",
+                    "tool_calls": [{
+                        "function": {
+                            "name": "agent.invoke",
+                            "arguments": {
+                                "request_id": f"mock-request-{index}",
+                                "tool": tool,
+                                "arguments": arguments,
+                            },
+                        },
+                    }],
+                },
+                "prompt_eval_count": 40,
+                "eval_count": 4,
+            })
+        candidate = {
+            "schema_version": 1,
+            "task_id": TASK_ID,
+            "service_id": SERVICE_ID,
+            "base_revision": self.inspected["revision"],
+            "change_set_id": change_set_id,
+            "ir": candidate_ir,
+        }
+        responses.append({
+            "message": {
+                "role": "assistant",
+                "content": json.dumps(candidate, ensure_ascii=False, sort_keys=True),
+                "tool_calls": [],
+            },
+            "prompt_eval_count": 45,
+            "eval_count": 80,
+        })
+
+        class Handler(BaseHTTPRequestHandler):
+            index = 0
+            response_values = responses
+
+            def do_POST(self):
+                length = int(self.headers["Content-Length"])
+                self.rfile.read(length)
+                if type(self).index >= len(type(self).response_values):
+                    self.send_error(500)
+                    return
+                value = type(self).response_values[type(self).index]
+                type(self).index += 1
+                raw = json.dumps(value, separators=(",", ":")).encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(raw)))
+                self.end_headers()
+                self.wfile.write(raw)
+
+            def log_message(self, *_args):
+                return
+
+        server = HTTPServer(("127.0.0.1", 0), Handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            with tempfile.TemporaryDirectory(prefix="agent-native-e009-", dir="/tmp") as temp:
+                args = SimpleNamespace(
+                    model="deterministic-test-double",
+                    ollama_url=f"http://127.0.0.1:{server.server_port}",
+                    arm="progressive",
+                    results_dir=Path(temp) / "results",
+                    max_input_tokens=2000,
+                    max_output_tokens=1000,
+                    max_tool_calls=20,
+                    max_wall_seconds=30.0,
+                    num_ctx=4096,
+                    num_predict=256,
+                    temperature=0.0,
+                    top_p=1.0,
+                    seed=7,
+                    think=False,
+                )
+                result = run(args)
+                self.assertEqual(result["status"], "candidate_verified_locally")
+                self.assertEqual(result["tool_calls"], len(calls))
+                self.assertEqual(result["input_tokens"], 40 * len(calls) + 45)
+                self.assertEqual(result["output_tokens"], 4 * len(calls) + 80)
+                self.assertEqual(
+                    result["verification"]["added_operation"],
+                    "get_item_by_normalized_name",
+                )
+                run_dir = Path(result["candidate_path"]).parent
+                self.assertTrue((run_dir / "tool-trace.jsonl").is_file())
+                self.assertEqual(stat.S_IMODE((run_dir / "candidate.json").stat().st_mode), 0o600)
+                self.assertEqual(stat.S_IMODE(run_dir.stat().st_mode), 0o700)
+                self.assertEqual(Handler.index, len(responses))
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=5)
 
     def test_ollama_endpoint_is_strictly_loopback_ip(self):
         self.assertEqual(validate_ollama_endpoint("http://127.0.0.1:11434"), ("127.0.0.1", 11434))
