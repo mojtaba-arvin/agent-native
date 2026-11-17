@@ -54,7 +54,7 @@ The second log independently shows CPU-only inference on an AMD EPYC 7763 with t
 
 **Established:**
 - Both retained real-model trials ran on CPU-only GitHub-hosted workers.
-- Qwen3 prefill and decode were materially constrained by the available two-thread CPU environment.
+- Both runs used a CPU-only inference path with two model threads; the performance impact relative to a GPU or higher-thread host is not quantified.
 - In the 1,800-second run, the final prompt prefill remained incomplete at the global wall deadline; the model did not reach a decoding opportunity to choose service.validate.
 - The 2.38 tok/s figure is decode throughput from the preceding request, not prefill.
 
