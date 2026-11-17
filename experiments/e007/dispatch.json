@@ -1,9 +1,11 @@
 {
   "schema_version": 1,
-  "eval_id": "e009-readonly-operation-v1",
+  "eval_id": "e009-readonly-operation-stochastic-postfix-v1",
   "model_id": "qwen3:8b",
-  "repetitions": 3,
+  "repetitions": 1,
   "arm": "upfront",
-  "dispatched_at": "2026-11-17T16:59:00+04:00",
-  "purpose": "Repeat three-run Qwen3 eval with OLLAMA_GO_TEMPLATE=false after diagnosing empty provider responses in prior run"
+  "dispatched_at": "2026-11-17T18:00:00+04:00",
+  "purpose": "One bounded stochastic post-fix Qwen3 probe after complete-IR contract, AN021 guidance, semantic plan gate, and aggregate budget changes. Exploratory, not statistical.",
+  "temperature": 0.7,
+  "seed": 20261117
 }
