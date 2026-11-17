@@ -297,5 +297,42 @@ class EvalRunnerTests(unittest.TestCase):
             self.assertIn("resource_budget_exceeded", categories)
             self.assertNotIn("model_configuration_or_adapter", categories)
 
+
+    def test_nested_preservation_validation_and_repair_budget_codes_have_distinct_categories(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            events = [
+                {
+                    "request": {"tool": "service.propose", "arguments": {}},
+                    "response": {
+                        "ok": False,
+                        "diagnostics": [{"code": "IR_PRESERVATION_MISMATCH"}],
+                    },
+                },
+                {
+                    "request": {"tool": "service.plan", "arguments": {}},
+                    "response": {
+                        "ok": False,
+                        "diagnostics": [{"code": "VALIDATION_REQUIRED"}],
+                    },
+                },
+                {
+                    "request": {"tool": "service.propose", "arguments": {}},
+                    "response": {
+                        "ok": False,
+                        "diagnostics": [{"code": "PROPOSAL_REPAIR_BUDGET_EXCEEDED"}],
+                    },
+                },
+            ]
+            (root / "tool-trace.jsonl").write_text(
+                "".join(json.dumps(event) + "\n" for event in events),
+                encoding="utf-8",
+            )
+            categories = _failure_categories({"failure": "AgentRunError:agent_task_failed"}, root)
+            self.assertIn("schema_incompatibility", categories)
+            self.assertIn("preservation_violation", categories)
+            self.assertIn("validation_rejection", categories)
+            self.assertIn("repeated_tool_or_repair", categories)
+
 if __name__ == "__main__":
     unittest.main()
