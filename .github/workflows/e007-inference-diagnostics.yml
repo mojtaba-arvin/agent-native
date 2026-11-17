@@ -65,6 +65,10 @@ jobs:
             --repetitions 3 \
             --output /tmp/e007-ollama-diagnostics/diagnostics.json
 
+      - name: Record loaded model placement
+        if: always()
+        run: ollama ps > /tmp/ollama-ps.txt || true
+
       - name: Upload infrastructure evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
