@@ -53,6 +53,12 @@ curl -i -X POST http://127.0.0.1:8080/items \
 
 Read it by ID or name using the `id` or `name` returned in the response.
 
+## Proposal IR contract
+
+The `service.propose` IR argument is a complete canonical service snapshot, not a patch. It must contain exactly `ir_version=1`, `service`, `types`, and `operations`. When preserving a service, include every existing type and operation exactly, then append the requested change. Each operation's `input` is an array of declarations with `name`, `source`, and `type`. See [ir-contract.md](ir-contract.md) for the full contract and failure rationale.
+
+A tool envelope with `ok=true` may still contain `result.valid=false`. Treat this as a semantic validation failure; do not plan until the same proposal hash has `result.valid=true`. The local E-009 adapter now blocks premature or hash-mismatched planning and returns `VALIDATION_REQUIRED`.
+
 ## Let an agent inspect and propose service changes
 
 The integrated Agent Gateway is a separate stdio process backed by the same `catalog.an` contract and E-005 validation/plan implementation. The service ID is `catalog` and its display name is `Catalog`. It supports the progressive or upfront disclosure arm and exposes only the E-005 inspect/propose/validate/plan tools. The common dispatch function is `agent.invoke`; no shell, arbitrary filesystem/network, secrets, deployment, or apply capability is exposed.
