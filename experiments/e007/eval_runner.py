@@ -206,7 +206,7 @@ def score_run(
         and (response.get("result") or {}).get("valid") is True
         and (response.get("result") or {}).get("will_mutate") is False
         and (response.get("result") or {}).get("will_deploy") is False
-        for arguments, response in plans
+        for _, arguments, response in plans
     )
     service_inspect_indices = [
         index for index, (tool, arguments, response) in enumerate(tools)
