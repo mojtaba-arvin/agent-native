@@ -115,7 +115,9 @@ def main() -> int:
             stop_monitor.wait(0.02)
 
     try:
+        startup_started = time.perf_counter()
         wait_ready(process)
+        startup_seconds = time.perf_counter() - startup_started
         with concurrent.futures.ThreadPoolExecutor(max_workers=args.concurrency) as pool:
             warmup_results = list(pool.map(lambda _: request("/work?ms=0"), range(args.warmup)))
             if any(status != 200 or body != b"completed:0" for status, body in warmup_results):
@@ -173,6 +175,7 @@ def main() -> int:
             "concurrency": args.concurrency,
             "warmup": args.warmup,
             "elapsed_seconds": elapsed,
+            "startup_seconds": startup_seconds,
             "throughput_requests_per_second": args.requests / elapsed,
             "latency_ms": {
                 "p50": percentile(latencies, 50),
