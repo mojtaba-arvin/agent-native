@@ -144,8 +144,11 @@ python experiments/pilot/schedule.py \
 
 python experiments/pilot/run_schedule.py \
   --schedule /secure/path/pilot-wiring-check.json \
-  --results-dir /secure/path/pilot-wiring-runs
+  --results-dir /secure/path/pilot-wiring-runs \
+  --require-candidate-ready
 ```
+
+The wiring-check flag returns a nonzero exit status unless both arms produced a parseable candidate whose proposal ID is present in that run's gateway trace. This verifies protocol readiness only; it does not assert task acceptance.
 
 Only after the wiring check succeeds, create a fresh 10-pair screening schedule with a new seed and run all 20 sequence numbers serially:
 
