@@ -19,7 +19,7 @@ from typing import Any, Callable
 from urllib.parse import parse_qsl, unquote, urlsplit
 
 PILOT_ROOT = Path(__file__).resolve().parents[1]
-ROOT = PILOT_ROOT.parents[1]
+ROOT = PILOT_ROOT.parent
 sys.path.insert(0, str(ROOT / "experiments" / "e001" / "prototype"))
 sys.path.insert(0, str(ROOT / "experiments" / "e004"))
 
