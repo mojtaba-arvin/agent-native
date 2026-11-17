@@ -113,3 +113,9 @@ When changing a Rust manifest, regenerate the corresponding lockfile with the pi
 
 
 A second smoke matrix has completed with pinned Go/Rust/Elixir/OTP/Wasmtime toolchains and committed Rust lockfiles. Results and caveats: `results/pinned-ci-smoke/README.md`. It remains shared-runner smoke data, not a runtime-selection benchmark.
+
+## Weighted decision matrix
+
+`decision-matrix.md` registers provisional screening gates and weights for p99 latency (25), throughput (20), peak RSS (15), CPU (10), ecosystem/operability (10), failure semantics (10), startup (5), and deployable artifact size (5). Hard correctness/security/failure gates cannot be averaged away. The current three-repetition CI smoke measurements remain diagnostic and do not receive a composite score because the workload and evidence are incomplete.
+
+The opt-in matrix workflow now supports ten randomized repetitions per candidate at 5,000 requests, concurrency 32, and warm-up 250. It records startup time and reports per-run distributions (mean, sample standard deviation, median, min/max, and bootstrap interval for the mean). Shared GitHub-hosted results remain diagnostic; a controlled machine and representative persistence, authorization, inter-service, and failure workloads are still required before any runtime decision.
