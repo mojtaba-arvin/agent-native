@@ -7,7 +7,7 @@
 
 Agent Native is exploring a backend framework designed from first principles for AI agents as its primary authors and operators. The intended product owns its programming model, service semantics, runtime, security boundary, data behavior, distributed execution, and operational lifecycle. It is not a wrapper, adapter, control plane, or code generator for an existing backend framework.
 
-The repository now contains eight independent research workstreams plus E-009, an integrated framework-kernel vertical slice. E-009 connects service IR, capability enforcement, HTTP request handling, tenant-scoped persistence, durable work, a worker/relay, a wired SQLite authorization audit sink, and an Agent-facing inspect/propose/validate/plan gateway. E-007 now has its first executable real-agent eval case and deterministic scorer pipeline; E-002 has a ten-repetition diagnostic runtime matrix with registered gates. The first E-007 Qwen3 attempt exposed an Ollama template-renderer configuration error and is ineligible as an agent-task outcome (the initial runner summary misclassified it; the classifier was corrected before rerun); a corrected three-run attempt is in progress. The project still has no accepted E-007 model result and no evidence that Agent Native improves agent productivity or is production-ready.
+The repository contains eight independent research workstreams plus E-009, an integrated framework-kernel vertical slice. E-009 connects service IR, capability enforcement, HTTP request handling, tenant-scoped persistence, durable work, worker/relay execution, a wired SQLite authorization audit sink, and an Agent-facing inspect/propose/validate/plan Gateway. E-007 now has a specialized real-agent runner for one fixed task, three deterministic scorers, an aggregate token/time budget with mock-tested fail-fast behavior, and evidence artifacts. Its corrected three-run Qwen3 cohort is **0/3 accepted**: every attempt failed validation with `AN021`. The artifact shows the input declaration array was correct, but the model omitted `ir_version=1` and all existing operations from the complete IR snapshot, then called plan when `result.valid=false`. All three used temperature 0 and seed 42; Ollama logs show prompt/KV cache reuse, so the cohort is a deterministic failure reproduction, not statistical evidence. E-005/E-009 contracts and plan-gate fixes now pass deterministic CI but still need a post-fix real-model run. E-002 remains diagnostic; all candidates failed the provisional CPU screen and no runtime is selected. No productivity, superiority, or production-readiness claim is made.
 
 ## Product thesis
 
@@ -27,9 +27,9 @@ No implementation language, service syntax, compiler architecture, runtime, or p
 | E-004 — Security | Default-deny capability reference model, threat model, requirements, and adversarial policy tests | Prototype policy evidence is not a production security audit |
 | E-005 — Agent interface | Progressive schema discovery, proposal hashing, strict request validation, semantic validation, safe planning, and disabled apply | It is an experimental interface prototype, not the final Agent Native protocol |
 | E-006 — Durable execution | SQLite reference model with idempotent submission, lease fencing, recovery, retries, deadlines, and atomic local effects | Durable semantics are tested in isolation, not yet part of an integrated framework |
-| E-007 — Agent benchmark | Public backend-agent task corpus, oracle-isolation contract, trace schema, metrics aggregation, workspace packager, first declarative eval case, real Ollama runner, three deterministic scorers, and CI artifact pipeline | [Eval runner and case](experiments/e007/README.md) are implemented; first three-run attempt was invalid due missing Qwen3-compatible Ollama template configuration; corrected run is in progress; no accepted agent-task result yet |
+| E-007 — Agent benchmark | Public ten-task corpus, oracle-isolation contract, trace schema/metrics, workspace packager, one declarative eval case, real Ollama runner, three deterministic scorers, aggregate budgeter, and CI evidence path | [Three-run Qwen3 artifact](https://github.com/mojtaba-arvin/agent-native/actions/runs/44087982547) is inspected: 0/3 accepted, all fail at validation with AN021. The model used an array input but omitted ir_version and existing operations; temperature 0/seed 42 and KV cache make this deterministic failure reproduction, not statistical evidence. Post-fix real-model behavior remains open. |
 | E-008 — External-effect delivery | SQLite transactional outbox/inbox model with fenced relay leases, retry exhaustion, at-least-once delivery, and consumer deduplication | It does not claim exactly-once delivery to arbitrary external APIs |
-| E-009 — Integrated kernel | Contract-driven HTTP runtime, default-deny authorization, tenant-scoped SQLite, durable work, fenced workers, transactional outbox/inbox, wired SQLite authorization audit sink, and Agent inspect/propose/validate/plan gateway | [72 E-009 tests](experiments/e009/README.md) pass in CI, including audit persistence/reopen/concurrency/fail-closed checks and bounded local-agent repair/provenance checks. Five standalone Qwen3 trials remain unsuccessful; trial 5 reached validation but was rejected with AN021 and repeated the same malformed proposal. This is a single-node semantic integration proof, not a production framework or technology choice |
+| E-009 — Integrated kernel | Contract-driven HTTP runtime, default-deny authorization, tenant-scoped SQLite, durable work, fenced workers, transactional outbox/inbox, wired SQLite authorization audit sink, and Agent inspect/propose/validate/plan gateway | [75 E-009 tests](experiments/e009/README.md) pass in CI, including audit persistence/reopen/concurrency/fail-closed checks and bounded local-agent repair/provenance checks. The separate standalone Qwen3 trial [44081733833](https://github.com/mojtaba-arvin/agent-native/actions/runs/44081733833) reached validation with AN021 after sending an object for the input declarations. The later E-007 three-run study is distinct: its input array was correct, but top-level ir_version and existing operations were missing. This is a single-node semantic integration proof, not a production framework or technology choice |
 
 ## First agent-interface experiment
 
@@ -66,7 +66,7 @@ The adapter is pilot infrastructure only. It does not define the future Agent Na
 - Model usage is recorded from provider telemetry rather than inferred from elapsed time or message size.
 
 **Not yet supported:**
-- That a real model can reliably complete the pilot task through this adapter, or that the first E-007 Qwen3 eval attempt is an eligible agent-task result (it failed before any tool call because the Ollama template renderer was misconfigured).
+- That a real model can reliably complete the E-009 proposal task: the corrected E-007 artifact shows 0/3 accepted attempts. The first E-007 attempt is an infrastructure-invalid cohort because the Ollama template renderer was misconfigured; the corrected run is a genuine agent-task failure cohort.
 - That progressive disclosure improves acceptance, token use, latency, or cost.
 - That any candidate has passed an independent hidden acceptance oracle.
 - That E-009 is a complete framework: it is one integrated vertical slice with a fixed demo Catalog service, single-node SQLite, and a stdlib reference host.
@@ -79,7 +79,7 @@ Mock-provider CI verifies adapter behavior and trace integrity. It is not a real
 
 | Gate | Current assessment |
 |---|---|
-| G0 — Research integrity | Partially established: the first eval case, real-agent runner, deterministic scorers, source hashes, and failure classification exist; the first provider run was ineligible due environment configuration and no accepted evaluator-backed result exists yet |
+| G0 — Research integrity | Partially established: one real-agent case, deterministic scorers, source hashes, failure taxonomy, and mock budget fail-fast are implemented; the corrected real-model cohort is 0/3 accepted and requires post-fix revalidation |
 | G1 — Agent interface | Not yet passed: requires real repeated model runs and independent acceptance results |
 | G2 — Core feasibility | Partial: E-009 proves one integrated contract-driven HTTP/data/job lifecycle; language/compiler/runtime breadth and a general application model remain incomplete |
 | G3 — Safety | Default-deny capability checks, tenant filtering, fail-closed durable SQLite authorization audit, bounded HTTP admission, and no-apply Agent interface are integrated/tested; no production identity, remote/tamper-evident audit, isolation, or security audit |
@@ -89,15 +89,22 @@ Mock-provider CI verifies adapter behavior and trace integrity. It is not a real
 
 ## Next evidence milestones
 
-1. Complete the corrected three-repetition Qwen3 E-007 eval with the Qwen3-compatible Ollama template renderer; classify every run and preserve all traces. Even a 3/3 pass is only an initial repeatability check.
-2. Extend E-007 from the single structured E-009 proposal case to the public task corpus with a separate evaluator trust boundary/sandbox; then evaluate constrained, general, and advanced model tiers.
-3. Run the E-005 paired disclosure pilot with real model/provider usage and independent evaluator results; missing traces or run identities must stop analysis rather than disappear from the sample.
-4. Revisit the E-002 CPU screening threshold only in a new pre-registered cycle, then repeat on controlled hardware with persistence, authorization, serialization, inter-service, and injected-failure workloads. Measure ecosystem/operability and comparable artifact size.
-5. Extend E-009 with process supervision, remote/tamper-evident audit retention, streaming/cancellation semantics, and versioned service migrations with rollback.
-6. Publish raw distributions, uncertainty intervals, failures, and counter-evidence. Keep language/runtime choices open until those comparisons justify a decision.
+1. Run one bounded post-fix Qwen3 trial at non-zero temperature (0.7) with a distinct seed to test whether the complete IR schema/task and semantic plan gate improve behavior. Inspect and preserve the artifact; do not generalize from one stochastic attempt.
+2. Keep E-007 acceptance open until a real-model artifact proves the complete IR snapshot, successful validation, matching safe plan, and no apply.
+3. Extend E-007 to the public task corpus and a separate evaluator trust boundary/sandbox; then test constrained, general, and advanced model tiers as future work (see [evaluation expansion plan](research/e007-future-evaluation-plan.md)).
+4. Run the E-005 paired disclosure pilot with real model/provider usage and independent evaluator results; missing traces or run identities must stop analysis rather than disappear from the sample.
+5. Derive any future E-002 CPU gate from a product capacity/cost model before preregistration; then measure controlled-host persistence, authorization, serialization, inter-service, fault-injection, ecosystem, and artifact-size criteria. No runtime is selected.
+6. Extend E-009 with process supervision, remote/tamper-evident audit retention, streaming/cancellation semantics, and versioned service migrations with rollback.
+7. Publish raw distributions, uncertainty intervals, failures, and counter-evidence. Keep language/runtime choices open until those comparisons justify a decision.
 
 ## Presentation-safe project description
 
 **Agent Native is an independent research and prototyping effort for a backend framework designed around AI agents as primary authors and operators.** It explores service representation, execution substrates, concurrency and failure semantics, capability security, agent-facing interfaces, durable execution, benchmark methodology, and reliable external-effect delivery. The repository contains executable prototypes and reproducible conformance experiments; technology choices remain open pending agent-task, safety, and performance evidence.
 
 This description intentionally distinguishes an ambitious product direction from the current state of implementation.
+## Current evidence register
+
+- [Evidence index](research/evidence-index.md) links E-002/E-007/E-009 artifacts and evidence status.
+- [Design decisions](research/design-decisions.md) records the Qwen3 cache/determinism, complete-IR contract, validation gate, budget, and CPU-gate findings.
+- [CPU-gate analysis](experiments/e002/cpu-gate-analysis.md) explains why the 0.5 s/5k threshold remains a provisional screen rather than a proven product SLO.
+- [E-009 IR contract](experiments/e009/ir-contract.md) defines full-snapshot semantics and validation rules.
