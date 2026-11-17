@@ -132,41 +132,6 @@ def score_run(
             if isinstance(operation, dict):
                 operation_contracts[arguments["operation"]] = operation
 
-    candidate = None
-    candidate_path = run_record.get("candidate_path")
-    if isinstance(candidate_path, str):
-        path = Path(candidate_path)
-        if path.is_file():
-            candidate = _strict_json(path)
-
-    candidate_ok = False
-    if isinstance(candidate, dict) and isinstance(inspected, dict):
-        ir = candidate.get("ir")
-        if isinstance(ir, dict):
-            names = [item.get("name") for item in inspected.get("operations", [])]
-            original_operations = [operation_contracts.get(name) for name in names]
-            operations = ir.get("operations")
-            proposal = {
-                "service_id": candidate.get("service_id"),
-                "base_revision": candidate.get("base_revision"),
-                "ir": ir,
-            }
-            candidate_ok = (
-                run_record.get("status") == "candidate_verified_locally"
-                and candidate.get("schema_version") == 1
-                and candidate.get("task_id") == case["task_id"]
-                and candidate.get("service_id") == case["service_id"]
-                and candidate.get("base_revision") == inspected.get("revision")
-                and candidate.get("change_set_id") == _canonical_hash(proposal)
-                and ir.get("service") == inspected.get("service")
-                and ir.get("types") == inspected.get("types")
-                and isinstance(operations, list)
-                and len(operations) == len(names) + 1
-                and all(item is not None for item in original_operations)
-                and operations[:-1] == original_operations
-                and operations[-1] == expected_operation
-            )
-
     proposals = []
     validations = []
     plans = []
@@ -179,12 +144,89 @@ def score_run(
         elif tool == "service.plan":
             plans.append((index, arguments, response))
 
-    candidate_hash = candidate.get("change_set_id") if isinstance(candidate, dict) else None
+    candidate = None
+    candidate_path = run_record.get("candidate_path")
+    if isinstance(candidate_path, str):
+        path = Path(candidate_path)
+        if path.is_file():
+            candidate = _strict_json(path)
+
+    # Score the contract from a verified final candidate when available. If the
+    # model reached a Gateway-accepted proposal but timed out before emitting its
+    # final JSON wrapper, score the exact proposal request retained in the trace.
+    # Lifecycle and safety remain separate scorers and still require validate/plan.
+    contract_ir = None
+    contract_service_id = None
+    contract_base_revision = None
+    contract_change_set_id = None
+    contract_wrapper_ok = False
+    if isinstance(candidate, dict):
+        contract_ir = candidate.get("ir")
+        contract_service_id = candidate.get("service_id")
+        contract_base_revision = candidate.get("base_revision")
+        contract_change_set_id = candidate.get("change_set_id")
+        contract_wrapper_ok = (
+            run_record.get("status") == "candidate_verified_locally"
+            and candidate.get("schema_version") == 1
+            and candidate.get("task_id") == case["task_id"]
+        )
+    elif proposals:
+        _, proposal_arguments, proposal_result = proposals[-1]
+        contract_ir = proposal_arguments.get("ir")
+        contract_service_id = proposal_arguments.get("service_id")
+        contract_base_revision = proposal_arguments.get("base_revision")
+        contract_change_set_id = proposal_result.get("change_set_id")
+
+    candidate_ok = False
+    candidate_hash = None
+    if isinstance(contract_ir, dict) and isinstance(inspected, dict):
+        names = [item.get("name") for item in inspected.get("operations", [])]
+        original_operations = [operation_contracts.get(name) for name in names]
+        operations = contract_ir.get("operations")
+        proposal_payload = {
+            "service_id": contract_service_id,
+            "base_revision": contract_base_revision,
+            "ir": contract_ir,
+        }
+        computed_hash = _canonical_hash(proposal_payload)
+        candidate_hash = computed_hash
+        hash_matches = contract_change_set_id == computed_hash
+        if isinstance(candidate, dict):
+            identity_ok = (
+                contract_wrapper_ok
+                and contract_service_id == case["service_id"]
+                and candidate.get("task_id") == case["task_id"]
+            )
+        else:
+            identity_ok = (
+                contract_service_id == case["service_id"]
+                and any(
+                    arguments.get("service_id") == contract_service_id
+                    and arguments.get("base_revision") == contract_base_revision
+                    and arguments.get("ir") == contract_ir
+                    and result.get("change_set_id") == contract_change_set_id
+                    for _, arguments, result in proposals
+                )
+            )
+        candidate_ok = (
+            identity_ok
+            and contract_base_revision == inspected.get("revision")
+            and hash_matches
+            and contract_ir.get("ir_version") == 1
+            and contract_ir.get("service") == inspected.get("service")
+            and contract_ir.get("types") == inspected.get("types")
+            and isinstance(operations, list)
+            and len(operations) == len(names) + 1
+            and all(item is not None for item in original_operations)
+            and operations[:-1] == original_operations
+            and operations[-1] == expected_operation
+        )
+
     matching_proposals = [
         index for index, arguments, result in proposals
-        if arguments.get("base_revision") == (candidate or {}).get("base_revision")
+        if arguments.get("base_revision") == contract_base_revision
         and result.get("change_set_id") == candidate_hash
-        and arguments.get("ir") == (candidate or {}).get("ir")
+        and arguments.get("ir") == contract_ir
     ]
     matching_validations = [
         index for index, arguments, response in validations
@@ -199,8 +241,8 @@ def score_run(
         and (response.get("result") or {}).get("valid") is True
     ]
     # Repair may create earlier proposals with different hashes. The final
-    # candidate must match exactly one successful proposal, and no later proposal
-    # may supersede it. Duplicate successful proposals for the same candidate fail.
+    # candidate must match exactly one successful proposal, and no later
+    # proposal may supersede it. Duplicate successful proposals fail lifecycle.
     lifecycle_ok = (
         len(matching_proposals) == 1
         and bool(proposals)
