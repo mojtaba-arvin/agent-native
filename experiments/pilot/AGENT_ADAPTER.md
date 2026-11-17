@@ -1,8 +1,34 @@
 # Pilot agent-adapter contract
 
-**Status:** provider-neutral contract; no provider implementation is selected or included.
+**Status:** provider-neutral contract; one bounded local Ollama adapter is implemented for this disposable pilot only.
 
 The adapter is the trusted bridge between a model-provider API and the local E-005 pilot gateway. It is not part of the Agent Native product and must not become a permanent framework abstraction merely because the pilot needs it.
+
+
+## Implemented local runner
+
+`ollama_runner.py` is a concrete adapter for running one scheduled trial against a local Ollama server. It is deliberately not a general-purpose agent runtime and does not select an Agent Native language, service syntax, execution model, or public protocol.
+
+- It accepts only an HTTP loopback endpoint (default `http://127.0.0.1:11434`) and calls Ollama's native `/api/chat` endpoint. It cannot silently send the task to a remote provider.
+- It verifies the schedule against the exact clean checkout, selects one trial by sequence, and starts a fresh gateway process with the scheduled token, tool-call, and wall-clock limits.
+- It sends the same system prompt and task to both arms, adds the assigned session surface as a separate context message, and exposes exactly one provider function named `agent.invoke`.
+- It maps provider calls into the gateway's NDJSON envelope without retrying or repairing model arguments. Malformed calls are represented as invalid gateway attempts so they remain visible in the trace.
+- It records Ollama's authoritative `prompt_eval_count` and `eval_count` through the gateway before handling calls from that response. Missing usage is an adapter failure; tokens are never estimated. Cost remains unavailable unless the provider supplies authoritative cost data.
+- It pins `temperature`, `top_p`, `seed`, `num_ctx`, and `think` in the schedule. The per-response `num_predict` ceiling cannot exceed the scheduled output-token budget.
+- Run artifacts are written outside the checkout with restrictive file permissions. A completed candidate is marked `candidate_ready_for_external_evaluation`; the runner never marks it accepted and never invokes the hidden evaluator.
+
+The adapter uses Ollama's local Chat API and tool-calling message format. See the [Ollama API](https://github.com/ollama/ollama/blob/main/docs/api.md) and [tool-calling documentation](https://github.com/ollama/ollama/blob/main/docs/capabilities/tool-calling.mdx). No model-specific behavior is used by the Agent Native gateway.
+
+Example runner invocation after creating and verifying a schedule:
+
+```sh
+python experiments/pilot/ollama_runner.py \\
+  --schedule /secure/path/pilot-screening-schedule.json \\
+  --trial-sequence 1 \\
+  --results-dir /secure/path/pilot-runs
+```
+
+Run scheduled sequence numbers in order, one at a time. The schedule and results directory must remain outside the repository checkout. Preserve each run directory; never reuse a run ID.
 
 ## Trust boundary
 
