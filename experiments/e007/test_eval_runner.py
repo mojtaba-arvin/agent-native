@@ -282,20 +282,48 @@ class EvalRunnerTests(unittest.TestCase):
         }))
 
 
-    def test_provider_transport_at_the_wall_ceiling_is_budget_not_agent_failure(self):
+    def test_http_cancellation_at_wall_ceiling_is_timeout_not_transport_error(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             categories = _failure_categories(
                 {
-                    "failure": "AgentRunError:provider_transport_failure",
+                    "failure": "AgentRunError:provider_http_500",
                     "duration_ms": 900030.0,
                 },
                 root,
                 max_wall_seconds=900.0,
             )
-            self.assertIn("provider_transport", categories)
+            self.assertIn("provider_http_error", categories)
+            self.assertIn("timeout", categories)
             self.assertIn("resource_budget_exceeded", categories)
-            self.assertNotIn("model_configuration_or_adapter", categories)
+            self.assertNotIn("transport_error", categories)
+            self.assertNotIn("resource_exhaustion", categories)
+
+    def test_provider_transport_below_wall_ceiling_is_not_timeout(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            categories = _failure_categories(
+                {
+                    "failure": "AgentRunError:provider_transport_failure",
+                    "duration_ms": 12345.0,
+                },
+                root,
+                max_wall_seconds=900.0,
+            )
+            self.assertIn("transport_error", categories)
+            self.assertNotIn("timeout", categories)
+            self.assertNotIn("resource_budget_exceeded", categories)
+
+    def test_explicit_oom_evidence_is_resource_exhaustion(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            categories = _failure_categories(
+                {"failure": "AgentRunError:out_of_memory"},
+                root,
+                max_wall_seconds=900.0,
+            )
+            self.assertIn("resource_exhaustion", categories)
+            self.assertNotIn("timeout", categories)
 
 
     def test_nested_preservation_validation_and_repair_budget_codes_have_distinct_categories(self):
