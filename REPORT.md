@@ -29,7 +29,7 @@ No implementation language, service syntax, compiler architecture, runtime, or p
 | E-006 — Durable execution | SQLite reference model with idempotent submission, lease fencing, recovery, retries, deadlines, and atomic local effects | Durable semantics are tested in isolation, not yet part of an integrated framework |
 | E-007 — Agent benchmark | Public backend-agent task corpus, oracle-isolation contract, trace schema, metrics aggregation, workspace packager, first declarative eval case, real Ollama runner, three deterministic scorers, and CI artifact pipeline | First three-run attempt was invalid due missing Qwen3-compatible Ollama template configuration; corrected run is in progress; no accepted agent-task result yet |
 | E-008 — External-effect delivery | SQLite transactional outbox/inbox model with fenced relay leases, retry exhaustion, at-least-once delivery, and consumer deduplication | It does not claim exactly-once delivery to arbitrary external APIs |
-| E-009 — Integrated kernel | Contract-driven HTTP runtime, default-deny authorization, tenant-scoped SQLite, durable work, fenced workers, transactional outbox/inbox, wired SQLite authorization audit sink, and Agent inspect/propose/validate/plan gateway | 72 E-009 tests pass in CI, including audit persistence/reopen/concurrency/fail-closed checks and bounded local-agent repair/provenance checks; a single-node semantic integration proof, not a production framework or technology choice |
+| E-009 — Integrated kernel | Contract-driven HTTP runtime, default-deny authorization, tenant-scoped SQLite, durable work, fenced workers, transactional outbox/inbox, wired SQLite authorization audit sink, and Agent inspect/propose/validate/plan gateway | 72 E-009 tests pass in CI, including audit persistence/reopen/concurrency/fail-closed checks and bounded local-agent repair/provenance checks. Five standalone Qwen3 trials remain unsuccessful; trial 5 reached validation but was rejected with AN021 and repeated the same malformed proposal. This is a single-node semantic integration proof, not a production framework or technology choice |
 
 ## First agent-interface experiment
 
@@ -79,7 +79,7 @@ Mock-provider CI verifies adapter behavior and trace integrity. It is not a real
 
 | Gate | Current assessment |
 |---|---|
-| G0 — Research integrity | Partially established: task, paired schedule, hashes, and public protocol are defined; real evaluator-backed trial records are still absent |
+| G0 — Research integrity | Partially established: the first eval case, real-agent runner, deterministic scorers, source hashes, and failure classification exist; the first provider run was ineligible due environment configuration and no accepted evaluator-backed result exists yet |
 | G1 — Agent interface | Not yet passed: requires real repeated model runs and independent acceptance results |
 | G2 — Core feasibility | Partial: E-009 proves one integrated contract-driven HTTP/data/job lifecycle; language/compiler/runtime breadth and a general application model remain incomplete |
 | G3 — Safety | Default-deny capability checks, tenant filtering, fail-closed durable SQLite authorization audit, bounded HTTP admission, and no-apply Agent interface are integrated/tested; no production identity, remote/tamper-evident audit, isolation, or security audit |
