@@ -44,6 +44,12 @@ The model generated the full top-level IR shape (`ir_version=1`, service, types,
 
 This one run establishes a different failure path under non-zero temperature; it does not establish improvement, statistical reliability, or model superiority. The later candidate-preservation code was committed after this workflow, so this particular run did not save a separate final candidate JSON.
 
+## Post-Gateway deterministic probe — input-budget exhaustion
+
+Workflow [44144939813](https://github.com/mojtaba-arvin/agent-native/actions/runs/44144939813), artifact [14357367813](https://github.com/mojtaba-arvin/agent-native/actions/runs/44144939813/artifacts/14357367813), used Qwen3 with `temperature=0`, `seed=42`, and a 1,200-second wall cap. It consumed 48,307 input tokens against a 48,000 cap, 1,373 output tokens, and 1,020.139 seconds. The model inspected five of six existing operations; its first proposal was rejected with `INSPECTION_INCOMPLETE`; the input-token cap stopped the run before a second proposal, validation, or plan. No `AN021`, provider error, or observed OOM occurred. See the [raw-trace analysis](results/2026-11-17-deterministic-postfix-budget-exhaustion.md).
+
+The artifact's original `eligible_for_acceptance=true` was incorrect: per-run token-budget exhaustion must be ineligible for the agent-acceptance denominator. The runner now excludes per-run input/output/tool/wall/model-turn/candidate-size budget stops, with regression coverage. The raw artifact remains unchanged. One bounded follow-up is planned with a 96,000-input-token and 1,800-second wall budget; no IR or safety gate is relaxed.
+
 ## Corrective changes and remaining limits
 
 The E-005 tool schema now publishes the full canonical IR object; `AN021` adds an actionable fix hint; the E-009 task and system prompt require a complete snapshot, not a patch; and the local runner blocks `service.plan` until the current proposal hash has `result.valid=true`. These changes pass deterministic tests, but a post-fix real-model run is still required.
