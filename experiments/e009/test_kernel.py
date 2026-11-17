@@ -255,6 +255,37 @@ class KernelTests(unittest.TestCase):
         )
         self.assertEqual(hidden.status_code, 404)
 
+    def test_queue_backpressure_is_a_declared_rate_limit_response(self):
+        constrained = DurableWorkStore(
+            self.repository.database,
+            max_outstanding=1,
+            max_concurrency=1,
+        )
+        constrained.submit_job(
+            tenant_id="tenant-a",
+            task_type="catalog.rebuild",
+            payload={"requested_by": "existing"},
+            idempotency_key="capacity-existing",
+            now=100,
+            deadline_at=1000,
+        )
+        runtime = ServiceRuntime(
+            self.ir,
+            handlers=build_catalog_handlers(self.repository, constrained),
+            repository=self.repository,
+            trusted_effects=TRUSTED_EFFECTS,
+            clock=lambda: 100,
+        )
+        limited = runtime.dispatch(
+            "POST",
+            "/items/rebuild",
+            {},
+            context(),
+            headers={"idempotency-key": "capacity-rejected"},
+        )
+        self.assertEqual(limited.status_code, 429)
+        self.assertEqual(limited.body["error"]["code"], "RateLimited")
+
     def test_durable_job_submission_requires_capability(self):
         denied_identity = context(
             "restricted-user",
