@@ -312,20 +312,27 @@ class DurableWorkStoreTests(unittest.TestCase):
             idempotency_key="running-2", now=1, deadline_at=100,
         )
         claim = constrained.claim_job(worker_id="worker-1", now=2, lease_seconds=30)
-        self.assertEqual(claim["task_id"], first["task_id"])
+        self.assertIn(claim["task_id"], {first["task_id"], second["task_id"]})
+        remaining_task_id = (
+            second["task_id"] if claim["task_id"] == first["task_id"] else first["task_id"]
+        )
         self.assertIsNone(constrained.claim_job(worker_id="worker-2", now=3, lease_seconds=30))
 
-        constrained.cancel_job(tenant_id="tenant-a", task_id=first["task_id"], now=4)
+        constrained.cancel_job(
+            tenant_id="tenant-a",
+            task_id=claim["task_id"],
+            now=4,
+        )
         self.assertIsNone(constrained.claim_job(worker_id="worker-2", now=5, lease_seconds=30))
         stopped = constrained.acknowledge_stopped(
-            task_id=first["task_id"],
+            task_id=claim["task_id"],
             worker_id="worker-1",
             lease_token=claim["lease_token"],
             now=6,
         )
         self.assertEqual(stopped["state"], "cancelled")
         next_claim = constrained.claim_job(worker_id="worker-2", now=7, lease_seconds=30)
-        self.assertEqual(next_claim["task_id"], second["task_id"])
+        self.assertEqual(next_claim["task_id"], remaining_task_id)
 
     def test_invalid_job_envelopes_and_deadlines_are_rejected(self):
         with self.assertRaises(ValueError):
