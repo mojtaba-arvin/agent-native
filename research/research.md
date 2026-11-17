@@ -168,15 +168,15 @@ It is too broad to say that token cost always grows quadratically with the numbe
 
 ## 9. Research conclusion
 
-1. The most important missing deliverable is an integrated real-agent evaluation loop, not another set of conformance tests.
-2. E-007 already has the corpus, trace schema, metrics aggregator, and evaluator-isolation contract. It lacks the actual E-007 execution/evaluation pipeline and independent oracle runtime.
-3. E-009 already has a single-node durable state store, job/relay recovery semantics, and an injectable fail-closed audit sink. The urgent production gap is a durable audit sink wired into the runnable service, plus real process supervision and multi-node recovery later.
-4. The current Qwen3 trial exposed a specific repair failure: the model does not translate the `AN021` diagnostic into the required input-array shape and repeats the invalid proposal.
-5. E-002 has measurements and metrics, but no registered weights or hard thresholds; current smoke results cannot support a technology choice.
-6. E-004 has a useful threat model and capability reference model, but no longitudinal behavioral-governance/orchestration layer.
-7. The report and resource-policy documents need their real-model evidence snapshots refreshed after the next validation cycle.
+1. E-007 now has a specialized executable real-agent runner for one fixed E-009 task. Its first corrected three-run Qwen3 cohort failed 0/3 at validation; no real-model acceptance has been demonstrated.
+2. The observed E-007 payload used the correct new-operation input array but omitted top-level `ir_version=1` and all existing operations from a complete IR snapshot. The model called plan despite semantic `result.valid=false`.
+3. The E-005 proposal schema, AN021 repair hint, E-009 complete-IR task/prompt, and fail-closed same-hash plan guard now address those contract/runner defects. Deterministic tests pass, but post-fix real-model compliance remains unverified.
+4. Aggregate evaluation token/time budgets now fail fast before an unaffordable next repetition; unpriced local Ollama currency cost is retained as unknown. These controls are runner-level research features, not a production multi-agent budget service.
+5. Three temperature-zero/fixed-seed runs with prompt/KV cache reuse are deterministic failure reproductions, not independent statistical samples. The multi-tier cohort and broader corpus remain future work.
+6. E-002's ten-run shared-host data is diagnostic. The pre-registered 0.5 CPU-second gate has no demonstrated product-SLO/capacity origin; ecosystem, fault-injection, and artifact-size evidence is still missing. No runtime is selected.
+7. E-009's durable audit sink and fail-closed plan control are tested as a single-node reference implementation, not a production security/audit architecture.
 
-**No implementation language, service syntax, runtime substrate, broker, or production database is selected by this audit.**
+**No implementation language, service syntax, runtime substrate, broker, production database, or transport is selected by this audit.**
 
 ## 10. Evidence and decisions
 
