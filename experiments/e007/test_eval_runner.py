@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from eval_runner import score_run, _wilson
+from eval_runner import score_run, _wilson, _eligible
 
 
 class EvalRunnerTests(unittest.TestCase):
@@ -16,6 +16,10 @@ class EvalRunnerTests(unittest.TestCase):
         self.assertLessEqual(interval["upper"], 1)
         self.assertLess(interval["lower"], 1)
         self.assertEqual(interval["upper"], 1)
+
+    def test_empty_provider_response_is_ineligible_for_agent_acceptance(self):
+        record = {"failure": "AgentRunError:provider_final_content_missing"}
+        self.assertFalse(_eligible(record))
 
     def test_deterministic_scorers_accept_trace_correlated_safe_candidate(self):
         names = ["cancel_job", "create_item", "get_item", "get_item_by_name", "get_job", "submit_rebuild"]
