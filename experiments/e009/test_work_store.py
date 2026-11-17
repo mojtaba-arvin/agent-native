@@ -9,6 +9,7 @@ from repository import SQLiteCatalogRepository
 from work_store import (
     DurableWorkStore,
     InboxConflict,
+    JobBackpressure,
     JobConflict,
     StaleJobLease,
     StaleOutboxLease,
@@ -260,6 +261,71 @@ class DurableWorkStoreTests(unittest.TestCase):
         self.assertEqual(self.store.consumer_total(
             consumer_id="consumer-a", state_key="work.done"
         ), 1)
+
+    def test_outstanding_limit_rejects_new_work_but_allows_idempotent_replay(self):
+        constrained = DurableWorkStore(
+            self.database,
+            max_outstanding=1,
+            max_concurrency=1,
+        )
+        first, replay = constrained.submit_job(
+            tenant_id="tenant-a",
+            task_type="catalog.rebuild",
+            payload={"requested_by": "operator"},
+            idempotency_key="capacity-1",
+            now=1,
+            deadline_at=100,
+        )
+        self.assertFalse(replay)
+        same, replayed = constrained.submit_job(
+            tenant_id="tenant-a",
+            task_type="catalog.rebuild",
+            payload={"requested_by": "operator"},
+            idempotency_key="capacity-1",
+            now=2,
+            deadline_at=100,
+        )
+        self.assertTrue(replayed)
+        self.assertEqual(same["task_id"], first["task_id"])
+        with self.assertRaises(JobBackpressure):
+            constrained.submit_job(
+                tenant_id="tenant-a",
+                task_type="catalog.rebuild",
+                payload={"requested_by": "operator"},
+                idempotency_key="capacity-2",
+                now=2,
+                deadline_at=100,
+            )
+
+    def test_running_limit_includes_cancellation_until_stop_is_acknowledged(self):
+        constrained = DurableWorkStore(
+            self.database,
+            max_outstanding=5,
+            max_concurrency=1,
+        )
+        first, _ = constrained.submit_job(
+            tenant_id="tenant-a", task_type="catalog.rebuild", payload={},
+            idempotency_key="running-1", now=1, deadline_at=100,
+        )
+        second, _ = constrained.submit_job(
+            tenant_id="tenant-a", task_type="catalog.rebuild", payload={},
+            idempotency_key="running-2", now=1, deadline_at=100,
+        )
+        claim = constrained.claim_job(worker_id="worker-1", now=2, lease_seconds=30)
+        self.assertEqual(claim["task_id"], first["task_id"])
+        self.assertIsNone(constrained.claim_job(worker_id="worker-2", now=3, lease_seconds=30))
+
+        constrained.cancel_job(tenant_id="tenant-a", task_id=first["task_id"], now=4)
+        self.assertIsNone(constrained.claim_job(worker_id="worker-2", now=5, lease_seconds=30))
+        stopped = constrained.acknowledge_stopped(
+            task_id=first["task_id"],
+            worker_id="worker-1",
+            lease_token=claim["lease_token"],
+            now=6,
+        )
+        self.assertEqual(stopped["state"], "cancelled")
+        next_claim = constrained.claim_job(worker_id="worker-2", now=7, lease_seconds=30)
+        self.assertEqual(next_claim["task_id"], second["task_id"])
 
     def test_invalid_job_envelopes_and_deadlines_are_rejected(self):
         with self.assertRaises(ValueError):
