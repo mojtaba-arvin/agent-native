@@ -212,6 +212,27 @@ class EvalRunnerTests(unittest.TestCase):
             self.assertFalse(result["scores"]["proposal_lifecycle"]["passed"])
             self.assertTrue(result["scores"]["candidate_contract"]["passed"])
 
+    def test_provider_symptom_at_wall_deadline_is_timeout_not_transport_failure(self):
+        record = {
+            "failure": "AgentRunError:provider_transport_failure",
+            "duration_ms": 1800116.206,
+        }
+        categories = _failure_categories(record, max_wall_seconds=1800.0)
+        self.assertIn("timeout", categories)
+        self.assertIn("resource_budget_exceeded", categories)
+        self.assertNotIn("transport_error", categories)
+        self.assertNotIn("agent_or_runner_failure", categories)
+
+    def test_provider_transport_failure_before_wall_deadline_remains_transport_error(self):
+        record = {
+            "failure": "AgentRunError:provider_transport_failure",
+            "duration_ms": 12000.0,
+        }
+        categories = _failure_categories(record, max_wall_seconds=1800.0)
+        self.assertIn("transport_error", categories)
+        self.assertNotIn("timeout", categories)
+        self.assertNotIn("resource_budget_exceeded", categories)
+
     def test_failure_taxonomy_preserves_schema_and_repeated_proposal_evidence(self):
         with tempfile.TemporaryDirectory() as temporary:
             root=Path(temporary)
