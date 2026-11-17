@@ -16,15 +16,16 @@ from identity import MemoryIdentityProvider
 from kernel import ServiceRuntime, load_service_ir
 from repository import SQLiteCatalogRepository
 from work_store import DurableWorkStore
+from worker import CatalogWorker, OutboxRelay
 from security_model import Grant, RequestContext
 
 
 SOURCE = (Path(__file__).parent / "catalog.an").read_text(encoding="utf-8")
-TRUSTED_EFFECTS = {"repository.read", "repository.write", "queue.submit"}
+TRUSTED_EFFECTS = {"repository.read", "repository.write", "queue.submit", "queue.read", "queue.cancel"}
 
 
 def make_context(principal, tenant, grants=True):
-    capabilities = ("items.read", "items.create", "jobs.submit") if grants else ()
+    capabilities = ("items.read", "items.create", "jobs.submit", "jobs.read", "jobs.cancel") if grants else ()
     return RequestContext(
         principal_id=principal,
         tenant_id=tenant,
@@ -144,6 +145,72 @@ class KernelHTTPServerTests(unittest.TestCase):
             task_id=first[2]["data"]["id"],
         )
         self.assertEqual(job["state"], "queued")
+
+    def test_http_submit_inspect_worker_complete_and_outbox_relay(self):
+        submitted = self.request(
+            "POST", "/items/rebuild", body={},
+            headers={"Idempotency-Key": "http-lifecycle-001"},
+        )
+        self.assertEqual(submitted[0], 202)
+        task_id = submitted[2]["data"]["id"]
+
+        queued = self.request("GET", f"/jobs/{task_id}")
+        self.assertEqual(queued[0], 200)
+        self.assertEqual(queued[2]["data"]["state"], "queued")
+
+        self.repository.create_item(
+            tenant_id="tenant-a", name="Desk lamp",
+            idempotency_key="worker-fixture-001", now=100,
+        )
+        worker = CatalogWorker(self.repository, self.work_store, lease_seconds=30)
+        outcome = worker.run_once(worker_id="http-worker-1", now=101)
+        self.assertEqual(outcome.task_id, task_id)
+        self.assertEqual(outcome.state, "completed")
+        self.assertEqual(outcome.result["items_seen"], 1)
+
+        completed = self.request("GET", f"/jobs/{task_id}")
+        self.assertEqual(completed[0], 200)
+        self.assertEqual(completed[2]["data"]["state"], "completed")
+
+        relay = OutboxRelay(self.work_store, consumer_id="http-observer")
+        # The first pending event is work.submitted, then work.completed.
+        first = relay.run_once(relay_id="http-relay", now=102)
+        second = relay.run_once(relay_id="http-relay", now=103)
+        self.assertTrue(first.claimed)
+        self.assertTrue(second.claimed)
+        self.assertEqual(
+            self.work_store.consumer_total(
+                consumer_id="http-observer",
+                state_key="catalog.rebuild",
+            ),
+            1,
+        )
+
+    def test_http_running_job_cancel_requires_worker_stop_ack(self):
+        submitted = self.request(
+            "POST", "/items/rebuild", body={},
+            headers={"Idempotency-Key": "http-cancel-running-001"},
+        )
+        task_id = submitted[2]["data"]["id"]
+        claim = self.work_store.claim_job(
+            worker_id="cancel-worker",
+            now=101,
+            lease_seconds=30,
+        )
+        self.assertEqual(claim["task_id"], task_id)
+        request = self.request("POST", f"/jobs/{task_id}/cancel")
+        self.assertEqual(request[0], 202)
+        self.assertEqual(request[2]["data"]["state"], "cancellation_requested")
+        still_running = self.work_store.get_job(tenant_id="tenant-a", task_id=task_id)
+        self.assertEqual(still_running["lease_owner"], "cancel-worker")
+        self.work_store.acknowledge_stopped(
+            task_id=task_id,
+            worker_id="cancel-worker",
+            lease_token=claim["lease_token"],
+            now=102,
+        )
+        final = self.request("GET", f"/jobs/{task_id}")
+        self.assertEqual(final[2]["data"]["state"], "cancelled")
 
     def test_replayed_idempotency_key_returns_original_item(self):
         first = self.request(
