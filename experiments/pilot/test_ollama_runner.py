@@ -42,7 +42,7 @@ class FakeOllamaHandler(BaseHTTPRequestHandler):
                             "arguments": {
                                 "request_id": "model-call-001",
                                 "tool": "interface.describe",
-                                "arguments": {},
+                                "arguments": {"name": "service.inspect"},
                             },
                         },
                     }],
