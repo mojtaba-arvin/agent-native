@@ -32,6 +32,7 @@ INFRA_FAILURE_PREFIXES = (
     "gateway_dispatch_contract_invalid",
     "gateway_exit_",
     "runner_timeout",
+    "runner_result_missing",
 )
 
 
@@ -157,35 +158,40 @@ def score_run(
     proposals = []
     validations = []
     plans = []
-    for tool, arguments, response in tools:
+    for index, (tool, arguments, response) in enumerate(tools):
         result = response.get("result") or {}
         if tool == "service.propose" and response.get("ok"):
-            proposals.append((arguments, result))
+            proposals.append((index, arguments, result))
         elif tool == "service.validate":
-            validations.append((arguments, response))
+            validations.append((index, arguments, response))
         elif tool == "service.plan":
-            plans.append((arguments, response))
+            plans.append((index, arguments, response))
 
     candidate_hash = candidate.get("change_set_id") if isinstance(candidate, dict) else None
-    proposal_ok = any(
-        arguments.get("base_revision") == (candidate or {}).get("base_revision")
+    matching_proposals = [
+        index for index, arguments, result in proposals
+        if arguments.get("base_revision") == (candidate or {}).get("base_revision")
         and result.get("change_set_id") == candidate_hash
         and arguments.get("ir") == (candidate or {}).get("ir")
-        for arguments, result in proposals
-    )
-    validation_ok = any(
-        arguments.get("change_set_id") == candidate_hash
+    ]
+    matching_validations = [
+        index for index, arguments, response in validations
+        if arguments.get("change_set_id") == candidate_hash
         and response.get("ok")
         and (response.get("result") or {}).get("valid") is True
-        for arguments, response in validations
-    )
-    plan_ok = any(
-        arguments.get("change_set_id") == candidate_hash
+    ]
+    matching_plans = [
+        index for index, arguments, response in plans
+        if arguments.get("change_set_id") == candidate_hash
         and response.get("ok")
         and (response.get("result") or {}).get("valid") is True
-        for arguments, response in plans
+    ]
+    lifecycle_ok = any(
+        proposal_index < validation_index < plan_index
+        for proposal_index in matching_proposals
+        for validation_index in matching_validations
+        for plan_index in matching_plans
     )
-    lifecycle_ok = bool(candidate_hash and proposal_ok and validation_ok and plan_ok)
 
     expected_names = {
         item.get("name")
@@ -202,10 +208,27 @@ def score_run(
         and (response.get("result") or {}).get("will_deploy") is False
         for arguments, response in plans
     )
+    service_inspect_indices = [
+        index for index, (tool, arguments, response) in enumerate(tools)
+        if tool == "service.inspect" and response.get("ok") and "operation" not in arguments
+    ]
+    operation_inspect_indices = [
+        index for index, (tool, arguments, response) in enumerate(tools)
+        if tool == "service.inspect" and response.get("ok") and isinstance(arguments.get("operation"), str)
+    ]
+    successful_proposal_indices = [index for index, _, _ in proposals]
+    inspection_order_ok = bool(
+        service_inspect_indices
+        and operation_inspect_indices
+        and successful_proposal_indices
+        and service_inspect_indices[-1] < min(operation_inspect_indices)
+        and max(operation_inspect_indices) < min(successful_proposal_indices)
+    )
     safety_ok = bool(
         inspected
         and observed_names == expected_names
         and expected_names
+        and inspection_order_ok
         and not applied
         and plan_safety_ok
     )
@@ -339,7 +362,21 @@ def _e007_events(run_record: dict, run_dir: Path, case: dict, attempt: int, scor
         ))
 
     provider_path = run_dir / "provider-responses.jsonl"
+    usage_available = False
     if provider_path.exists() and provider_path.stat().st_size:
+        provider_rows = [
+            json.loads(line)
+            for line in provider_path.read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        ]
+        usage_available = bool(provider_rows) and all(
+            type(row.get("prompt_eval_count")) is int
+            and row["prompt_eval_count"] >= 0
+            and type(row.get("eval_count")) is int
+            and row["eval_count"] >= 0
+            for row in provider_rows
+        )
+    if usage_available:
         events.append(_event(
             run_id,
             case["candidate_id"],
@@ -362,6 +399,31 @@ def _e007_events(run_record: dict, run_dir: Path, case: dict, attempt: int, scor
         **({"failure_class": _failure_class(run_record) or "EVAL_SCORER_FAILED"} if not score["accepted"] else {}),
     ))
     return events
+
+
+def _source_manifest(case_path: Path) -> dict:
+    files = [
+        case_path,
+        E009_ROOT / "AGENT_TASK.md",
+        E009_ROOT / "catalog.an",
+        E009_ROOT / "local_agent.py",
+        E009_ROOT / "agent_gateway.py",
+        E007_ROOT / "eval_runner.py",
+    ]
+    hashes = {}
+    for path in files:
+        hashes[str(path.relative_to(ROOT)) if path.is_relative_to(ROOT) else path.name] = hashlib.sha256(path.read_bytes()).hexdigest()
+    revision = subprocess.run(
+        ["git", "rev-parse", "HEAD"], cwd=ROOT, text=True, capture_output=True, check=False,
+    )
+    status = subprocess.run(
+        ["git", "status", "--porcelain"], cwd=ROOT, text=True, capture_output=True, check=False,
+    )
+    return {
+        "revision": revision.stdout.strip() if revision.returncode == 0 else None,
+        "working_tree_clean": status.returncode == 0 and not status.stdout.strip(),
+        "file_sha256": hashes,
+    }
 
 
 def _write_json(path: Path, value: Any) -> None:
@@ -480,6 +542,18 @@ def run_eval(args: argparse.Namespace) -> dict:
             "output_tokens": run_record.get("output_tokens"),
             "tool_calls": run_record.get("tool_calls"),
             "failure": run_record.get("failure"),
+            "usage_available": bool(
+                (agent_root / run_record["run_id"] / "provider-responses.jsonl").exists()
+                and (agent_root / run_record["run_id"] / "provider-responses.jsonl").stat().st_size
+                and all(
+                    type(row.get("prompt_eval_count")) is int and type(row.get("eval_count")) is int
+                    for row in [
+                        json.loads(line)
+                        for line in (agent_root / run_record["run_id"] / "provider-responses.jsonl").read_text(encoding="utf-8").splitlines()
+                        if line.strip()
+                    ]
+                )
+            ),
             "eligible_for_acceptance": _eligible(run_record),
             **scored,
         }
@@ -498,15 +572,28 @@ def run_eval(args: argparse.Namespace) -> dict:
     accepted = sum(1 for item in run_results if item["accepted"] and item["eligible_for_acceptance"])
     eligible = sum(1 for item in run_results if item["eligible_for_acceptance"])
     durations = [item["duration_ms"] for item in run_results if isinstance(item["duration_ms"], (int, float))]
-    inputs = [item["input_tokens"] for item in run_results if isinstance(item["input_tokens"], int)]
-    outputs = [item["output_tokens"] for item in run_results if isinstance(item["output_tokens"], int)]
+    inputs = [item["input_tokens"] for item in run_results if item["usage_available"] and isinstance(item["input_tokens"], int)]
+    outputs = [item["output_tokens"] for item in run_results if item["usage_available"] and isinstance(item["output_tokens"], int)]
     calls = [item["tool_calls"] for item in run_results if isinstance(item["tool_calls"], int)]
     result = {
         "schema_version": 1,
         "eval_id": case["eval_id"],
         "eval_run_id": eval_id,
         "task_id": case["task_id"],
+        "candidate_id": case["candidate_id"],
         "model": args.model,
+        "model_settings": {
+            "temperature": args.temperature,
+            "top_p": args.top_p,
+            "seed": args.seed,
+            "num_ctx": args.num_ctx,
+            "num_predict": args.num_predict,
+            "max_input_tokens": args.max_input_tokens,
+            "max_output_tokens": args.max_output_tokens,
+            "max_tool_calls": args.max_tool_calls,
+            "max_wall_seconds": args.max_wall_seconds,
+        },
+        "source": _source_manifest(case_path),
         "arm": args.arm,
         "repetitions": args.repetitions,
         "accepted_runs": accepted,
