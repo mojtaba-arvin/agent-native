@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       run_benchmark_matrix:
-        description: Run the three-repetition cross-runtime benchmark (smoke data only)
+        description: Run the ten-repetition cross-runtime diagnostic matrix (not a runtime decision)
         required: false
         default: false
         type: boolean
@@ -87,7 +87,7 @@ jobs:
   benchmark-matrix:
     if: (github.event_name == 'workflow_dispatch' && inputs.run_benchmark_matrix) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[benchmark]'))
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -119,18 +119,18 @@ jobs:
           WASMTIME_BIN="$(find /tmp -type f -name wasmtime -perm -111 2>/dev/null | head -n 1)"
           test -n "$WASMTIME_BIN"
           echo "$(dirname "$WASMTIME_BIN")" >> "$GITHUB_PATH"
-      - name: Run randomized initial matrix (smoke data only)
+      - name: Run randomized ten-repetition matrix (diagnostic only)
         run: |
           python experiments/e002/run_matrix.py \
             --go-command /tmp/e002-go \
             --rust-command ./target/release/agent-native-e002-rust \
             --wasi-command "wasmtime serve --addr=127.0.0.1:8080 -S cli=y -S http=y target/wasm32-wasip2/release/agent_native_e002_wasi_p2.wasm" \
             --beam-command "mix run -e AgentNativeE002Beam.Server.main()" \
-            --requests 1000 --concurrency 32 --warmup 100 --repetitions 3 \
+            --requests 5000 --concurrency 32 --warmup 250 --repetitions 10 \
             --output /tmp/e002-results
       - uses: actions/upload-artifact@v4
         with:
-          name: e002-initial-runtime-matrix
+          name: e002-ten-repetition-diagnostic-matrix
           path: /tmp/e002-results/
           if-no-files-found: error
           retention-days: 14
