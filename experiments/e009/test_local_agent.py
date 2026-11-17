@@ -323,6 +323,14 @@ class LocalAgentRunnerTests(unittest.TestCase):
                 )
                 run_dir = Path(result["candidate_path"]).parent
                 self.assertTrue((run_dir / "tool-trace.jsonl").is_file())
+                prompt_states = [
+                    json.loads(line)
+                    for line in (run_dir / "prompt-states.jsonl").read_text(encoding="utf-8").splitlines()
+                ]
+                self.assertEqual(len(prompt_states), len(responses))
+                self.assertEqual(prompt_states[0]["kind"], "initial_session_surface")
+                self.assertEqual(prompt_states[1]["kind"], "gateway_state_ledger")
+                self.assertTrue(all(item["state_sha256"] == digest(item["state"]) for item in prompt_states))
                 self.assertEqual(stat.S_IMODE((run_dir / "candidate.json").stat().st_mode), 0o600)
                 self.assertEqual(stat.S_IMODE(run_dir.stat().st_mode), 0o700)
                 self.assertEqual(Handler.index, len(responses))
@@ -417,6 +425,16 @@ class LocalAgentRunnerTests(unittest.TestCase):
                     json.loads(line)
                     for line in trace.read_text(encoding="utf-8").splitlines()
                 ]
+                prompt_states = [
+                    json.loads(line)
+                    for line in (run_dirs[0] / "prompt-states.jsonl").read_text(encoding="utf-8").splitlines()
+                ]
+                self.assertEqual(len(prompt_states), 2)
+                self.assertEqual(prompt_states[1]["state"]["tool_sequence"], ["service.inspect"])
+                self.assertEqual(
+                    prompt_states[1]["state"]["recent_tool_outcomes"][-1]["diagnostics"][0]["code"],
+                    "ARGUMENTS_REQUIRED",
+                )
                 self.assertEqual(len(events), 2)
                 self.assertEqual(
                     [event["response"]["diagnostics"][0]["code"] for event in events],
