@@ -131,7 +131,7 @@ The provider-neutral gateway can be driven by a real local Ollama model using th
 Install/start Ollama separately and make the selected model available locally. Then run from the repository root:
 
 ```sh
-python experiments/e009/local_agent.py --model qwen3:8b
+python experiments/e009/local_agent.py --model qwen3-8b-local
 ```
 
 The default endpoint is strictly limited to an HTTP loopback IP. Results are written under `/tmp/agent-native-e009-runs`, outside the checkout, with private directory/file permissions. Override the model, disclosure arm, or resource budgets explicitly when needed:
@@ -146,7 +146,7 @@ python experiments/e009/local_agent.py \
   --max-wall-seconds 600
 ```
 
-The run record includes provider-reported input/output token counts, tool-call count, duration, candidate path, and local verification result. The JSONL trace contains tool requests/results but not model hidden reasoning. Input-token usage is checked after each provider response, so a single response can cross the configured aggregate input ceiling before the runner stops. This adapter is for a bounded local feasibility trial; it is not the E-007 benchmark runner or a private acceptance oracle. A locally verified candidate is not evidence of production correctness.
+The run record includes provider-reported input/output token counts, tool-call count, duration, candidate path, and local verification result. The local verifier checks the inspected base revision, complete preservation of existing types/operations, exact requested operation, proposal hash correlation, successful validation, safe plan, and absence of apply. The JSONL trace contains tool requests/results but not model hidden reasoning. Input-token usage is checked after each provider response, so a single response can cross the configured aggregate input ceiling before the runner stops. This adapter is for a bounded local feasibility trial; it is not the E-007 benchmark runner or a private acceptance oracle. A locally verified candidate is not evidence of production correctness.
 
 ## Evidence boundary
 
