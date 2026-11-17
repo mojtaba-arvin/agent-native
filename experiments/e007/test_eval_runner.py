@@ -350,6 +350,23 @@ class EvalRunnerTests(unittest.TestCase):
             self.assertNotIn("transport_error", categories)
             self.assertNotIn("resource_exhaustion", categories)
 
+    def test_transport_symptom_at_wall_ceiling_is_marked_as_budget_terminal(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            categories = _failure_categories(
+                {
+                    "failure": "AgentRunError:provider_transport_failure",
+                    "duration_ms": 1800116.206,
+                },
+                root,
+                max_wall_seconds=1800.0,
+            )
+            self.assertIn("transport_error", categories)
+            self.assertIn("timeout", categories)
+            self.assertIn("resource_budget_exceeded", categories)
+            self.assertIn("wall_budget_terminal_transport", categories)
+            self.assertNotIn("resource_exhaustion", categories)
+
     def test_provider_transport_below_wall_ceiling_is_not_timeout(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
