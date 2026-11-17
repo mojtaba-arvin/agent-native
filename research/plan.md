@@ -220,7 +220,7 @@ P1 is the critical path. P2 and P3 can proceed after their contracts are fixed a
 | P2 — Durable E-009 audit sink | Complete | SQLite sink wired into serve.py; allow/deny, reopen, concurrent append, append-only, and fail-closed tests; 76 E-009 tests pass |
 | P3.1 — E-002 decision criteria | Complete | Weighted criteria and provisional gates registered before the ten-run matrix; [CPU gate analysis](../experiments/e002/cpu-gate-analysis.md) documents the missing product-side provenance |
 | P3.2 — E-002 ten-run matrix | Complete, diagnostic only | 10 repetitions × 5,000 requests per candidate; all functional, p99, throughput, RSS, startup gates pass; all four candidates fail the provisional CPU screen; ecosystem/fault-injection/artifact-size criteria remain unmeasured |
-| P4 — Validation and reporting | Partially complete | E-005 17 tests, E-007 42 tests, E-009 76 tests pass; peer checklist records the 0/3 failure and keeps post-fix real-model acceptance open |
+| P4 — Validation and reporting | Partially complete | E-005 17 tests, E-007 43 tests, E-009 76 tests pass; peer checklist records the 0/3 failure and keeps post-fix real-model acceptance open |
 | P5 — Evidence synthesis | In progress | [Evidence index](evidence-index.md), [design decisions](design-decisions.md), [CPU analysis](../experiments/e002/cpu-gate-analysis.md), and [E-009 IR contract](../experiments/e009/ir-contract.md) created; report/resource-policy/docs reconciliation continues |
 
 ## RPI phase 0 — Continuous evaluation-infrastructure validation
