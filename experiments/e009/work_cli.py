@@ -76,11 +76,12 @@ def main() -> None:
                 "note": "A stop request does not free worker capacity; acknowledge only after the worker is confirmed stopped.",
             }
         elif args.command == "worker-stopped":
-            result = work_store.worker_crashed(
+            result = work_store.acknowledge_stopped(
                 task_id=args.task_id,
                 worker_id=args.worker_id,
                 lease_token=args.lease_token,
                 now=now,
+                reason=args.reason,
             )
         elif args.command == "job-show":
             result = work_store.get_job(
