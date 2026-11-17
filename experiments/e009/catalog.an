@@ -6,6 +6,11 @@ service Catalog {
     name: String;
   }
 
+  type WorkTicket {
+    id: UUID;
+    state: String;
+  }
+
   operation get_item {
     method: GET;
     path: "/items/{id}";
@@ -44,11 +49,6 @@ service Catalog {
     validation: [name.non_empty];
     effects: [repository.read];
     capability: "items.read";
-  }
-
-  type WorkTicket {
-    id: UUID;
-    state: String;
   }
 
   operation submit_rebuild {
