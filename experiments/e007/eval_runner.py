@@ -311,8 +311,8 @@ def _failure_categories(run_record: dict, run_dir: Path | None = None) -> list[s
             result = response.get("result") or {}
             diagnostic_rows = [
                 *(response.get("diagnostics") or []),
-                *(result.get("diagnostics") or []) if isinstance(result, dict) else [],
-                *(result.get("validation_diagnostics") or []) if isinstance(result, dict) else [],
+                *((result.get("diagnostics") or []) if isinstance(result, dict) else []),
+                *((result.get("validation_diagnostics") or []) if isinstance(result, dict) else []),
             ]
             codes = {
                 item.get("code") for item in diagnostic_rows
