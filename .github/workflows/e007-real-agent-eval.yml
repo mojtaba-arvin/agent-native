@@ -18,7 +18,7 @@ concurrency:
 jobs:
   qwen3-deterministic-postfix-expanded-budget:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -51,11 +51,11 @@ jobs:
             --model qwen3:8b \
             --arm upfront \
             --repetitions 1 \
-            --max-input-tokens 96000 \
+            --max-input-tokens 120000 \
             --max-output-tokens 6000 \
             --max-tool-calls 20 \
-            --max-wall-seconds 1800 \
-            --num-ctx 8192 \
+            --max-wall-seconds 3000 \
+            --num-ctx 16384 \
             --num-predict 2048 \
             --temperature 0 \
             --seed 42 \
