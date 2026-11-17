@@ -37,6 +37,13 @@ class MockPipelineConformanceTests(unittest.TestCase):
                 "attempt": 1,
             },
         )
+        usage_ack = gateway.handle_message({
+            "type": "model_usage",
+            "request_id": f"{arm}-mock-generation-1",
+            "input_tokens": 1000,
+            "output_tokens": 250,
+        })
+        self.assertTrue(usage_ack["accepted"])
         session = gateway.session_message()
         self.assertNotIn("disclosure_arm", session["surface"])
         self.assertNotIn(arm, json.dumps(session["surface"], sort_keys=True))
