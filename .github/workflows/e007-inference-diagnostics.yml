@@ -28,6 +28,9 @@ jobs:
         with:
           python-version: "3.11.18"
 
+      - name: Test diagnostic measurement semantics
+        run: python -m unittest discover -s experiments/e007 -p 'test_ollama_diagnostics.py' -v
+
       - name: Record host and install Ollama
         shell: bash
         run: |
