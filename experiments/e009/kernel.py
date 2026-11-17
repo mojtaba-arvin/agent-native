@@ -22,6 +22,7 @@ PILOT_ROOT = Path(__file__).resolve().parents[1]
 ROOT = PILOT_ROOT.parent
 sys.path.insert(0, str(ROOT / "experiments" / "e001" / "prototype"))
 sys.path.insert(0, str(ROOT / "experiments" / "e004"))
+sys.path.insert(0, str(PILOT_ROOT / "e009"))
 
 from agent_native import Diagnostic, Parser, validate_ir  # noqa: E402
 from security_model import OperationContract, PolicyEngine, RequestContext  # noqa: E402
@@ -287,7 +288,7 @@ class ServiceRuntime:
             elif source == "query":
                 raw = query.get(name)
             elif source == "header":
-                raw = headers.get(name.lower())
+                raw = headers.get(name.lower().replace("_", "-"))
             elif source == "body":
                 raw = None
                 value = body.get(name)
