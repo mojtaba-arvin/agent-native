@@ -81,6 +81,7 @@ The older `REPORT.md` still says no live-model trial has occurred, and `research
 - `prepare_workspace.py` materializes one public task without oracle IDs or unrelated task prompts.
 - `ORACLE_ISOLATION.md` specifies agent/evaluator trust zones and insists on a disposable OS/container/VM boundary.
 - The packager is **not** a sandbox and does **not** execute an agent. The E-007 README and issue #15 explicitly state that no E-007 agent runs or hidden oracles exist.
+- `EVALUATION.md` specifies three model capability tiers and eleven task categories; the current E-007 corpus has ten tasks. It has no completed E-007 model cohort across constrained, general, and advanced agents. The separate E-005 pilot provides a paired schedule, adapter, finalizer, and statistical analyzer, but its protocol CI uses deterministic provider doubles rather than completed real-model/evaluator-backed observations.
 - The separate pilot already has a provider adapter, trace/finalizer contracts, paired schedule, and statistical analysis, but its CI uses deterministic provider doubles. It is not an independent hidden evaluator and has not generated real-agent acceptance data.
 - E-009's Ollama runner is a real-model feasibility harness for one fixed inspect/propose/validate/plan task. It is not an E-007 corpus runner.
 
