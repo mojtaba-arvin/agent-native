@@ -155,8 +155,26 @@ def validate_candidate(
 
 
 
+def extract_trace_proposal_ids(events: list[dict]) -> set[str]:
+    """Extract successful proposal IDs from an already parsed trace snapshot."""
+    if not isinstance(events, list):
+        raise CandidateError("trace_events_must_be_list")
+    proposal_ids: set[str] = set()
+    for line_number, event in enumerate(events, 1):
+        if not isinstance(event, dict):
+            raise CandidateError(f"trace_event_not_object:{line_number}")
+        if event.get("event_type") == "tool_call" and event.get("tool_name") == "service.propose":
+            if event.get("failure_class"):
+                continue
+            change_set_id = event.get("change_set_id")
+            if not isinstance(change_set_id, str) or not SHA256_PATTERN.fullmatch(change_set_id):
+                raise CandidateError(f"trace_successful_proposal_missing_hash:{line_number}")
+            proposal_ids.add(change_set_id)
+    return proposal_ids
+
+
 def load_trace_proposal_ids(path: str | Path) -> set[str]:
-    """Read proposal IDs emitted by successful service.propose calls only."""
+    """Read and parse proposal IDs from a bounded raw trace file."""
     trace_path = Path(path)
     try:
         if trace_path.stat().st_size > 64 * 1024 * 1024:
@@ -173,28 +191,20 @@ def load_trace_proposal_ids(path: str | Path) -> set[str]:
     except UnicodeDecodeError as error:
         raise CandidateError("trace_invalid_utf8") from error
 
-    proposal_ids: set[str] = set()
+    parsed = []
     for line_number, line in enumerate(decoded.splitlines(), 1):
         if not line.strip():
             continue
         try:
-            event = json.loads(
+            parsed.append(json.loads(
                 line,
                 object_pairs_hook=_reject_duplicate_keys,
                 parse_constant=_reject_non_finite,
-            )
+            ))
         except (json.JSONDecodeError, CandidateError) as error:
             raise CandidateError(f"trace_invalid_jsonl_line:{line_number}") from error
-        if not isinstance(event, dict):
-            raise CandidateError(f"trace_event_not_object:{line_number}")
-        if event.get("event_type") == "tool_call" and event.get("tool_name") == "service.propose":
-            if event.get("failure_class"):
-                continue
-            change_set_id = event.get("change_set_id")
-            if not isinstance(change_set_id, str) or not SHA256_PATTERN.fullmatch(change_set_id):
-                raise CandidateError(f"trace_successful_proposal_missing_hash:{line_number}")
-            proposal_ids.add(change_set_id)
-    return proposal_ids
+    return extract_trace_proposal_ids(parsed)
+
 
 def load_candidate(
     path: str | Path,
