@@ -398,7 +398,7 @@ def _compact_conversation(
     ledger = {
         "service_inspection": inspected,
         "operation_inspections": {
-            name: inspected_operations[name] for name in sorted(inspected_operations)
+            name: inspected_operations[name] for name in inspected_operations
         },
         "tool_sequence": tool_sequence,
         "recent_tool_outcomes": tool_outcomes[-12:],
