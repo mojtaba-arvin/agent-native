@@ -29,7 +29,7 @@
 
 | Evidence | Location | Classification | What it supports | What remains open |
 |---|---|---|---|---|
-| Durable authorization audit sink | [E-009 workflow 44128413303](https://github.com/mojtaba-arvin/agent-native/actions/runs/44127273582), 80-test suite | **Implementation verification** | SQLite audit persistence, reopen, concurrency, append-only triggers, fail-closed behavior, semantic plan gating, Gateway base-preservation checks, bounded proposals and candidate retention | Single-node reference service; not remotely replicated, cryptographically tamper-evident or production-ready |
+| Durable authorization audit sink | [E-009 workflow 44128413303](https://github.com/mojtaba-arvin/agent-native/actions/runs/44128413303), 80-test suite | **Implementation verification** | SQLite audit persistence, reopen, concurrency, append-only triggers, fail-closed behavior, semantic plan gating, Gateway base-preservation checks, bounded proposals and candidate retention | Single-node reference service; not remotely replicated, cryptographically tamper-evident or production-ready |
 | Complete IR proposal contract | [IR contract](../experiments/e009/ir-contract.md) | **Design contract** | Complete snapshot rather than patch; exact base preservation in E-009 Gateway; semantic validation-result requirements | Real model must still produce an exact snapshot and finish validation/plan |
 
 ## Cross-cutting decisions and limitations
