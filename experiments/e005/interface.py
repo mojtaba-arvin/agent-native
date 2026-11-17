@@ -218,7 +218,15 @@ class AgentInterface:
         try:
             validate_ir(ir)
         except Diagnostic as error:
-            diagnostics.append(self._diagnostic(error.code, error.message))
+            fix_hint = None
+            if error.code == "AN021":
+                fix_hint = (
+                    "Submit a complete canonical IR snapshot, not a patch: the top-level object must contain "
+                    "exactly ir_version (integer 1), service, types, and operations. Include all existing "
+                    "operation declarations that must be preserved. Each operation.input must be an array "
+                    "of {name, source, type} declarations."
+                )
+            diagnostics.append(self._diagnostic(error.code, error.message, fix_hint))
             return diagnostics
         except (TypeError, ValueError, KeyError, AttributeError, IndexError):
             diagnostics.append(self._diagnostic("INVALID_IR_SHAPE", "IR contains malformed nested values."))
