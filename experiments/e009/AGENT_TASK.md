@@ -1,8 +1,8 @@
 # E-009 local Agent task
 
-This run uses the upfront disclosure arm; all tool schemas are already supplied. Do not call `interface.describe`.
+The active disclosure arm is pinned by the evaluation case. In upfront mode, all schemas are supplied and `interface.describe` must not be called. In progressive mode, retrieve each missing tool schema with `interface.describe` before using that tool.
 
-1. First call `service.inspect` with exactly `service_id="catalog"` and no `operation` argument.
+1. Inspect the service with `service_id="catalog"` (retrieve the `service.inspect` schema first only in progressive mode).
 2. Inspect each of the six existing operation names returned by that service inspection exactly once. Do not inspect the requested new operation.
 3. Propose exactly one additional read-only operation using the complete canonical IR snapshot below.
 4. Immediately after the Gateway accepts a proposal (`ok=true`), call `service.validate` with the exact returned `change_set_id`. If and only if `result.valid=true`, immediately call `service.plan` with that same hash.
