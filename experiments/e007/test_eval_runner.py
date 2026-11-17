@@ -156,7 +156,7 @@ class EvalRunnerTests(unittest.TestCase):
             add("service.propose",proposal,{"ok":True,"result":{"change_set_id":change_id}})
         add("service.validate",{"change_set_id":change_id},{"ok":True,"result":{"valid":True}})
         add("service.plan",{"change_set_id":change_id},{"ok":True,"result":{"valid":True,"will_mutate":False,"will_deploy":False}})
-        (root/"tool-trace.jsonl").write_text("".join(json.dumps(x)+"\\n" for x in trace),encoding="utf-8")
+        (root/"tool-trace.jsonl").write_text("".join(json.dumps(x)+"\n" for x in trace),encoding="utf-8")
         return ({"run_id":"fixture","model":"qwen3:8b","status":"candidate_verified_locally",
                  "candidate_path":str(cp),"failure":None},
                 {"task_id":"e009-add-readonly-operation","service_id":"catalog","expected_operation":expected})
@@ -174,7 +174,7 @@ class EvalRunnerTests(unittest.TestCase):
             root=Path(temporary)
             (root/"tool-trace.jsonl").write_text(json.dumps({
                 "request":{"tool":"service.validate","arguments":{}},
-                "response":{"ok":True,"result":{"valid":False},"diagnostics":[{"code":"AN021"}]}})+"\\n",encoding="utf-8")
+                "response":{"ok":True,"result":{"valid":False},"diagnostics":[{"code":"AN021"}]}})+"\n",encoding="utf-8")
             categories=_failure_categories({"failure":"AgentRunError:multiple_successful_proposals"},root)
             self.assertIn("schema_incompatibility",categories)
             self.assertIn("validation_rejection",categories)
