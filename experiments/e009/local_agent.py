@@ -520,6 +520,7 @@ def run(args: argparse.Namespace) -> dict:
                             and (validation_result.get("result") or {}).get("valid") is True
                             and validation_change_set_id == current_id
                             and isinstance(current_id, str)
+                            and isinstance(arguments, dict)
                             and arguments.get("change_set_id") == current_id
                         )
                         if not validation_ok:
