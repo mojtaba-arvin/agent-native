@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "eval_id": "e009-readonly-operation-postfix-expanded-budget-v1",
+  "eval_id": "e009-readonly-operation-postfix-extended-context-v2",
   "task_id": "e009-add-readonly-operation",
   "service_id": "catalog",
   "candidate_id": "catalog-ir-readonly-extension-v1",
@@ -51,17 +51,17 @@
     "temperature": 0,
     "top_p": 1,
     "seed": 42,
-    "num_ctx": 8192,
+    "num_ctx": 16384,
     "num_predict": 2048,
-    "max_input_tokens": 96000,
+    "max_input_tokens": 120000,
     "max_output_tokens": 6000,
     "max_tool_calls": 20,
-    "max_wall_seconds": 1800
+    "max_wall_seconds": 3000
   },
   "budget": {
-    "max_total_input_tokens": 96000,
+    "max_total_input_tokens": 120000,
     "max_total_output_tokens": 6000,
-    "max_total_wall_seconds": 1800,
+    "max_total_wall_seconds": 3000,
     "input_price_per_million_usd": null,
     "output_price_per_million_usd": null,
     "max_estimated_cost_usd": null,
