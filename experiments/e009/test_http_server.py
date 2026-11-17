@@ -246,11 +246,13 @@ class KernelHTTPServerTests(unittest.TestCase):
         self.assertEqual(authenticated_but_denied[2]["error"]["code"], "Unauthorized")
 
     def test_body_size_content_type_and_json_are_strict(self):
-        too_large = self.request(
-            "POST",
-            "/items",
-            body={"name": "x" * (1_048_576 + 1)},
-            headers={"Idempotency-Key": "http-large-001"},
+        too_large = self.raw_request(
+            b"POST /items HTTP/1.1\r\n"
+            + f"Host: 127.0.0.1:{self.server.server_port}\r\n".encode()
+            + b"Authorization: Bearer test-token-aaaaaaaaaaaaaaaaaaaaaaaa\r\n"
+            + b"Content-Type: application/json\r\n"
+            + b"Content-Length: 1048577\r\n"
+            + b"Connection: close\r\n\r\n"
         )
         self.assertEqual(too_large[0], 413)
         self.assertEqual(too_large[2]["error"]["code"], "BODY_TOO_LARGE")
