@@ -103,7 +103,7 @@ No additional input, output field, effect, capability, error, or validation rule
 
 ## Current implementation boundary
 
-The public repository contains this contract, candidate-envelope validation, trace correlation, and trusted-result finalization. It does not contain the hidden evaluator implementation, provider adapter, or an isolated evaluator deployment. No agent trial is considered complete until those external components exist and a real model run has been independently evaluated.
+The public repository contains this contract, candidate-envelope validation, trace correlation, trusted-result finalization, and a bounded local Ollama provider adapter with a serial schedule runner. It does not contain the hidden evaluator implementation or an isolated evaluator deployment. CI uses a deterministic provider test double and is not evidence of model task performance. No agent trial is considered evaluated until a real model run has been independently scored by the separately protected evaluator.
 
 
 ## Protected execution sequence
