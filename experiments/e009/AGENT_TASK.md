@@ -1,5 +1,13 @@
 # E-009 local Agent task
 
+This run uses the upfront disclosure arm; all tool schemas are already supplied. Do not call `interface.describe`.
+
+1. First call `service.inspect` with exactly `service_id="catalog"` and no `operation` argument.
+2. Inspect each of the six existing operation names returned by that service inspection exactly once. Do not inspect the requested new operation.
+3. Propose exactly one additional read-only operation using the complete canonical IR snapshot below.
+4. Immediately after the Gateway accepts a proposal (`ok=true`), call `service.validate` with the exact returned `change_set_id`. If and only if `result.valid=true`, immediately call `service.plan` with that same hash.
+5. After the safe plan, emit the required final JSON object. Do not inspect or propose again after a proposal is accepted.
+
 Inspect the live service with ID `catalog` (display name `Catalog`) and propose exactly one additional read-only operation:
 
 - Name: `get_item_by_normalized_name`
