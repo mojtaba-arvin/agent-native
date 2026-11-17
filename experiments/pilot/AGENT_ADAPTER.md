@@ -29,7 +29,7 @@ This is a tool-use experiment, not a code-execution benchmark: the model propose
 
 1. Before starting any trial, the runner executes `verify_schedule.py` from the clean checkout and verifies the schedule Git revision and all pinned source hashes. A mismatch aborts the entire batch before any model request.
 2. The runner selects exactly one trial from the verified immutable schedule.
-3. The runner creates a fresh E-005 gateway instance and a new exclusive trace file for that run.
+3. The runner creates a fresh E-005 gateway instance and a new exclusive trace file for that run, passing the trial's exact `max_tool_calls` value to `gateway.py`.
 4. The runner starts the gateway with its out-of-band run ID, candidate ID, model ID, task ID, and attempt number.
 5. The adapter reads the gateway's first NDJSON message, which contains the session surface. It must not add or remove tool schemas.
 6. The runner supplies the task text from `experiments/pilot/TASK.md`. It does not supply the pair ID, trial order, candidate label, hidden evaluator data, or schedule.
@@ -66,7 +66,7 @@ The adapter maps a model `agent.invoke` call to one NDJSON gateway line:
 
 It reads exactly one `tool_result` message and returns the nested E-005 response to the model as the tool result. It must preserve tool names, arguments, diagnostic codes, and result values. It must not retry, rewrite, repair, or silently normalize an invalid model call. Provider-required serialization is allowed only if semantically lossless and identical in both arms.
 
-The adapter must enforce the scheduled maximum tool-call count and wall-clock limit. The gateway additionally enforces its own request-size and tool allowlist. The model cannot invoke arbitrary shell, filesystem, network, secret, deployment, or mutation operations.
+The adapter must enforce the scheduled wall-clock limit and stop on a gateway budget rejection. The gateway independently enforces the scheduled maximum tool-call count, its request-size limit, and tool allowlist. The runner must launch it with the trial's exact `max_tool_calls` value from the schedule; traced runs refuse to start without a positive cap. The over-budget call is traced as `TOOL_CALL_BUDGET_EXCEEDED`, is never dispatched, and maps to the eligible agent failure class `AGENT_BUDGET_EXHAUSTED`. The model cannot invoke arbitrary shell, filesystem, network, secret, deployment, or mutation operations.
 
 ## Completion and candidate output
 
