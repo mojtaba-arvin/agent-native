@@ -173,7 +173,7 @@ class KernelHTTPServerTests(unittest.TestCase):
             + b"Authorization: Bearer test-token-aaaaaaaaaaaaaaaaaaaaaaaa\r\n"
             + b"Content-Type: application/json\r\n"
             + b"Idempotency-Key: http-json-001\r\n"
-            + b"Content-Length: 26\r\nConnection: close\r\n\r\n"
+            + b"Content-Length: 27\r\nConnection: close\r\n\r\n"
             + b'{"name":"one","name":"two"}'
         )
         self.assertEqual(duplicate_json[0], 400)
