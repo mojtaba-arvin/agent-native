@@ -55,12 +55,11 @@ class SQLiteCatalogRepository:
 
     def __init__(self, database: str | Path):
         raw = str(database)
-        if raw != ":memory:":
-            path = Path(raw).expanduser().resolve()
-            path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-            self.database = str(path)
-        else:
-            self.database = raw
+        if raw == ":memory:":
+            raise ValueError("file_backed_database_required_for_per_operation_connections")
+        path = Path(raw).expanduser().resolve()
+        path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        self.database = str(path)
         self._initialize()
 
     def _connect(self) -> sqlite3.Connection:
