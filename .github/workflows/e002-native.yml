@@ -28,7 +28,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: python -m py_compile experiments/e002/conformance.py experiments/e002/benchmark.py experiments/e002/run_matrix.py
+      - run: python -m py_compile experiments/e002/conformance.py experiments/e002/benchmark.py experiments/e002/run_matrix.py experiments/e002/measure_artifacts.py
       - run: python -m unittest discover -s experiments/e002 -p 'test_*.py' -v
       - uses: actions/setup-go@v5
         with:
@@ -112,6 +112,9 @@ jobs:
       - name: Test BEAM candidate
         run: mix test
         working-directory: experiments/e002/beam
+      - name: Build self-contained BEAM release
+        run: MIX_ENV=prod mix release --overwrite
+        working-directory: experiments/e002/beam
       - name: Install pinned Wasmtime
         run: |
           curl -fsSL https://github.com/bytecodealliance/wasmtime/releases/download/v50.0.1/wasmtime-v50.0.1-x86_64-linux.tar.xz -o /tmp/wasmtime.tar.xz
@@ -119,6 +122,16 @@ jobs:
           WASMTIME_BIN="$(find /tmp -type f -name wasmtime -perm -111 2>/dev/null | head -n 1)"
           test -n "$WASMTIME_BIN"
           echo "$(dirname "$WASMTIME_BIN")" >> "$GITHUB_PATH"
+      - name: Measure deployable payload sizes (diagnostic only)
+        run: |
+          mkdir -p /tmp/e002-results
+          python experiments/e002/measure_artifacts.py \
+            --go /tmp/e002-go \
+            --rust experiments/e002/rust/target/release/agent-native-e002-rust \
+            --wasi-component experiments/e002/wasi-p2/target/wasm32-wasip2/release/agent_native_e002_wasi_p2.wasm \
+            --wasmtime "$(command -v wasmtime)" \
+            --beam-release experiments/e002/beam/_build/prod/rel/agent_native_e002_beam \
+            --output /tmp/e002-results/artifact-sizes.json
       - name: Run randomized ten-repetition matrix (diagnostic only)
         run: |
           python experiments/e002/run_matrix.py \
