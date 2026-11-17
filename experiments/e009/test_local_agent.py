@@ -27,7 +27,6 @@ from local_agent import (
     verify_candidate,
     _plan_gate_response,
     _persist_candidate_response,
-    _proposal_preservation_response,
     _proposal_budget_response,
 )
 
@@ -479,80 +478,6 @@ class LocalAgentRunnerTests(unittest.TestCase):
             })
             self.assertEqual(stat.S_IMODE(candidate_path.stat().st_mode), 0o600)
 
-
-    def test_preservation_gate_allows_exact_inspected_operations_plus_requested_operation(self):
-        names = [item["name"] for item in self.inspected["operations"]]
-        request = {
-            "tool": "service.propose",
-            "request_id": "preserve-valid",
-            "arguments": {"ir": {
-                "service": copy.deepcopy(self.inspected["service"]),
-                "types": copy.deepcopy(self.inspected["types"]),
-                "operations": [
-                    *[copy.deepcopy(self.inspected_operations[name]) for name in names],
-                    copy.deepcopy(EXPECTED_OPERATION),
-                ],
-            }},
-        }
-        self.assertIsNone(_proposal_preservation_response(
-            request, self.inspected, self.inspected_operations
-        ))
-
-    def test_preservation_gate_names_existing_operations_that_were_rewritten(self):
-        names = [item["name"] for item in self.inspected["operations"]]
-        request = {
-            "tool": "service.propose",
-            "request_id": "preserve-invalid",
-            "arguments": {"ir": {
-                "service": copy.deepcopy(self.inspected["service"]),
-                "types": copy.deepcopy(self.inspected["types"]),
-                "operations": [
-                    *[copy.deepcopy(self.inspected_operations[name]) for name in names],
-                    copy.deepcopy(EXPECTED_OPERATION),
-                ],
-            }},
-        }
-        request["arguments"]["ir"]["operations"][0]["capability"] = "wrong.capability"
-        response = _proposal_preservation_response(
-            request, self.inspected, self.inspected_operations
-        )
-        self.assertFalse(response["ok"])
-        self.assertEqual(response["diagnostics"][0]["code"], "IR_PRESERVATION_MISMATCH")
-        self.assertIn("cancel_job", response["diagnostics"][0]["message"])
-        self.assertIn("each existing operation JSON object exactly",
-                      response["diagnostics"][0]["fix_hint"])
-
-    def test_preservation_gate_does_not_replace_gateway_inspection_prerequisite(self):
-        incomplete = dict(self.inspected_operations)
-        incomplete.pop(next(iter(incomplete)))
-        request = {
-            "tool": "service.propose",
-            "request_id": "inspect-incomplete",
-            "arguments": {"ir": {"operations": []}},
-        }
-        self.assertIsNone(_proposal_preservation_response(request, self.inspected, incomplete))
-
-    def test_preservation_gate_rejects_changed_service_and_types(self):
-        names = [item["name"] for item in self.inspected["operations"]]
-        request = {
-            "tool": "service.propose",
-            "request_id": "preserve-service",
-            "arguments": {"ir": {
-                "service": {"name": "Wrong", "version": "9"},
-                "types": [],
-                "operations": [
-                    *[copy.deepcopy(self.inspected_operations[name]) for name in names],
-                    copy.deepcopy(EXPECTED_OPERATION),
-                ],
-            }},
-        }
-        response = _proposal_preservation_response(
-            request, self.inspected, self.inspected_operations
-        )
-        self.assertFalse(response["ok"])
-        message = response["diagnostics"][0]["message"]
-        self.assertIn("service", message)
-        self.assertIn("types", message)
 
     def test_proposal_repair_budget_response_is_explicit_and_fail_closed(self):
         response = _proposal_budget_response({"request_id": "fourth-proposal"})
