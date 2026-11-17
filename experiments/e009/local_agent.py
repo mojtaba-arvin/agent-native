@@ -239,7 +239,7 @@ def verify_candidate(
     }
     if not isinstance(candidate, dict) or set(candidate) != required:
         raise AgentRunError("candidate_fields_invalid")
-    if candidate["schema_version"] != 1 or candidate["task_id"] != TASK_ID:
+    if type(candidate["schema_version"]) is not int or candidate["schema_version"] != 1 or candidate["task_id"] != TASK_ID:
         raise AgentRunError("candidate_identity_invalid")
     if candidate["service_id"] != SERVICE_ID:
         raise AgentRunError("candidate_service_invalid")
@@ -300,9 +300,8 @@ def verify_candidate(
         or tool_sequence.count("service.validate") != 1
         or tool_sequence.count("service.plan") != 1
         or tool_sequence.count("service.apply") != 0
-        or not tool_sequence
-        or tool_sequence[0] != "service.inspect"
-        or proposal_index <= 0
+        or "service.inspect" not in tool_sequence
+        or proposal_index <= tool_sequence.index("service.inspect")
         or validation_index <= proposal_index
         or plan_index <= validation_index
     ):
