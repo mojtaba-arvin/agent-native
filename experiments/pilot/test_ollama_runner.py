@@ -7,6 +7,8 @@ import unittest
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
+from schedule import SOURCE_FILES
+
 from ollama_runner import (
     TrialFailure,
     _map_provider_tool_call,
@@ -81,6 +83,13 @@ class OllamaRunnerTests(unittest.TestCase):
         self.server.shutdown()
         self.server.server_close()
         self.thread.join(timeout=5)
+
+    def test_schedule_schema_pins_exact_runtime_source_set(self):
+        schema_path = Path(__file__).with_name("schedule.schema.json")
+        schema = json.loads(schema_path.read_text(encoding="utf-8"))
+        source_schema = schema["$defs"]["source_hashes"]
+        self.assertEqual(set(source_schema["required"]), set(SOURCE_FILES))
+        self.assertEqual(set(source_schema["properties"]), set(SOURCE_FILES))
 
     def test_loopback_endpoint_is_required(self):
         self.assertTrue(validate_local_ollama_url("http://localhost:11434").endswith("/api/chat"))
