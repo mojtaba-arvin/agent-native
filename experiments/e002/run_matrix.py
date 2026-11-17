@@ -11,6 +11,34 @@ import sys
 from pathlib import Path
 
 
+def distribution(values: list[float], seed: int) -> dict:
+    if not values:
+        return {
+            "n": 0, "mean": None, "sample_stddev": None, "median": None,
+            "min": None, "max": None, "bootstrap_mean_95": None,
+        }
+    bootstrap = []
+    if len(values) >= 2:
+        rng = random.Random(seed)
+        for _ in range(2000):
+            bootstrap.append(statistics.mean(rng.choices(values, k=len(values))))
+        bootstrap.sort()
+        lower = bootstrap[max(0, int(0.025 * len(bootstrap)))]
+        upper = bootstrap[min(len(bootstrap) - 1, int(0.975 * len(bootstrap)))]
+        interval = [lower, upper]
+    else:
+        interval = None
+    return {
+        "n": len(values),
+        "mean": statistics.mean(values),
+        "sample_stddev": statistics.stdev(values) if len(values) >= 2 else None,
+        "median": statistics.median(values),
+        "min": min(values),
+        "max": max(values),
+        "bootstrap_mean_95": interval,
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--go-command", required=True)
@@ -89,18 +117,21 @@ def main() -> int:
         ]
         aggregate[candidate["id"]] = {
             "successful_repetitions": len(samples),
-            "median_throughput_rps": statistics.median(
-                item["throughput_requests_per_second"] for item in samples
-            ) if samples else None,
-            "median_p50_ms": statistics.median(
-                item["latency_ms"]["p50"] for item in samples
-            ) if samples else None,
-            "median_p95_ms": statistics.median(
-                item["latency_ms"]["p95"] for item in samples
-            ) if samples else None,
-            "median_p99_ms": statistics.median(
-                item["latency_ms"]["p99"] for item in samples
-            ) if samples else None,
+            "throughput_rps": distribution(
+                [item["throughput_requests_per_second"] for item in samples], args.seed + 1
+            ),
+            "p50_ms": distribution([item["latency_ms"]["p50"] for item in samples], args.seed + 2),
+            "p95_ms": distribution([item["latency_ms"]["p95"] for item in samples], args.seed + 3),
+            "p99_ms": distribution([item["latency_ms"]["p99"] for item in samples], args.seed + 4),
+            "cpu_seconds": distribution(
+                [item["cpu_seconds"] for item in samples if item.get("cpu_seconds") is not None], args.seed + 5
+            ),
+            "peak_rss_mib": distribution(
+                [item["peak_rss_bytes"] / (1024 * 1024) for item in samples if item.get("peak_rss_bytes") is not None], args.seed + 6
+            ),
+            "startup_seconds": distribution(
+                [item["startup_seconds"] for item in samples if item.get("startup_seconds") is not None], args.seed + 7
+            ),
         }
 
     result = {
@@ -112,7 +143,7 @@ def main() -> int:
         "randomized_order": True,
         "aggregate": aggregate,
         "runs": runs,
-        "interpretation": "Descriptive medians only; no confidence intervals or performance decision.",
+        "interpretation": "Run-level distributions include descriptive statistics and bootstrap intervals for the mean. Shared hosted-runner results remain diagnostic and do not select a runtime.",
     }
     (root / "matrix.json").write_text(
         json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8"
