@@ -22,6 +22,25 @@ The weighted score is a transparent comparison aid, not a substitute for hard co
 
 These are research screening ceilings/floors for the next fixed HTTP workload, not production SLOs. They are intentionally broad enough to identify pathological candidates. They must be re-registered before any future workload intended to represent a production SLO.
 
+### Ecosystem / operability rubric (0–5)
+
+Score one point for each dimension only when supported by repository/toolchain documentation or a reproducible operational demonstration; award 0.5 for partial evidence and 0 when absent:
+1. **Toolchain maturity:** stable compiler/runtime releases, reproducible builds, supported debugging/profiling.
+2. **Dependency maintenance:** maintained core libraries, release cadence, compatibility policy, and low-risk dependency graph.
+3. **Security response:** published advisories, timely patching, vulnerability scanning, and clear support lifecycle.
+4. **Diagnostics / observability:** structured logs, metrics, traces, crash dumps, and usable production debugging.
+5. **Deployment / operations:** packaging, upgrades/rollback, health checks, resource limits, process supervision, and operational burden.
+
+Every score must cite evidence and include a short rationale. Popularity or personal familiarity alone is not evidence.
+
+### Failure-semantics assertions
+
+The failure-semantics score is passed assertions divided by total assertions, and it is also a hard gate. The comparable suite must explicitly include deadline expiry, overload/backpressure, cancellation acknowledgement, worker crash and lease reclaim, retry exhaustion, idempotent replay, outbox publish-before-ack duplicate delivery, inbox deduplication, and preservation of tenant/data integrity. If an assertion is not implemented for all candidates, mark the dimension not measured rather than passing it.
+
+### Comparable deployment artifact
+
+Measure the complete deployable unit, not compiler caches: native executable plus required runtime/shared libraries; BEAM release plus OTP runtime; WASI component plus the selected Wasmtime runtime. Record both component-only and complete deployable sizes where the distinction matters. Do not claim the numbers are directly comparable if the packaging model differs.
+
 ### Hard gates
 
 1. 100% shared black-box conformance for all candidates.
