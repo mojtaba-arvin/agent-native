@@ -111,7 +111,14 @@ class PilotGateway:
         *,
         trace_sink: Callable[[dict], None] | None = None,
         trace_context: dict | None = None,
+        max_tool_calls: int | None = None,
     ):
+        if max_tool_calls is not None and (
+            type(max_tool_calls) is not int or max_tool_calls < 1
+        ):
+            raise ValueError("max_tool_calls_must_be_positive_integer")
+        self.max_tool_calls = max_tool_calls
+        self.tool_call_count = 0
         self.surface = build_surface(arm)
         self.catalog = load_catalog()
         source = CATALOG_SOURCE.read_text(encoding="utf-8")
@@ -256,6 +263,21 @@ class PilotGateway:
             return _error_response("invalid", "REQUEST_ID", "request_id must be a non-empty string of at most 128 characters.")
         if message.get("type") == "model_usage":
             return self._handle_model_usage(message, request_id)
+        if message.get("type") == "tool_call":
+            self.tool_call_count += 1
+            if (
+                self.max_tool_calls is not None
+                and self.tool_call_count > self.max_tool_calls
+            ):
+                tool_name = message.get("tool")
+                if not isinstance(tool_name, str) or not tool_name:
+                    tool_name = "<invalid>"
+                self._record_tool_call(tool_name[:128], "TOOL_CALL_BUDGET_EXCEEDED")
+                return _error_response(
+                    request_id,
+                    "TOOL_CALL_BUDGET_EXCEEDED",
+                    "The scheduled tool-call budget is exhausted.",
+                )
         if set(message) != ENVELOPE_FIELDS:
             self._record_protocol_error(message, "REQUEST_FIELDS")
             return _error_response(request_id, "REQUEST_FIELDS", "Message must contain exactly type, request_id, tool, and arguments.")
@@ -359,6 +381,7 @@ def main() -> None:
     parser.add_argument("--candidate-id")
     parser.add_argument("--task-id", default=PILOT_TASK_ID)
     parser.add_argument("--attempt", type=int, default=1)
+    parser.add_argument("--max-tool-calls", type=int)
     args = parser.parse_args()
 
     trace_sink = None
@@ -366,6 +389,8 @@ def main() -> None:
     if args.trace_output:
         if not args.run_id or not args.model_id:
             parser.error("--trace-output requires --run-id and --model-id")
+        if args.max_tool_calls is None or args.max_tool_calls < 1:
+            parser.error("--trace-output requires a positive --max-tool-calls")
         trace_sink = JsonlTraceSink(args.trace_output)
         trace_context = {
             "run_id": args.run_id,
@@ -379,6 +404,7 @@ def main() -> None:
         args.arm,
         trace_sink=trace_sink,
         trace_context=trace_context,
+        max_tool_calls=args.max_tool_calls,
     )
     stdout = sys.stdout.buffer
     stdin = sys.stdin.buffer
