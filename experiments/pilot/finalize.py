@@ -256,6 +256,8 @@ def finalize_run(
         raise FinalizationError("candidate_hash_present_without_candidate_file")
 
     if result["accepted"]:
+        if not any(event["event_type"] == "model_usage" for event in events):
+            raise FinalizationError("accepted_result_requires_model_usage_events")
         assert candidate_summary is not None
         _require_accepted_tool_sequence(events, candidate_summary["change_set_id"])
 
