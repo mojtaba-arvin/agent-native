@@ -1,0 +1,568 @@
+"""Run one bounded local Ollama agent against the integrated E-009 kernel.
+
+This is a local research adapter, not the framework's final agent protocol and
+not an acceptance oracle. It writes private run artifacts outside the checkout.
+"""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import ipaddress
+import json
+import os
+import subprocess
+import sys
+import time
+import uuid
+from http.client import HTTPConnection
+from pathlib import Path
+from typing import Any
+from urllib.parse import urlsplit
+
+ROOT = Path(__file__).resolve().parents[2]
+E009_ROOT = Path(__file__).resolve().parent
+MAX_MESSAGE_BYTES = 256 * 1024
+MAX_PROVIDER_BYTES = 8 * 1024 * 1024
+MAX_CANDIDATE_BYTES = 1024 * 1024
+TASK_ID = "e009-add-readonly-operation"
+SERVICE_ID = "catalog"
+EXPECTED_OPERATION = {
+    "name": "get_item_by_normalized_name",
+    "method": "GET",
+    "path": "/items/by-normalized-name/{name}",
+    "input": [{"name": "name", "type": "String", "source": "path"}],
+    "output": "Item",
+    "errors": ["InvalidInput", "NotFound", "Unauthorized"],
+    "validation": ["name.non_empty"],
+    "effects": ["repository.read"],
+    "capability": "items.read",
+}
+
+
+class AgentRunError(RuntimeError):
+    pass
+
+
+def _reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict:
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise AgentRunError("duplicate_json_key")
+        result[key] = value
+    return result
+
+
+def _reject_constant(value: str) -> None:
+    raise AgentRunError("non_finite_json_number")
+
+
+def strict_json(raw: bytes | str) -> Any:
+    if isinstance(raw, bytes):
+        raw = raw.decode("utf-8")
+    return json.loads(
+        raw,
+        object_pairs_hook=_reject_duplicate_keys,
+        parse_constant=_reject_constant,
+    )
+
+
+def canonical_json(value: Any) -> bytes:
+    return json.dumps(
+        value,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+        allow_nan=False,
+    ).encode("utf-8")
+
+
+def digest(value: Any) -> str:
+    return hashlib.sha256(canonical_json(value)).hexdigest()
+
+
+def validate_ollama_endpoint(value: str) -> tuple[str, int]:
+    try:
+        parsed = urlsplit(value)
+        host = parsed.hostname
+        port = parsed.port or 80
+        address = ipaddress.ip_address(host) if host else None
+    except ValueError as error:
+        raise ValueError("ollama_endpoint_must_use_loopback_ip") from error
+    if (
+        parsed.scheme != "http"
+        or address is None
+        or not address.is_loopback
+        or parsed.username is not None
+        or parsed.password is not None
+        or parsed.path not in ("", "/")
+        or parsed.query
+        or parsed.fragment
+    ):
+        raise ValueError("ollama_endpoint_must_be_plain_http_loopback_ip")
+    return str(address), port
+
+
+def provider_chat(
+    endpoint: tuple[str, int],
+    payload: dict,
+    timeout: float,
+) -> dict:
+    host, port = endpoint
+    connection = HTTPConnection(host, port, timeout=timeout)
+    try:
+        connection.request(
+            "POST",
+            "/api/chat",
+            body=canonical_json(payload),
+            headers={"Content-Type": "application/json", "Connection": "close"},
+        )
+        response = connection.getresponse()
+        raw = response.read(MAX_PROVIDER_BYTES + 1)
+        if len(raw) > MAX_PROVIDER_BYTES:
+            raise AgentRunError("provider_response_too_large")
+        if response.status != 200:
+            raise AgentRunError(f"provider_http_{response.status}")
+        result = strict_json(raw)
+    except AgentRunError:
+        raise
+    except Exception as error:
+        raise AgentRunError("provider_transport_failure") from error
+    finally:
+        connection.close()
+    if not isinstance(result, dict):
+        raise AgentRunError("provider_response_must_be_object")
+    return result
+
+
+def read_gateway(process: subprocess.Popen) -> dict:
+    if process.stdout is None:
+        raise AgentRunError("gateway_stdout_unavailable")
+    raw = process.stdout.readline(MAX_MESSAGE_BYTES + 1)
+    if not raw or len(raw) > MAX_MESSAGE_BYTES or not raw.endswith(b"\n"):
+        raise AgentRunError("gateway_response_missing_or_oversized")
+    value = strict_json(raw)
+    if not isinstance(value, dict):
+        raise AgentRunError("gateway_response_must_be_object")
+    return value
+
+
+def gateway_exchange(process: subprocess.Popen, message: dict) -> dict:
+    if process.stdin is None:
+        raise AgentRunError("gateway_stdin_unavailable")
+    raw = canonical_json(message) + b"\n"
+    if len(raw) > MAX_MESSAGE_BYTES:
+        raise AgentRunError("gateway_request_too_large")
+    process.stdin.write(raw)
+    process.stdin.flush()
+    return read_gateway(process)
+
+
+def close_gateway(process: subprocess.Popen | None) -> str | None:
+    if process is None:
+        return None
+    if process.stdin and not process.stdin.closed:
+        process.stdin.close()
+    try:
+        process.wait(timeout=10)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        process.wait(timeout=5)
+    stderr = ""
+    if process.stderr:
+        stderr = process.stderr.read().decode("utf-8", errors="replace")[-2000:]
+    for stream in (process.stdin, process.stdout, process.stderr):
+        if stream and not stream.closed:
+            stream.close()
+    if process.returncode != 0:
+        return stderr or f"gateway_exit_{process.returncode}"
+    return None
+
+
+def map_tool_call(call: Any, index: int) -> dict:
+    fallback = {
+        "type": "tool_call",
+        "request_id": f"invalid-call-{index}",
+        "tool": "<invalid>",
+        "arguments": {},
+    }
+    if not isinstance(call, dict):
+        return fallback
+    function = call.get("function")
+    if not isinstance(function, dict) or function.get("name") != "agent.invoke":
+        return fallback
+    arguments = function.get("arguments")
+    if isinstance(arguments, str):
+        try:
+            arguments = strict_json(arguments)
+        except (ValueError, UnicodeDecodeError):
+            return fallback
+    if not isinstance(arguments, dict):
+        return fallback
+    return {
+        "type": "tool_call",
+        "request_id": arguments.get("request_id", ""),
+        "tool": arguments.get("tool", ""),
+        "arguments": arguments.get("arguments"),
+    }
+
+
+def _append_jsonl(path: Path, event: dict) -> None:
+    with path.open("ab") as stream:
+        stream.write(canonical_json(event) + b"\n")
+        stream.flush()
+        os.fsync(stream.fileno())
+
+
+def _write_exclusive(path: Path, raw: bytes) -> None:
+    descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(descriptor, "wb") as stream:
+        stream.write(raw)
+        stream.flush()
+        os.fsync(stream.fileno())
+
+
+def verify_candidate(
+    candidate: Any,
+    *,
+    inspected: dict,
+    inspected_operations: dict[str, dict],
+    successful_proposal: dict,
+    validation_result: dict,
+    plan_result: dict,
+) -> dict:
+    required = {
+        "schema_version", "task_id", "service_id",
+        "base_revision", "change_set_id", "ir",
+    }
+    if not isinstance(candidate, dict) or set(candidate) != required:
+        raise AgentRunError("candidate_fields_invalid")
+    if candidate["schema_version"] != 1 or candidate["task_id"] != TASK_ID:
+        raise AgentRunError("candidate_identity_invalid")
+    if candidate["service_id"] != SERVICE_ID:
+        raise AgentRunError("candidate_service_invalid")
+
+    proposal_args = successful_proposal["arguments"]
+    proposal_result = successful_proposal["result"]
+    ir = candidate["ir"]
+    if not isinstance(ir, dict):
+        raise AgentRunError("candidate_ir_invalid")
+    proposal = {
+        "service_id": SERVICE_ID,
+        "base_revision": candidate["base_revision"],
+        "ir": ir,
+    }
+    computed_id = digest(proposal)
+    if (
+        candidate["base_revision"] != inspected["revision"]
+        or candidate["base_revision"] != proposal_args["base_revision"]
+        or candidate["change_set_id"] != computed_id
+        or proposal_result.get("change_set_id") != computed_id
+        or proposal_args.get("ir") != ir
+    ):
+        raise AgentRunError("candidate_proposal_identity_mismatch")
+
+    if not validation_result.get("ok") or not validation_result.get("result", {}).get("valid"):
+        raise AgentRunError("proposal_validation_not_successful")
+    if not plan_result.get("ok"):
+        raise AgentRunError("proposal_plan_not_successful")
+    plan = plan_result.get("result") or {}
+    if not plan.get("valid") or plan.get("will_mutate") is not False or plan.get("will_deploy") is not False:
+        raise AgentRunError("proposal_plan_not_safe")
+
+    expected_service = inspected["service"]
+    if ir.get("service") != expected_service or ir.get("types") != inspected["types"]:
+        raise AgentRunError("candidate_changed_service_or_types")
+    original_names = [item["name"] for item in inspected["operations"]]
+    if set(inspected_operations) != set(original_names):
+        raise AgentRunError("not_all_existing_operations_were_inspected")
+    original_operations = [inspected_operations[name] for name in original_names]
+    operations = ir.get("operations")
+    if not isinstance(operations, list) or operations[:-1] != original_operations:
+        raise AgentRunError("candidate_modified_existing_operations")
+    if operations[-1] != EXPECTED_OPERATION:
+        raise AgentRunError("candidate_new_operation_does_not_match_task")
+    if len(operations) != len(original_operations) + 1:
+        raise AgentRunError("candidate_operation_count_invalid")
+    if plan.get("effects") is None or "repository.read" not in plan["effects"]:
+        raise AgentRunError("planned_read_effect_missing")
+
+    return {
+        "task_id": TASK_ID,
+        "service_id": SERVICE_ID,
+        "base_revision": candidate["base_revision"],
+        "change_set_id": computed_id,
+        "preserved_operation_count": len(original_operations),
+        "added_operation": EXPECTED_OPERATION["name"],
+        "validation": "passed",
+        "plan": "valid_no_mutation_no_deployment",
+    }
+
+
+def run(args: argparse.Namespace) -> dict:
+    endpoint = validate_ollama_endpoint(args.ollama_url)
+    results_root = args.results_dir.expanduser().resolve()
+    try:
+        results_root.relative_to(ROOT.resolve())
+    except ValueError:
+        pass
+    else:
+        raise ValueError("results_directory_must_be_outside_repository")
+    results_root.mkdir(parents=True, exist_ok=True, mode=0o700)
+    run_id = f"e009-{time.strftime('%Y%m%dT%H%M%SZ', time.gmtime())}-{uuid.uuid4().hex[:8]}"
+    run_dir = results_root / run_id
+    run_dir.mkdir(mode=0o700, exist_ok=False)
+    trace_path = run_dir / "tool-trace.jsonl"
+    candidate_path = run_dir / "candidate.json"
+    result_path = run_dir / "run.json"
+
+    started = time.monotonic_ns()
+    deadline = time.monotonic() + args.max_wall_seconds
+    process = None
+    record = {
+        "schema_version": 1,
+        "run_id": run_id,
+        "task_id": TASK_ID,
+        "model": args.model,
+        "arm": args.arm,
+        "status": "running",
+        "started_at_monotonic_ns": started,
+        "finished_at_monotonic_ns": None,
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "tool_calls": 0,
+        "candidate_path": None,
+        "verification": None,
+        "failure": None,
+    }
+
+    try:
+        clean_env = {"PATH": os.environ.get("PATH", ""), "PYTHONIOENCODING": "utf-8"}
+        process = subprocess.Popen(
+            [
+                sys.executable,
+                str(E009_ROOT / "agent_gateway.py"),
+                "--arm",
+                args.arm,
+            ],
+            cwd=ROOT,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=clean_env,
+        )
+        session = read_gateway(process)
+        if session.get("type") != "session" or session.get("protocol_version") != "0.1":
+            raise AgentRunError("gateway_session_invalid")
+        surface = session.get("surface")
+        dispatch = surface.get("dispatch") if isinstance(surface, dict) else None
+        if (
+            not isinstance(dispatch, dict)
+            or dispatch.get("name") != "agent.invoke"
+            or not isinstance(dispatch.get("input_schema"), dict)
+        ):
+            raise AgentRunError("gateway_dispatch_contract_invalid")
+
+        system_prompt = (
+            "You are an engineering agent working on the live Agent Native E-009 service. "
+            "Use only the single agent.invoke function and the session surface. "
+            "In progressive mode, call interface.describe to retrieve each missing tool schema. "
+            "Inspect the service, then inspect every existing operation by name before proposing. "
+            "Preserve every existing type and operation exactly. Propose exactly the task operation. "
+            "Use the inspected revision. Call service.validate and service.plan on the returned change_set_id. "
+            "Never call service.apply. No shell, files, network, secrets, or deployment tools exist. "
+            "Return only the exact final JSON candidate requested by the task. Never invent tool results."
+        )
+        task = (E009_ROOT / "AGENT_TASK.md").read_text(encoding="utf-8")
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": task},
+            {
+                "role": "user",
+                "content": "Session surface JSON:\n" + json.dumps(surface, ensure_ascii=False, sort_keys=True),
+            },
+        ]
+        tool_definition = {
+            "type": "function",
+            "function": {
+                "name": "agent.invoke",
+                "description": dispatch.get("summary", "Invoke one named Agent Native operation."),
+                "parameters": dispatch["input_schema"],
+            },
+        }
+
+        inspected = None
+        inspected_operations: dict[str, dict] = {}
+        successful_proposal = None
+        validation_result = None
+        plan_result = None
+        final_content = None
+        turn = 0
+        call_number = 0
+        while final_content is None:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise AgentRunError("wall_clock_budget_exhausted")
+            turn += 1
+            if turn > args.max_tool_calls + 1:
+                raise AgentRunError("model_turn_budget_exhausted")
+            remaining_output = args.max_output_tokens - record["output_tokens"]
+            if remaining_output <= 0:
+                raise AgentRunError("output_token_budget_exhausted")
+            payload = {
+                "model": args.model,
+                "messages": messages,
+                "tools": [tool_definition],
+                "stream": False,
+                "options": {
+                    "temperature": args.temperature,
+                    "top_p": args.top_p,
+                    "seed": args.seed,
+                    "num_ctx": args.num_ctx,
+                    "num_predict": min(args.num_predict, remaining_output),
+                },
+                "think": args.think,
+            }
+            response = provider_chat(endpoint, payload, timeout=max(0.1, remaining))
+            message = response.get("message")
+            if not isinstance(message, dict) or message.get("role") != "assistant":
+                raise AgentRunError("provider_assistant_message_missing")
+            input_tokens = response.get("prompt_eval_count")
+            output_tokens = response.get("eval_count")
+            if type(input_tokens) is not int or input_tokens < 0 or type(output_tokens) is not int or output_tokens < 0:
+                raise AgentRunError("provider_token_usage_missing")
+            record["input_tokens"] += input_tokens
+            record["output_tokens"] += output_tokens
+            if record["input_tokens"] > args.max_input_tokens:
+                raise AgentRunError("input_token_budget_exceeded")
+
+            calls = message.get("tool_calls", [])
+            if not isinstance(calls, list):
+                raise AgentRunError("provider_tool_calls_invalid")
+            assistant_message = {"role": "assistant", "content": message.get("content") or ""}
+            if calls:
+                assistant_message["tool_calls"] = calls
+            messages.append(assistant_message)
+
+            if calls:
+                for provider_call in calls:
+                    call_number += 1
+                    if call_number > args.max_tool_calls:
+                        raise AgentRunError("tool_call_budget_exceeded")
+                    request = map_tool_call(provider_call, call_number)
+                    result = gateway_exchange(process, request)
+                    if result.get("type") != "tool_result" or not isinstance(result.get("response"), dict):
+                        raise AgentRunError("gateway_tool_result_invalid")
+                    nested = result["response"]
+                    _append_jsonl(trace_path, {
+                        "sequence": call_number,
+                        "request": request,
+                        "response": nested,
+                    })
+                    record["tool_calls"] = call_number
+                    tool_name = request.get("tool")
+                    arguments = request.get("arguments")
+                    if tool_name == "service.inspect" and nested.get("ok"):
+                        inspected_result = nested.get("result") or {}
+                        if isinstance(arguments, dict) and "operation" not in arguments:
+                            inspected = inspected_result
+                        elif isinstance(arguments, dict) and isinstance(arguments.get("operation"), str):
+                            inspected_operations[arguments["operation"]] = inspected_result.get("operation")
+                    elif tool_name == "service.propose" and nested.get("ok"):
+                        if successful_proposal is not None:
+                            raise AgentRunError("multiple_successful_proposals")
+                        successful_proposal = {
+                            "arguments": arguments,
+                            "result": nested.get("result") or {},
+                        }
+                    elif tool_name == "service.validate" and nested.get("ok"):
+                        validation_result = nested
+                    elif tool_name == "service.plan" and nested.get("ok"):
+                        plan_result = nested
+                    elif tool_name == "service.apply":
+                        raise AgentRunError("agent_attempted_apply")
+                    messages.append({
+                        "role": "tool",
+                        "tool_name": "agent.invoke",
+                        "content": json.dumps(nested, ensure_ascii=False, sort_keys=True, separators=(",", ":")),
+                    })
+                continue
+
+            content = message.get("content")
+            if not isinstance(content, str) or not content.strip():
+                raise AgentRunError("provider_final_content_missing")
+            final_content = content
+
+        raw_candidate = final_content.encode("utf-8")
+        if len(raw_candidate) > MAX_CANDIDATE_BYTES:
+            raise AgentRunError("candidate_too_large")
+        candidate = strict_json(raw_candidate)
+        verification = verify_candidate(
+            candidate,
+            inspected=inspected or {},
+            inspected_operations=inspected_operations,
+            successful_proposal=successful_proposal or {},
+            validation_result=validation_result or {},
+            plan_result=plan_result or {},
+        )
+        _write_exclusive(candidate_path, raw_candidate + (b"" if raw_candidate.endswith(b"\n") else b"\n"))
+        record["candidate_path"] = str(candidate_path)
+        record["verification"] = verification
+        record["status"] = "candidate_verified_locally"
+
+    except Exception as error:
+        record["status"] = "failed"
+        record["failure"] = f"{type(error).__name__}:{str(error)[:400]}"
+    finally:
+        gateway_error = close_gateway(process)
+        if gateway_error and record["status"] != "failed":
+            record["status"] = "failed"
+            record["failure"] = "gateway_shutdown_failed:" + gateway_error
+        record["finished_at_monotonic_ns"] = time.monotonic_ns()
+        record["duration_ms"] = round(
+            (record["finished_at_monotonic_ns"] - started) / 1_000_000,
+            3,
+        )
+        _write_exclusive(
+            result_path,
+            json.dumps(record, ensure_ascii=False, sort_keys=True, indent=2, allow_nan=False).encode("utf-8") + b"\n",
+        )
+    return record
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--model", required=True)
+    parser.add_argument("--ollama-url", default="http://127.0.0.1:11434")
+    parser.add_argument("--arm", choices=("progressive", "upfront"), default="progressive")
+    parser.add_argument("--results-dir", type=Path, default=Path("/tmp/agent-native-e009-runs"))
+    parser.add_argument("--max-input-tokens", type=int, default=24000)
+    parser.add_argument("--max-output-tokens", type=int, default=6000)
+    parser.add_argument("--max-tool-calls", type=int, default=20)
+    parser.add_argument("--max-wall-seconds", type=float, default=600)
+    parser.add_argument("--num-ctx", type=int, default=32768)
+    parser.add_argument("--num-predict", type=int, default=2048)
+    parser.add_argument("--temperature", type=float, default=0.0)
+    parser.add_argument("--top-p", type=float, default=1.0)
+    parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--think", action="store_true")
+    args = parser.parse_args()
+    for name in ("max_input_tokens", "max_output_tokens", "max_tool_calls", "max_wall_seconds", "num_ctx", "num_predict"):
+        value = getattr(args, name)
+        if isinstance(value, bool) or value <= 0:
+            parser.error(f"--{name.replace('_', '-')} must be positive")
+    if args.num_predict > args.max_output_tokens:
+        parser.error("--num-predict cannot exceed --max-output-tokens")
+    if not 0 <= args.temperature <= 2 or not 0 < args.top_p <= 1:
+        parser.error("generation settings are out of range")
+    try:
+        record = run(args)
+    except (ValueError, OSError) as error:
+        parser.error(str(error))
+    print(json.dumps(record, ensure_ascii=False, sort_keys=True, indent=2))
+    if record["status"] != "candidate_verified_locally":
+        raise SystemExit(2)
+
+
+if __name__ == "__main__":
+    main()
