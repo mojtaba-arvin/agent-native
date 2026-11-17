@@ -4,6 +4,6 @@
   "model_id": "qwen3:8b",
   "repetitions": 3,
   "arm": "upfront",
-  "dispatched_at": "2026-11-17",
-  "purpose": "First real-agent E-007 eval validation after IR-shape and bounded-repair changes"
+  "dispatched_at": "2026-11-17T16:59:00+04:00",
+  "purpose": "Repeat three-run Qwen3 eval with OLLAMA_GO_TEMPLATE=false after diagnosing empty provider responses in prior run"
 }
