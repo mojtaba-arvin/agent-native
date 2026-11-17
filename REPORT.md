@@ -7,7 +7,7 @@
 
 Agent Native is exploring a backend framework designed from first principles for AI agents as its primary authors and operators. The intended product owns its programming model, service semantics, runtime, security boundary, data behavior, distributed execution, and operational lifecycle. It is not a wrapper, adapter, control plane, or code generator for an existing backend framework.
 
-The repository now contains eight executable research workstreams and a reproducible agent-interface pilot harness. The next meaningful evidence milestone is a real paired run with a local model and an independent evaluator. Until those runs exist, the project has prototype and conformance evidence—not evidence that Agent Native improves agent productivity or is production-ready.
+The repository now contains eight independent research workstreams plus E-009, an integrated framework-kernel vertical slice. E-009 connects service IR, capability enforcement, HTTP request handling, tenant-scoped persistence, durable work, a worker/relay, and an Agent-facing inspect/propose/validate/plan gateway. The next evidence milestones are a real agent run against the integrated service and broader runtime/security validation. Until those runs exist, the project has prototype and conformance evidence—not evidence that Agent Native improves agent productivity or is production-ready.
 
 ## Product thesis
 
@@ -29,6 +29,7 @@ No implementation language, service syntax, compiler architecture, runtime, or p
 | E-006 — Durable execution | SQLite reference model with idempotent submission, lease fencing, recovery, retries, deadlines, and atomic local effects | Durable semantics are tested in isolation, not yet part of an integrated framework |
 | E-007 — Agent benchmark | Public backend-agent task corpus, oracle-isolation contract, trace schema, metrics aggregation, and workspace packager | No agent performance result is claimed until real runs are independently evaluated |
 | E-008 — External-effect delivery | SQLite transactional outbox/inbox model with fenced relay leases, retry exhaustion, at-least-once delivery, and consumer deduplication | It does not claim exactly-once delivery to arbitrary external APIs |
+| E-009 — Integrated kernel | Contract-driven HTTP runtime, default-deny authorization and audit, tenant-scoped SQLite, idempotent jobs, fenced workers, transactional outbox/inbox, and Agent inspect/propose/validate/plan gateway | 51 E-009 tests pass in CI; a single-node semantic integration proof, not a production framework or technology choice |
 
 ## First agent-interface experiment
 
@@ -57,9 +58,10 @@ The adapter is pilot infrastructure only. It does not define the future Agent Na
 ## What the current evidence supports
 
 **Supported:**
-- The eight research workstreams have executable reference implementations and automated checks.
+- E-001 through E-008 retain independent executable research implementations; E-009 composes the service representation, authority model, durable jobs, and external-event handling into one runnable HTTP service slice.
 - Go, Rust, WASI P2, and BEAM prototype baselines have passed the shared black-box conformance suite.
-- The pilot gateway, paired schedule, local adapter, batch runner, trace handling, and candidate/finalization path are covered by automated protocol tests.
+- The E-009 kernel has a live Agent Gateway for schema discovery, inspect, immutable proposal, validation, safe planning, and disabled apply; a stdlib HTTP host; tenant-scoped durable persistence; and a queue/worker/outbox/inbox path covered by automated tests.
+- The E-005 pilot gateway, paired schedule, local adapter, batch runner, trace handling, and candidate/finalization path are covered by automated protocol tests.
 - Experiment inputs and source revisions can be pinned and checked before a run.
 - Model usage is recorded from provider telemetry rather than inferred from elapsed time or message size.
 
@@ -67,7 +69,7 @@ The adapter is pilot infrastructure only. It does not define the future Agent Na
 - That a real model can reliably complete the pilot task through this adapter.
 - That progressive disclosure improves acceptance, token use, latency, or cost.
 - That any candidate has passed an independent hidden acceptance oracle.
-- That the current prototypes form a complete, integrated backend framework.
+- That E-009 is a complete framework: it is one integrated vertical slice with a fixed demo Catalog service, single-node SQLite, and a stdlib reference host.
 - That any language, syntax, runtime, protocol, or architecture is superior.
 - That the project is production-ready or more secure or performant than existing frameworks.
 
@@ -79,20 +81,20 @@ Mock-provider CI verifies adapter behavior and trace integrity. It is not a real
 |---|---|
 | G0 — Research integrity | Partially established: task, paired schedule, hashes, and public protocol are defined; real evaluator-backed trial records are still absent |
 | G1 — Agent interface | Not yet passed: requires real repeated model runs and independent acceptance results |
-| G2 — Core feasibility | Partial prototypes exist; no complete service compiler/runtime has been integrated |
-| G3 — Safety | Reference capability model and pilot no-apply boundary are tested; no production security audit |
-| G4 — Distributed behavior | Concurrency, durability, and delivery models exist independently; integrated runtime behavior remains unproven |
+| G2 — Core feasibility | Partial: E-009 proves one integrated contract-driven HTTP/data/job lifecycle; language/compiler/runtime breadth and a general application model remain incomplete |
+| G3 — Safety | Default-deny capability checks, tenant filtering, audit fail-closed, bounded HTTP admission, and no-apply Agent interface are integrated/tested; no production identity, isolation, or security audit |
+| G4 — Distributed behavior | Partial integration: durable jobs, leases/fencing, stop acknowledgements, outbox relay, and inbox deduplication work in a single SQLite process model; distributed multi-node guarantees remain unproven |
 | G5 — Performance | Not passed: existing CI smoke matrices are explicitly non-decision-grade |
 | G6 — Production candidate | Not reached |
 
 ## Next evidence milestones
 
-1. Run the one-pair local-model wiring check from a clean checkout and retain both raw traces, candidate outputs, and batch manifest.
-2. Provision the evaluator separately from the public repository and model-facing process. It must verify the candidate against the trusted baseline and emit only the coarse result contract.
-3. Finalize every scheduled run through the trusted-result finalizer and run the paired analyzer; missing traces or run identities stop analysis rather than disappearing from the sample.
-4. Run the pre-registered screening study, inspect all failures, and proceed to at least 30 paired repetitions only if the harness and evaluator pass integrity checks.
-5. Publish raw distributions, paired differences, uncertainty intervals, excluded infrastructure failures, and the resulting decision—including a negative or inconclusive result if that is what the data shows.
-6. Use the wider E-007 task corpus to test generality only after the narrow pilot has established a trustworthy end-to-end evaluation path.
+1. Run the integrated E-009 demo from a clean checkout: create an item, submit a rebuild job, inspect/cancel a job, execute the worker, and relay the resulting event. Retain the command transcript and database/trace artifacts.
+2. Use the E-009 Agent Gateway with constrained, general, and advanced local agents to author a safe service change through inspect/propose/validate/plan; keep apply disabled until a separate approval/runtime contract exists.
+3. Implement the next product-critical integration gaps: versioned service migrations with rollback, process supervision and graceful shutdown, streaming/cancellation semantics, and a durable audit sink; preserve black-box contracts so runtime candidates can be compared fairly.
+4. Provision the E-007 private evaluator separately from the public repository and model-facing process. It must independently validate candidates and emit only the coarse result contract.
+5. Run the E-005 paired disclosure pilot, finalize every scheduled run, and analyze paired outcomes; missing traces or run identities must stop analysis rather than disappear from the sample.
+6. Extend the integrated kernel across candidate runtime substrates and workloads, then publish raw distributions, paired differences, uncertainty intervals, failures, and counter-evidence. Keep language/runtime choices open until those comparisons justify a decision.
 
 ## Presentation-safe project description
 
