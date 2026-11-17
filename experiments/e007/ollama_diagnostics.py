@@ -101,7 +101,12 @@ def read_cpu_constraints() -> dict:
     }
 
 
-def benchmark_prefill(base_url: str, model: str, thread_counts: list[int]) -> list[dict]:
+def benchmark_prefill(
+    base_url: str,
+    model: str,
+    thread_counts: list[int],
+    checkpoint_path: Path | None = None,
+) -> list[dict]:
     # Nested prompts preserve an exact prefix as the target grows. Each target is
     # requested twice while the model remains loaded: first for growth/prefix
     # reuse, then an exact warm repeat. Provider counts are authoritative.
@@ -155,6 +160,23 @@ def benchmark_prefill(base_url: str, model: str, thread_counts: list[int]) -> li
                     "request_elapsed_seconds": elapsed,
                     "done_reason": response.get("done_reason"),
                 })
+                if checkpoint_path is not None:
+                    checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
+                    checkpoint = {
+                        "schema_version": 1,
+                        "status": "prefill_in_progress",
+                        "model": model,
+                        "thread_counts_requested": thread_counts,
+                        "completed_observations": len(observations),
+                        "expected_observations": len(thread_counts) * 8,
+                        "observations": observations,
+                    }
+                    temporary = checkpoint_path.with_suffix(checkpoint_path.suffix + ".tmp")
+                    temporary.write_text(
+                        json.dumps(checkpoint, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+                        encoding="utf-8",
+                    )
+                    temporary.replace(checkpoint_path)
     return observations
 
 def build_schema_probe_messages(surface: dict) -> list[dict]:
@@ -267,6 +289,7 @@ def main() -> int:
     parser.add_argument("--model", default="qwen3:8b")
     parser.add_argument("--thread-counts", default="2,4,16")
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--checkpoint", type=Path, default=None)
     args = parser.parse_args()
     try:
         thread_counts = [int(value) for value in args.thread_counts.split(",")]
@@ -294,7 +317,9 @@ def main() -> int:
             "cache_method": "keep_alive=10m; each growing prompt preserves the previous exact prefix and is followed by an identical warm repeat",
             "oversubscription_hypothesis": "16 requested threads will be slower than 4 on a four-logical-CPU runner due to scheduling/context-switch overhead; treat a faster result as an unexpected observation",
             "timing_fields": ["load_duration_ns", "prompt_eval_duration_ns", "request_elapsed_seconds"],
-            "observations": benchmark_prefill(args.ollama_url, args.model, thread_counts),
+            "observations": benchmark_prefill(
+                args.ollama_url, args.model, thread_counts, args.checkpoint
+            ),
         },
         "short_schema_probe": schema_probe(args.ollama_url, args.model, thread_counts[0]),
         "interpretation": (
