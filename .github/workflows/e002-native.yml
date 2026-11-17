@@ -129,6 +129,7 @@ jobs:
             --requests 5000 --concurrency 32 --warmup 250 --repetitions 10 \
             --output /tmp/e002-results
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: e002-ten-repetition-diagnostic-matrix
           path: /tmp/e002-results/
