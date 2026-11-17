@@ -434,6 +434,10 @@ class LocalAgentRunnerTests(unittest.TestCase):
             {"role": "user", "content": "tool schemas"},
         ]
         operation = copy.deepcopy(self.inspected_operations["get_item_by_name"])
+        ordered_operations = {
+            "get_job": copy.deepcopy(self.inspected_operations["get_job"]),
+            "get_item_by_name": operation,
+        }
         diagnostics = [{
             "code": "IR_PRESERVATION_MISMATCH",
             "message": "changed existing operation",
@@ -442,7 +446,7 @@ class LocalAgentRunnerTests(unittest.TestCase):
         compacted = _compact_conversation(
             base,
             self.inspected,
-            {"get_item_by_name": operation},
+            ordered_operations,
             ["service.inspect", "service.propose"],
             [
                 {"tool": "service.inspect", "ok": True},
@@ -463,6 +467,7 @@ class LocalAgentRunnerTests(unittest.TestCase):
             ledger["operation_inspections"]["get_item_by_name"],
             operation,
         )
+        self.assertEqual(list(ledger["operation_inspections"]), ["get_job", "get_item_by_name"])
         self.assertEqual(ledger["tool_sequence"], ["service.inspect", "service.propose"])
         self.assertEqual(ledger["recent_tool_outcomes"][-1]["diagnostics"], diagnostics)
         self.assertEqual(ledger["recent_tool_outcomes"][-1]["next_actions"], ["Correct the complete IR"])
