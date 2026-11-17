@@ -8,7 +8,7 @@
 
 This cycle succeeds when:
 1. A local Qwen3 model is run by an executable E-007 eval runner against a real E-009 Agent Gateway task; the runner scores the actual trace and candidate rather than a canned response.
-2. Three independent repetitions produce machine-readable results with raw per-run token/tool/time data and classified failures. A run passes only when every deterministic scorer passes.
+2. Three bounded repetitions produce machine-readable results with raw per-run token/tool/time data and classified failures. If temperature/seed and prompt state are fixed, label them deterministic reproductions—not independent statistical samples. A run passes only when every deterministic scorer passes.
 3. E-009's runnable service writes authorization decisions to durable audit storage before handler execution, survives database reopen, and fails closed when the audit store is unavailable.
 4. E-002 has a pre-registered weighted decision matrix and raw comparison data, while no runtime is selected.
 5. `REPORT.md` accurately distinguishes what the new evidence proves from what it does not prove.
@@ -76,10 +76,10 @@ All scorers are deterministic. Do not add an LLM judge in this cycle: exact IR a
 
 - Model: `qwen3:8b` through Ollama.
 - Use identical task, model settings, prompt, gateway, tool policy, and per-run budgets.
-- Use a fresh output directory and fresh run identity per repetition.
+- Use a fresh output directory and fresh run identity per repetition. Fixed temperature/seed repeats are for deterministic debugging; stochastic independence requires a separately registered varied-seed schedule.
 - Run serially on one standard `ubuntu-latest` job; pull the model once per job.
 - Per run: 48,000 cumulative input tokens, 6,000 cumulative output tokens, 20 tool calls, 900 seconds agent wall time, and 8,192 context. Job timeout: 60 minutes.
-- Record every run, including failures, and report pass count, Wilson 95% interval for the observed acceptance proportion, token/tool/time median and range, and failure-class counts. With only three repetitions, label the interval descriptive and do not claim statistical reliability or model superiority.
+- Record every run, including failures, and report pass count, Wilson 95% interval for the observed acceptance proportion, token/tool/time median and range, and failure-class counts. With only three repetitions, label the interval descriptive and do not claim statistical reliability or model superiority; if generation is deterministic, do not call the repetitions independent.
 
 **Acceptance**
 - Exactly three run records exist and are bound to the pinned task/model/configuration.
