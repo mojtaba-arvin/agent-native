@@ -89,6 +89,21 @@ class RunScheduleTests(unittest.TestCase):
             self.assertEqual(saved["trials"][1]["failure_class"], "INVALID_CANDIDATE")
             self.assertIsNone(saved["trials"][1]["candidate_sha256"])
 
+    def test_candidate_ready_gate_rejects_completed_execution_with_agent_failures(self):
+        with self.assertRaisesRegex(RuntimeError, "candidate_not_ready"):
+            run_schedule.assert_candidate_ready({
+                "status": "completed",
+                "scheduled_trials": 2,
+                "candidate_ready_count": 1,
+            })
+
+    def test_candidate_ready_gate_accepts_only_fully_correlated_pair(self):
+        run_schedule.assert_candidate_ready({
+            "status": "completed",
+            "scheduled_trials": 2,
+            "candidate_ready_count": 2,
+        })
+
     def test_results_directory_must_be_outside_checkout(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary) / "checkout"
