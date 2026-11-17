@@ -20,9 +20,12 @@ Provider adapters must preserve raw traces and must not invent missing token or 
 
 `evals/e009-readonly-proposal.eval.json` defines one structured proposal task using the integrated E-009 Agent Gateway. `eval_runner.py` invokes the real `local_agent.py` Ollama adapter, preserves per-run traces/candidates, applies three deterministic scorers (candidate contract, proposal/validation/plan hash continuity, and behavioral safety), emits E-007 JSONL telemetry, and returns a non-zero exit if any repetition fails.
 
-Run locally with Ollama available:
+Run locally with the Qwen3-compatible Ollama template renderer:
 
 ```sh
+sudo systemctl stop ollama.service 2>/dev/null || true
+OLLAMA_GO_TEMPLATE=false OLLAMA_HOST=127.0.0.1:11434 ollama serve
+# In another terminal:
 ollama pull qwen3:8b
 python experiments/e007/eval_runner.py --model qwen3:8b --arm upfront --repetitions 3
 ```
