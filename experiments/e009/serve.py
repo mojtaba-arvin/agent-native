@@ -41,6 +41,8 @@ def main() -> None:
         Grant("local-operator", "demo-tenant", "items.read", "/items"),
         Grant("local-operator", "demo-tenant", "items.create", "/items"),
         Grant("local-operator", "demo-tenant", "jobs.submit", "/items"),
+        Grant("local-operator", "demo-tenant", "jobs.read", "/jobs"),
+        Grant("local-operator", "demo-tenant", "jobs.cancel", "/jobs"),
     )
     trusted_context = RequestContext(
         principal_id="local-operator",
@@ -57,7 +59,7 @@ def main() -> None:
         ir,
         handlers=build_catalog_handlers(repository, work_store),
         repository=repository,
-        trusted_effects={"repository.read", "repository.write", "queue.submit"},
+        trusted_effects={"repository.read", "repository.write", "queue.submit", "queue.read", "queue.cancel"},
     )
     server = create_server(
         runtime,
