@@ -29,7 +29,7 @@ From the repository root:
 python -m unittest discover -s experiments/e009 -v
 ```
 
-The suite covers service parsing, handler registration, typed input/output contracts, capability denial, audit failure, persistence across reopen, tenant isolation, duplicate idempotency, conflicting idempotency payloads, concurrent duplicate create, HTTP authentication, strict body parsing, and bounded admission. Durable-work tests cover idempotent job submission, lease fencing, retry limits, deadlines, stop acknowledgements, outbox lease reclamation, inbox conflict detection, consumer deduplication, HTTP job submission, real worker completion, and redelivery.
+The suite covers service parsing, handler registration, typed input/output contracts, capability denial, audit failure, persistence across reopen, tenant isolation, duplicate idempotency, conflicting idempotency payloads, concurrent duplicate create, HTTP authentication, strict body parsing, and bounded admission. Durable-work tests cover idempotent job submission, lease fencing, retry limits, deadlines, stop acknowledgements, outbox lease reclamation, inbox conflict detection, consumer deduplication, HTTP job submission, real worker completion, redelivery, and the full single-process HTTP/worker/relay lifecycle. The local Agent runner's bounded task, proposal correlation, preservation checks, and no-apply gate have separate tests.
 
 ## Run the local demo
 
@@ -122,7 +122,31 @@ python experiments/e009/work_cli.py --database /tmp/agent-native-e009.sqlite3 jo
   --tenant-id demo-tenant --task-id '<task-id>'
 ```
 
-All commands use the same SQLite database as the HTTP kernel. The worker and relay CLIs run one iteration; scheduling/supervision is still an external host responsibility in this reference slice. The demo identity provider is in-memory and is intentionally not reusable as a production identity system.
+All commands use the same SQLite database as the HTTP kernel. The worker and relay CLIs run one iteration. The HTTP host also starts one local worker loop and one outbox relay loop and joins both during graceful shutdown; this remains a single-process reference supervisor, not a distributed scheduler. The demo identity provider is in-memory and is intentionally not reusable as a production identity system.
+
+## Run a bounded local Agent trial
+
+The provider-neutral gateway can be driven by a real local Ollama model using the experimental adapter. This task asks the model to inspect every existing operation, propose exactly one read-only operation, validate and plan it, and return a content-addressed candidate. The runner independently checks that existing service definitions were preserved and that no apply call occurred.
+
+Install/start Ollama separately and make the selected model available locally. Then run from the repository root:
+
+```sh
+python experiments/e009/local_agent.py --model qwen3:8b
+```
+
+The default endpoint is strictly limited to an HTTP loopback IP. Results are written under `/tmp/agent-native-e009-runs`, outside the checkout, with private directory/file permissions. Override the model, disclosure arm, or resource budgets explicitly when needed:
+
+```sh
+python experiments/e009/local_agent.py \
+  --model qwen3:8b \
+  --arm progressive \
+  --max-input-tokens 24000 \
+  --max-output-tokens 6000 \
+  --max-tool-calls 20 \
+  --max-wall-seconds 600
+```
+
+The run record includes provider-reported input/output token counts, tool-call count, duration, candidate path, and local verification result. The JSONL trace contains tool requests/results but not model hidden reasoning. Input-token usage is checked after each provider response, so a single response can cross the configured aggregate input ceiling before the runner stops. This adapter is for a bounded local feasibility trial; it is not the E-007 benchmark runner or a private acceptance oracle. A locally verified candidate is not evidence of production correctness.
 
 ## Evidence boundary
 
