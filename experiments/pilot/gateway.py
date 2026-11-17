@@ -112,13 +112,23 @@ class PilotGateway:
         trace_sink: Callable[[dict], None] | None = None,
         trace_context: dict | None = None,
         max_tool_calls: int | None = None,
+        max_input_tokens: int | None = None,
+        max_output_tokens: int | None = None,
     ):
-        if max_tool_calls is not None and (
-            type(max_tool_calls) is not int or max_tool_calls < 1
+        for name, value in (
+            ("max_tool_calls", max_tool_calls),
+            ("max_input_tokens", max_input_tokens),
+            ("max_output_tokens", max_output_tokens),
         ):
-            raise ValueError("max_tool_calls_must_be_positive_integer")
+            if value is not None and (type(value) is not int or value < 1):
+                raise ValueError(f"{name}_must_be_positive_integer")
         self.max_tool_calls = max_tool_calls
+        self.max_input_tokens = max_input_tokens
+        self.max_output_tokens = max_output_tokens
         self.tool_call_count = 0
+        self.total_input_tokens = 0
+        self.total_output_tokens = 0
+        self.token_budget_exceeded = False
         self.model_usage_request_ids: set[str] = set()
         self.surface = build_surface(arm)
         self.catalog = load_catalog()
@@ -235,10 +245,18 @@ class PilotGateway:
                 "accepted": False,
                 "diagnostic": "MODEL_USAGE_DUPLICATE_REQUEST",
             }
+        next_input_tokens = self.total_input_tokens + input_tokens
+        next_output_tokens = self.total_output_tokens + output_tokens
+        token_budget_exceeded = (
+            (self.max_input_tokens is not None and next_input_tokens > self.max_input_tokens)
+            or (self.max_output_tokens is not None and next_output_tokens > self.max_output_tokens)
+        )
         fields = {
             "input_tokens": input_tokens,
             "output_tokens": output_tokens,
         }
+        if token_budget_exceeded:
+            fields["failure_class"] = "MODEL_TOKEN_BUDGET_EXCEEDED"
         if "cost_usd" in message:
             cost = message["cost_usd"]
             if (
@@ -256,11 +274,17 @@ class PilotGateway:
             fields["cost_usd"] = cost
         self._emit_trace("model_usage", **fields)
         self.model_usage_request_ids.add(request_id)
-        return {
+        self.total_input_tokens = next_input_tokens
+        self.total_output_tokens = next_output_tokens
+        self.token_budget_exceeded = self.token_budget_exceeded or token_budget_exceeded
+        acknowledgement = {
             "type": "telemetry_ack",
             "request_id": request_id,
-            "accepted": True,
+            "accepted": not token_budget_exceeded,
         }
+        if token_budget_exceeded:
+            acknowledgement["diagnostic"] = "MODEL_TOKEN_BUDGET_EXCEEDED"
+        return acknowledgement
 
     def handle_message(self, message: Any) -> dict:
         if not isinstance(message, dict):
@@ -281,6 +305,16 @@ class PilotGateway:
                     "invalid",
                     "TOOL_CALL_BUDGET_EXCEEDED",
                     "The scheduled tool-call budget is exhausted.",
+                )
+            if self.token_budget_exceeded:
+                tool_name = message.get("tool")
+                if not isinstance(tool_name, str) or not tool_name:
+                    tool_name = "<invalid>"
+                self._record_tool_call(tool_name[:128], "MODEL_TOKEN_BUDGET_EXCEEDED")
+                return _error_response(
+                    "invalid",
+                    "MODEL_TOKEN_BUDGET_EXCEEDED",
+                    "The scheduled model token budget is exhausted.",
                 )
         request_id = message.get("request_id", "invalid")
         if not isinstance(request_id, str) or not request_id or len(request_id) > MAX_REQUEST_ID_LENGTH:
@@ -392,6 +426,8 @@ def main() -> None:
     parser.add_argument("--task-id", default=PILOT_TASK_ID)
     parser.add_argument("--attempt", type=int, default=1)
     parser.add_argument("--max-tool-calls", type=int)
+    parser.add_argument("--max-input-tokens", type=int)
+    parser.add_argument("--max-output-tokens", type=int)
     args = parser.parse_args()
 
     trace_sink = None
@@ -399,8 +435,13 @@ def main() -> None:
     if args.trace_output:
         if not args.run_id or not args.model_id:
             parser.error("--trace-output requires --run-id and --model-id")
-        if args.max_tool_calls is None or args.max_tool_calls < 1:
-            parser.error("--trace-output requires a positive --max-tool-calls")
+        for name, value in (
+            ("--max-tool-calls", args.max_tool_calls),
+            ("--max-input-tokens", args.max_input_tokens),
+            ("--max-output-tokens", args.max_output_tokens),
+        ):
+            if value is None or value < 1:
+                parser.error(f"--trace-output requires a positive {name}")
         trace_sink = JsonlTraceSink(args.trace_output)
         trace_context = {
             "run_id": args.run_id,
@@ -415,6 +456,8 @@ def main() -> None:
         trace_sink=trace_sink,
         trace_context=trace_context,
         max_tool_calls=args.max_tool_calls,
+        max_input_tokens=args.max_input_tokens,
+        max_output_tokens=args.max_output_tokens,
     )
     stdout = sys.stdout.buffer
     stdin = sys.stdin.buffer
