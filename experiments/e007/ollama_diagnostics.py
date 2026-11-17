@@ -156,6 +156,32 @@ def benchmark_prefill(base_url: str, model: str, thread_counts: list[int]) -> li
                 })
     return observations
 
+def build_schema_probe_messages(surface: dict) -> list[dict]:
+    # Match the actual local_agent upfront arm: the function schema is a
+    # generic dispatch envelope, while per-tool schemas arrive in session data.
+    return [
+        {
+            "role": "system",
+            "content": (
+                "You are testing the live Agent Native upfront disclosure arm. "
+                "Use only agent.invoke and the supplied session surface. All exposed "
+                "tool schemas are present in the session surface. Call exactly one "
+                "tool: service.inspect for the Catalog service. The first call must "
+                "use service_id='catalog' and omit operation. Do not write prose."
+            ),
+        },
+        {
+            "role": "user",
+            "content": "Inspect the Catalog service using service.inspect.",
+        },
+        {
+            "role": "user",
+            "content": "Session surface JSON:\\n"
+            + json.dumps(surface, ensure_ascii=False, sort_keys=True),
+        },
+    ]
+
+
 def schema_probe(base_url: str, model: str, num_threads: int) -> dict:
     gateway, session = read_gateway_surface()
     try:
@@ -175,20 +201,7 @@ def schema_probe(base_url: str, model: str, num_threads: int) -> dict:
             base_url + "/api/chat",
             {
                 "model": model,
-                "messages": [
-                    {
-                        "role": "system",
-                        "content": (
-                            "This is a short isolated tool-schema conformance probe. "
-                            "Call exactly one exposed tool. Invoke service.inspect for the Catalog service. "
-                            "Use service_id='catalog'. Do not call any other tool and do not write prose."
-                        ),
-                    },
-                    {
-                        "role": "user",
-                        "content": "Inspect the Catalog service using service.inspect.",
-                    },
-                ],
+                "messages": build_schema_probe_messages(surface),
                 "tools": [tool],
                 "stream": False,
                 "keep_alive": "10m",
