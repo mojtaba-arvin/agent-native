@@ -255,7 +255,8 @@ class KernelHTTPServerTests(unittest.TestCase):
             + b"Connection: close\r\n\r\n"
         )
         self.assertEqual(too_large[0], 413)
-        self.assertEqual(too_large[2]["error"]["code"], "BODY_TOO_LARGE")
+        too_large_body = json.loads(too_large[2].decode("utf-8"))
+        self.assertEqual(too_large_body["error"]["code"], "BODY_TOO_LARGE")
 
         unsupported_media = self.raw_request(
             b"POST /items HTTP/1.1\r\n"
