@@ -220,7 +220,7 @@ P1 is the critical path. P2 and P3 can proceed after their contracts are fixed a
 | P2 — Durable E-009 audit sink | Complete | SQLite sink wired into serve.py; allow/deny, reopen, concurrent append, append-only, and fail-closed tests; 76 E-009 tests pass |
 | P3.1 — E-002 decision criteria | Complete | Weighted criteria and provisional gates registered before the ten-run matrix; [CPU gate analysis](../experiments/e002/cpu-gate-analysis.md) documents the missing product-side provenance |
 | P3.2 — E-002 ten-run matrix | Complete, diagnostic only | 10 repetitions × 5,000 requests per candidate; all functional, p99, throughput, RSS, startup gates pass; all four candidates fail the provisional CPU screen; ecosystem/fault-injection/artifact-size criteria remain unmeasured |
-| P4 — Validation and reporting | Partially complete | E-005 17 tests, E-007 43 tests, E-009 76 tests pass; peer checklist records the 0/3 failure and keeps post-fix real-model acceptance open |
+| P4 — Validation and reporting | Partially complete | E-005 17 tests, E-007 44 tests, E-009 76 tests pass; peer checklist records the 0/3 deterministic failure and the 1 stochastic exploratory timeout; real-model acceptance remains open |
 | P5 — Evidence synthesis | In progress | [Evidence index](evidence-index.md), [design decisions](design-decisions.md), [CPU analysis](../experiments/e002/cpu-gate-analysis.md), and [E-009 IR contract](../experiments/e009/ir-contract.md) created; report/resource-policy/docs reconciliation continues |
 
 ## RPI phase 0 — Continuous evaluation-infrastructure validation
@@ -242,7 +242,7 @@ The final report must distinguish:
 4. Whether those corrections have been verified by a post-fix real-model artifact.
 5. What remains diagnostic, not measured, unpriced, or future work.
 
-The three-run Qwen3 cohort is 0/3 accepted and is a deterministic failure reproduction. E-002 is diagnostic, not decision-grade. No runtime is selected. The model-tier/corpus expansion is a documented future plan, not executed evidence.
+The three-run Qwen3 cohort is 0/3 accepted and is a deterministic failure reproduction. The one stochastic probe produced a full-shaped but non-preserving IR and then timed out before resubmission. Neither establishes a successful proposal/validate/plan cycle. E-002 is diagnostic, not decision-grade. No runtime is selected. The model-tier/corpus expansion is a documented future plan, not executed evidence.
 
 ## Explicit scope limits for this cycle
 
