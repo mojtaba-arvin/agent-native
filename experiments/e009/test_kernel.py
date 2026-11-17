@@ -13,11 +13,11 @@ from security_model import Grant, RequestContext
 
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE = (Path(__file__).parent / "catalog.an").read_text(encoding="utf-8")
-TRUSTED_EFFECTS = {"repository.read", "repository.write", "queue.submit"}
+TRUSTED_EFFECTS = {"repository.read", "repository.write", "queue.submit", "queue.read", "queue.cancel"}
 
 
 def context(principal="user-a", tenant="tenant-a", capabilities=None):
-    capabilities = capabilities or ("items.read", "items.create", "jobs.submit")
+    capabilities = capabilities or ("items.read", "items.create", "jobs.submit", "jobs.read", "jobs.cancel")
     return RequestContext(
         principal_id=principal,
         tenant_id=tenant,
@@ -221,6 +221,34 @@ class KernelTests(unittest.TestCase):
         )
         self.assertEqual(job["task_type"], "catalog.rebuild")
         self.assertEqual(job["state"], "queued")
+
+    def test_job_inspection_and_cancellation_follow_durable_state(self):
+        submitted = self.dispatch(
+            "POST", "/items/rebuild", {},
+            headers={"idempotency-key": "job-inspect-cancel-001"},
+        )
+        task_id = submitted.body["data"]["id"]
+        inspected = self.dispatch("GET", f"/jobs/{task_id}")
+        self.assertEqual(inspected.status_code, 200)
+        self.assertEqual(inspected.body["data"]["state"], "queued")
+
+        cancelled = self.dispatch("POST", f"/jobs/{task_id}/cancel")
+        self.assertEqual(cancelled.status_code, 200)
+        self.assertEqual(cancelled.body["data"]["state"], "cancelled")
+        inspected_again = self.dispatch("GET", f"/jobs/{task_id}")
+        self.assertEqual(inspected_again.body["data"]["state"], "cancelled")
+
+    def test_job_inspection_is_tenant_scoped(self):
+        submitted = self.dispatch(
+            "POST", "/items/rebuild", {},
+            headers={"idempotency-key": "job-tenant-001"},
+        )
+        task_id = submitted.body["data"]["id"]
+        hidden = self.dispatch(
+            "GET", f"/jobs/{task_id}",
+            identity=context("user-b", "tenant-b"),
+        )
+        self.assertEqual(hidden.status_code, 404)
 
     def test_durable_job_submission_requires_capability(self):
         denied_identity = context(
