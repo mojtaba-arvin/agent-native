@@ -19,7 +19,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[2]
 
 
-def post_json(url: str, payload: dict, timeout: float = 900.0) -> dict:
+def post_json(url: str, payload: dict, timeout: float = 300.0) -> dict:
     raw = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
     request = urllib.request.Request(
         url,
