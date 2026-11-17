@@ -272,6 +272,7 @@ class EvalRunnerTests(unittest.TestCase):
             self.assertEqual(result["budget"]["actual"]["input_tokens"], 95)
             self.assertEqual(result["failure_categories"]["resource_budget_exceeded"], 2)
             self.assertFalse(result["runs"][1]["eligible_for_acceptance"])
+            self.assertNotIn("agent_or_runner_failure", result["runs"][1]["failure_categories"])
 
 
     def test_unpriced_local_inference_is_unknown_not_zero(self):
