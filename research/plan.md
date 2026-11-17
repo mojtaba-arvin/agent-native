@@ -234,7 +234,7 @@ This phase runs in parallel with P1–P5 and remains open as the runner evolves.
 
 - Hostile-path tests cover repeated successful proposals, malformed input shapes, empty provider responses, nested AN021 validation diagnostics, and budget exhaustion before the next run.
 - Aggregate budgets cover input/output tokens and wall time. Monetary inference cost is enforced only when a provider tariff is known; local Ollama cost is unpriced, not a fabricated zero.
-- Failure taxonomy retains the raw failure code and categorizes schema incompatibility, repeated tool/repair behavior, validation rejection, model/adapter configuration, provider HTTP, transport loss, agent/runner timeout, runner/gateway failure, per-run and aggregate resource-budget exhaustion, and explicit OOM evidence.
+- Failure taxonomy retains the raw failure code and categorizes schema incompatibility, repeated tool/repair behavior, validation rejection, model/adapter configuration, provider HTTP, transport loss, agent/runner timeout, runner/gateway failure, per-run and aggregate resource-budget exhaustion, wall-budget-terminal transport correlation, and explicit OOM evidence.
 - Budget exhaustion is not an agent failure: not-started repetitions are preserved with `eligible_for_acceptance=false` and `resource_budget_exceeded`.
 - CI implementation evidence does not substitute for real-model artifact inspection.
 
