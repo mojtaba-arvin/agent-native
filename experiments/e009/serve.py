@@ -8,6 +8,7 @@ or production authentication configuration.
 from __future__ import annotations
 
 import argparse
+import math
 import os
 import sys
 import threading
@@ -44,8 +45,13 @@ def main() -> None:
         ("worker-poll-seconds", args.worker_poll_seconds),
         ("relay-poll-seconds", args.relay_poll_seconds),
     ):
-        if not isinstance(value, (int, float)) or value <= 0:
-            parser.error(f"--{name} must be positive")
+        if (
+            isinstance(value, bool)
+            or not isinstance(value, (int, float))
+            or not math.isfinite(value)
+            or value <= 0
+        ):
+            parser.error(f"--{name} must be a finite positive number")
 
     token = os.environ.get("AGENT_NATIVE_DEMO_TOKEN", "")
     if len(token) < 24:
@@ -145,8 +151,8 @@ def main() -> None:
         pass
     finally:
         stop.set()
-        worker_thread.join(timeout=10)
-        relay_thread.join(timeout=10)
+        worker_thread.join()
+        relay_thread.join()
         server.server_close()
         repository.close()
 
