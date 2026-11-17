@@ -296,6 +296,19 @@ class GatewayTests(unittest.TestCase):
         self.assertEqual(usage_events[0]["output_tokens"], 87)
         self.assertEqual(usage_events[0]["cost_usd"], 0.0025)
         self.assertEqual(usage_events[0]["model_id"], "provider/model-pinned")
+        duplicate = gateway.handle_message({
+            "type": "model_usage",
+            "request_id": "generation-1",
+            "input_tokens": 1234,
+            "output_tokens": 87,
+            "cost_usd": 0.0025,
+        })
+        self.assertFalse(duplicate["accepted"])
+        self.assertEqual(duplicate["diagnostic"], "MODEL_USAGE_DUPLICATE_REQUEST")
+        self.assertEqual(
+            len([event for event in events if event["event_type"] == "model_usage"]),
+            1,
+        )
 
     def test_model_usage_rejects_invalid_or_untrusted_metadata(self):
         events = []
