@@ -6,6 +6,9 @@ import threading
 import unittest
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from unittest.mock import patch
+
+import ollama_runner
 
 from schedule import SOURCE_FILES
 
@@ -134,6 +137,57 @@ class OllamaRunnerTests(unittest.TestCase):
         )
         self.assertEqual(mapped["tool"], "<invalid>")
         self.assertEqual(mapped["request_id"], "invalid-call-3")
+
+    def test_candidate_artifact_storage_failure_is_infrastructure_error(self):
+        trial = {
+            "sequence": 1,
+            "pair_id": "pair-0001",
+            "run_id": "pair-0001-progressive-storage-error",
+            "candidate_id": "progressive",
+            "model_id": "qwen3-test",
+            "generation_settings": {
+                "temperature": 0.2,
+                "top_p": 0.9,
+                "seed": 17,
+                "num_ctx": 8192,
+                "think": True,
+            },
+            "task_id": "pilot-catalog-add-readonly-operation",
+            "attempt": 1,
+            "source_revision": "a" * 40,
+            "fresh_state_required": True,
+            "agent_visible_treatment_label": False,
+            "budgets": {
+                "max_input_tokens": 16000,
+                "max_output_tokens": 4000,
+                "max_tool_calls": 10,
+                "max_wall_seconds": 30,
+            },
+        }
+        original_write = ollama_runner._write_exclusive
+
+        def fail_candidate_write(path, raw):
+            if Path(path).name == "candidate.json":
+                raise OSError("simulated storage failure")
+            return original_write(path, raw)
+
+        with tempfile.TemporaryDirectory() as temporary:
+            with patch("ollama_runner._write_exclusive", side_effect=fail_candidate_write):
+                record = run_one_trial(
+                    trial,
+                    plan_id="c" * 64,
+                    results_root=Path(temporary) / "results",
+                    base_url=self.base_url,
+                )
+
+            run_dir = Path(temporary) / "results" / trial["run_id"]
+            saved_record = json.loads((run_dir / "run.json").read_text(encoding="utf-8"))
+
+        self.assertEqual(record["status"], "failed")
+        self.assertEqual(record["failure_class"], "ADAPTER_ERROR")
+        self.assertEqual(saved_record["failure_class"], "ADAPTER_ERROR")
+        self.assertEqual(record["candidate_path"], None)
+        self.assertEqual(record["evaluator_status"], "not_run")
 
     def test_scheduled_trial_runs_through_gateway_and_preserves_trace(self):
         trial = {
