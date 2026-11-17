@@ -10,6 +10,7 @@ import argparse
 import hashlib
 import ipaddress
 import json
+import math
 import os
 import subprocess
 import sys
@@ -230,6 +231,7 @@ def verify_candidate(
     successful_proposal: dict,
     validation_result: dict,
     plan_result: dict,
+    tool_sequence: list[str],
 ) -> dict:
     required = {
         "schema_version", "task_id", "service_id",
@@ -287,6 +289,35 @@ def verify_candidate(
     if plan.get("effects") is None or "repository.read" not in plan["effects"]:
         raise AgentRunError("planned_read_effect_missing")
 
+    try:
+        proposal_index = tool_sequence.index("service.propose")
+        validation_index = tool_sequence.index("service.validate")
+        plan_index = tool_sequence.index("service.plan")
+    except ValueError as error:
+        raise AgentRunError("required_tool_sequence_missing") from error
+    if (
+        tool_sequence.count("service.propose") != 1
+        or tool_sequence.count("service.validate") != 1
+        or tool_sequence.count("service.plan") != 1
+        or tool_sequence.count("service.apply") != 0
+        or not tool_sequence
+        or tool_sequence[0] != "service.inspect"
+        or proposal_index <= 0
+        or validation_index <= proposal_index
+        or plan_index <= validation_index
+    ):
+        raise AgentRunError("required_tool_sequence_invalid")
+    if any(
+        tool_sequence.index("service.inspect") > proposal_index
+        for _ in [0]
+    ):
+        raise AgentRunError("service_inspection_must_precede_proposal")
+    if any(
+        tool_sequence.index("service.inspect") > proposal_index
+        for _ in [0]
+    ):
+        raise AgentRunError("service_inspection_must_precede_proposal")
+
     return {
         "task_id": TASK_ID,
         "service_id": SERVICE_ID,
@@ -313,6 +344,7 @@ def run(args: argparse.Namespace) -> dict:
     run_dir = results_root / run_id
     run_dir.mkdir(mode=0o700, exist_ok=False)
     trace_path = run_dir / "tool-trace.jsonl"
+    _write_exclusive(trace_path, b"")
     candidate_path = run_dir / "candidate.json"
     result_path = run_dir / "run.json"
 
@@ -396,6 +428,7 @@ def run(args: argparse.Namespace) -> dict:
         successful_proposal = None
         validation_result = None
         plan_result = None
+        tool_sequence: list[str] = []
         final_content = None
         turn = 0
         call_number = 0
@@ -461,6 +494,7 @@ def run(args: argparse.Namespace) -> dict:
                     })
                     record["tool_calls"] = call_number
                     tool_name = request.get("tool")
+                    tool_sequence.append(tool_name if isinstance(tool_name, str) else "<invalid>")
                     arguments = request.get("arguments")
                     if tool_name == "service.inspect" and nested.get("ok"):
                         inspected_result = nested.get("result") or {}
@@ -504,6 +538,7 @@ def run(args: argparse.Namespace) -> dict:
             successful_proposal=successful_proposal or {},
             validation_result=validation_result or {},
             plan_result=plan_result or {},
+            tool_sequence=tool_sequence,
         )
         _write_exclusive(candidate_path, raw_candidate + (b"" if raw_candidate.endswith(b"\n") else b"\n"))
         record["candidate_path"] = str(candidate_path)
@@ -553,8 +588,16 @@ def main() -> None:
             parser.error(f"--{name.replace('_', '-')} must be positive")
     if args.num_predict > args.max_output_tokens:
         parser.error("--num-predict cannot exceed --max-output-tokens")
-    if not 0 <= args.temperature <= 2 or not 0 < args.top_p <= 1:
-        parser.error("generation settings are out of range")
+    if (
+        not math.isfinite(args.max_wall_seconds)
+        or not math.isfinite(args.temperature)
+        or not math.isfinite(args.top_p)
+        or not 0 <= args.temperature <= 2
+        or not 0 < args.top_p <= 1
+        or not 0 <= args.seed <= 2**32 - 1
+        or args.num_ctx < 1024
+    ):
+        parser.error("generation settings, seed, context, or time budget are out of range")
     try:
         record = run(args)
     except (ValueError, OSError) as error:
