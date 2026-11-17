@@ -26,20 +26,24 @@ jobs:
           python-version: "3.11"
       - name: Install Ollama
         run: |
-          curl -fsSL https://ollama.com/install.sh | sh
-      - name: Start Ollama
+          curl --fail --silent --show-error --location https://ollama.com/install.sh | sh
+          ollama --version | tee /tmp/ollama-version.txt
+      - name: Start Ollama with the Qwen3-compatible template renderer
+        shell: bash
         run: |
-          ollama serve > /tmp/ollama.log 2>&1 &
+          set -euo pipefail
+          sudo systemctl stop ollama.service 2>/dev/null || true
+          OLLAMA_GO_TEMPLATE=false OLLAMA_HOST=127.0.0.1:11434 ollama serve > /tmp/ollama-serve.log 2>&1 &
           for attempt in $(seq 1 60); do
-            if curl -fsS http://127.0.0.1:11434/api/tags >/dev/null; then
-              exit 0
+            if ollama list >/dev/null 2>&1; then
+              break
             fi
-            sleep 1
+            sleep 2
           done
-          cat /tmp/ollama.log
-          exit 1
-      - name: Pull pinned local model
-        run: ollama pull qwen3:8b
+          ollama list
+          ollama pull qwen3:8b
+          ollama show qwen3:8b --modelfile > /tmp/qwen3-modelfile.txt
+          ollama list > /tmp/ollama-models.txt
       - name: Run three real-agent eval repetitions
         run: |
           python experiments/e007/eval_runner.py \
@@ -59,6 +63,11 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: e007-qwen3-real-agent-eval
-          path: /tmp/agent-native-e007-evals/
+          path: |
+            /tmp/agent-native-e007-evals/
+            /tmp/ollama-version.txt
+            /tmp/ollama-models.txt
+            /tmp/qwen3-modelfile.txt
+            /tmp/ollama-serve.log
           if-no-files-found: warn
           retention-days: 14
