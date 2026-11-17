@@ -9,6 +9,7 @@ deployment operations are exposed.
 from __future__ import annotations
 
 import argparse
+import copy
 import json
 import sys
 from pathlib import Path
@@ -107,11 +108,15 @@ class AgentNativeGateway:
             {"catalog": service_ir},
             trusted_effects=TRUSTED_EFFECTS,
         )
-        self._required_inspection_operations = {
+        self._required_inspection_order = [
             item["name"] for item in service_ir["operations"]
-        }
+        ]
+        self._required_inspection_operations = set(self._required_inspection_order)
         self._inspected_revision: str | None = None
         self._inspected_operations: set[str] = set()
+        self._inspected_operation_contracts: dict[str, dict] = {}
+        self._inspected_service: dict | None = None
+        self._inspected_types: list | None = None
 
     def session_message(self) -> dict:
         return {
@@ -128,6 +133,7 @@ class AgentNativeGateway:
         message: str,
         *,
         next_actions: list[str] | None = None,
+        fix_hint: str | None = None,
     ) -> dict:
         response = {
             "protocol_version": PROTOCOL_VERSION,
@@ -138,7 +144,7 @@ class AgentNativeGateway:
                 "code": code,
                 "message": message,
                 "source_span": None,
-                "fix_hint": None,
+                "fix_hint": fix_hint,
             }],
             "next_actions": next_actions or [],
         }
@@ -192,6 +198,44 @@ class AgentNativeGateway:
                         ],
                     )
 
+                ir = arguments.get("ir")
+                if isinstance(ir, dict):
+                    changed_sections = []
+                    if "service" in ir and ir["service"] != self._inspected_service:
+                        changed_sections.append("service")
+                    if "types" in ir and ir["types"] != self._inspected_types:
+                        changed_sections.append("types")
+                    operations = ir.get("operations")
+                    changed_operations = []
+                    if isinstance(operations, list):
+                        for index, name in enumerate(self._required_inspection_order):
+                            expected = self._inspected_operation_contracts.get(name)
+                            if index >= len(operations) or expected is None or operations[index] != expected:
+                                changed_operations.append(name)
+                        if len(operations) < len(self._required_inspection_order):
+                            changed_sections.append("existing_operations_missing")
+                        if changed_operations:
+                            changed_sections.append("existing_operations_changed")
+                    if changed_sections:
+                        details = []
+                        if changed_operations:
+                            details.append("changed existing operations: " + ", ".join(changed_operations))
+                        details.append("changed sections: " + ", ".join(changed_sections))
+                        return self._error(
+                            request_id,
+                            "IR_PRESERVATION_MISMATCH",
+                            "The proposal does not preserve the inspected base exactly: " + "; ".join(details),
+                            next_actions=[
+                                "Copy the exact inspected service and type declarations and every existing operation object in original order; append only the requested new operation."
+                            ],
+                            fix_hint=(
+                                "Do not recreate, normalize, infer, reorder, or edit existing declarations. "
+                                "Copy the complete service object, types array, and each operation JSON object "
+                                "exactly as returned by service.inspect. Preserve method, path, input, output, "
+                                "errors, validation, effects, and capability. Append only the requested new operation."
+                            ),
+                        )
+
         response = self.interface.handle({
             "protocol_version": PROTOCOL_VERSION,
             "request_id": request_id,
@@ -202,12 +246,19 @@ class AgentNativeGateway:
             operation = arguments.get("operation")
             if operation is None:
                 self._inspected_revision = response["result"]["revision"]
+                self._inspected_service = copy.deepcopy(response["result"]["service"])
+                self._inspected_types = copy.deepcopy(response["result"]["types"])
                 self._inspected_operations.clear()
-                self._required_inspection_operations = {
+                self._inspected_operation_contracts.clear()
+                self._required_inspection_order = [
                     item["name"] for item in response["result"]["operations"]
-                }
+                ]
+                self._required_inspection_operations = set(self._required_inspection_order)
             elif self._inspected_revision is not None:
                 self._inspected_operations.add(operation)
+                full_contract = (response.get("result") or {}).get("operation")
+                if isinstance(full_contract, dict) and full_contract.get("name") == operation:
+                    self._inspected_operation_contracts[operation] = copy.deepcopy(full_contract)
         return {
             "type": "tool_result",
             "request_id": request_id,
