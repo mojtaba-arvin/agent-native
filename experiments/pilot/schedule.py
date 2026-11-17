@@ -427,7 +427,8 @@ def main() -> None:
     args = parser.parse_args()
 
     try:
-        generation_settings = load_generation_settings(args.generation_settings_file)
+        settings_file = resolve_output_outside_checkout(args.generation_settings_file)
+        generation_settings = load_generation_settings(settings_file)
         output = resolve_output_outside_checkout(args.output)
     except ScheduleError as error:
         parser.error(str(error))
