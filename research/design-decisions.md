@@ -227,3 +227,9 @@ The diagnostic label for the first artifact is prefill_not_completed_at_wall_dea
 
 **Decision:** compare requested 2 and 4 threads as the primary settings and include 16 only as an explicitly labelled oversubscription stress arm. Record process affinity and cgroup CPU quota/cpuset with every measurement. Never describe a 16-thread request as using 16 cores on a four-CPU runner.
 
+## D-026 — Compacted prompt state is deterministic and persisted per model turn
+
+**Evidence:** experiments/e009/local_agent.py constructs the Gateway-state ledger only from trusted Gateway inspection results, the local tool-call sequence, and compacted tool outcomes. No LLM summarization step is used.
+
+**Decision:** persist the exact state snapshot supplied for every provider turn in prompt-states.jsonl, with a SHA-256 digest, prompt-message digest, and base-message digest. The provider-response record references the corresponding state and prompt hashes. The initial turn records the live session surface; subsequent turns record the deterministic Gateway-state ledger. This makes compaction reviewable without replacing the append-only raw tool trace. Regression tests verify deterministic state construction and per-turn persistence, including the diagnostic state after an invalid tool call.
+
