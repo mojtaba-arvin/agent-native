@@ -107,6 +107,11 @@ class AgentNativeGateway:
             {"catalog": service_ir},
             trusted_effects=TRUSTED_EFFECTS,
         )
+        self._required_inspection_operations = {
+            item["name"] for item in service_ir["operations"]
+        }
+        self._inspected_revision: str | None = None
+        self._inspected_operations: set[str] = set()
 
     def session_message(self) -> dict:
         return {
@@ -117,7 +122,13 @@ class AgentNativeGateway:
         }
 
     @staticmethod
-    def _error(request_id: str, code: str, message: str) -> dict:
+    def _error(
+        request_id: str,
+        code: str,
+        message: str,
+        *,
+        next_actions: list[str] | None = None,
+    ) -> dict:
         response = {
             "protocol_version": PROTOCOL_VERSION,
             "request_id": request_id,
@@ -129,7 +140,7 @@ class AgentNativeGateway:
                 "source_span": None,
                 "fix_hint": None,
             }],
-            "next_actions": [],
+            "next_actions": next_actions or [],
         }
         return {
             "type": "tool_result",
@@ -156,12 +167,47 @@ class AgentNativeGateway:
         if not isinstance(arguments, dict):
             return self._error(request_id, "ARGUMENT_SHAPE", "arguments must be a JSON object.")
 
+        if tool == "service.propose":
+            base_revision = arguments.get("base_revision")
+            if self._inspected_revision is None:
+                return self._error(
+                    request_id,
+                    "INSPECTION_REQUIRED",
+                    "Inspect the service before proposing a change.",
+                    next_actions=["service.inspect with service_id=catalog"],
+                )
+            if base_revision == self._inspected_revision:
+                missing = sorted(
+                    self._required_inspection_operations - self._inspected_operations
+                )
+                if missing:
+                    return self._error(
+                        request_id,
+                        "INSPECTION_INCOMPLETE",
+                        "Inspect every existing operation before proposing. Missing: "
+                        + ", ".join(missing),
+                        next_actions=[
+                            f"service.inspect with operation={name}"
+                            for name in missing
+                        ],
+                    )
+
         response = self.interface.handle({
             "protocol_version": PROTOCOL_VERSION,
             "request_id": request_id,
             "tool": tool,
             "arguments": arguments,
         })
+        if tool == "service.inspect" and response.get("ok"):
+            operation = arguments.get("operation")
+            if operation is None:
+                self._inspected_revision = response["result"]["revision"]
+                self._inspected_operations.clear()
+                self._required_inspection_operations = {
+                    item["name"] for item in response["result"]["operations"]
+                }
+            elif self._inspected_revision is not None:
+                self._inspected_operations.add(operation)
         return {
             "type": "tool_result",
             "request_id": request_id,
