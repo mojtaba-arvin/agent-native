@@ -397,6 +397,49 @@ class GatewayTests(unittest.TestCase):
         self.assertEqual(len(calls), 3)
         self.assertEqual(calls[-1]["failure_class"], "TOOL_CALL_BUDGET_EXCEEDED")
 
+    def test_invalid_request_id_still_consumes_tool_call_budget(self):
+        events = []
+        gateway = PilotGateway(
+            "upfront",
+            max_tool_calls=1,
+            trace_sink=events.append,
+            trace_context={
+                "run_id": "malformed-budget-trial",
+                "candidate_id": "upfront",
+                "model_id": "test-model",
+                "task_id": "pilot-catalog-add-readonly-operation",
+                "attempt": 1,
+            },
+        )
+        malformed = gateway.handle_message({
+            "type": "tool_call",
+            "request_id": "",
+            "tool": "interface.describe",
+            "arguments": {},
+        })
+        self.assertEqual(
+            malformed["response"]["diagnostics"][0]["code"],
+            "REQUEST_ID",
+        )
+        self.assertEqual(gateway.tool_call_count, 1)
+
+        next_call = gateway.handle_message({
+            "type": "tool_call",
+            "request_id": "valid-next",
+            "tool": "interface.describe",
+            "arguments": {},
+        })
+        self.assertEqual(
+            next_call["response"]["diagnostics"][0]["code"],
+            "TOOL_CALL_BUDGET_EXCEEDED",
+        )
+        calls = [event for event in events if event["event_type"] == "tool_call"]
+        self.assertEqual(
+            [event["failure_class"] for event in calls],
+            ["REQUEST_ID", "TOOL_CALL_BUDGET_EXCEEDED"],
+        )
+
+
     def test_gateway_rejects_invalid_tool_budget_configuration(self):
         with self.assertRaisesRegex(ValueError, "max_tool_calls_must_be_positive_integer"):
             PilotGateway("progressive", max_tool_calls=0)
