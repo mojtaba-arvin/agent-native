@@ -111,7 +111,7 @@ This description intentionally distinguishes an ambitious product direction from
 
 ## Latest implementation verification
 
-E-007 has 53 passing deterministic tests in [workflow 44188566011](https://github.com/mojtaba-arvin/agent-native/actions/runs/44188566011), including proposal-only contract scoring without lifecycle false positives, wall-budget-terminal transport classification, per-run budget ineligibility, and aggregate cost/time fail-fast. E-009 has 80 passing tests in [workflow 44128413303](https://github.com/mojtaba-arvin/agent-native/actions/runs/44128413303), including Gateway-owned exact-base preservation and plan gating. E-005 has 17 passing interface tests. These are implementation checks, not real-model acceptance.
+E-007 has 55 passing deterministic tests in [workflow 44191400777](https://github.com/mojtaba-arvin/agent-native/actions/runs/44191400777), including proposal-only contract scoring without lifecycle false positives, wall-deadline cancellation classification, pre-deadline transport-failure distinction, per-run budget ineligibility, and aggregate cost/time fail-fast. E-009 has 80 passing tests in [workflow 44128413303](https://github.com/mojtaba-arvin/agent-native/actions/runs/44128413303), including Gateway-owned exact-base preservation and plan gating. E-005 has 17 passing interface tests. These are implementation checks, not real-model acceptance.
 
 See the [evidence index](research/evidence-index.md), [design decisions](research/design-decisions.md), and [second E-002 diagnostic report](experiments/e002/results/2026-11-17-second-ten-run-artifact-diagnostic.md).
 
