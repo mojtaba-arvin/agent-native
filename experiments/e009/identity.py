@@ -8,7 +8,12 @@ provider; clients never submit grants or tenant identity as trusted claims.
 from __future__ import annotations
 
 import secrets
+import sys
+from pathlib import Path
 from typing import Protocol
+
+_REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(_REPOSITORY_ROOT / "experiments" / "e004"))
 
 from security_model import RequestContext
 
@@ -39,6 +44,10 @@ class MemoryIdentityProvider:
             return None
         match = None
         for expected, context in self._tokens:
-            if secrets.compare_digest(supplied, expected):
+            try:
+                equal = secrets.compare_digest(supplied, expected)
+            except TypeError:
+                equal = False
+            if equal:
                 match = context
         return match
