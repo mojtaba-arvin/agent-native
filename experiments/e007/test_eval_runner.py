@@ -235,7 +235,7 @@ class EvalRunnerTests(unittest.TestCase):
 
             def fake_run(command, **kwargs):
                 if command[0] == "git":
-                    output = "mock-revision\\n" if command[1] == "rev-parse" else ""
+                    output = "mock-revision\n" if command[1] == "rev-parse" else ""
                     return subprocess.CompletedProcess(command, 0, stdout=output, stderr="")
                 invocation_count["agent"] += 1
                 results_dir = Path(command[command.index("--results-dir") + 1])
@@ -250,7 +250,7 @@ class EvalRunnerTests(unittest.TestCase):
                 }
                 (run_dir / "run.json").write_text(json.dumps(record), encoding="utf-8")
                 (run_dir / "provider-responses.jsonl").write_text(
-                    json.dumps({"prompt_eval_count": 95, "eval_count": 20}) + "\\n",
+                    json.dumps({"prompt_eval_count": 95, "eval_count": 20}) + "\n",
                     encoding="utf-8",
                 )
                 return subprocess.CompletedProcess(
