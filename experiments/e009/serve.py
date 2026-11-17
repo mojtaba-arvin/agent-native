@@ -10,6 +10,9 @@ from __future__ import annotations
 import argparse
 import os
 import sys
+import threading
+import time
+import uuid
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -23,6 +26,7 @@ from identity import MemoryIdentityProvider  # noqa: E402
 from kernel import ServiceRuntime, load_service_ir  # noqa: E402
 from repository import SQLiteCatalogRepository  # noqa: E402
 from work_store import DurableWorkStore  # noqa: E402
+from worker import CatalogWorker, OutboxRelay  # noqa: E402
 from security_model import Grant, RequestContext  # noqa: E402
 
 
@@ -31,7 +35,17 @@ def main() -> None:
     parser.add_argument("--database", type=Path, default=Path("./agent-native-e009.sqlite3"))
     parser.add_argument("--port", type=int, default=8080)
     parser.add_argument("--max-concurrency", type=int, default=64)
+    parser.add_argument("--worker-poll-seconds", type=float, default=0.25)
+    parser.add_argument("--relay-poll-seconds", type=float, default=0.25)
+    parser.add_argument("--worker-lease-seconds", type=int, default=30)
+    parser.add_argument("--relay-lease-seconds", type=int, default=15)
     args = parser.parse_args()
+    for name, value in (
+        ("worker-poll-seconds", args.worker_poll_seconds),
+        ("relay-poll-seconds", args.relay_poll_seconds),
+    ):
+        if not isinstance(value, (int, float)) or value <= 0:
+            parser.error(f"--{name} must be positive")
 
     token = os.environ.get("AGENT_NATIVE_DEMO_TOKEN", "")
     if len(token) < 24:
@@ -69,16 +83,70 @@ def main() -> None:
         max_concurrency=args.max_concurrency,
     )
 
+    worker_id = f"catalog-worker-{uuid.uuid4().hex[:12]}"
+    relay_id = f"outbox-relay-{uuid.uuid4().hex[:12]}"
+    worker = CatalogWorker(
+        repository,
+        work_store,
+        lease_seconds=args.worker_lease_seconds,
+    )
+    relay = OutboxRelay(
+        work_store,
+        consumer_id="catalog-local-observer",
+        lease_seconds=args.relay_lease_seconds,
+    )
+    stop = threading.Event()
+
+    def worker_loop() -> None:
+        while not stop.is_set():
+            try:
+                worker.run_once(worker_id=worker_id, now=int(time.time()))
+            except Exception as error:
+                print(
+                    f"[worker] iteration failed: {type(error).__name__}",
+                    file=sys.stderr,
+                    flush=True,
+                )
+            stop.wait(args.worker_poll_seconds)
+
+    def relay_loop() -> None:
+        while not stop.is_set():
+            try:
+                relay.run_once(relay_id=relay_id, now=int(time.time()))
+            except Exception as error:
+                print(
+                    f"[outbox] iteration failed: {type(error).__name__}",
+                    file=sys.stderr,
+                    flush=True,
+                )
+            stop.wait(args.relay_poll_seconds)
+
+    worker_thread = threading.Thread(
+        target=worker_loop,
+        name="agent-native-catalog-worker",
+        daemon=False,
+    )
+    relay_thread = threading.Thread(
+        target=relay_loop,
+        name="agent-native-outbox-relay",
+        daemon=False,
+    )
     print(
         f"Agent Native E-009 reference kernel listening on "
-        f"http://127.0.0.1:{server.server_port} (local demo only)",
+        f"http://127.0.0.1:{server.server_port} (local demo only) "
+        f"with worker={worker_id} relay={relay_id}",
         flush=True,
     )
+    worker_thread.start()
+    relay_thread.start()
     try:
         server.serve_forever(poll_interval=0.25)
     except KeyboardInterrupt:
         pass
     finally:
+        stop.set()
+        worker_thread.join(timeout=10)
+        relay_thread.join(timeout=10)
         server.server_close()
         repository.close()
 
