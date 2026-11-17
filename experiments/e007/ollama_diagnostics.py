@@ -176,7 +176,7 @@ def build_schema_probe_messages(surface: dict) -> list[dict]:
         },
         {
             "role": "user",
-            "content": "Session surface JSON:\\n"
+            "content": "Session surface JSON:\n"
             + json.dumps(surface, ensure_ascii=False, sort_keys=True),
         },
     ]
