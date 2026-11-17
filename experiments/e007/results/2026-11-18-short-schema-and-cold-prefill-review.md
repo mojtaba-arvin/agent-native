@@ -7,9 +7,9 @@
 ## 1. Host and runtime facts
 
 - Host CPU model string: AMD EPYC 7763 64-Core Processor.
-- The GitHub-hosted VM exposed **4 logical CPUs** (lscpu: CPUs 0–3); this is the relevant visible allocation, not the host model's 64-core product name.
+- The GitHub-hosted VM exposed **2 cores / 4 logical CPUs** (lscpu: CPUs 0–3); this is the relevant visible allocation, not the host model's 64-core product name.
 - Ollama loaded the ggml-cpu-haswell backend and CPU model buffers. nvidia-smi was unavailable; no GPU backend/model buffer appears in the retained daemon log.
-- Ollama selected n_threads=2, n_threads_batch=2 out of 4 visible CPUs.
+- Ollama selected n_threads=2, n_threads_batch=2: equal to the VM's two visible physical cores, not 3% of a 64-core allocation.
 - Ollama client version: 0.40.16.
 
 The workflow did not set num_thread explicitly, did not capture cgroup CPU quota/affinity, and did not compare thread counts. Therefore this artifact cannot establish whether 2, 4, or 16 requested inference threads is optimal. A 16-thread request on this four-CPU runner would be an oversubscription stress test, not a 16-core experiment.
