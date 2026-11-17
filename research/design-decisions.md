@@ -24,7 +24,7 @@ The E-005 `_propose` handler deep-copies and stores the submitted IR as-is. `_va
 
 ## D-003 — Validation's semantic result must gate planning
 
-**Evidence:** in all three E-007 runs, `service.validate` returned an outer `ok=true` tool envelope while `result.valid=false` with nested `AN021`. The model called `service.plan` next. The runner had treated outer tool success as sufficient to record validation, and the gateway's plan endpoint returned a non-mutating invalid plan rather than forcing the model to repair first.
+**Evidence:** in all three E-007 runs, `service.validate` returned an outer `ok=true` tool envelope while `result.valid=false` with nested `AN021`. The model called `service.plan` next; the original runner did not intercept it, and the Gateway returned an invalid, non-mutating plan with the same nested AN021 diagnostic. Provider diagnostics then recorded a final assistant response with 1,437 content characters, but the response body was not retained. The trace contains no subsequent corrected `service.propose`. We therefore know the model had a post-error response turn, but cannot inspect its exact text or assert whether it internally formulated a corrected candidate; we can say only that it did not submit one through the Gateway.
 
 **Decision:** distinguish transport/tool invocation success from semantic validation success. A plan is allowed only when the latest proposal hash has an explicit `result.valid=true` validation result. The E-009 local runner now intercepts a premature/mismatched plan request before it reaches the Gateway and returns `VALIDATION_REQUIRED` with a repair hint.
 
@@ -59,3 +59,11 @@ The E-007 trial has one task, one model version, one temperature/seed configurat
 An Ollama-local run does not have a provider invoice or a configured per-token tariff. Setting input/output rates and maximum estimated cost to numeric zero would create a misleading statement in E-007 metrics, where `cost_usd=0` means known zero priced inference cost. The eval case now uses `cost_pricing_mode=unpriced_local` and null price/ceiling fields. The runner omits `cost_usd` from model-usage events in this mode, leaves inference currency cost null, and still enforces input/output-token and wall-time limits. Explicit per-token tariffs remain supported via `per_token` mode.
 
 **Verification:** deterministic runner tests cover unpriced cost as `None`, explicit per-token arithmetic, and aggregate budget fail-fast. The real-model 3-run artifact predates this refinement.
+
+## D-009 — Preserve final candidate JSON before verification
+
+The original E-007 artifact exposed an evidence gap: when the final assistant response was parseable JSON but semantic verification failed, `local_agent.py` raised before writing `candidate.json`. Tool traces proved that the model made no corrected proposal, but the final 1,437-character response body was not available for inspection.
+
+**Decision:** persist the final parsed JSON candidate with private file permissions before semantic verification. A rejected candidate remains evidence and is still scored as unaccepted; persistence must not turn it into a verified candidate. Non-JSON responses are not promoted to candidate artifacts.
+
+**Implemented:** `_persist_candidate_response` writes mode-0600 candidate JSON before validation, and a deterministic test checks the file content and permissions. The one-shot stochastic run already in progress began before this change; a subsequent real-model run is required to validate the new artifact path end to end.
