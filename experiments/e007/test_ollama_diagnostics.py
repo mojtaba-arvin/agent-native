@@ -65,20 +65,13 @@ class OllamaDiagnosticsTests(unittest.TestCase):
         responses = [
             {
                 "prompt_eval_count": 10,
-                "prompt_eval_cached_count": 0,
+                "prompt_eval_cached_count": 0 if index % 2 == 0 else 10,
                 "prompt_eval_duration": 1_000_000_000,
                 "load_duration": 0,
                 "eval_count": 1,
                 "eval_duration": 10_000_000,
-            },
-            {
-                "prompt_eval_count": 10,
-                "prompt_eval_cached_count": 10,
-                "prompt_eval_duration": 100_000_000,
-                "load_duration": 0,
-                "eval_count": 1,
-                "eval_duration": 10_000_000,
-            },
+            }
+            for index in range(8)
         ]
         with tempfile.TemporaryDirectory() as temporary:
             checkpoint = Path(temporary) / "partial.json"
@@ -87,11 +80,11 @@ class OllamaDiagnosticsTests(unittest.TestCase):
                     "http://127.0.0.1:11434", "qwen3:8b", [2], checkpoint
                 )
             saved = json.loads(checkpoint.read_text(encoding="utf-8"))
-        self.assertEqual(len(observations), 8) if False else None
+        self.assertEqual(len(observations), 8)
         self.assertEqual(saved["status"], "prefill_in_progress")
-        self.assertEqual(saved["completed_observations"], 2)
+        self.assertEqual(saved["completed_observations"], 8)
         self.assertEqual(saved["expected_observations"], 8)
-        self.assertEqual(len(saved["observations"]), 2)
+        self.assertEqual(len(saved["observations"]), 8)
         self.assertFalse(checkpoint.with_suffix(".json.tmp").exists())
 
     def test_short_schema_probe_includes_the_live_upfront_surface(self):
