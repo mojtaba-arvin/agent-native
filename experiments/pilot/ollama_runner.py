@@ -99,11 +99,15 @@ def validate_local_ollama_url(base_url: str) -> str:
     try:
         parsed = urlsplit(base_url)
         host = parsed.hostname
-        is_loopback = host == "localhost" or (
-            host is not None and ipaddress.ip_address(host).is_loopback
-        )
     except ValueError as error:
         raise ValueError("ollama_url_invalid") from error
+    if host == "localhost":
+        is_loopback = True
+    else:
+        try:
+            is_loopback = host is not None and ipaddress.ip_address(host).is_loopback
+        except ValueError:
+            is_loopback = False
     if (
         parsed.scheme != "http"
         or not host
