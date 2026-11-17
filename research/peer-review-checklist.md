@@ -34,7 +34,7 @@
 | Final candidate evidence preservation | Pass | Parsed final JSON is saved before trusted verification with private file permissions |
 | Durable audit sink | Pass | SQLite allow/deny persistence, reopen, concurrent append, append-only triggers and fail-closed handler prevention |
 | E-005 suite | Pass | 17 tests in [workflow 44102058544](https://github.com/mojtaba-arvin/agent-native/actions/runs/44102058544) |
-| Latest E-009 suite | Pass | 79 tests in [workflow 44127273582](https://github.com/mojtaba-arvin/agent-native/actions/runs/44127273582) |
+| Latest E-009 suite | Pass | 80 tests in [workflow 44128413303](https://github.com/mojtaba-arvin/agent-native/actions/runs/44128413303) |
 
 ## E-002 runtime-decision evidence
 
