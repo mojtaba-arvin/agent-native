@@ -4,7 +4,7 @@
 
 E-001 through E-008 proved useful pieces independently. E-009 connects the smallest meaningful backend slice into one process:
 
-`service contract -> canonical IR -> route/input binding -> trusted authorization -> handler -> tenant-scoped durable repository -> HTTP response`.
+`service contract -> canonical IR -> route/input binding -> trusted authorization -> handler -> tenant-scoped durable repository -> durable job -> worker lease/fencing -> transactional outbox -> idempotent inbox -> HTTP response`.
 
 It is deliberately implemented with the Python standard library as a semantic reference host. This does **not** select Python, the E-001 text syntax, SQLite, or HTTP/1.1 as Agent Native's final language, service representation, persistence substrate, or transport.
 
@@ -15,6 +15,9 @@ It is deliberately implemented with the Python standard library as a semantic re
 - **Authority:** E-004's default-deny policy model is enforced before application handlers run. The identity provider is a separate trusted dependency. Client request bodies and headers cannot supply principal, tenant, or grants.
 - **Persistence:** a file-backed SQLite repository persists items and schema version. Queries are tenant-scoped in SQL, not filtered after retrieval.
 - **Write safety:** item creation and idempotency record insertion commit in one transaction. Reusing an idempotency key with a different payload is a conflict; exact replay returns the original result.
+- **Durable work:** `POST /items/rebuild` submits a tenant-scoped idempotent job. The job and `work.submitted` outbox event commit together. Jobs carry deadlines, attempt limits, leases, and monotonically increasing fencing tokens.
+- **Cancellation and recovery:** cancelling a running job requests stop but does not release its lease. The worker/supervisor must acknowledge stop before the job can be requeued or become terminal. Expired relay leases are reclaimed with higher fencing tokens.
+- **External-effect boundary:** job completion and its outbox event commit together. The relay uses at-least-once delivery; the SQLite inbox and consumer state change atomically so redelivery of the same event does not double-apply the local consumer effect.
 - **HTTP host:** the standard-library host enforces a body-size limit, strict JSON, duplicate-header rejection, loopback binding, request IDs, bounded concurrent admission, and 503 load shedding.
 - **Audit:** every capability decision is sent to an injected trusted audit sink before application code is called. Audit-sink failure is fail-closed.
 
@@ -26,7 +29,7 @@ From the repository root:
 python -m unittest discover -s experiments/e009 -v
 ```
 
-The suite covers service parsing, handler registration, typed input/output contracts, capability denial, audit failure, persistence across reopen, tenant isolation, duplicate idempotency, conflicting idempotency payloads, concurrent duplicate create, HTTP authentication, strict body parsing, and bounded admission.
+The suite covers service parsing, handler registration, typed input/output contracts, capability denial, audit failure, persistence across reopen, tenant isolation, duplicate idempotency, conflicting idempotency payloads, concurrent duplicate create, HTTP authentication, strict body parsing, and bounded admission. Durable-work tests cover idempotent job submission, lease fencing, retry limits, deadlines, stop acknowledgements, outbox lease reclamation, inbox conflict detection, consumer deduplication, HTTP job submission, real worker completion, and redelivery.
 
 ## Run the local demo
 
@@ -49,8 +52,44 @@ curl -i -X POST http://127.0.0.1:8080/items \
 
 Read it by ID or name using the `id` or `name` returned in the response.
 
+## Submit and process durable work
+
+The demo server now exposes a job-submission operation protected by the `jobs.submit` capability. The idempotency key is required and belongs to the durable submission envelope:
+
+```sh
+curl -i -X POST http://127.0.0.1:8080/items/rebuild \
+  -H "Authorization: Bearer $AGENT_NATIVE_DEMO_TOKEN" \
+  -H "Idempotency-Key: rebuild-catalog-0001"
+```
+
+A new submission returns HTTP 202 and a durable ticket. Repeating the same request with the same tenant/key returns the original ticket; reusing the key with a different task payload returns a conflict.
+
+Run one worker iteration and one outbox relay iteration:
+
+```sh
+python experiments/e009/work_cli.py --database /tmp/agent-native-e009.sqlite3 worker-once --worker-id worker-1
+python experiments/e009/work_cli.py --database /tmp/agent-native-e009.sqlite3 relay-once --relay-id relay-1
+```
+
+Operations for stuck/deadline work are explicit. Request cancellation/stop for expired jobs, then acknowledge only after the worker process has actually stopped:
+
+```sh
+python experiments/e009/work_cli.py --database /tmp/agent-native-e009.sqlite3 request-stops
+python experiments/e009/work_cli.py --database /tmp/agent-native-e009.sqlite3 worker-stopped \
+  --task-id '<task-id>' --worker-id '<lease-owner>' --lease-token '<fencing-token>'
+```
+
+Inspect a job without exposing other tenants:
+
+```sh
+python experiments/e009/work_cli.py --database /tmp/agent-native-e009.sqlite3 job-show \
+  --tenant-id demo-tenant --task-id '<task-id>'
+```
+
+All commands use the same SQLite database as the HTTP kernel. The worker and relay CLIs run one iteration; scheduling/supervision is still an external host responsibility in this reference slice.
+
 ## Evidence boundary
 
-This integrated slice proves only that the selected reference contracts can be composed in one runnable backend path. The demo identity provider is an in-memory fixture; there is no cryptographic workload identity, key rotation, distributed revocation, or production token validation. SQLite is single-node. The HTTP host is a bounded development host, not a hardened internet-facing server. The audit sink contract is fail-closed but does not itself provide durable remote audit storage. There is no distributed service discovery, inter-service transport, streaming, background-worker integration, migrations/rollback beyond the initial schema version, or production deployment story yet.
+This integrated slice proves only that the selected reference contracts can be composed in one runnable backend path. The demo identity provider is an in-memory fixture; there is no cryptographic workload identity, key rotation, distributed revocation, or production token validation. SQLite is single-node. The HTTP host is a bounded development host, not a hardened internet-facing server. The audit sink contract is fail-closed but does not itself provide durable remote audit storage. The worker/relay are single-node process prototypes; there is no distributed scheduler, authenticated remote worker identity, broker, multi-node consensus, worker kill escalation, schema rollback, distributed service discovery, inter-service transport, streaming, or production deployment story yet.
 
 These limitations are now integration work in one kernel path rather than disconnected prose-only gaps. Any replacement language/runtime/database/transport candidate must pass the same black-box semantics before a product decision is made.
