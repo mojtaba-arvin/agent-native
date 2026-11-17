@@ -40,6 +40,8 @@ def main() -> None:
     parser.add_argument("--relay-poll-seconds", type=float, default=0.25)
     parser.add_argument("--worker-lease-seconds", type=int, default=30)
     parser.add_argument("--relay-lease-seconds", type=int, default=15)
+    parser.add_argument("--max-outstanding-jobs", type=int, default=1000)
+    parser.add_argument("--max-running-jobs", type=int, default=16)
     args = parser.parse_args()
     for name, value in (
         ("worker-poll-seconds", args.worker_poll_seconds),
@@ -74,7 +76,14 @@ def main() -> None:
     source = (E009_ROOT / "catalog.an").read_text(encoding="utf-8")
     ir = load_service_ir(source)
     repository = SQLiteCatalogRepository(args.database)
-    work_store = DurableWorkStore(repository.database)
+    try:
+        work_store = DurableWorkStore(
+            repository.database,
+            max_outstanding=args.max_outstanding_jobs,
+            max_concurrency=args.max_running_jobs,
+        )
+    except ValueError as error:
+        parser.error(str(error))
     runtime = ServiceRuntime(
         ir,
         handlers=build_catalog_handlers(repository, work_store),
