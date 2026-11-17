@@ -342,10 +342,20 @@ def _failure_categories(
     """Classify observed failures while preserving the raw failure code."""
     failure = _failure_class(run_record) or ""
     categories = set()
+    wall_ceiling_reached = (
+        max_wall_seconds is not None
+        and isinstance(run_record.get("duration_ms"), (int, float))
+        and run_record["duration_ms"] >= max_wall_seconds * 1000 - 1000
+    )
+    # A provider symptom observed exactly at the configured wall deadline is
+    # classified as a timeout/resource stop, not an independent transport
+    # outage. The raw failure code remains in the run record for forensics.
     if failure.startswith("provider_transport_failure"):
-        categories.add("transport_error")
+        if not wall_ceiling_reached:
+            categories.add("transport_error")
     elif failure.startswith("provider_http_"):
-        categories.add("provider_http_error")
+        if not wall_ceiling_reached:
+            categories.add("provider_http_error")
     if any(marker in failure.lower() for marker in (
         "out_of_memory", "oom_killed", "memory_allocation_failed", "killed_by_oom"
     )):
@@ -367,18 +377,8 @@ def _failure_categories(
         categories.add("resource_budget_exceeded")
     if failure in {"proposal_validation_not_successful", "proposal_plan_not_successful"}:
         categories.add("validation_rejection")
-    wall_ceiling_reached = (
-        max_wall_seconds is not None
-        and isinstance(run_record.get("duration_ms"), (int, float))
-        and run_record["duration_ms"] >= max_wall_seconds * 1000 - 1000
-    )
     if wall_ceiling_reached:
         categories.update({"timeout", "resource_budget_exceeded"})
-        if failure.startswith("provider_transport_failure"):
-            # A transport symptom observed at the exact runner wall ceiling
-            # is distinct from an independently occurring provider outage.
-            # Preserve transport_error and add this correlation marker.
-            categories.add("wall_budget_terminal_transport")
     if failure and not categories:
         categories.add("agent_or_runner_failure")
     if run_dir is not None and run_dir.is_dir():
