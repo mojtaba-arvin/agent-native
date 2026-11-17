@@ -75,6 +75,7 @@ This adapter makes the tool contract executable and testable; it does **not** ru
 - exact model identifier and generation-settings JSON;
 - identical input/output token, tool-call, and wall-clock budgets;
 - a deterministic plan ID and run ID for every arm/pair.
+- enforced gateway tool-call ceilings, unique provider-usage message IDs, and monotonic per-run timestamps.
 
 Before executing any trial, verify the schedule from the same clean checkout:
 
