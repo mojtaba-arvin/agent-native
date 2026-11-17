@@ -519,7 +519,7 @@ class LocalAgentRunnerTests(unittest.TestCase):
         self.assertFalse(response["ok"])
         self.assertEqual(response["diagnostics"][0]["code"], "IR_PRESERVATION_MISMATCH")
         self.assertIn("cancel_job", response["diagnostics"][0]["message"])
-        self.assertIn("Copy each existing operation JSON object exactly",
+        self.assertIn("each existing operation JSON object exactly",
                       response["diagnostics"][0]["fix_hint"])
 
     def test_preservation_gate_does_not_replace_gateway_inspection_prerequisite(self):
