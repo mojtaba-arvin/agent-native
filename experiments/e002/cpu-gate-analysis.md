@@ -1,7 +1,7 @@
 # E-002 CPU gate provenance and interpretation
 
 **Snapshot:** 17 November 2026  
-**Evidence:** [ten-repetition diagnostic](./results/2026-11-17-ten-run-diagnostic.md), workflow [44087449181](https://github.com/mojtaba-arvin/agent-native/actions/runs/44087449181)  
+**Evidence:** [first ten-repetition diagnostic](./results/2026-11-17-ten-run-diagnostic.md), workflow [44087449181](https://github.com/mojtaba-arvin/agent-native/actions/runs/44087449181); [second cohort and payload measurement](./results/2026-11-17-second-ten-run-artifact-diagnostic.md), workflow [44124537511](https://github.com/mojtaba-arvin/agent-native/actions/runs/44124537511)  
 **Decision:** no runtime selected; do not change the registered threshold retrospectively.
 
 ## What the registered threshold means
@@ -23,6 +23,8 @@ The repository's decision matrix explicitly labels its limits as research screen
 | WASI P2 / Wasmtime 50.0.1 | 1.949 | 0.3898 | 2,565 | Fail |
 
 These are means across ten randomized repetitions on one GitHub-hosted shared runner using the trivial in-memory `GET /work?ms=0` path. The 0.5-second threshold is stricter than each observed mean; Rust is closest, at 1.374 times the threshold, while WASI is 3.898 times it. This is descriptive workload-specific evidence, not proof that a language/runtime is intrinsically inefficient.
+
+A second ten-repetition cohort on the same class of shared hosted runner independently reproduced the ordering and gate outcome: Rust 0.704 s/5k, Go 1.126 s/5k, BEAM 1.957 s/5k, and WASI 1.977 s/5k. These are separate run-level means, not a pooled estimate; the second report retains its own bootstrap intervals and raw artifact. Relative to the registered 0.5 s screen, the second-cohort means are 1.408×, 2.252×, 3.914×, and 3.954× respectively. Repetition across two hosted cohorts makes the observation less likely to be a one-off sampling accident, but the shared host class, simple endpoint, and CPU-accounting method remain common confounders. It still does not establish product unsuitability or an optimization mandate.
 
 ## Measurement limitations
 
