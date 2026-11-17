@@ -110,7 +110,7 @@ The public repository contains this contract, candidate-envelope validation, tra
 
 1. Use verify_schedule.py against the same clean checkout that supplied the pilot code. The schedule, prompt/task inputs, candidate artifact, raw trace, evaluator result, and private evaluator source must remain outside the public checkout and model-visible context.
 2. Run the model through the adapter contract. The adapter records provider input/output token usage as E-007 model_usage events. Missing token usage is an adapter failure; it must not be inferred as zero.
-3. Stop the model session. The trusted runner records agent_finished_at_ns using the same host clock as gateway trace timestamps. The model receives no evaluator feedback.
+3. Stop the model session. The trusted runner records agent_finished_at_ns using the same host `time.monotonic_ns()` clock as gateway trace timestamps. The model receives no evaluator feedback.
 4. Run the private evaluator only after the model has stopped. It verifies the schedule, candidate bytes, trusted baseline, E-001 validator, effects, and the proposal/validate/plan trace chain. It writes one exclusive, mode-0600 evaluation-result JSON file.
 5. Run the public finalize.py against the original raw trace, evaluator result, and candidate (when one exists). The finalizer rechecks artifact/hash correlation, run identity, lifecycle order, and no-side-effect plan flags; then it appends task_finished and produces the E-007 summary.
 6. Preserve the raw trace, candidate (if any), coarse evaluation result, finalized trace, summary, schedule, and evaluator version/hash as the immutable run record.
