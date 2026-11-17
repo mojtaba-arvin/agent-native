@@ -144,6 +144,7 @@ def benchmark_prefill(base_url: str, model: str, thread_counts: list[int]) -> li
                     "prompt_eval_cached_count": cached if type(cached) is int else None,
                     "prompt_eval_uncached_count": uncached,
                     "prompt_eval_duration_ns": duration_ns,
+                    "prefill_duration_seconds": duration_ns / 1_000_000_000,
                     "uncached_prefill_tokens_per_second": (
                         uncached / (duration_ns / 1_000_000_000)
                         if uncached is not None and uncached > 0 else None
@@ -285,11 +286,14 @@ def main() -> int:
             **read_cpu_constraints(),
             "cuda_visible_devices": os.environ.get("CUDA_VISIBLE_DEVICES"),
             "rocr_visible_devices": os.environ.get("ROCR_VISIBLE_DEVICES"),
+            "ollama_num_threads_env": os.environ.get("OLLAMA_NUM_THREADS"),
         },
         "prefill_benchmark": {
             "prompt_description": "nested repeated-token prompts at 1k/2k/4k/8k words; exact token and cache counts are provider-reported",
             "thread_counts_requested": thread_counts,
             "cache_method": "keep_alive=10m; each growing prompt preserves the previous exact prefix and is followed by an identical warm repeat",
+            "oversubscription_hypothesis": "16 requested threads will be slower than 4 on a four-logical-CPU runner due to scheduling/context-switch overhead; treat a faster result as an unexpected observation",
+            "timing_fields": ["load_duration_ns", "prompt_eval_duration_ns", "request_elapsed_seconds"],
             "observations": benchmark_prefill(args.ollama_url, args.model, thread_counts),
         },
         "short_schema_probe": schema_probe(args.ollama_url, args.model, thread_counts[0]),
