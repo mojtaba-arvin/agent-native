@@ -332,6 +332,11 @@ def _failure_categories(
     )
     if wall_ceiling_reached:
         categories.update({"timeout", "resource_budget_exceeded"})
+        if failure.startswith("provider_transport_failure"):
+            # A transport symptom observed at the exact runner wall ceiling
+            # is distinct from an independently occurring provider outage.
+            # Preserve transport_error and add this correlation marker.
+            categories.add("wall_budget_terminal_transport")
     if failure and not categories:
         categories.add("agent_or_runner_failure")
     if run_dir is not None and run_dir.is_dir():
