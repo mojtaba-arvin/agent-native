@@ -53,6 +53,10 @@ curl -i -X POST http://127.0.0.1:8080/items \
 
 Read it by ID or name using the `id` or `name` returned in the response.
 
+## Real-model failure case study
+
+The fifth Qwen3 trial is preserved as a raw-trace case study: [fifth Qwen3 trial — IR and repair-loop failure](fifth-qwen3-trial-case-study.md). It records the object-shaped input, incomplete IR snapshot, `AN021` semantic validation failure, repeated identical proposal/hash, and evidence excluding an observed Ollama transport/OOM failure. This is one diagnostic failure, not a statistical result or a successful agent task.
+
 ## Proposal IR contract
 
 The `service.propose` IR argument is a complete canonical service snapshot, not a patch. It must contain exactly `ir_version=1`, `service`, `types`, and `operations`. When preserving a service, include every existing type and operation exactly, then append the requested change. Each operation's `input` is an array of declarations with `name`, `source`, and `type`. See [ir-contract.md](ir-contract.md) for the full contract and failure rationale.
