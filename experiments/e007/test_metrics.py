@@ -100,6 +100,46 @@ class MetricsTests(unittest.TestCase):
             path.write_text(json.dumps(event) + "\n", encoding="utf-8")
             self.assertEqual(load_jsonl(path), [event])
 
+    def test_model_usage_events_require_both_token_counts(self):
+        event = {
+            "event_id": "usage-1",
+            "task_id": "pilot",
+            "attempt": 1,
+            "timestamp_ns": 1,
+            "event_type": "model_usage",
+            "input_tokens": 123,
+        }
+        with self.assertRaisesRegex(ValueError, "model_usage_requires_token_counts"):
+            summarize([event])
+
+    def test_token_counts_are_rejected_on_non_usage_events(self):
+        event = {
+            "event_id": "tool-1",
+            "task_id": "pilot",
+            "attempt": 1,
+            "timestamp_ns": 1,
+            "event_type": "tool_call",
+            "tool_name": "service.inspect",
+            "input_tokens": 123,
+            "output_tokens": 0,
+        }
+        with self.assertRaisesRegex(ValueError, "input_tokens_requires_model_usage_event"):
+            summarize([event])
+
+    def test_cost_is_rejected_on_non_usage_events(self):
+        event = {
+            "event_id": "tool-cost-1",
+            "task_id": "pilot",
+            "attempt": 1,
+            "timestamp_ns": 1,
+            "event_type": "tool_call",
+            "tool_name": "service.inspect",
+            "cost_usd": 0.01,
+        }
+        with self.assertRaisesRegex(ValueError, "cost_usd_requires_model_usage_event"):
+            summarize([event])
+
+
     def test_negative_token_counts_are_rejected(self):
         event = {"event_id":"1","task_id":"a","attempt":1,"timestamp_ns":1,"event_type":"model_usage","input_tokens":-1}
         with self.assertRaisesRegex(ValueError, "invalid_input_tokens"):
