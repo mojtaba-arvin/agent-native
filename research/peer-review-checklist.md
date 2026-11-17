@@ -22,8 +22,11 @@
 | Latest deterministic runner suite | Pass | 53 tests in [workflow 44188566011](https://github.com/mojtaba-arvin/agent-native/actions/runs/44188566011), including proposal-only contract scoring without lifecycle false positives and wall-budget-terminal transport classification |
 | Post-Gateway-preservation real-model trial | **Ineligible — input budget exhausted** | [Workflow 44144939813](https://github.com/mojtaba-arvin/agent-native/actions/runs/44144939813), [artifact 14357367813](https://github.com/mojtaba-arvin/agent-native/actions/runs/44144939813/artifacts/14357367813): 48,307/48,000 input tokens after 5/6 inspections; 1,020s/1,200s; no AN021, validation, plan, provider error or OOM. See [run analysis](../experiments/e007/results/2026-11-17-deterministic-postfix-budget-exhaustion.md). The artifact's original eligibility flag was wrong; the corrected runner excludes per-run budget exhaustion and is covered by 53 tests. |
 | Expanded-budget deterministic follow-up | **Partial proposal success; lifecycle incomplete** | [Workflow 44149712970](https://github.com/mojtaba-arvin/agent-native/actions/runs/44149712970), [artifact 14360782135](https://github.com/mojtaba-arvin/agent-native/actions/runs/44149712970/artifacts/14360782135), [trace analysis](../experiments/e007/results/2026-11-17-expanded-budget-proposal-accepted-timeout.md): 6/6 inspections; attempt 1 blocked by INSPECTION_INCOMPLETE; attempt 2 blocked by IR_PRESERVATION_MISMATCH; attempt 3 Gateway-accepted with exact full IR/preservation and matching hash; no AN021. At 1,800s, next Ollama response was cancelled at runner wall deadline; no validate/plan/final candidate |
-| Bounded deterministic continuation | **In progress — inspect artifact before closing** | [Workflow 44189163401](https://github.com/mojtaba-arvin/agent-native/actions/runs/44189163401): explicit upfront tool sequence, 16,384 context, 120,000 input cap, 3,000s wall cap; model/task/Gateway/scorers and no-apply semantics unchanged |
+| Bounded deterministic continuation | **Fail — repeated invalid tool arguments** | [Workflow 44189163401](https://github.com/mojtaba-arvin/agent-native/actions/runs/44189163401): explicit upfront tool sequence, 16,384 context, 120,000 input cap, 3,000s wall cap; model/task/Gateway/scorers and no-apply semantics unchanged |
 | Current real-model acceptance | **Open / not passed** | The expanded-budget artifact proves one Gateway-accepted exact-preserving proposal, but no successful semantic validation, plan, final candidate wrapper, or full propose → validate → safe plan cycle. The 1,800s wall budget was reached during the next model response. |
+| Ollama execution environment / prefill validity | **Pass — limitation identified** | Both retained runs used CPU-only backends and two model threads. The 1,800s artifact's final prefill was 17–20 tok/s and incomplete at the global wall deadline; 2.38 tok/s was decode speed. See [infrastructure baseline](../experiments/e007/results/2026-11-18-ollama-cpu-prefill-baseline.md). |
+| Prompt-history compaction | **Pass — deterministic implementation** | E-009 now compacts repeated assistant/tool history into an exact Gateway-state ledger and preserves raw traces. Provider-double regression passed in [E-009 workflow 44193599277](https://github.com/mojtaba-arvin/agent-native/actions/runs/44193599277); this is not real-model evidence. |
+| Isolated schema/prefill diagnostics | **In progress** | Bounded three-repetition prefill benchmark and one short upfront-schema probe dispatched in [workflow 44193765741](https://github.com/mojtaba-arvin/agent-native/actions/runs/44193765741); inspect artifact before recording results. |
 
 ## E-005 interface and E-009 kernel
 
@@ -37,7 +40,7 @@
 | Final candidate evidence preservation | Pass | Parsed final JSON is saved before trusted verification with private file permissions |
 | Durable audit sink | Pass | SQLite allow/deny persistence, reopen, concurrent append, append-only triggers and fail-closed handler prevention |
 | E-005 suite | Pass | 17 tests in [workflow 44102058544](https://github.com/mojtaba-arvin/agent-native/actions/runs/44102058544) |
-| Latest E-009 suite | Pass | 80 tests in [workflow 44128413303](https://github.com/mojtaba-arvin/agent-native/actions/runs/44128413303) |
+| Latest E-009 suite | Pass | 81 tests, including compacted-ledger preservation/order, in [workflow 44193599277](https://github.com/mojtaba-arvin/agent-native/actions/runs/44193599277) |
 
 ## E-002 runtime-decision evidence
 
@@ -63,6 +66,8 @@
 - [x] E-009 Gateway enforces exact base preservation and blocks invalid plans.
 - [x] Two E-002 ten-run diagnostics and one package-size measurement are published without selecting a runtime.
 - [x] Inspect the 1,800s proposal-accepted artifact and the bounded 3,000s/context-16,384 follow-up artifact, including raw tool traces and Ollama daemon logs.
+- [x] Identify CPU-only inference and distinguish prompt-prefill throughput from decode throughput.
+- [x] Implement prompt-history compaction with exact inspection-state preservation and raw-trace retention; deterministic provider-double regression passes.
 - [x] Add regression coverage so a provider symptom at the proven wall-deadline boundary is classified as timeout/resource-budget exhaustion, while an earlier transport loss remains transport_error.
 - [ ] Complete one real-model propose → valid validate → safe matching plan lifecycle. Do not increase Qwen3 budgets again before interaction-protocol redesign and adversarial provider-double tests.
 - [ ] Derive or reaffirm CPU gate from a product capacity/cost model before a new pre-registered run.
