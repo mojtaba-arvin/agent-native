@@ -57,5 +57,13 @@
     "max_output_tokens": 6000,
     "max_tool_calls": 20,
     "max_wall_seconds": 900
+  },
+  "budget": {
+    "max_total_input_tokens": 144000,
+    "max_total_output_tokens": 18000,
+    "max_total_wall_seconds": 2700,
+    "input_price_per_million_usd": 0,
+    "output_price_per_million_usd": 0,
+    "max_estimated_cost_usd": 0
   }
 }
