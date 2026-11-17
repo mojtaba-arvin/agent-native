@@ -440,11 +440,68 @@ class GatewayTests(unittest.TestCase):
         )
 
 
+    def test_gateway_enforces_aggregate_model_token_budgets(self):
+        events = []
+        gateway = PilotGateway(
+            "upfront",
+            max_tool_calls=5,
+            max_input_tokens=100,
+            max_output_tokens=50,
+            trace_sink=events.append,
+            trace_context={
+                "run_id": "token-budget-trial",
+                "candidate_id": "upfront",
+                "model_id": "test-model",
+                "task_id": "pilot-catalog-add-readonly-operation",
+                "attempt": 1,
+            },
+        )
+        first = gateway.handle_message({
+            "type": "model_usage",
+            "request_id": "generation-1",
+            "input_tokens": 90,
+            "output_tokens": 40,
+        })
+        self.assertTrue(first["accepted"])
+        second = gateway.handle_message({
+            "type": "model_usage",
+            "request_id": "generation-2",
+            "input_tokens": 20,
+            "output_tokens": 5,
+        })
+        self.assertFalse(second["accepted"])
+        self.assertEqual(second["diagnostic"], "MODEL_TOKEN_BUDGET_EXCEEDED")
+        self.assertEqual(gateway.total_input_tokens, 110)
+        self.assertEqual(gateway.total_output_tokens, 45)
+
+        before = gateway.interface.revision("catalog")
+        blocked = gateway.handle_message({
+            "type": "tool_call",
+            "request_id": "after-budget",
+            "tool": "service.inspect",
+            "arguments": {"service_id": "catalog"},
+        })
+        self.assertFalse(blocked["response"]["ok"])
+        self.assertEqual(
+            blocked["response"]["diagnostics"][0]["code"],
+            "MODEL_TOKEN_BUDGET_EXCEEDED",
+        )
+        self.assertEqual(gateway.interface.revision("catalog"), before)
+        usage_events = [event for event in events if event["event_type"] == "model_usage"]
+        self.assertEqual(len(usage_events), 2)
+        self.assertNotIn("failure_class", usage_events[0])
+        self.assertEqual(usage_events[1]["failure_class"], "MODEL_TOKEN_BUDGET_EXCEEDED")
+
+
     def test_gateway_rejects_invalid_tool_budget_configuration(self):
         with self.assertRaisesRegex(ValueError, "max_tool_calls_must_be_positive_integer"):
             PilotGateway("progressive", max_tool_calls=0)
         with self.assertRaisesRegex(ValueError, "max_tool_calls_must_be_positive_integer"):
             PilotGateway("progressive", max_tool_calls=True)
+        with self.assertRaisesRegex(ValueError, "max_input_tokens_must_be_positive_integer"):
+            PilotGateway("progressive", max_input_tokens=0)
+        with self.assertRaisesRegex(ValueError, "max_output_tokens_must_be_positive_integer"):
+            PilotGateway("progressive", max_output_tokens=True)
 
 
     def test_task_change_is_representable_and_does_not_mutate_service(self):
