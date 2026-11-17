@@ -67,3 +67,19 @@ The original E-007 artifact exposed an evidence gap: when the final assistant re
 **Decision:** persist the final parsed JSON candidate with private file permissions before semantic verification. A rejected candidate remains evidence and is still scored as unaccepted; persistence must not turn it into a verified candidate. Non-JSON responses are not promoted to candidate artifacts.
 
 **Implemented:** `_persist_candidate_response` writes mode-0600 candidate JSON before validation, and a deterministic test checks the file content and permissions. The one-shot stochastic run already in progress began before this change; a subsequent real-model run is required to validate the new artifact path end to end.
+
+## D-010 — Stochastic Qwen3 produces a different but still invalid proposal path
+
+**Evidence:** exploratory workflow [44105440141](https://github.com/mojtaba-arvin/agent-native/actions/runs/44105440141), artifact [14337879630](https://github.com/mojtaba-arvin/agent-native/actions/runs/44105440141/artifacts/14337879630), one run of `qwen3:8b` with temperature 0.7 and seed 20261117.
+
+Unlike the fixed temperature-zero cohort, the attempted proposal included `ir_version=1`, the complete top-level keys, seven operation entries, and array-shaped input declarations. The Gateway rejected it before validation because it was sent before the six existing operations had been inspected. After receiving `INSPECTION_INCOMPLETE`, the model inspected all six operations, demonstrating that this feedback path can direct the model to complete inspection. The proposal payload retained in the trace nevertheless rewrote five of the six existing operation contracts (capabilities, effects, input declarations, errors, or validation rules). No second corrected proposal was sent before the 900-second wall limit; the final provider request ended in an Ollama HTTP 500/cancel at the boundary. No validate or plan call occurred.
+
+**Decision:** the complete-snapshot shape prompt improved the observed outer IR shape in this one stochastic attempt, but preservation remains a separate unsolved requirement. Do not relax preservation or authority semantics. Keep server-side inspect-all gating and strengthen the model-visible copy-exactly instruction and regression tests. This single probe is not statistical evidence or proof of end-to-end improvement.
+
+**Failure classification refinement:** retain the raw `provider_transport_failure` and additionally tag `resource_budget_exceeded` when the failed run duration reaches its configured wall ceiling. A provider failure far below the deadline must not automatically be called a budget exhaustion.
+
+**Record:** [stochastic probe report](../experiments/e007/results/2026-11-17-stochastic-qwen3-probe.md).
+
+## D-011 — Complete IR shape is distinct from exact operation preservation
+
+The deterministic Qwen3 cohort omitted `ir_version` and existing operations. The stochastic probe included the correct top-level keys and all seven operation entries, but rewrote five existing operation contracts. A top-level JSON schema can guarantee presence and type shape; it cannot prove the model copied the inspected semantic declarations unchanged. The E-007 exact candidate contract scorer remains necessary, and any future server-side preservation rule must explicitly bind the proposal to the inspected base revision and declarations. Do not conflate "complete IR" with "preserved IR."
