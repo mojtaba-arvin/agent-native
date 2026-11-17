@@ -74,9 +74,38 @@ def build_catalog_handlers(
             headers={"Idempotency-Replayed": "true"} if replayed else {},
         )
 
+    def get_job(context: HandlerContext) -> dict:
+        if work_store is None:
+            raise DomainFault("ServiceUnavailable", "durable_work_store_unavailable")
+        job = work_store.get_job(
+            tenant_id=context.identity.tenant_id or "",
+            task_id=str(context.values["id"]),
+        )
+        if job is None:
+            raise DomainFault("NotFound", "job")
+        return {"id": job["task_id"], "state": job["state"]}
+
+    def cancel_job(context: HandlerContext) -> HandlerResult:
+        if work_store is None:
+            raise DomainFault("ServiceUnavailable", "durable_work_store_unavailable")
+        job = work_store.cancel_job(
+            tenant_id=context.identity.tenant_id or "",
+            task_id=str(context.values["id"]),
+            now=context.now,
+        )
+        if job is None:
+            raise DomainFault("NotFound", "job")
+        status = 202 if job["state"] == "cancellation_requested" else 200
+        return HandlerResult(
+            data={"id": job["task_id"], "state": job["state"]},
+            status_code=status,
+        )
+
     return {
         "create_item": create_item,
         "get_item": get_item,
         "get_item_by_name": get_item_by_name,
         "submit_rebuild": submit_rebuild,
+        "get_job": get_job,
+        "cancel_job": cancel_job,
     }
