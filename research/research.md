@@ -188,7 +188,7 @@ It is too broad to say that token cost always grows quadratically with the numbe
 ### Latest validation implementation status
 
 - E-007: 45 deterministic tests passed in workflow [44126229777](https://github.com/mojtaba-arvin/agent-native/actions/runs/44126229777), including failure taxonomy for preservation/validation/repair-budget diagnostics and wall-time/provider failure overlap.
-- E-009: 81 tests passed in workflow [44126229781](https://github.com/mojtaba-arvin/agent-native/actions/runs/44126229781), including exact inspected-operation preservation preflight, fail-closed plan gate, candidate retention before verification, and a bounded proposal-attempt budget.
+- E-009: 80 tests passed in workflow [44128413303](https://github.com/mojtaba-arvin/agent-native/actions/runs/44128413303), including exact inspected-operation preservation preflight, fail-closed plan gate, candidate retention before verification, and a bounded proposal-attempt budget.
 - E-002: 9 Python tests for matrix/artifact measurement passed as part of workflow [44124537511](https://github.com/mojtaba-arvin/agent-native/actions/runs/44124537511); the matrix and artifact-size manifest completed successfully. Ecosystem and injected-failure comparisons remain open.
 
 ## 10. Evidence and decisions
