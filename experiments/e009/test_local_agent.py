@@ -29,6 +29,7 @@ from local_agent import (
     _persist_candidate_response,
     _proposal_budget_response,
     _proposal_attempt_gate,
+    _compact_conversation,
 )
 
 
@@ -425,6 +426,48 @@ class LocalAgentRunnerTests(unittest.TestCase):
             server.shutdown()
             server.server_close()
             thread.join(timeout=5)
+
+    def test_compacted_conversation_preserves_exact_gateway_state_and_latest_diagnostics(self):
+        base = [
+            {"role": "system", "content": "system"},
+            {"role": "user", "content": "task"},
+            {"role": "user", "content": "tool schemas"},
+        ]
+        operation = copy.deepcopy(self.inspected_operations["get_item_by_name"])
+        diagnostics = [{
+            "code": "IR_PRESERVATION_MISMATCH",
+            "message": "changed existing operation",
+            "fix_hint": "Copy the exact inspected declaration",
+        }]
+        compacted = _compact_conversation(
+            base,
+            self.inspected,
+            {"get_item_by_name": operation},
+            ["service.inspect", "service.propose"],
+            [
+                {"tool": "service.inspect", "ok": True},
+                {
+                    "tool": "service.propose",
+                    "ok": False,
+                    "diagnostics": diagnostics,
+                    "next_actions": ["Correct the complete IR"],
+                },
+            ],
+        )
+        self.assertEqual(compacted[:3], base)
+        self.assertEqual(len(compacted), 4)
+        self.assertEqual([item["role"] for item in compacted], ["system", "user", "user", "user"])
+        ledger = json.loads(compacted[3]["content"].split("\\n", 1)[1])
+        self.assertEqual(ledger["service_inspection"], self.inspected)
+        self.assertEqual(
+            ledger["operation_inspections"]["get_item_by_name"],
+            operation,
+        )
+        self.assertEqual(ledger["tool_sequence"], ["service.inspect", "service.propose"])
+        self.assertEqual(ledger["recent_tool_outcomes"][-1]["diagnostics"], diagnostics)
+        self.assertEqual(ledger["recent_tool_outcomes"][-1]["next_actions"], ["Correct the complete IR"])
+        self.assertNotIn("assistant", [item["role"] for item in compacted])
+        self.assertNotIn("tool_calls", compacted[3]["content"])
 
     def test_ollama_endpoint_is_strictly_loopback_ip(self):
         self.assertEqual(validate_ollama_endpoint("http://127.0.0.1:11434"), ("127.0.0.1", 11434))
