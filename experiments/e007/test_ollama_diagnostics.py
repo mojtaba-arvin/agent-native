@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import json
+import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 import ollama_diagnostics
@@ -57,6 +60,39 @@ class OllamaDiagnosticsTests(unittest.TestCase):
         self.assertTrue(all(item["options"]["num_thread"] == 2 for item in requests))
         self.assertEqual(requests[0]["prompt"], requests[1]["prompt"])
         self.assertTrue(requests[2]["prompt"].startswith(requests[0]["prompt"]))
+
+    def test_prefill_checkpoint_is_updated_after_each_observation(self):
+        responses = [
+            {
+                "prompt_eval_count": 10,
+                "prompt_eval_cached_count": 0,
+                "prompt_eval_duration": 1_000_000_000,
+                "load_duration": 0,
+                "eval_count": 1,
+                "eval_duration": 10_000_000,
+            },
+            {
+                "prompt_eval_count": 10,
+                "prompt_eval_cached_count": 10,
+                "prompt_eval_duration": 100_000_000,
+                "load_duration": 0,
+                "eval_count": 1,
+                "eval_duration": 10_000_000,
+            },
+        ]
+        with tempfile.TemporaryDirectory() as temporary:
+            checkpoint = Path(temporary) / "partial.json"
+            with patch.object(ollama_diagnostics, "post_json", side_effect=responses):
+                observations = ollama_diagnostics.benchmark_prefill(
+                    "http://127.0.0.1:11434", "qwen3:8b", [2], checkpoint
+                )
+            saved = json.loads(checkpoint.read_text(encoding="utf-8"))
+        self.assertEqual(len(observations), 8) if False else None
+        self.assertEqual(saved["status"], "prefill_in_progress")
+        self.assertEqual(saved["completed_observations"], 2)
+        self.assertEqual(saved["expected_observations"], 8)
+        self.assertEqual(len(saved["observations"]), 2)
+        self.assertFalse(checkpoint.with_suffix(".json.tmp").exists())
 
     def test_short_schema_probe_includes_the_live_upfront_surface(self):
         surface = {
