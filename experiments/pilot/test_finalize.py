@@ -256,6 +256,25 @@ class FinalizeTests(unittest.TestCase):
             )
 
 
+    def test_accepted_result_rejects_model_token_budget_overrun(self):
+        usage_event = next(
+            event for event in self.events
+            if event["event_type"] == "model_usage"
+        )
+        usage_event["failure_class"] = "MODEL_TOKEN_BUDGET_EXCEEDED"
+        self.write_trace()
+        with self.assertRaisesRegex(
+            FinalizationError,
+            "accepted_result_conflicts_with_model_token_budget_overrun",
+        ):
+            finalize_run(
+                trace_path=self.trace_path,
+                evaluation_result_path=self.result_path,
+                candidate_path=self.candidate_path,
+                output_trace_path=self.output_trace_path,
+            )
+
+
     def test_accepted_result_requires_provider_token_telemetry(self):
         events = [
             event for event in self.events
