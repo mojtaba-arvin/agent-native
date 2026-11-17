@@ -51,6 +51,10 @@ The smoke workload's measured p99, throughput, RSS, and CPU values fall within t
 
 **Current weighted scores: not calculated.** Missing criteria and the non-representative workload make a composite score misleading. No runtime is selected.
 
+## Latest ten-repetition diagnostic result
+
+See [2026-11-17 ten-run diagnostic](results/2026-11-17-ten-run-diagnostic.md) and [workflow run 44087449181](https://github.com/mojtaba-arvin/agent-native/actions/runs/44087449181). All four candidates completed 10/10 functional repetitions. All passed the p99, throughput, RSS, and startup screening gates; all four failed the pre-registered CPU gate of 0.5 seconds per 5,000-request batch. Ecosystem/operability, injected failure semantics, and comparable artifact size remain unmeasured. No candidate is eligible for a final weighted score and no runtime is selected. The CPU gate is not changed retrospectively.
+
 ## Next measurement protocol
 
 - Use the existing pinned toolchains and four candidates.
