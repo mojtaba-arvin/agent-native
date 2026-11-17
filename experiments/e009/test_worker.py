@@ -1,12 +1,23 @@
 from __future__ import annotations
 
+import json
+import os
+import re
+import signal
+import subprocess
+import sys
 import tempfile
+import time
 import unittest
+import urllib.error
+import urllib.request
 from pathlib import Path
 
 from repository import SQLiteCatalogRepository
 from worker import CatalogWorker, OutboxRelay
 from work_store import DurableWorkStore, StaleJobLease
+
+ROOT = Path(__file__).resolve().parents[2]
 
 
 class CatalogWorkerTests(unittest.TestCase):
@@ -115,6 +126,89 @@ class CatalogWorkerTests(unittest.TestCase):
             ),
             1,
         )
+
+    def test_single_process_host_runs_http_worker_and_outbox_lifecycle(self):
+        token = "local-demo-token-aaaaaaaaaaaaaaaaaaaa"
+        command = [
+            sys.executable,
+            str(Path(__file__).with_name("serve.py")),
+            "--database",
+            str(self.database),
+            "--port",
+            "0",
+            "--worker-poll-seconds",
+            "0.05",
+            "--relay-poll-seconds",
+            "0.05",
+        ]
+        environment = {**os.environ, "AGENT_NATIVE_DEMO_TOKEN": token}
+        process = subprocess.Popen(
+            command,
+            cwd=ROOT,
+            env=environment,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            bufsize=1,
+        )
+        try:
+            startup = process.stdout.readline()
+            match = re.search(r"http://127\.0\.0\.1:(\d+)", startup)
+            self.assertIsNotNone(match, startup)
+            base_url = f"http://127.0.0.1:{match.group(1)}"
+
+            def request(method, path, body=None):
+                raw = None if body is None else json.dumps(body).encode("utf-8")
+                headers = {"Authorization": f"Bearer {token}"}
+                if raw is not None:
+                    headers["Content-Type"] = "application/json"
+                req = urllib.request.Request(
+                    base_url + path,
+                    data=raw,
+                    headers=headers,
+                    method=method,
+                )
+                try:
+                    with urllib.request.urlopen(req, timeout=3) as response:
+                        return response.status, json.loads(response.read())
+                except urllib.error.HTTPError as error:
+                    return error.code, json.loads(error.read())
+
+            submitted_status, submitted = request("POST", "/items/rebuild", {})
+            self.assertEqual(submitted_status, 202)
+            task_id = submitted["data"]["id"]
+
+            deadline = time.monotonic() + 8
+            final = None
+            while time.monotonic() < deadline:
+                status, final = request("GET", f"/jobs/{task_id}")
+                if status == 200 and final["data"]["state"] == "completed":
+                    break
+                time.sleep(0.05)
+            self.assertIsNotNone(final)
+            self.assertEqual(final["data"]["state"], "completed")
+
+            observer_deadline = time.monotonic() + 5
+            observed = 0
+            while time.monotonic() < observer_deadline:
+                observed = DurableWorkStore(self.database).consumer_total(
+                    consumer_id="catalog-local-observer",
+                    state_key="catalog.rebuild",
+                )
+                if observed == 1:
+                    break
+                time.sleep(0.05)
+            self.assertEqual(observed, 1)
+        finally:
+            if process.poll() is None:
+                process.send_signal(signal.SIGINT)
+                try:
+                    process.wait(timeout=10)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                    process.wait(timeout=5)
+            stderr = process.stderr.read()
+            self.assertEqual(process.returncode, 0, stderr)
 
     def test_stop_request_is_not_acknowledged_by_expired_lease_alone(self):
         job, _ = self.store.submit_job(
