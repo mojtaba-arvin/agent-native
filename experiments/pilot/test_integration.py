@@ -28,6 +28,7 @@ class MockPipelineConformanceTests(unittest.TestCase):
         events = []
         gateway = PilotGateway(
             arm,
+            max_tool_calls=40,
             trace_sink=events.append,
             trace_context={
                 "run_id": run_id,
@@ -42,6 +43,7 @@ class MockPipelineConformanceTests(unittest.TestCase):
             "request_id": f"{arm}-mock-generation-1",
             "input_tokens": 1000,
             "output_tokens": 250,
+            "cost_usd": 0.0005,
         })
         self.assertTrue(usage_ack["accepted"])
         session = gateway.session_message()
