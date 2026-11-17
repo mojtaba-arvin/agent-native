@@ -170,3 +170,22 @@ The earlier candidate-contract scorer returned zero when no final candidate JSON
 **Interpretation:** the trace supports a bounded continuation/prompt-prefill problem, not a claim that the Gateway or validation rejected the proposal. The run never reached the model response that would have called `service.validate`.
 
 **Decision:** one follow-up keeps model, task, temperature, seed, Gateway preservation, scorer thresholds, same-hash validation gate and no-apply policy fixed; it makes the upfront action order explicit, tells the model not to call schema discovery when all schemas are already exposed, increases context to 16,384, input allowance to 120,000, and wall ceiling to 3,000 seconds. This is an exploratory resource/prompt adjustment, not a statistical comparison. Do not keep increasing resources if this bounded attempt fails; inspect its trace and reassess the interaction design.
+
+
+## D-019 — The 1,800-second post-proposal stop was prompt-prefill timeout, not a missed validate decision
+
+**Evidence:** workflow [44149712970](https://github.com/mojtaba-arvin/agent-native/actions/runs/44149712970), artifact [14360782135](https://github.com/mojtaba-arvin/agent-native/actions/runs/44149712970/artifacts/14360782135), and the retained Ollama daemon log. The accepted proposal response contained `next_actions: ["service.validate with the change_set_id"]`; the system prompt independently required an immediate `service.validate` call with that exact ID. The adapter appended the tool result and requested the next model turn. The next prompt contained 7,734 tokens under an 8,192-token context; at the 1,800-second deadline, daemon prompt evaluation had advanced only to about 4,860 tokens. No completed provider response or validate tool call was recorded.
+
+**Decision:** retain model-invoked validation for the current Agent Native evaluation. Do not switch to automatic validation based on this trace: the model did not complete prompt prefill and therefore never had a recorded opportunity to select its next tool. A future runner-invoked validation control must be labelled orchestration-driven and cannot count as evidence of autonomous model tool selection.
+
+## D-020 — Stop Qwen3 resource escalation after the bounded 3,000-second attempt
+
+**Evidence:** workflow [44189163401](https://github.com/mojtaba-arvin/agent-native/actions/runs/44189163401), artifact [14376970288](https://github.com/mojtaba-arvin/agent-native/actions/runs/44189163401/artifacts/14376970288), source SHA `32ede5a7f63584784143851b7c4f9c5a72d30084`. The run used context 16,384, a 120,000 input-token ceiling, and a 3,000-second wall ceiling, but stopped after 267.785 seconds and 5,418 input / 78 output tokens. Qwen3 called `service.inspect` twice with empty argument objects; both were rejected with `ARGUMENTS_REQUIRED`, and the runner terminated the repeated identical invalid call. No inspection, proposal, validation, or plan succeeded.
+
+**Decision:** no further increase to wall time, context, or token budgets for this Qwen3 task. The next step is interaction-protocol and tool-schema debugging, with provider-double/adversarial tests before any new real-model attempt. This failure is an eligible agent/tool-contract failure, not a resource-budget stop.
+
+## D-021 — A provider symptom at a proven wall-deadline cancellation is not an independent transport failure
+
+**Evidence:** workflow [44149712970](https://github.com/mojtaba-arvin/agent-native/actions/runs/44149712970) ended at 1,800.116 seconds; the Ollama daemon log shows the active request cancelled at the runner wall boundary and an HTTP 500 symptom. No independent outage or OOM evidence was observed.
+
+**Decision:** preserve the raw historical failure code, but classify this boundary-correlated event as `timeout` and `resource_budget_exceeded`, not `transport_error`. A transport failure well before the wall deadline remains `transport_error`. The evaluator regression tests both cases. Historical artifact contents are not rewritten.
