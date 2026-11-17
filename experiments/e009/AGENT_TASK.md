@@ -1,6 +1,6 @@
 # E-009 local Agent task
 
-Inspect the live `Catalog` service and propose exactly one additional read-only operation:
+Inspect the live service with ID `catalog` (display name `Catalog`) and propose exactly one additional read-only operation:
 
 - Name: `get_item_by_normalized_name`
 - Method: `GET`
