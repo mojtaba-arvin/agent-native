@@ -38,6 +38,12 @@ INFRA_FAILURE_PREFIXES = (
     "runner_timeout",
     "runner_result_missing",
     "eval_budget_exhausted_before_repetition",
+    "input_token_budget_exceeded",
+    "output_token_budget_exceeded",
+    "tool_call_budget_exceeded",
+    "wall_clock_budget_exhausted",
+    "model_turn_budget_exceeded",
+    "candidate_too_large",
 )
 
 
@@ -314,6 +320,7 @@ def _failure_categories(
         categories.update({"timeout", "resource_budget_exceeded"})
     if failure in {"input_token_budget_exceeded", "output_token_budget_exceeded",
                    "tool_call_budget_exceeded", "wall_clock_budget_exhausted",
+                   "model_turn_budget_exceeded", "candidate_too_large",
                    "eval_budget_exhausted_before_repetition"}:
         categories.add("resource_budget_exceeded")
     if failure in {"proposal_validation_not_successful", "proposal_plan_not_successful"}:
