@@ -191,11 +191,18 @@ def score_run(
         and response.get("ok")
         and (response.get("result") or {}).get("valid") is True
     ]
-    lifecycle_ok = any(
-        proposal_index < validation_index < plan_index
-        for proposal_index in matching_proposals
-        for validation_index in matching_validations
-        for plan_index in matching_plans
+    # Repair may create earlier proposals with different hashes. The final
+    # candidate must match exactly one successful proposal, and no later proposal
+    # may supersede it. Duplicate successful proposals for the same candidate fail.
+    lifecycle_ok = (
+        len(matching_proposals) == 1
+        and bool(proposals)
+        and matching_proposals[0] == proposals[-1][0]
+        and any(
+            matching_proposals[0] < validation_index < plan_index
+            for validation_index in matching_validations
+            for plan_index in matching_plans
+        )
     )
 
     expected_names = {
@@ -278,6 +285,92 @@ def _failure_class(run_record: dict) -> str | None:
     return text.split(":", 1)[0][:100]
 
 
+def _failure_categories(run_record: dict, run_dir: Path | None = None) -> list[str]:
+    """Classify observed failures while preserving the raw failure code."""
+    failure = _failure_class(run_record) or ""
+    categories = set()
+    if failure.startswith(("provider_transport_failure", "provider_http_", "provider_final_content_missing",
+                          "provider_assistant_message_missing", "provider_tool_calls_invalid",
+                          "provider_token_usage_missing")):
+        categories.add("model_configuration_or_adapter")
+    if failure in {"multiple_successful_proposals", "repeated_invalid_tool_call", "proposal_repair_budget_exceeded"}:
+        categories.add("repeated_tool_or_repair")
+    if failure in {"runner_timeout", "runner_result_missing"} or failure.startswith("gateway_"):
+        categories.add("runner_or_gateway_error")
+    if failure in {"input_token_budget_exceeded", "output_token_budget_exceeded",
+                   "tool_call_budget_exceeded", "wall_clock_budget_exhausted",
+                   "eval_budget_exhausted_before_repetition"}:
+        categories.add("resource_budget_exceeded")
+    if failure in {"proposal_validation_not_successful", "proposal_plan_not_successful"}:
+        categories.add("validation_rejection")
+    if failure and not categories:
+        categories.add("agent_or_runner_failure")
+    if run_dir is not None and run_dir.is_dir():
+        for event in _read_trace(run_dir):
+            response = event.get("response") or {}
+            codes = {
+                item.get("code") for item in (response.get("diagnostics") or [])
+                if isinstance(item, dict) and isinstance(item.get("code"), str)
+            }
+            if "AN021" in codes:
+                categories.update({"schema_incompatibility", "validation_rejection"})
+            if codes.intersection({"ARGUMENT_SHAPE", "ARGUMENT_FIELDS", "ARGUMENT_TYPE", "REQUEST_SHAPE"}):
+                categories.add("schema_incompatibility")
+            if codes.intersection({"UNKNOWN_TOOL", "REPEATED_INVALID_TOOL_CALL"}):
+                categories.add("repeated_tool_or_repair")
+            if event.get("request", {}).get("tool") == "service.validate" and response.get("ok") is False:
+                categories.add("validation_rejection")
+    return sorted(categories)
+
+
+def _estimate_cost_usd(input_tokens: int, output_tokens: int, budget: dict) -> float:
+    return (
+        input_tokens * budget["input_price_per_million_usd"]
+        + output_tokens * budget["output_price_per_million_usd"]
+    ) / 1_000_000
+
+
+def _budget_snapshot(run_results: list[dict], budget: dict) -> dict:
+    completed = [item for item in run_results if item.get("status") != "not_started"]
+    known = [item for item in completed if item.get("usage_available")]
+    complete = len(known) == len(completed)
+    input_tokens = sum(item["input_tokens"] for item in known)
+    output_tokens = sum(item["output_tokens"] for item in known)
+    wall_seconds = sum(item["duration_ms"] / 1000 for item in completed
+                       if isinstance(item.get("duration_ms"), (int, float)))
+    return {
+        "completed_repetitions": len(completed),
+        "usage_complete": complete,
+        "input_tokens": input_tokens if complete else None,
+        "output_tokens": output_tokens if complete else None,
+        "wall_seconds": round(wall_seconds, 3),
+        "estimated_inference_cost_usd": (
+            round(_estimate_cost_usd(input_tokens, output_tokens, budget), 8) if complete else None
+        ),
+    }
+
+
+def _budget_can_start_next(run_results: list[dict], budget: dict, per_run: dict) -> tuple[bool, str | None]:
+    actual = _budget_snapshot(run_results, budget)
+    if not actual["usage_complete"]:
+        return False, "usage_unknown_after_previous_repetition"
+    reserve_input = actual["input_tokens"] + per_run["max_input_tokens"]
+    reserve_output = actual["output_tokens"] + per_run["max_output_tokens"]
+    reserve_wall = actual["wall_seconds"] + per_run["max_wall_seconds"]
+    reserve_cost = actual["estimated_inference_cost_usd"] + _estimate_cost_usd(
+        per_run["max_input_tokens"], per_run["max_output_tokens"], budget
+    )
+    if reserve_input > budget["max_total_input_tokens"]:
+        return False, "aggregate_input_token_budget"
+    if reserve_output > budget["max_total_output_tokens"]:
+        return False, "aggregate_output_token_budget"
+    if reserve_wall > budget["max_total_wall_seconds"]:
+        return False, "aggregate_wall_time_budget"
+    if reserve_cost > budget["max_estimated_cost_usd"] + 1e-12:
+        return False, "aggregate_estimated_cost_budget"
+    return True, None
+
+
 def _eligible(run_record: dict) -> bool:
     failure = _failure_class(run_record)
     return not failure or not failure.startswith(INFRA_FAILURE_PREFIXES)
@@ -337,7 +430,7 @@ def _event(
     }
 
 
-def _e007_events(run_record: dict, run_dir: Path, case: dict, attempt: int, score: dict) -> list[dict]:
+def _e007_events(run_record: dict, run_dir: Path, case: dict, attempt: int, score: dict, budget: dict) -> list[dict]:
     run_id = run_record["run_id"]
     model_id = run_record["model"]
     events = [_event(
@@ -403,6 +496,9 @@ def _e007_events(run_record: dict, run_dir: Path, case: dict, attempt: int, scor
             "model_usage",
             input_tokens=run_record.get("input_tokens", 0),
             output_tokens=run_record.get("output_tokens", 0),
+            cost_usd=round(_estimate_cost_usd(
+                run_record.get("input_tokens", 0), run_record.get("output_tokens", 0), budget
+            ), 8),
         ))
     events.append(_event(
         run_id,
@@ -466,7 +562,7 @@ def run_eval(args: argparse.Namespace) -> dict:
     required = {
         "schema_version", "eval_id", "task_id", "service_id",
         "candidate_id", "task_file", "expected_operation", "scorers",
-        "model_id", "repetitions", "model_settings",
+        "model_id", "repetitions", "model_settings", "budget",
     }
     if not isinstance(case, dict) or set(case) != required:
         raise ValueError("eval_case_fields_invalid")
@@ -485,6 +581,36 @@ def run_eval(args: argparse.Namespace) -> dict:
     }
     if pinned != actual:
         raise ValueError("eval_model_settings_mismatch")
+    budget = case["budget"]
+    budget_fields = {
+        "max_total_input_tokens", "max_total_output_tokens", "max_total_wall_seconds",
+        "input_price_per_million_usd", "output_price_per_million_usd", "max_estimated_cost_usd",
+    }
+    if not isinstance(budget, dict) or set(budget) != budget_fields:
+        raise ValueError("eval_budget_fields_invalid")
+    if any(type(budget[name]) is not int or budget[name] <= 0 for name in (
+        "max_total_input_tokens", "max_total_output_tokens"
+    )):
+        raise ValueError("eval_token_budget_invalid")
+    if any(
+        isinstance(budget[name], bool) or not isinstance(budget[name], (int, float))
+        or not math.isfinite(budget[name]) or budget[name] < 0
+        for name in ("max_total_wall_seconds", "input_price_per_million_usd",
+                     "output_price_per_million_usd", "max_estimated_cost_usd")
+    ) or budget["max_total_wall_seconds"] <= 0:
+        raise ValueError("eval_cost_or_time_budget_invalid")
+    if budget["max_total_input_tokens"] < args.max_input_tokens * args.repetitions:
+        raise ValueError("aggregate_input_budget_below_reserved_per_run_maximum")
+    if budget["max_total_output_tokens"] < args.max_output_tokens * args.repetitions:
+        raise ValueError("aggregate_output_budget_below_reserved_per_run_maximum")
+    if budget["max_total_wall_seconds"] < args.max_wall_seconds * args.repetitions:
+        raise ValueError("aggregate_wall_budget_below_reserved_per_run_maximum")
+    reserved_cost = _estimate_cost_usd(
+        args.max_input_tokens * args.repetitions, args.max_output_tokens * args.repetitions, budget
+    )
+    if reserved_cost > budget["max_estimated_cost_usd"] + 1e-12:
+        raise ValueError("aggregate_cost_budget_below_reserved_per_run_maximum")
+
     scorer_names = [item.get("name") for item in case["scorers"]]
     if scorer_names != ["candidate_contract", "proposal_lifecycle", "behavioral_safety"]:
         raise ValueError("eval_scorer_set_invalid")
@@ -507,7 +633,37 @@ def run_eval(args: argparse.Namespace) -> dict:
 
     run_results = []
     all_events = []
+    per_run_reservation = {
+        "max_input_tokens": args.max_input_tokens,
+        "max_output_tokens": args.max_output_tokens,
+        "max_wall_seconds": args.max_wall_seconds,
+    }
     for attempt in range(1, args.repetitions + 1):
+        can_start, budget_reason = _budget_can_start_next(run_results, budget, per_run_reservation)
+        if not can_start:
+            for skipped_attempt in range(attempt, args.repetitions + 1):
+                skipped_record = {
+                    "run_id": f"{eval_id}-not-started-{skipped_attempt}",
+                    "task_id": case["task_id"], "model": args.model, "status": "not_started",
+                    "failure": f"eval_budget_exhausted_before_repetition:{budget_reason}",
+                    "input_tokens": None, "output_tokens": None, "tool_calls": 0, "candidate_path": None,
+                }
+                skipped_dir = agent_root / skipped_record["run_id"]
+                scored = score_run(skipped_record, skipped_dir, case)
+                summary = {
+                    "attempt": skipped_attempt, "run_id": skipped_record["run_id"],
+                    "model": args.model, "status": "not_started", "return_code": None,
+                    "duration_ms": None, "input_tokens": None, "output_tokens": None,
+                    "tool_calls": 0, "failure": skipped_record["failure"],
+                    "usage_available": False, "eligible_for_acceptance": False,
+                    "failure_categories": ["resource_budget_exceeded"], **scored,
+                }
+                run_results.append(summary)
+                all_events.extend(_e007_events(
+                    skipped_record, skipped_dir, case, skipped_attempt, scored, budget
+                ))
+            break
+
         before = set(agent_root.iterdir())
         command = [
             sys.executable,
@@ -595,10 +751,27 @@ def run_eval(args: argparse.Namespace) -> dict:
                 )
             ),
             "eligible_for_acceptance": _eligible(run_record),
+            "failure_categories": _failure_categories(run_record, agent_root / run_record["run_id"]),
+            "estimated_inference_cost_usd": (
+                round(_estimate_cost_usd(run_record.get("input_tokens", 0),
+                                         run_record.get("output_tokens", 0), budget), 8)
+                if (
+                    (agent_root / run_record["run_id"] / "provider-responses.jsonl").exists()
+                    and (agent_root / run_record["run_id"] / "provider-responses.jsonl").stat().st_size
+                    and all(
+                        type(row.get("prompt_eval_count")) is int and type(row.get("eval_count")) is int
+                        for row in [
+                            json.loads(line)
+                            for line in (agent_root / run_record["run_id"] / "provider-responses.jsonl").read_text(encoding="utf-8").splitlines()
+                            if line.strip()
+                        ]
+                    )
+                ) else None
+            ),
             **scored,
         }
         run_results.append(run_summary)
-        all_events.extend(_e007_events(run_record, run_dir, case, attempt, scored))
+        all_events.extend(_e007_events(run_record, run_dir, case, attempt, scored, budget))
 
     _write_json(eval_dir / "runs.json", run_results)
     with (eval_dir / "runs.jsonl").open("w", encoding="utf-8") as stream:
@@ -647,6 +820,14 @@ def run_eval(args: argparse.Namespace) -> dict:
         "failure_classes": dict(Counter(
             _failure_class(item) for item in run_results if item.get("failure")
         )),
+        "failure_categories": dict(Counter(
+            category for item in run_results for category in item.get("failure_categories", [])
+        )),
+        "budget": {
+            "limits": budget,
+            "actual": _budget_snapshot(run_results, budget),
+            "cost_basis": "local Ollama inference API charge estimate; electricity, hardware depreciation, and runner-hosting cost are excluded",
+        },
         "metrics": metric_summary,
         "runs": run_results,
         "claims_boundary": (
