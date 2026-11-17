@@ -4,6 +4,7 @@
 **Source revision:** `a13faadb948826af63f34be21b6afed47eba7347`
 **Artifact:** `e002-ten-repetition-diagnostic-matrix` (14-day retention; raw request JSONL and matrix manifest)
 **Runner:** GitHub-hosted `ubuntu-latest`; shared-host diagnostic only
+**Pinned toolchains:** Go 1.23.12; Rust toolchain action 1.100.0 (native and wasm32-wasip2); Elixir 1.20.5 / OTP 29.1.2; Wasmtime 50.0.1.
 **Protocol:** seed 20261116; 10 randomized repetitions/candidate; 5,000 measured requests/repetition; concurrency 32; warm-up 250; all four candidates passed their functional HTTP measurement with zero failed responses.
 
 ## Run-level distributions
