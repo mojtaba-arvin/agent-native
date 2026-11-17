@@ -11,13 +11,15 @@ E-007 now has a specialized real-agent runner for one fixed E-009 inspect/propos
 
 The earlier standalone E-009 Qwen3 run [44081733833](https://github.com/mojtaba-arvin/agent-native/actions/runs/44081733833) is separate: in that trial the input was an object. Do not conflate it with the later E-007 artifact, where input was an array but the top-level snapshot was incomplete.
 
+A separate one-run stochastic probe, [44105440141](https://github.com/mojtaba-arvin/agent-native/actions/runs/44105440141), artifact [14337879630](https://github.com/mojtaba-arvin/agent-native/actions/runs/44105440141/artifacts/14337879630), used temperature 0.7 and seed 20261117. It produced a complete top-level IR (`ir_version=1`, service, types, seven operations) with array-shaped inputs, but changed five of the six existing operation declarations. Its first proposal was rejected before validation with `INSPECTION_INCOMPLETE`; after the model inspected all six existing operations, it did not submit a second proposal before the 900-second wall budget ended. The final provider request returned HTTP 500/cancelled at the wall-time boundary. No validate or plan was reached. The run consumed 44,377 input and 1,399 output tokens; local inference currency cost remains unpriced. This is one exploratory stochastic observation, not a statistical sample or a successful post-fix evaluation.
+
 ## 1. Evaluation-loop gap audit
 
 | Required evaluation criterion | Current state | Existing evidence | Gap / sufficiency |
 |---|---|---|---|
 | Public task definitions | Implemented | E-007 contains 10 task statements spanning CRUD, schema evolution, tenancy, idempotency, deadlines, streaming, durable recovery, security, debugging, and safe planning | **Sufficient for a first public corpus**, not sufficient as a complete benchmark distribution |
 | Agent execution runner | Implemented for one fixed task | E-007 `eval_runner.py` invokes the real `local_agent.py`/Ollama adapter and live E-009 Gateway; traces/candidates are preserved and scored | **Narrow scope**: not a generic runner for all ten tasks and not a sandbox |
-| Real-model execution evidence | One three-repetition fixed-task cohort, failed | E-007 run [44087982547](https://github.com/mojtaba-arvin/agent-native/actions/runs/44087982547), artifact [14332334550](https://github.com/mojtaba-arvin/agent-native/actions/runs/44087982547/artifacts/14332334550): 3/3 failures with `AN021`, each 35,984 input / 1,602 output tokens | **No accepted task**; deterministic settings/cache mean failure reproductions, not independent samples |
+| Real-model execution evidence | One deterministic three-run failure cohort plus one stochastic exploratory failure | Qwen3 E-007 runs [44087982547](https://github.com/mojtaba-arvin/agent-native/actions/runs/44087982547) (3/3 AN021) and [44105440141](https://github.com/mojtaba-arvin/agent-native/actions/runs/44105440141) (one incomplete/preservation-invalid proposal path and wall timeout) | **No accepted task or successful validate/plan**; stochastic probe shows variation but is one non-statistical observation |
 | Independent acceptance oracle | Contract designed, implementation absent | `experiments/e007/ORACLE_ISOLATION.md`; pilot finalizer/evaluator-result contract; E-009 local candidate verifier | **Insufficient**: public E-007 has no private oracle package or separate evaluator execution boundary. E-009's verifier is trusted runner-side validation of one fixed proposal, not a hidden benchmark oracle |
 | Scorers | Implemented for first eval case | Declarative E-007 case and three deterministic binary scorers for candidate contract, proposal lifecycle, and behavioral safety; each threshold is 1.0 | **Task-specific**: no general scorer registry or independent hidden oracle for arbitrary tasks |
 | Trace and usage telemetry | Implemented as schemas/aggregators and pilot wiring | E-007 trace schema and strict aggregator; pilot provider-usage path and provenance checks; E-009 provider-reported token counts | **Sufficient foundations**, but real-run data is sparse and incomplete as a benchmark corpus |
@@ -95,7 +97,9 @@ All attempts used temperature 0 and seed 42 and had matching token counts/tool p
 - `ORACLE_ISOLATION.md` defines evaluator trust boundaries, but a generic isolated hidden-oracle runner is not implemented.
 - E-007 now has a specialized executable case/runner for one fixed E-009 Gateway task, three deterministic scorers, raw provider/tool traces, nested validation-diagnostic taxonomy, and aggregate token/time reservation. CI verifies the implementation; the real-model cohort was 0/3 accepted.
 - The model's new operation input array was correctly shaped. The missing top-level `ir_version` and existing operations caused the complete-snapshot contract violation. The model then called plan despite `result.valid=false`.
-- The three runs used `temperature=0`, `seed=42`; matching token counts/tool paths and Ollama logs show prompt/KV cache reuse. This is a deterministic failure reproduction, not independent statistical evidence.
+- The original three-run cohort used `temperature=0`, `seed=42`; matching token counts/tool paths and Ollama logs show prompt/KV cache reuse. It is a deterministic failure reproduction, not independent statistical evidence.
+- One exploratory run at temperature 0.7/seed 20261117 generated the complete top-level IR shape, but rewrote five existing operations and timed out at the 900-second wall ceiling after being guided to inspect all operations. It did not resubmit a corrected proposal or reach validation/plan. This demonstrates a changed behavioral path, not success or statistical superiority.
+- The runner taxonomy now preserves the provider-transport cause while additionally flagging resource-budget exhaustion when a run reaches its configured wall ceiling.
 - A three-tier cohort and broader 30-task design is only future work in [e007-future-evaluation-plan.md](e007-future-evaluation-plan.md). It has not been executed.
 - The separate E-005 pilot's protocol CI uses deterministic provider doubles; this is wiring evidence, not real-model evaluation.
 
@@ -168,13 +172,14 @@ It is too broad to say that token cost always grows quadratically with the numbe
 
 ## 9. Research conclusion
 
-1. E-007 now has a specialized executable real-agent runner for one fixed E-009 task. Its first corrected three-run Qwen3 cohort failed 0/3 at validation; no real-model acceptance has been demonstrated.
-2. The observed E-007 payload used the correct new-operation input array but omitted top-level `ir_version=1` and all existing operations from a complete IR snapshot. The model called plan despite semantic `result.valid=false`.
-3. The E-005 proposal schema, AN021 repair hint, E-009 complete-IR task/prompt, and fail-closed same-hash plan guard now address those contract/runner defects. Deterministic tests pass, but post-fix real-model compliance remains unverified.
-4. Aggregate evaluation token/time budgets now fail fast before an unaffordable next repetition; unpriced local Ollama currency cost is retained as unknown. These controls are runner-level research features, not a production multi-agent budget service.
-5. Three temperature-zero/fixed-seed runs with prompt/KV cache reuse are deterministic failure reproductions, not independent statistical samples. The multi-tier cohort and broader corpus remain future work.
-6. E-002's ten-run shared-host data is diagnostic. The pre-registered 0.5 CPU-second gate has no demonstrated product-SLO/capacity origin; ecosystem, fault-injection, and artifact-size evidence is still missing. No runtime is selected.
-7. E-009's durable audit sink and fail-closed plan control are tested as a single-node reference implementation, not a production security/audit architecture.
+1. E-007 has an executable real-agent runner for one fixed E-009 task. The deterministic three-run Qwen3 cohort failed 0/3 with AN021; the one stochastic post-fix probe also failed to complete a valid proposal/validate/plan cycle.
+2. The deterministic cohort submitted a partial IR missing `ir_version=1` and existing operations, then attempted plan despite `result.valid=false`.
+3. The stochastic probe generated a complete top-level IR with array inputs, but rewrote five existing operation contracts, was blocked at the inspect-all gate, and hit the wall-time ceiling before submitting a second proposal.
+4. The E-005 full-IR tool schema, AN021 fix hint, E-009 task/prompt and same-hash plan gate, candidate-preservation path, and E-007 wall-budget taxonomy are implemented and covered by deterministic tests. No post-fix real-model success has been demonstrated.
+5. Aggregate token/time budgets fail fast before an unaffordable next repetition; local Ollama currency cost is retained as unknown. These are research-runner controls, not a production multi-agent cost service.
+6. Three fixed-seed temperature-zero attempts are deterministic failure reproductions; the single nonzero-temperature probe is only exploratory. No statistical or model superiority claim is supported.
+7. E-002's ten-run shared-host data is diagnostic. The 0.5 CPU-second gate has no demonstrated product-capacity origin; ecosystem, fault injection and the newly added artifact-size measurement have not yet been measured in the matrix. No runtime is selected.
+8. E-009's durable audit sink and fail-closed plan control are tested as a single-node reference implementation, not a production security/audit architecture.
 
 **No implementation language, service syntax, runtime substrate, broker, production database, or transport is selected by this audit.**
 
