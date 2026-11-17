@@ -142,7 +142,8 @@ def score_run(
                 "ir": ir,
             }
             candidate_ok = (
-                candidate.get("schema_version") == 1
+                run_record.get("status") == "candidate_verified_locally"
+                and candidate.get("schema_version") == 1
                 and candidate.get("task_id") == case["task_id"]
                 and candidate.get("service_id") == case["service_id"]
                 and candidate.get("base_revision") == inspected.get("revision")
