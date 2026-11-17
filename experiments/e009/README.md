@@ -62,7 +62,19 @@ curl -i -X POST http://127.0.0.1:8080/items/rebuild \
   -H "Idempotency-Key: rebuild-catalog-0001"
 ```
 
-A new submission returns HTTP 202 and a durable ticket. Repeating the same request with the same tenant/key returns the original ticket; reusing the key with a different task payload returns a conflict.
+A new submission returns HTTP 202 and a durable ticket. Repeating the same request with the same tenant/key returns the original ticket; reusing the key with a different task payload returns a conflict. The ticket can be inspected through `GET /jobs/{id}`:
+
+```sh
+curl -i http://127.0.0.1:8080/jobs/<task-id> \
+  -H "Authorization: Bearer $AGENT_NATIVE_DEMO_TOKEN"
+```
+
+Cancel a queued or running job through `POST /jobs/{id}/cancel`. A running job returns `cancellation_requested`; its lease is retained until the worker or supervisor acknowledges that it has stopped:
+
+```sh
+curl -i -X POST http://127.0.0.1:8080/jobs/<task-id>/cancel \
+  -H "Authorization: Bearer $AGENT_NATIVE_DEMO_TOKEN"
+```
 
 Run one worker iteration and one outbox relay iteration:
 
