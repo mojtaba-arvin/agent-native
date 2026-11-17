@@ -279,14 +279,13 @@ Implemented in experiments/e009/local_agent.py: replace repeated assistant/tool 
 
 **Validation:** a provider-double test checks exact inspection declaration and diagnostic preservation. This is implementation evidence only; await full E-009 CI and do not dispatch another full Qwen3 lifecycle run before it passes.
 
-### P1.14 — Short schema probe and infrastructure baseline
+### P1.14 — Corrected schema probe and prefill/cache/thread matrix
 
-Next bounded experiments, separate from lifecycle acceptance:
-1. Single-turn, short-context Qwen3 probe of the upfront service.inspect schema and required service_id argument.
-2. Isolated approximately 1,000-token prompt-prefill benchmark, multiple repetitions, recording provider prompt_eval_count and prompt_eval_duration. Report the exact Ollama build, model digest, CPU, thread count, quantization, context, cache conditions, and repetitions.
-3. Compare a short schema probe against the long-context failure only as a diagnostic; do not infer a causal model capability difference from one observation.
+**First diagnostic inspected:** workflow 44193765741 completed successfully. It measured a 1,008-token cold prompt at approximately 12.7 prefill tokens/second on a CPU-only runner exposing four logical CPUs; Ollama used two model threads. The probe's short-schema response is invalid for schema-adherence conclusions because the probe omitted the live Gateway session surface and supplied only the generic dispatch envelope. The repeated prompt requests also used keep_alive=0, so they did not measure warm cache reuse. See [forensic review](../experiments/e007/results/2026-11-18-short-schema-and-cold-prefill-review.md).
 
-No GPU runner is currently provisioned. A GPU comparison is not a prerequisite for protocol debugging, but the current CPU-only host must remain visible as a validity limitation.
+**Corrective implementation:** the diagnostic now includes the exact upfront session surface, sets num_thread explicitly, records process affinity/cgroup quota, and measures nested 1k/2k/4k/8k prompts with keep_alive=10m, cached-token telemetry, and exact warm repeats. Requested thread counts are 2, 4, and 16; 16 is an oversubscription stress arm on the previously observed four-CPU runner, not a 16-core comparison. The test suite runs before any Ollama installation or model pull. See [the preregistered protocol](../experiments/e007/results/2026-11-18-prefill-cache-thread-benchmark-plan.md).
+
+**Acceptance:** tests must pass; artifact must report actual CPU quota/affinity, model placement, prompt_eval_count, prompt_eval_cached_count, prefill duration/rate, and warm-repeat cache behavior. The corrected schema probe must be reviewed with the exact session surface included. This remains infrastructure/schema diagnostic evidence, not E-007 lifecycle acceptance. No GPU runner is provisioned, and no full-task Qwen3 run or budget increase is authorized by this work.
 
 ### Hard stop and architecture review threshold
 
