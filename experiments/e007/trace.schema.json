@@ -293,6 +293,31 @@
           }
         }
       }
+    },
+    {
+      "if": {
+        "required": [
+          "failure_class"
+        ],
+        "properties": {
+          "failure_class": {
+            "const": "MODEL_TOKEN_BUDGET_EXCEEDED"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "event_type"
+        ],
+        "properties": {
+          "event_type": {
+            "enum": [
+              "model_usage",
+              "tool_call"
+            ]
+          }
+        }
+      }
     }
   ]
 }
