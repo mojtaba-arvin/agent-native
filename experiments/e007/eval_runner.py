@@ -790,6 +790,11 @@ def run_eval(args: argparse.Namespace) -> dict:
                             if line.strip()
                         ]
                     )
+                    and _estimate_cost_usd(
+                        run_record.get("input_tokens", 0),
+                        run_record.get("output_tokens", 0),
+                        budget,
+                    ) is not None
                 ) else None
             ),
             **scored,
