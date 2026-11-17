@@ -37,6 +37,7 @@ INFRA_FAILURE_PREFIXES = (
     "gateway_exit_",
     "runner_timeout",
     "runner_result_missing",
+    "eval_budget_exhausted_before_repetition",
 )
 
 
