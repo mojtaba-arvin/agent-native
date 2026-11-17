@@ -213,10 +213,10 @@ P1 is the critical path. P2 and P3 can proceed after their contracts are fixed a
 | Work package | Status | Evidence |
 |---|---|---|
 | P0 — Freeze evaluation contract | Complete | One fixed E-007 case pins Qwen3, generation settings, budgets, expected operation, and three scorer thresholds |
-| P1.1–P1.3 — E-007 runner/scorers/repair controls | Implemented; deterministic CI passes | 43 E-007 tests pass; includes exact provenance scoring, nested AN021 classification, aggregate token/time budget reservation, mock fail-fast, and ineligible budget-stop records |
+| P1.1–P1.3 — E-007 runner/scorers/repair controls | Implemented; deterministic CI passes | 44 E-007 tests pass; includes exact provenance scoring, nested AN021 classification, aggregate token/time budget reservation, mock fail-fast, and ineligible budget-stop records |
 | P1.4 — Original three Qwen3 repetitions | Complete as an experiment; acceptance failed | Run [44087982547](https://github.com/mojtaba-arvin/agent-native/actions/runs/44087982547), artifact [14332334550](https://github.com/mojtaba-arvin/agent-native/actions/runs/44087982547/artifacts/14332334550): 0/3 accepted, all failed validation with AN021; input array was correct, but IR omitted ir_version and existing operations; model planned despite result.valid=false |
 | P1.5 — Complete-IR and validation-gate correction | Implemented; real-model verification open | E-005 publishes a complete IR JSON schema and AN021 fix hint; E-009 task/prompt specify full snapshots; plan gate requires result.valid=true for exact current proposal hash; deterministic tests pass |
-| P1.6 — Stochastic post-fix probe | Planned next, not yet run | One bounded Qwen3 run at temperature 0.7 and a distinct seed; exploratory only, not a statistical cohort |
+| P1.6 — Stochastic post-fix probe | Complete as an exploratory experiment; acceptance failed | Run [44105440141](https://github.com/mojtaba-arvin/agent-native/actions/runs/44105440141), artifact [14337879630](https://github.com/mojtaba-arvin/agent-native/actions/runs/44105440141/artifacts/14337879630): one Qwen3 run at temperature 0.7/seed 20261117; produced full top-level seven-op IR with array inputs but rewrote five existing operations; first proposal was blocked for incomplete inspection, model inspected all six afterward, then run hit the 900s wall ceiling before retry/validate/plan |
 | P2 — Durable E-009 audit sink | Complete | SQLite sink wired into serve.py; allow/deny, reopen, concurrent append, append-only, and fail-closed tests; 76 E-009 tests pass |
 | P3.1 — E-002 decision criteria | Complete | Weighted criteria and provisional gates registered before the ten-run matrix; [CPU gate analysis](../experiments/e002/cpu-gate-analysis.md) documents the missing product-side provenance |
 | P3.2 — E-002 ten-run matrix | Complete, diagnostic only | 10 repetitions × 5,000 requests per candidate; all functional, p99, throughput, RSS, startup gates pass; all four candidates fail the provisional CPU screen; ecosystem/fault-injection/artifact-size criteria remain unmeasured |
@@ -229,7 +229,7 @@ This phase runs in parallel with P1–P5 and remains open as the runner evolves.
 
 - Hostile-path tests cover repeated successful proposals, malformed input shapes, empty provider responses, nested AN021 validation diagnostics, and budget exhaustion before the next run.
 - Aggregate budgets cover input/output tokens and wall time. Monetary inference cost is enforced only when a provider tariff is known; local Ollama cost is unpriced, not a fabricated zero.
-- Failure taxonomy retains the raw failure code and categorizes schema incompatibility, repeated tool/repair behavior, validation rejection, model/adapter configuration, runner/gateway failure, and resource-budget exhaustion.
+- Failure taxonomy retains the raw failure code and categorizes schema incompatibility, repeated tool/repair behavior, validation rejection, model/adapter configuration, provider transport, runner/gateway failure, and resource-budget exhaustion.
 - Budget exhaustion is not an agent failure: not-started repetitions are preserved with `eligible_for_acceptance=false` and `resource_budget_exceeded`.
 - CI implementation evidence does not substitute for real-model artifact inspection.
 
