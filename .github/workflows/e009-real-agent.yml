@@ -63,7 +63,7 @@ jobs:
           set -o pipefail
           python experiments/e009/local_agent.py \
             --model qwen3:8b \
-            --arm progressive \
+            --arm upfront \
             --results-dir /tmp/agent-native-e009-runs \
             --max-input-tokens 24000 \
             --max-output-tokens 6000 \
