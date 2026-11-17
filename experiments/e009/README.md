@@ -29,7 +29,7 @@ From the repository root:
 python -m unittest discover -s experiments/e009 -v
 ```
 
-The suite covers service parsing, handler registration, typed input/output contracts, capability denial, audit failure, persistence across reopen, tenant isolation, duplicate idempotency, conflicting idempotency payloads, concurrent duplicate create, HTTP authentication, strict body parsing, and bounded admission. Durable-work tests cover idempotent job submission, lease fencing, retry limits, deadlines, stop acknowledgements, outbox lease reclamation, inbox conflict detection, consumer deduplication, HTTP job submission, real worker completion, redelivery, and the full single-process HTTP/worker/relay lifecycle. The local Agent runner's bounded task, proposal correlation, preservation checks, and no-apply gate have separate tests.
+The suite covers service parsing, handler registration, typed input/output contracts, capability denial, audit failure, persistence across reopen, tenant isolation, duplicate idempotency, conflicting idempotency payloads, concurrent duplicate create, HTTP authentication, strict body parsing, and bounded admission. Durable-work tests cover idempotent job submission, lease fencing, retry limits, deadlines, stop acknowledgements, outbox lease reclamation, inbox conflict detection, consumer deduplication, HTTP job submission, real worker completion, redelivery, and the full single-process HTTP/worker/relay lifecycle. The local Agent runner's bounded task, proposal correlation, preservation checks, and no-apply gate have separate tests. A deterministic HTTP provider double exercises the full Ollama-to-Gateway adapter protocol; this is wiring evidence only, not a real model run.
 
 ## Run the local demo
 
