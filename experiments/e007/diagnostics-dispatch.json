@@ -1,1 +1,4 @@
-{"run":"ollama-inference-diagnostics-v1"}
+{
+  "run": "ollama-inference-diagnostics-v2",
+  "reason": "thread-cache-matrix-and-corrected-upfront-schema-probe"
+}
