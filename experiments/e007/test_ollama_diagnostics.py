@@ -55,6 +55,27 @@ class OllamaDiagnosticsTests(unittest.TestCase):
         self.assertEqual(requests[0]["prompt"], requests[1]["prompt"])
         self.assertTrue(requests[2]["prompt"].startswith(requests[0]["prompt"]))
 
+    def test_short_schema_probe_includes_the_live_upfront_surface(self):
+        surface = {
+            "dispatch": {"name": "agent.invoke", "input_schema": {"type": "object"}},
+            "tools": [
+                {
+                    "name": "service.inspect",
+                    "input_schema": {
+                        "type": "object",
+                        "required": ["service_id"],
+                        "properties": {"service_id": {"type": "string"}},
+                    },
+                }
+            ],
+        }
+        messages = ollama_diagnostics.build_schema_probe_messages(surface)
+        encoded_surface = messages[2]["content"]
+        self.assertIn('"service.inspect"', encoded_surface)
+        self.assertIn('"required": ["service_id"]', encoded_surface)
+        self.assertIn("upfront disclosure arm", messages[0]["content"])
+        self.assertEqual(messages[1]["content"], "Inspect the Catalog service using service.inspect.")
+
     def test_missing_cache_telemetry_is_unknown_not_zero(self):
         response = {
             "prompt_eval_count": 1001,
