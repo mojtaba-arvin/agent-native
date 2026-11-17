@@ -70,9 +70,13 @@ The smoke workload's measured p99, throughput, RSS, and CPU values fall within t
 
 **Current weighted scores: not calculated.** Missing criteria and the non-representative workload make a composite score misleading. No runtime is selected.
 
-## Latest ten-repetition diagnostic result
+## Latest ten-repetition diagnostic results
 
-See [2026-11-17 ten-run diagnostic](results/2026-11-17-ten-run-diagnostic.md) and [workflow run 44087449181](https://github.com/mojtaba-arvin/agent-native/actions/runs/44087449181). All four candidates completed 10/10 functional repetitions. All passed the p99, throughput, RSS, and startup screening gates; all four failed the pre-registered CPU gate of 0.5 seconds per 5,000-request batch. Ecosystem/operability, injected failure semantics, and comparable artifact size remain unmeasured. No candidate is eligible for a final weighted score and no runtime is selected. The CPU gate is not changed retrospectively.
+The first ten-run matrix is [workflow 44087449181](https://github.com/mojtaba-arvin/agent-native/actions/runs/44087449181). A second ten-run matrix with the same registered workload completed as [workflow 44124537511](https://github.com/mojtaba-arvin/agent-native/actions/runs/44124537511); see the [second-pass report](results/2026-11-17-second-ten-run-artifact-diagnostic.md). Both batches completed 10/10 functional repetitions for each candidate, passed the p99, throughput, RSS, and startup screens, and failed the pre-registered CPU gate of 0.5 seconds per 5,000-request batch.
+
+The second workflow also measured one Linux x86_64 uncompressed deployable payload per candidate: Go 10,012,310 B (9.55 MiB), Rust 4,991,320 B (4.76 MiB), WASI P2 + Wasmtime 71,947,386 B (68.61 MiB), and BEAM release + ERTS 74,856,626 B (71.39 MiB), including resolved external ELF dependencies. The method and packaging caveats are documented in the [second-pass report](results/2026-11-17-second-ten-run-artifact-diagnostic.md). These are host-specific payload estimates, not directly comparable container/package distributions.
+
+Artifact size is now **measured once per candidate** under that Linux packaging rule. Ecosystem/operability and injected failure semantics remain not measured. All candidates still fail the CPU hard gate; the complete weighted score remains ineligible and no runtime is selected. The CPU gate is not changed retrospectively.
 
 ## Next measurement protocol
 
