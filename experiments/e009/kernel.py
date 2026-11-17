@@ -16,7 +16,7 @@ import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable
-from urllib.parse import parse_qsl, urlsplit
+from urllib.parse import parse_qsl, unquote, urlsplit
 
 PILOT_ROOT = Path(__file__).resolve().parents[1]
 ROOT = PILOT_ROOT.parents[1]
@@ -336,16 +336,29 @@ class ServiceRuntime:
             return RuntimeResponse(401, {"error": {"code": "UNAUTHENTICATED"}, "request_id": request_id})
 
         try:
-            parsed = urlsplit(target)
+            try:
+                parsed = urlsplit(target)
+            except ValueError:
+                raise RuntimeFault("InvalidInput", 400) from None
+            raw_path = parsed.path
             if (
                 parsed.scheme or parsed.netloc or parsed.fragment
-                or "%" in parsed.path
-                or not parsed.path.startswith("/")
-                or "//" in parsed.path
-                or any(ord(char) < 0x20 or ord(char) == 0x7F for char in parsed.path)
+                or not raw_path.startswith("/")
+                or not _valid_raw_encoding(raw_path)
+                or re.search(r"%(?:2f|5c)", raw_path, re.IGNORECASE)
             ):
                 raise RuntimeFault("InvalidInput", 400)
-            operation, path_values = self._route(method, parsed.path)
+            try:
+                path = unquote(raw_path, encoding="utf-8", errors="strict")
+            except UnicodeDecodeError:
+                raise RuntimeFault("InvalidInput", 400) from None
+            if (
+                not path.startswith("/")
+                or "//" in path
+                or any(ord(char) < 0x20 or ord(char) == 0x7F for char in path)
+            ):
+                raise RuntimeFault("InvalidInput", 400)
+            operation, path_values = self._route(method, path)
             normalized_headers = self._headers(headers)
             query_values = self._query_values(parsed.query)
 
@@ -361,7 +374,7 @@ class ServiceRuntime:
             effects = frozenset(operation["effects"])
             decision = self.policy.authorize(
                 self._contracts[operation["name"]],
-                resource=parsed.path,
+                resource=path,
                 requested_effects=effects,
                 context=trusted_identity,
             )
