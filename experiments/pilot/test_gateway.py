@@ -344,6 +344,53 @@ class GatewayTests(unittest.TestCase):
         self.assertFalse(any(event["event_type"] == "model_usage" for event in events))
 
 
+    def test_gateway_enforces_tool_call_budget_and_records_overrun(self):
+        events = []
+        gateway = PilotGateway(
+            "upfront",
+            max_tool_calls=2,
+            trace_sink=events.append,
+            trace_context={
+                "run_id": "tool-budget-trial",
+                "candidate_id": "upfront",
+                "model_id": "test-model",
+                "task_id": "pilot-catalog-add-readonly-operation",
+                "attempt": 1,
+            },
+        )
+        for request_id in ("call-1", "call-2"):
+            response = gateway.handle_message({
+                "type": "tool_call",
+                "request_id": request_id,
+                "tool": "interface.describe",
+                "arguments": {},
+            })
+            self.assertTrue(response["response"]["ok"])
+        before = gateway.interface.revision("catalog")
+        overrun = gateway.handle_message({
+            "type": "tool_call",
+            "request_id": "call-3",
+            "tool": "service.inspect",
+            "arguments": {"service_id": "catalog"},
+        })
+        self.assertFalse(overrun["response"]["ok"])
+        self.assertEqual(
+            overrun["response"]["diagnostics"][0]["code"],
+            "TOOL_CALL_BUDGET_EXCEEDED",
+        )
+        self.assertEqual(gateway.tool_call_count, 3)
+        self.assertEqual(gateway.interface.revision("catalog"), before)
+        calls = [event for event in events if event["event_type"] == "tool_call"]
+        self.assertEqual(len(calls), 3)
+        self.assertEqual(calls[-1]["failure_class"], "TOOL_CALL_BUDGET_EXCEEDED")
+
+    def test_gateway_rejects_invalid_tool_budget_configuration(self):
+        with self.assertRaisesRegex(ValueError, "max_tool_calls_must_be_positive_integer"):
+            PilotGateway("progressive", max_tool_calls=0)
+        with self.assertRaisesRegex(ValueError, "max_tool_calls_must_be_positive_integer"):
+            PilotGateway("progressive", max_tool_calls=True)
+
+
     def test_task_change_is_representable_and_does_not_mutate_service(self):
         # This deterministic fixture checks that E-005 can express the task.
         # It is not an LLM/agent trial and is not the hidden acceptance oracle.
