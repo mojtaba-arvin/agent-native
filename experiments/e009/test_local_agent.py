@@ -91,7 +91,7 @@ class LocalAgentRunnerTests(unittest.TestCase):
         ]
         return candidate, successful_proposal, validation, plan, sequence
 
-    def verify(self, candidate, proposal, validation, plan, sequence, inspected_operations=None):
+    def verify(self, candidate, proposal, validation, plan, sequence, inspected_operations=None, validation_id=None, plan_id=None):
         return verify_candidate(
             candidate,
             inspected=self.inspected,
@@ -102,6 +102,8 @@ class LocalAgentRunnerTests(unittest.TestCase):
             validation_result=validation,
             plan_result=plan,
             tool_sequence=sequence,
+            validation_change_set_id=(proposal["result"]["change_set_id"] if validation_id is None else validation_id),
+            plan_change_set_id=(proposal["result"]["change_set_id"] if plan_id is None else plan_id),
         )
 
     def test_accepts_exact_readonly_proposal_with_full_inspection(self):
@@ -110,6 +112,39 @@ class LocalAgentRunnerTests(unittest.TestCase):
         self.assertEqual(result["added_operation"], "get_item_by_normalized_name")
         self.assertEqual(result["validation"], "passed")
         self.assertEqual(result["plan"], "valid_no_mutation_no_deployment")
+
+    def test_accepts_one_bounded_repair_before_final_validation_and_plan(self):
+        values = list(self.fixture())
+        values[4] = [
+            *values[4][: -3],
+            "service.propose",
+            "service.validate",
+            "service.propose",
+            "service.validate",
+            "service.plan",
+        ]
+        result = self.verify(*values)
+        self.assertEqual(result["validation"], "passed")
+
+    def test_rejects_validation_or_plan_for_a_different_proposal_hash(self):
+        values = self.fixture()
+        with self.assertRaisesRegex(AgentRunError, "candidate_validation_hash_mismatch"):
+            self.verify(*values, validation_id="0" * 64)
+        with self.assertRaisesRegex(AgentRunError, "candidate_plan_hash_mismatch"):
+            self.verify(*values, plan_id="0" * 64)
+
+    def test_rejects_more_than_three_proposal_attempts(self):
+        values = list(self.fixture())
+        values[4] = [
+            *values[4][: -3],
+            "service.propose", "service.validate",
+            "service.propose", "service.validate",
+            "service.propose", "service.validate",
+            "service.propose", "service.validate",
+            "service.plan",
+        ]
+        with self.assertRaisesRegex(AgentRunError, "required_tool_sequence_invalid"):
+            self.verify(*values)
 
     def test_rejects_changed_existing_operation(self):
         values = list(self.fixture())
