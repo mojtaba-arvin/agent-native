@@ -93,3 +93,26 @@ The stochastic Qwen3 probe reached a proposal shape containing all seven operati
 **Scope:** this is an E-009 Gateway policy for this fixed task environment, not a claim that all future Agent Native services must forbid operation deletion/change. A general change protocol needs explicit, typed change intent and migration/compatibility semantics rather than an implicit preservation rule.
 
 **Tests:** Gateway tests cover exact service/types/operation preservation, reject a mutated existing capability, and verify actionable `IR_PRESERVATION_MISMATCH` diagnostics. The subsequent refactor removed duplicate local-adapter preservation logic and left the Gateway as the only authoritative enforcement point. The current branch passed 80 E-009 tests in [workflow 44128413303](https://github.com/mojtaba-arvin/agent-native/actions/runs/44128413303), including Gateway preservation, plan gating, bounded proposal attempts, candidate retention, and audit persistence.
+
+
+## D-013 — A successful tool envelope is not a successful validation
+
+The E-009 Gateway response envelope uses `ok` to report whether the tool request was processed. The semantic result of `service.validate` is separately represented by `result.valid`. An observed response with `ok=true` and `result.valid=false` is therefore a successful invocation of a failed validation, not an accepted proposal. The old local agent treated the outer envelope as sufficient to continue and called `service.plan` after AN021.
+
+**Decision:** require an explicit `result.valid is True` for the exact current `change_set_id` before planning. A new proposal invalidates the prior validation state. A plan request with no matching successful validation is intercepted locally with `VALIDATION_REQUIRED`; the scorer independently checks the same hash continuity in the raw trace. This preserves the distinction between transport/protocol success and domain-level success.
+
+**Evidence:** deterministic E-009 plan-gate tests and the original three-run Qwen3 trace (workflow [44087982547](https://github.com/mojtaba-arvin/agent-native/actions/runs/44087982547)). The new real-model trial after Gateway preservation enforcement is pending; no claim is made that Qwen3 follows the corrected gate yet.
+
+## D-014 — Provider HTTP failure, transport loss, timeout, and resource exhaustion are distinct
+
+The stochastic Qwen3 run ended at the configured 900-second boundary. The Ollama daemon log records cancellation of the active inference task and an HTTP 500 response at that boundary. The local adapter recorded the provider HTTP failure; this is not evidence of an arbitrary network disconnect or an out-of-memory event.
+
+**Decision:** preserve the raw provider failure code and classify (a) connection/transport exceptions as `transport_error`, (b) non-200 provider responses as `provider_http_error`, (c) reaching the configured wall ceiling as `timeout` plus `resource_budget_exceeded`, and (d) explicit OOM/allocation-kill evidence as `resource_exhaustion`. Do not infer OOM from HTTP 500, or infer timeout from an early transport failure. The categories may coexist when the raw provider symptom occurs at the wall boundary.
+
+**Verification:** E-007 deterministic tests cover HTTP 500 at the wall ceiling, transport failure well below the ceiling, and explicit OOM evidence separately. The new one-run deterministic workflow uses a 1,200-second per-run wall limit because the previous deterministic cohort approached 900 seconds; this is an exploratory budget adjustment, not a retroactive reinterpretation of the earlier artifact.
+
+## D-015 — The 900-second wall limit was too close to observed deterministic runtimes
+
+The earlier deterministic cohort completed its three attempts in 843.78–894.95 seconds, with one run only about five seconds below the 900-second cap. The stochastic attempt reached the cap and Ollama cancelled the active request. The stochastic trial does not prove that temperature caused the longer path, and the 900-second cap was not derived from a product SLA.
+
+**Decision:** use 1,200 seconds for the next single deterministic post-fix probe to avoid truncating a near-900-second path. Keep the limit explicit in the pinned case and workflow, retain aggregate budget enforcement, and report the setting difference. This is not an unlimited retry policy and does not imply that future runs should always receive more time. A successful run within 1,200 seconds would only establish one bounded observation.
