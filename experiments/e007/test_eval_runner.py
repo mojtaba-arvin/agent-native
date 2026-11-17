@@ -192,6 +192,38 @@ class EvalRunnerTests(unittest.TestCase):
         prior=[{"status":"failed","usage_available":True,"input_tokens":250,"output_tokens":20,"duration_ms":1000}]
         self.assertEqual(_budget_can_start_next(prior,budget,per_run),(False,"aggregate_input_token_budget"))
 
+    def test_mock_budget_stops_before_next_run_when_estimated_cost_would_exceed_cap(self):
+        budget = {
+            "max_total_input_tokens": 1000, "max_total_output_tokens": 1000,
+            "max_total_wall_seconds": 1000, "cost_pricing_mode": "per_token",
+            "input_price_per_million_usd": 10.0, "output_price_per_million_usd": 20.0,
+            "max_estimated_cost_usd": 0.001,
+        }
+        prior = [{
+            "status": "failed", "usage_available": True,
+            "input_tokens": 10, "output_tokens": 10, "duration_ms": 1000.0,
+        }]
+        per_run = {"max_input_tokens": 100, "max_output_tokens": 100, "max_wall_seconds": 10}
+        allowed, reason = _budget_can_start_next(prior, budget, per_run)
+        self.assertFalse(allowed)
+        self.assertEqual(reason, "aggregate_estimated_cost_budget")
+
+    def test_mock_budget_stops_before_next_run_when_wall_reservation_would_exceed_cap(self):
+        budget = {
+            "max_total_input_tokens": 1000, "max_total_output_tokens": 1000,
+            "max_total_wall_seconds": 15, "cost_pricing_mode": "unpriced_local",
+            "input_price_per_million_usd": None, "output_price_per_million_usd": None,
+            "max_estimated_cost_usd": None,
+        }
+        prior = [{
+            "status": "failed", "usage_available": True,
+            "input_tokens": 10, "output_tokens": 10, "duration_ms": 6000.0,
+        }]
+        per_run = {"max_input_tokens": 100, "max_output_tokens": 100, "max_wall_seconds": 10}
+        allowed, reason = _budget_can_start_next(prior, budget, per_run)
+        self.assertFalse(allowed)
+        self.assertEqual(reason, "aggregate_wall_time_budget")
+
     def test_unknown_usage_fails_closed_before_next_repetition(self):
         budget={"max_total_input_tokens":300,"max_total_output_tokens":90,"max_total_wall_seconds":30,
                 "cost_pricing_mode":"unpriced_local","input_price_per_million_usd":None,
