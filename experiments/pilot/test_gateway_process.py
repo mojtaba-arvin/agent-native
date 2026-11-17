@@ -35,6 +35,8 @@ class GatewayProcessTests(unittest.TestCase):
                 "--task-id", TASK_ID,
                 "--attempt", "1",
                 "--max-tool-calls", "1",
+                "--max-input-tokens", "500",
+                "--max-output-tokens", "200",
                 "--trace-output", str(trace_path),
             ]
             process = subprocess.Popen(
