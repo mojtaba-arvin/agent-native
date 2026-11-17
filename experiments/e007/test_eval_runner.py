@@ -182,6 +182,28 @@ class EvalRunnerTests(unittest.TestCase):
                  "candidate_path":str(cp),"failure":None},
                 {"task_id":"e009-add-readonly-operation","service_id":"catalog","expected_operation":expected})
 
+    def test_gateway_accepted_proposal_scores_contract_without_fabricating_lifecycle(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            record, case = self._write_lifecycle_fixture(root)
+            trace_path = root / "tool-trace.jsonl"
+            events = [json.loads(line) for line in trace_path.read_text(encoding="utf-8").splitlines()]
+            proposal_index = next(
+                index for index, event in enumerate(events)
+                if event["request"]["tool"] == "service.propose"
+            )
+            trace_path.write_text(
+                "".join(json.dumps(event) + "\n" for event in events[:proposal_index + 1]),
+                encoding="utf-8",
+            )
+            record["status"] = "failed"
+            record["candidate_path"] = None
+            result = score_run(record, root, case)
+            self.assertFalse(result["accepted"])
+            self.assertTrue(result["scores"]["candidate_contract"]["passed"])
+            self.assertFalse(result["scores"]["proposal_lifecycle"]["passed"])
+            self.assertFalse(result["scores"]["behavioral_safety"]["passed"])
+
     def test_duplicate_successful_proposal_for_same_hash_is_rejected(self):
         with tempfile.TemporaryDirectory() as temporary:
             root=Path(temporary); record,case=self._write_lifecycle_fixture(root,2)
