@@ -4,7 +4,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import call, patch
+from unittest.mock import patch
 
 import run_schedule
 
@@ -84,6 +84,7 @@ class RunScheduleTests(unittest.TestCase):
             self.assertEqual(batch["failed_count"], 1)
             self.assertEqual(batch["failure_counts"], {"INVALID_CANDIDATE": 1})
             saved = json.loads(Path(batch["batch_manifest_path"]).read_text(encoding="utf-8"))
+            self.assertEqual(saved["batch_manifest_path"], batch["batch_manifest_path"])
             self.assertEqual(saved["trials"][0]["candidate_id"], "progressive")
             self.assertEqual(saved["trials"][1]["failure_class"], "INVALID_CANDIDATE")
             self.assertIsNone(saved["trials"][1]["candidate_sha256"])
@@ -105,7 +106,6 @@ class RunScheduleTests(unittest.TestCase):
             root = Path(temporary) / "checkout"
             root.mkdir()
             results = Path(temporary) / "results"
-            trial = self._schedule()["trials"][0]
             with (
                 patch("run_schedule.verify_schedule_checkout"),
                 patch("run_schedule.run_one_trial", side_effect=OSError("disk unavailable")),
