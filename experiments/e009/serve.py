@@ -22,6 +22,7 @@ sys.path.insert(0, str(E009_ROOT))
 sys.path.insert(0, str(ROOT / "experiments" / "e004"))
 
 from catalog import build_catalog_handlers  # noqa: E402
+from audit import SQLiteAuditSink  # noqa: E402
 from http_server import create_server  # noqa: E402
 from identity import MemoryIdentityProvider  # noqa: E402
 from kernel import ServiceRuntime, load_service_ir  # noqa: E402
@@ -84,11 +85,13 @@ def main() -> None:
         )
     except ValueError as error:
         parser.error(str(error))
+    audit_sink = SQLiteAuditSink(repository.database)
     runtime = ServiceRuntime(
         ir,
         handlers=build_catalog_handlers(repository, work_store),
         repository=repository,
         trusted_effects={"repository.read", "repository.write", "queue.submit", "queue.read", "queue.cancel"},
+        audit_sink=audit_sink,
     )
     server = create_server(
         runtime,
