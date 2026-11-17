@@ -38,6 +38,10 @@ class OllamaDiagnosticsTests(unittest.TestCase):
 
         self.assertEqual(len(observations), 8)
         self.assertEqual(len(requests), 8)
+        self.assertEqual(observations[0]["load_duration_ns"], 0)
+        self.assertEqual(observations[0]["prompt_eval_duration_ns"], 1_000_000_000)
+        self.assertEqual(observations[0]["prefill_duration_seconds"], 1.0)
+        self.assertNotIn("load_duration_ns", {"prompt_eval_duration_ns": observations[0]["prompt_eval_duration_ns"]})
         self.assertEqual(
             [item["target_words"] for item in observations],
             [1000, 1000, 2000, 2000, 4000, 4000, 8000, 8000],
