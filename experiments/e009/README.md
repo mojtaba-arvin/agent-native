@@ -54,7 +54,7 @@ Read it by ID or name using the `id` or `name` returned in the response.
 
 ## Let an agent inspect and propose service changes
 
-The integrated Agent Gateway is a separate stdio process backed by the same `catalog.an` contract and E-005 validation/plan implementation. It supports the progressive or upfront disclosure arm and exposes only the E-005 inspect/propose/validate/plan tools. The common dispatch function is `agent.invoke`; no shell, arbitrary filesystem/network, secrets, deployment, or apply capability is exposed.
+The integrated Agent Gateway is a separate stdio process backed by the same `catalog.an` contract and E-005 validation/plan implementation. The service ID is `catalog` and its display name is `Catalog`. It supports the progressive or upfront disclosure arm and exposes only the E-005 inspect/propose/validate/plan tools. The common dispatch function is `agent.invoke`; no shell, arbitrary filesystem/network, secrets, deployment, or apply capability is exposed.
 
 Start a session:
 
