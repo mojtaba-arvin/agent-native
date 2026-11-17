@@ -357,18 +357,28 @@ def _proposal_preservation_response(
         return None
 
     changed = []
+    changed_sections = []
+    if ir.get("service") != inspected.get("service"):
+        changed_sections.append("service")
+    if ir.get("types") != inspected.get("types"):
+        changed_sections.append("types")
     for index, name in enumerate(names):
         if index >= len(provided) or provided[index] != inspected_operations[name]:
             changed.append(name)
-    if len(provided) < len(names):
-        changed.extend(name for name in names[len(provided):] if name not in changed)
-    elif len(provided) > len(names) + 1:
-        changed.append("<unexpected-operation-count>")
-
-    if not changed:
+    if len(provided) != len(names) + 1:
+        changed_sections.append("operation_count")
+    elif provided[-1] != EXPECTED_OPERATION:
+        changed_sections.append("requested_operation")
+    if changed:
+        changed_sections.append("existing_operations")
+    if not changed_sections:
         return None
 
-    changed_names = list(dict.fromkeys(changed))
+    details = []
+    if changed:
+        details.append("changed existing operations: " + ", ".join(dict.fromkeys(changed)))
+    if changed_sections:
+        details.append("changed sections: " + ", ".join(changed_sections))
     return {
         "protocol_version": "0.1",
         "request_id": request.get("request_id", "invalid"),
@@ -376,20 +386,33 @@ def _proposal_preservation_response(
         "result": None,
         "diagnostics": [{
             "code": "IR_PRESERVATION_MISMATCH",
-            "message": (
-                "The complete IR proposal changed existing inspected operations: "
-                + ", ".join(changed_names)
-            ),
+            "message": "The proposed complete IR does not exactly preserve the inspected base: " + "; ".join(details),
             "source_span": None,
             "fix_hint": (
-                "Copy each existing operation JSON object exactly from its successful service.inspect result. "
+                "Copy the service object, types array, and each existing operation JSON object exactly from inspection. "
                 "Do not normalize, infer, or edit method, path, inputs, errors, validation, effects, or capability. "
-                "Keep the inspected service and types unchanged, then append exactly the requested new operation."
+                "Append only the exact requested operation after the existing operations."
             ),
         }],
         "next_actions": [
-            "Rebuild operations from the exact inspected operation objects in their original order, append the requested operation, and submit a new complete IR proposal."
+            "Rebuild the complete IR from the exact inspected base snapshot, append the requested operation, and submit a corrected proposal."
         ],
+    }
+
+
+def _proposal_budget_response(request: dict) -> dict:
+    return {
+        "protocol_version": "0.1",
+        "request_id": request.get("request_id", "invalid"),
+        "ok": False,
+        "result": None,
+        "diagnostics": [{
+            "code": "PROPOSAL_REPAIR_BUDGET_EXCEEDED",
+            "message": "The bounded evaluation adapter permits at most three service.propose attempts per task run.",
+            "source_span": None,
+            "fix_hint": "Do not repeat proposal attempts. Inspect and correct the full IR before using the remaining attempt budget.",
+        }],
+        "next_actions": ["Stop proposing; finish only with an honest failure response."],
     }
 
 
@@ -631,9 +654,13 @@ def run(args: argparse.Namespace) -> dict:
                             request, successful_proposal, validation_result, validation_change_set_id
                         )
                     elif tool_name == "service.propose":
-                        nested = _proposal_preservation_response(
-                            request, inspected, inspected_operations
-                        )
+                        proposal_attempts += 1
+                        if proposal_attempts > 3:
+                            nested = _proposal_budget_response(request)
+                        else:
+                            nested = _proposal_preservation_response(
+                                request, inspected, inspected_operations
+                            )
                     else:
                         nested = None
                     if nested is None:
@@ -709,9 +736,6 @@ def run(args: argparse.Namespace) -> dict:
                             }
                         ):
                             raise AgentRunError("inspect_all_existing_operations_before_proposal")
-                        proposal_attempts += 1
-                        if proposal_attempts > 3:
-                            raise AgentRunError("proposal_repair_budget_exceeded")
                         successful_proposal = {
                             "arguments": arguments,
                             "result": nested.get("result") or {},
