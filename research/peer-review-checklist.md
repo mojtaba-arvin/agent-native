@@ -38,7 +38,7 @@
 | Application update/delete attempts are blocked | Pass (defense in depth) | SQLite triggers reject update/delete; not cryptographic tamper-proofing |
 | Audit store failure prevents handler execution | Pass | Integration test verifies fail-closed service response |
 | E-005 interface suite | Pass | 17 tests pass in CI [44102058544](https://github.com/mojtaba-arvin/agent-native/actions/runs/44102058544) |
-| E-009 suite | Pass | 76 tests pass in CI [44106101942](https://github.com/mojtaba-arvin/agent-native/actions/runs/44106101942) |
+| E-009 suite | Pass | 81 tests pass in CI [44126229781](https://github.com/mojtaba-arvin/agent-native/actions/runs/44126229781) [44106101942](https://github.com/mojtaba-arvin/agent-native/actions/runs/44106101942) |
 
 ## E-002 runtime decision evidence
 
@@ -52,7 +52,7 @@
 | CPU result | Diagnostic | All four candidates exceeded the provisional screen; this is not a basis for post-hoc threshold change or a runtime choice |
 | Ecosystem/operability score | Not measured | Evidence rubric exists; candidate scoring is absent |
 | Injected failure semantics | Not measured | Required assertions are documented but not run comparably across all candidates |
-| Comparable deployable artifact size | Not measured | Packaging/equivalence protocol exists; measurements are absent |
+| Deployable payload size | Pass — one diagnostic measurement/candidate | Second matrix workflow [44124537511](https://github.com/mojtaba-arvin/agent-native/actions/runs/44124537511), artifact [14347795200](https://github.com/mojtaba-arvin/agent-native/actions/runs/44124537511/artifacts/14347795200): Go 10,012,310 B; Rust 4,991,320 B; WASI+Wasmtime 71,947,386 B; BEAM+ERTS 74,856,626 B. Linux x86_64, uncompressed, packaging models differ; not an apples-to-apples container comparison |
 | Final weighted ranking/runtime selection | Not performed | Correctly deferred |
 
 ## Overall review decision
@@ -64,6 +64,6 @@
 - [x] E-002 ten-run diagnostic data is published without selecting a runtime.
 - [ ] Re-run Qwen3 after the complete-IR and validation-gate corrections.
 - [ ] Verify the model produces `ir_version=1` and all existing operations plus the requested operation; inspect the resulting artifact before closing E-007 validation.
-- [ ] Resolve E-002 CPU-gate provenance from a product capacity/cost model and measure fault injection/ecosystem/artifact-size criteria before any decision-grade matrix.
+- [ ] Resolve E-002 CPU-gate provenance from a product capacity/cost model and measure fault injection/ecosystem criteria and derive the CPU gate from product capacity/cost requirements before any decision-grade matrix.
 
 **Cycle status:** partially validated. Implementation and diagnostic evidence have advanced, but E-007 real-agent acceptance is still negative and post-fix model behavior is unknown. E-002 remains diagnostic. Do not declare the RPI cycle complete or choose a runtime yet.
