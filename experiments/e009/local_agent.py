@@ -322,6 +322,47 @@ def verify_candidate(
     }
 
 
+def _plan_gate_response(
+    request: dict,
+    successful_proposal: dict | None,
+    validation_result: dict | None,
+    validation_change_set_id: str | None,
+) -> dict | None:
+    """Block planning unless the latest proposal hash passed semantic validation."""
+    arguments = request.get("arguments")
+    current_id = (successful_proposal or {}).get("result", {}).get("change_set_id")
+    valid = bool(
+        validation_result
+        and validation_result.get("ok")
+        and (validation_result.get("result") or {}).get("valid") is True
+        and isinstance(current_id, str)
+        and validation_change_set_id == current_id
+        and isinstance(arguments, dict)
+        and arguments.get("change_set_id") == current_id
+    )
+    if valid:
+        return None
+    return {
+        "protocol_version": "0.1",
+        "request_id": request.get("request_id", "invalid"),
+        "ok": False,
+        "result": None,
+        "diagnostics": [{
+            "code": "VALIDATION_REQUIRED",
+            "message": "Planning is blocked until the current complete IR proposal passes validation.",
+            "source_span": None,
+            "fix_hint": (
+                "Check result.valid, not only the outer ok flag. Rebuild the complete IR snapshot "
+                "(ir_version=1, service, types, all existing operations plus the new operation), "
+                "then propose and validate it."
+            ),
+        }],
+        "next_actions": [
+            "service.propose a corrected complete IR; then service.validate the new change_set_id"
+        ],
+    }
+
+
 def run(args: argparse.Namespace) -> dict:
     endpoint = validate_ollama_endpoint(args.ollama_url)
     results_root = args.results_dir.expanduser().resolve()
@@ -513,36 +554,12 @@ def run(args: argparse.Namespace) -> dict:
                     tool_name = request.get("tool")
                     arguments = request.get("arguments")
                     if tool_name == "service.plan":
-                        current_id = (successful_proposal or {}).get("result", {}).get("change_set_id")
-                        validation_ok = bool(
-                            validation_result
-                            and validation_result.get("ok")
-                            and (validation_result.get("result") or {}).get("valid") is True
-                            and validation_change_set_id == current_id
-                            and isinstance(current_id, str)
-                            and isinstance(arguments, dict)
-                            and arguments.get("change_set_id") == current_id
+                        nested = _plan_gate_response(
+                            request, successful_proposal, validation_result, validation_change_set_id
                         )
-                        if not validation_ok:
-                            nested = {
-                                "protocol_version": "0.1",
-                                "request_id": request.get("request_id", "invalid"),
-                                "ok": False,
-                                "result": None,
-                                "diagnostics": [{
-                                    "code": "VALIDATION_REQUIRED",
-                                    "message": "Planning is blocked until the current complete IR proposal passes validation.",
-                                    "source_span": None,
-                                    "fix_hint": "Check result.valid, not only the outer ok flag. Rebuild the complete IR snapshot (ir_version=1, service, types, all existing operations plus the new operation), then propose and validate it.",
-                                }],
-                                "next_actions": ["service.propose a corrected complete IR; then service.validate the new change_set_id"],
-                            }
-                        else:
-                            result = gateway_exchange(process, request)
-                            if result.get("type") != "tool_result" or not isinstance(result.get("response"), dict):
-                                raise AgentRunError("gateway_tool_result_invalid")
-                            nested = result["response"]
                     else:
+                        nested = None
+                    if nested is None:
                         result = gateway_exchange(process, request)
                         if result.get("type") != "tool_result" or not isinstance(result.get("response"), dict):
                             raise AgentRunError("gateway_tool_result_invalid")
