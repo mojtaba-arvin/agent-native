@@ -49,6 +49,7 @@ The public repository includes:
 - A local NDJSON gateway with a fixed tool allowlist, per-run traces, monotonic timestamps, and enforced token/tool ceilings.
 - A bounded Ollama adapter that accepts only a loopback HTTP endpoint, exposes one `agent.invoke` function, and records provider-reported token usage through the gateway.
 - A serial batch runner that preserves each run directory and writes a batch manifest, including classified failures and interruption state.
+- A paired analysis tool that requires every finalized trace, checks schedule/run identity, reports per-arm acceptance and effort, paired differences, bootstrap intervals, exact McNemar results, and E-007 aggregates.
 - Candidate-envelope validation and a finalizer that correlates candidate hashes, proposal traces, validation, planning, and a separately supplied evaluator result.
 
 The adapter is pilot infrastructure only. It does not define the future Agent Native public protocol or make Ollama a product dependency.
@@ -88,9 +89,10 @@ Mock-provider CI verifies adapter behavior and trace integrity. It is not a real
 
 1. Run the one-pair local-model wiring check from a clean checkout and retain both raw traces, candidate outputs, and batch manifest.
 2. Provision the evaluator separately from the public repository and model-facing process. It must verify the candidate against the trusted baseline and emit only the coarse result contract.
-3. Run the pre-registered screening study, inspect all failures, and proceed to at least 30 paired repetitions only if the harness and evaluator pass integrity checks.
-4. Publish raw distributions, paired differences, uncertainty intervals, excluded infrastructure failures, and the resulting decision—including a negative or inconclusive result if that is what the data shows.
-5. Use the wider E-007 task corpus to test generality only after the narrow pilot has established a trustworthy end-to-end evaluation path.
+3. Finalize every scheduled run through the trusted-result finalizer and run the paired analyzer; missing traces or run identities stop analysis rather than disappearing from the sample.
+4. Run the pre-registered screening study, inspect all failures, and proceed to at least 30 paired repetitions only if the harness and evaluator pass integrity checks.
+5. Publish raw distributions, paired differences, uncertainty intervals, excluded infrastructure failures, and the resulting decision—including a negative or inconclusive result if that is what the data shows.
+6. Use the wider E-007 task corpus to test generality only after the narrow pilot has established a trustworthy end-to-end evaluation path.
 
 ## Presentation-safe project description
 
