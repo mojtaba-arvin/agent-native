@@ -1,6 +1,6 @@
 # Agent Native — disposable agent-interface pilot
 
-**Status:** protocol proposed; no agent trials have been run.  
+**Status:** local execution adapter and protocol checks implemented; no real model trials or evaluator-backed results have been recorded.  
 **Scope:** one experiment, one variable, no product implementation decision.
 
 ## Decision being tested
@@ -59,12 +59,15 @@ python experiments/pilot/gateway.py \
   --arm progressive \
   --run-id trial-001 \
   --model-id '<pinned-model-id>' \
-  --trace-output results/trial-001.jsonl
+  --max-input-tokens 16000 \
+  --max-output-tokens 4000 \
+  --max-tool-calls 40 \
+  --trace-output /secure/path/trial-001.jsonl
 ```
 
 The experimental arm identity is not included in the model-visible session manifest; it is retained only in out-of-band trace metadata. This avoids telling the agent which treatment it received. The surface and trace metadata are separate objects.
 
-This adapter makes the tool contract executable and testable; it does **not** run an AI agent, enforce an OS sandbox, provide a provider connection, or isolate a hidden evaluator. A model/provider-specific client adapter and the separate trusted evaluator remain prerequisites for actual trials. The common dispatch envelope is an experimental measurement adapter, not a decision about Agent Native's eventual public protocol.
+This gateway makes the tool contract executable and testable. The bounded local Ollama runner described below now performs real model requests and routes tool calls through this gateway. Neither component is part of the Agent Native product, neither enforces a general-purpose OS sandbox, and neither evaluates acceptance. The separate trusted evaluator remains a prerequisite for any accepted/rejected benchmark result. The common dispatch envelope is an experimental measurement adapter, not a decision about Agent Native's eventual public protocol.
 
 ## Paired trial schedule
 
@@ -105,7 +108,73 @@ The settings file must be a JSON object containing the provider's non-secret gen
 
 Keep the schedule and generation-settings file outside the repository checkout: the scheduler refuses a dirty worktree and the schedule contains treatment labels. `AGENT_ADAPTER.md` specifies the provider-neutral bridge and insists on exactly one identical provider-facing `agent.invoke` function in both arms.
 
-This schedule generator is not an agent runner. It does not call a model or execute a trial. A provider adapter and a separately protected evaluator deployment remain necessary. This pilot does not execute agent-generated code: the model proposes JSON service IR through the allowlisted gateway. Therefore a general-purpose OS sandbox for generated code is not needed for this narrow trial; the evaluator implementation, private keys, and detailed results must nevertheless remain outside model context and outside this public repository.
+The schedule generator itself does not call a model or execute a trial. The repository now includes a separate, bounded local Ollama runner for one scheduled trial at a time. A separately protected evaluator deployment remains necessary before any trial can be scored for acceptance. This pilot does not execute agent-generated code: the model proposes JSON service IR through the allowlisted gateway. Therefore a general-purpose OS sandbox for generated code is not needed for this narrow trial; the evaluator implementation, private keys, and detailed results must nevertheless remain outside model context and outside this public repository.
+
+## Execute real local-model trials
+
+The pilot includes ollama_runner.py, a local-only runner for Ollama's native /api/chat tool-calling API. It accepts only a loopback HTTP endpoint, defaults to http://127.0.0.1:11434, and exposes one model-visible function: agent.invoke. The runner verifies the immutable schedule and clean source checkout before every trial, launches a fresh gateway, enforces the scheduled budgets, records provider token usage, and stores artifacts outside the checkout with restrictive permissions.
+
+The runner requires explicit Ollama generation settings so model defaults do not silently vary between arms. Save this file outside the repository:
+
+```json
+{
+  "temperature": 0.2,
+  "top_p": 0.9,
+  "seed": 20261117,
+  "num_ctx": 8192,
+  "think": true
+}
+```
+
+Use the exact local model identifier shown by ollama list. For the existing local Qwen 3 installation, the example identifier is qwen3-8b-local; confirm the exact tag on the machine before creating the schedule.
+
+First create a one-pair wiring check (two trials, one per arm). This checks the complete local model-to-gateway path; it is not benchmark evidence:
+
+```sh
+python experiments/pilot/schedule.py \
+  --pairs 1 \
+  --seed 20261117 \
+  --model-id qwen3-8b-local \
+  --generation-settings-file /secure/path/ollama-settings.json \
+  --max-input-tokens 16000 \
+  --max-output-tokens 4000 \
+  --max-tool-calls 40 \
+  --max-wall-seconds 900 \
+  --output /secure/path/pilot-wiring-check.json
+
+for sequence in 1 2; do
+  python experiments/pilot/ollama_runner.py \
+    --schedule /secure/path/pilot-wiring-check.json \
+    --trial-sequence "$sequence" \
+    --results-dir /secure/path/pilot-wiring-runs
+done
+```
+
+Only after the wiring check succeeds, create a fresh 10-pair screening schedule with a new seed and run all 20 sequence numbers serially:
+
+```sh
+python experiments/pilot/schedule.py \
+  --pairs 10 \
+  --seed 20261118 \
+  --model-id qwen3-8b-local \
+  --generation-settings-file /secure/path/ollama-settings.json \
+  --max-input-tokens 16000 \
+  --max-output-tokens 4000 \
+  --max-tool-calls 40 \
+  --max-wall-seconds 900 \
+  --output /secure/path/pilot-screening-schedule.json
+
+for sequence in $(seq 1 20); do
+  python experiments/pilot/ollama_runner.py \
+    --schedule /secure/path/pilot-screening-schedule.json \
+    --trial-sequence "$sequence" \
+    --results-dir /secure/path/pilot-screening-runs
+done
+```
+
+Each run directory contains the raw gateway trace, the model's final response, the candidate artifact when it is parseable, and a run.json manifest. The manifest reports either candidate_ready_for_external_evaluation or a classified failure. It never claims acceptance. Do not reuse run directories or run IDs, and preserve failed runs.
+
+**Current evidence boundary:** CI validates the adapter against a deterministic local HTTP test double. That proves protocol handling, trace recording, and budget wiring—not model quality. Actual Ollama trials must be run on a machine with the pinned local model. The private evaluator must then independently score each candidate before acceptance rates or comparative results can be published.
 
 ## Protocol
 
