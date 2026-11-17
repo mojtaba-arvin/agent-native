@@ -95,6 +95,8 @@ class RelayResult:
     duplicate: bool | None
     total: int | None
     acknowledged: bool
+    retry_scheduled: bool = False
+    failure_class: str | None = None
 
 
 class OutboxRelay:
@@ -129,12 +131,32 @@ class OutboxRelay:
         )
         if event is None:
             return RelayResult(False, None, None, None, False)
-        consumed = self.work_store.consume_delta_event(
-            consumer_id=self.consumer_id,
-            event_id=event["event_id"],
-            payload=event["payload"],
-            now=now,
-        )
+        try:
+            consumed = self.work_store.consume_delta_event(
+                consumer_id=self.consumer_id,
+                event_id=event["event_id"],
+                payload=event["payload"],
+                now=now,
+            )
+        except Exception as error:
+            failure_class = type(error).__name__.upper()
+            retry_scheduled = self.work_store.retry_outbox(
+                event_id=event["event_id"],
+                relay_id=relay_id,
+                lease_token=event["lease_token"],
+                now=now,
+                delay_seconds=1,
+                error_code=failure_class,
+            )
+            return RelayResult(
+                True,
+                event["event_id"],
+                None,
+                None,
+                False,
+                retry_scheduled,
+                failure_class,
+            )
         if acknowledge:
             self.work_store.ack_outbox(
                 event_id=event["event_id"],
