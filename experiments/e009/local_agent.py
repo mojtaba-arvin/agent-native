@@ -215,6 +215,14 @@ def _append_jsonl(path: Path, event: dict) -> None:
         os.fsync(stream.fileno())
 
 
+def _persist_candidate_response(path: Path, raw_candidate: bytes, record: dict) -> None:
+    """Retain a parsed final JSON candidate even when trusted verification fails."""
+    newline = b"\n"
+    _write_exclusive(path, raw_candidate + (b"" if raw_candidate.endswith(newline) else newline))
+    record["candidate_path"] = str(path)
+
+
+
 def _write_exclusive(path: Path, raw: bytes) -> None:
     descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     with os.fdopen(descriptor, "wb") as stream:
@@ -667,6 +675,10 @@ def run(args: argparse.Namespace) -> dict:
         if len(raw_candidate) > MAX_CANDIDATE_BYTES:
             raise AgentRunError("candidate_too_large")
         candidate = strict_json(raw_candidate)
+        if isinstance(candidate, dict):
+            # Preserve final structured output before semantic verification so
+            # rejected candidates remain available for post-run inspection.
+            _persist_candidate_response(candidate_path, raw_candidate, record)
         if successful_proposal is None:
             raise AgentRunError("proposal_not_successfully_created")
         verification = verify_candidate(
@@ -680,8 +692,6 @@ def run(args: argparse.Namespace) -> dict:
             validation_change_set_id=validation_change_set_id,
             plan_change_set_id=plan_change_set_id,
         )
-        _write_exclusive(candidate_path, raw_candidate + (b"" if raw_candidate.endswith(b"\n") else b"\n"))
-        record["candidate_path"] = str(candidate_path)
         record["verification"] = verification
         record["status"] = "candidate_verified_locally"
 
