@@ -119,6 +119,7 @@ class PilotGateway:
             raise ValueError("max_tool_calls_must_be_positive_integer")
         self.max_tool_calls = max_tool_calls
         self.tool_call_count = 0
+        self.model_usage_request_ids: set[str] = set()
         self.surface = build_surface(arm)
         self.catalog = load_catalog()
         source = CATALOG_SOURCE.read_text(encoding="utf-8")
@@ -157,7 +158,7 @@ class PilotGateway:
             "event_id": uuid.uuid4().hex,
             "task_id": self.trace_context["task_id"],
             "attempt": self.trace_context["attempt"],
-            "timestamp_ns": time.time_ns(),
+            "timestamp_ns": time.monotonic_ns(),
             "event_type": event_type,
             "run_id": self.trace_context["run_id"],
             "candidate_id": self.trace_context["candidate_id"],
@@ -227,6 +228,13 @@ class PilotGateway:
                 "accepted": False,
                 "diagnostic": "MODEL_USAGE_TOKENS",
             }
+        if request_id in self.model_usage_request_ids:
+            return {
+                "type": "telemetry_ack",
+                "request_id": request_id,
+                "accepted": False,
+                "diagnostic": "MODEL_USAGE_DUPLICATE_REQUEST",
+            }
         fields = {
             "input_tokens": input_tokens,
             "output_tokens": output_tokens,
@@ -247,6 +255,7 @@ class PilotGateway:
                 }
             fields["cost_usd"] = cost
         self._emit_trace("model_usage", **fields)
+        self.model_usage_request_ids.add(request_id)
         return {
             "type": "telemetry_ack",
             "request_id": request_id,
