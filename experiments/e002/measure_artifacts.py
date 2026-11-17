@@ -72,7 +72,7 @@ def payload_files(path: Path) -> list[Path]:
 def _elf(path: Path) -> bool:
     try:
         with path.open("rb") as stream:
-            return stream.read(4) == b"\\x7fELF"
+            return stream.read(4) == bytes((127,)) + b"ELF"
     except OSError as error:
         raise ArtifactMeasurementError(f"cannot_read_artifact:{path}") from error
 
@@ -191,7 +191,7 @@ def main() -> int:
         parser.error(str(error))
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(
-        json.dumps(report, ensure_ascii=False, sort_keys=True, indent=2) + "\\n",
+        json.dumps(report, ensure_ascii=False, sort_keys=True, indent=2) + "\n",
         encoding="utf-8",
     )
     print(json.dumps({
