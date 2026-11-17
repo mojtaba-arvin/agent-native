@@ -53,7 +53,7 @@ The manifest records per-file byte size and SHA-256 and avoids double-counting s
 
 ## Partial score visibility (not a final ranking)
 
-Only five weighted metrics were measured. Their provisional normalized contributions sum to 75 points: p99 25, throughput 20, RSS 15, CPU 10, startup 5. The other 25 points are now partially covered: ecosystem/operability (10) and failure semantics (10) remain not measured; deployable artifact size (5) has a single host-specific payload measurement per candidate in the second matrix run. In addition, every candidate fails the CPU hard gate, so none is eligible for a final weighted score.
+Only five weighted metrics were measured. Their provisional normalized contributions sum to 75 points: p99 25, throughput 20, RSS 15, CPU 10, startup 5. The other 25 points are now partially covered: ecosystem/operability (10) and failure semantics (10) remain not measured; deployable artifact size (5) has a single host-specific payload measurement per candidate in the second matrix run. In addition, every candidate misses the provisional CPU eligibility screen, so none is eligible for a final weighted score.
 
 | Candidate | Partial weighted contribution / 75 | CPU normalized score | Final score / 100 |
 |---|---:|---:|---|
