@@ -66,7 +66,7 @@ class KernelTests(unittest.TestCase):
         created = self.dispatch(
             "POST",
             "/items",
-            {"name": "Desk lamp"},
+            {"name": "DeskLamp"},
             headers={"idempotency-key": "create-001"},
         )
         self.assertEqual(created.status_code, 201)
