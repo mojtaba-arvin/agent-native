@@ -161,6 +161,30 @@ class ScheduleTests(unittest.TestCase):
         with self.assertRaisesRegex(ScheduleError, "trial_arm_label_must_be_hidden"):
             validate_schedule(tampered)
 
+    def test_schedule_rejects_treatment_order_drift_even_with_rebuilt_run_ids(self):
+        import hashlib
+
+        schedule = self.build()
+        tampered = copy.deepcopy(schedule)
+        first, second = tampered["trials"][0], tampered["trials"][1]
+        first_arm = first["candidate_id"]
+        second_arm = second["candidate_id"]
+        first["candidate_id"], second["candidate_id"] = second_arm, first_arm
+        for trial in (first, second):
+            pair_number = int(trial["pair_id"].split("-")[1])
+            digest = hashlib.sha256(
+                f"{tampered['plan_id']}:{pair_number}:{trial['candidate_id']}".encode()
+            ).hexdigest()
+            trial["run_id"] = (
+                f"{trial['pair_id']}-{trial['candidate_id']}-{digest[:12]}"
+            )
+        with self.assertRaisesRegex(
+            ScheduleError,
+            "trial_randomized_order_mismatch:pair-0001",
+        ):
+            validate_schedule(tampered)
+
+
     def test_schedule_detects_unbalanced_pair(self):
         schedule = self.build()
         tampered = copy.deepcopy(schedule)
