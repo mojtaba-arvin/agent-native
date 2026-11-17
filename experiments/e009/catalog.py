@@ -8,7 +8,7 @@ from repository import (
     ItemConflict,
     SQLiteCatalogRepository,
 )
-from work_store import JobConflict, DurableWorkStore
+from work_store import JobBackpressure, JobConflict, DurableWorkStore
 
 
 def build_catalog_handlers(
@@ -68,6 +68,8 @@ def build_catalog_handlers(
             )
         except JobConflict as error:
             raise DomainFault("Conflict", str(error)) from error
+        except JobBackpressure as error:
+            raise DomainFault("RateLimited", str(error)) from error
         return HandlerResult(
             data={"id": job["task_id"], "state": job["state"]},
             status_code=200 if replayed else 202,
