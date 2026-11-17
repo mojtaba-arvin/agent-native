@@ -2,27 +2,27 @@
 
 **Snapshot:** 17 November 2026  
 **Branch:** `research/reboot-core`  
-**Audited HEAD:** `97255f48d1a6ff77c0bdb550212ca609eca128f0`  
+**E-007 artifact source revision:** `1596d595e040267279324aafb7542213b9f31d89` · Subsequent deterministic fixes are indexed in [evidence-index.md](evidence-index.md).  
 **Scope:** evidence-only audit. No source code, runtime architecture, or technology selection is changed by this document.
 
 ## Executive finding
 
-The largest gap is not the absence of test infrastructure. The repository already has substantial conformance tests, a ten-task public benchmark corpus, provider-neutral telemetry aggregation, a protected-evaluator contract, a paired-trial analyzer, and a real local-model runner for E-009. The gap is that these pieces have not yet been joined into a repeatable, independently scored agent-evaluation loop.
+E-007 now has a specialized real-agent runner for one fixed E-009 inspect/propose/validate/plan task, three deterministic scorers, raw trace preservation, strict usage telemetry, aggregate token/time budget reservation, and mock-tested fail-fast behavior. The corrected three-run Qwen3 execution [44087982547](https://github.com/mojtaba-arvin/agent-native/actions/runs/44087982547), artifact [14332334550](https://github.com/mojtaba-arvin/agent-native/actions/runs/44087982547/artifacts/14332334550), is **not accepted**: all three attempts reached validation and failed with `AN021`. The new operation's `input` was already the correct declaration array; the submitted IR omitted `ir_version=1` and all existing operations. The model then called plan despite `result.valid=false`. All three used temperature 0 and seed 42, with matching token counts/tool paths; Ollama logs show prompt/KV cache reuse. This is a deterministic failure reproduction, not three independent statistical samples.
 
-The fifth E-009 Qwen3 trial is new evidence not reflected in the older `REPORT.md` and resource-policy snapshot. It completed service inspection and all six existing-operation inspections, created a proposal, and reached validation. Validation rejected the proposed IR with `AN021`; the model then repeated the same proposal, and the runner terminated with `multiple_successful_proposals`. This is real-model execution evidence, but not a successful task, not a validated candidate, and not an E-007 benchmark result.
+The earlier standalone E-009 Qwen3 run [44081733833](https://github.com/mojtaba-arvin/agent-native/actions/runs/44081733833) is separate: in that trial the input was an object. Do not conflate it with the later E-007 artifact, where input was an array but the top-level snapshot was incomplete.
 
 ## 1. Evaluation-loop gap audit
 
 | Required evaluation criterion | Current state | Existing evidence | Gap / sufficiency |
 |---|---|---|---|
 | Public task definitions | Implemented | E-007 contains 10 task statements spanning CRUD, schema evolution, tenancy, idempotency, deadlines, streaming, durable recovery, security, debugging, and safe planning | **Sufficient for a first public corpus**, not sufficient as a complete benchmark distribution |
-| Agent execution runner | Partial | E-009 `local_agent.py` executes a real Ollama model against the live Agent Gateway; the separate pilot has an adapter and batch runner | **Insufficient for E-007**: there is no generic E-007 task runner that prepares a workspace, executes an agent, and exports a candidate |
-| Real-model execution evidence | Partial, failed trials only | Five bounded Qwen3/Ollama attempts are recorded in the current work history; trial 5 is Actions run [44081733833](https://github.com/mojtaba-arvin/agent-native/actions/runs/44081733833) | **Insufficient for acceptance or productivity claims**: no successful end-to-end E-009 task yet |
+| Agent execution runner | Implemented for one fixed task | E-007 `eval_runner.py` invokes the real `local_agent.py`/Ollama adapter and live E-009 Gateway; traces/candidates are preserved and scored | **Narrow scope**: not a generic runner for all ten tasks and not a sandbox |
+| Real-model execution evidence | One three-repetition fixed-task cohort, failed | E-007 run [44087982547](https://github.com/mojtaba-arvin/agent-native/actions/runs/44087982547), artifact [14332334550](https://github.com/mojtaba-arvin/agent-native/actions/runs/44087982547/artifacts/14332334550): 3/3 failures with `AN021`, each 35,984 input / 1,602 output tokens | **No accepted task**; deterministic settings/cache mean failure reproductions, not independent samples |
 | Independent acceptance oracle | Contract designed, implementation absent | `experiments/e007/ORACLE_ISOLATION.md`; pilot finalizer/evaluator-result contract; E-009 local candidate verifier | **Insufficient**: public E-007 has no private oracle package or separate evaluator execution boundary. E-009's verifier is trusted runner-side validation of one fixed proposal, not a hidden benchmark oracle |
-| Scorers | Partial primitives, no eval cases | E-007 `metrics.py` aggregates accepted outcomes and operational metrics; E-009 verifier checks exact candidate/trace invariants | **Insufficient as a first-class eval system**: no declarative eval-case format, scorer registry, per-scorer threshold report, or E-007 runner |
+| Scorers | Implemented for first eval case | Declarative E-007 case and three deterministic binary scorers for candidate contract, proposal lifecycle, and behavioral safety; each threshold is 1.0 | **Task-specific**: no general scorer registry or independent hidden oracle for arbitrary tasks |
 | Trace and usage telemetry | Implemented as schemas/aggregators and pilot wiring | E-007 trace schema and strict aggregator; pilot provider-usage path and provenance checks; E-009 provider-reported token counts | **Sufficient foundations**, but real-run data is sparse and incomplete as a benchmark corpus |
 | Failure classification | Implemented in parts | E-007 distinguishes invalid tool calls, schema errors, business tool errors, and ineligible infrastructure failures; pilot finalizer preserves failed/interrupted runs | **Sufficient foundations**, but the five E-009 model failures need a common durable result taxonomy and analysis |
-| Repetition and statistical analysis | Partial | E-002 matrix supports seeded randomized repetitions; pilot analyzer reports paired differences, bootstrap intervals, and exact McNemar results | **Insufficient real-agent evidence**: no completed model cohort, no repeated accepted task observations, and no measured variance distribution |
+| Repetition and statistical analysis | Insufficient | Three temperature-zero/fixed-seed E-007 attempts match in usage/tool path; Ollama logs show prompt/KV prefix-cache reuse | **Not independent samples**; no model variance or statistical claim supported |
 | CI visibility | Conformance CI exists; real-model CI is opt-in | E-001–E-009 and pilot workflows; bounded E-009 real-model workflow with artifact upload | **Partial**: deterministic CI is useful, but no reliable eval score is currently available as a quality gate. Real-model execution is appropriately separate from ordinary PR CI because of cost and duration |
 | Promotion of failures to regression cases | Not implemented | E-009 traces and provider responses are retained as short-lived workflow artifacts | **Insufficient**: there is no supported path from a real trace/failure to a permanent eval case |
 
@@ -59,14 +59,28 @@ Previous trial progression, as recorded in the project history:
 
 The older `REPORT.md` still says no live-model trial has occurred, and `research/github-resource-policy.md` still describes trial 5 as in progress. Both statements are stale as of this snapshot.
 
+### E-007 three-run Qwen3 artifact — inspected result
+
+Run: [44087982547](https://github.com/mojtaba-arvin/agent-native/actions/runs/44087982547) · artifact ID `14332334550` · source revision `1596d595e040267279324aafb7542213b9f31d89` · model `qwen3:8b` via Ollama.
+
+| Attempt | Outcome | Failure stage | Input / output tokens | Duration | Currency cost | Classification |
+|---|---|---|---:|---:|---|---|
+| 1 | Failed | `service.validate` · `AN021` | 35,984 / 1,602 | 894.95 s | Not priced (local Ollama) | Schema incompatibility; validation rejection |
+| 2 | Failed | `service.validate` · `AN021` | 35,984 / 1,602 | 843.78 s | Not priced (local Ollama) | Same deterministic failure path |
+| 3 | Failed | `service.validate` · `AN021` | 35,984 / 1,602 | 844.69 s | Not priced (local Ollama) | Same deterministic failure path |
+
+The operation `input` was an array of `name`/`source`/`type` declarations. The proposal omitted `ir_version` and included only the new operation. The canonical validator requires exactly `ir_version`, `service`, `types`, and `operations`; that explains `AN021`, while omission of existing operations would separately fail preservation. The response had outer `ok=true` but `result.valid=false`; the model then called plan rather than correcting the IR. The successful-proposal repair budget was not exhausted, although each run approached the 900-second wall ceiling.
+
+All attempts used temperature 0 and seed 42 and had matching token counts/tool paths. Ollama logs show prompt/KV prefix-cache reuse, not response-cache replay. Treat these as deterministic reproductions, not independent statistical samples. The earlier standalone E-009 run [44081733833](https://github.com/mojtaba-arvin/agent-native/actions/runs/44081733833) is a separate case where the input member was an object.
+
 ## 2. E-009 production-dependency audit
 
 | Component | Existing implementation | Missing production property | Assessment |
 |---|---|---|---|
 | Crash recovery | File-backed SQLite work store; expiring job/relay leases; monotonic fencing tokens; retry and outbox/inbox crash-point tests; durable records survive database reopen | Process supervision, automatic restart policy, bounded worker termination/escalation, operational recovery procedures, multi-process/multi-node coordination, clock-skew handling | **Partially present**, not absent |
 | State store | SQLite repository and work store share a file-backed database; item/job/outbox/inbox state is persisted; reopen and tenant-isolation tests exist | Production database selection, migrations/rollback, backup/restore, retention, HA, multi-node coordination, schema compatibility policy | **Present as a single-node reference store** |
-| Audit logger | E-009 runtime accepts an injected audit sink and fails closed if that sink raises; E-004 policy emits structured decision events | The demo `serve.py` does not wire a durable audit sink; E-004 events are in-memory; no append-only remote store, tamper-evidence, retention, access control, or cross-service correlation | **Critical integration gap**: an audit interface exists, durable audit persistence does not |
-| Cost budgeter | E-009 local runner bounds cumulative input/output tokens, tool calls, and wall time; E-007 schema/metrics can record cost and cost per accepted task | No currency-aware per-run/tenant budget, no provider-price registry, no whole-application agent budget, no budget reservation/settlement, no budget enforcement across multiple agents/services | **Partial research-runner budget**, not a production cost-control subsystem |
+| Audit logger | E-009 has a SQLite audit sink wired into `serve.py`; allow/deny decisions persist before handlers and fail closed on storage errors | No remote replication, retention service, external ACL, or cryptographic tamper-evidence | **Implemented for the single-node reference service**, not production audit infrastructure |
+| Cost budgeter | E-009 has per-run ceilings; E-007 has aggregate token/time reservation and mock-tested fail-fast; optional priced-token budgets are supported | No production tenant/application budget or multi-agent reservation/settlement; local Ollama tariff is not configured | **Research-runner control only**; local inference currency cost is unpriced, not zero |
 | Identity and authority | Default-deny capability checks, principal/tenant/capability/resource scopes, trusted identity dependency, declared-effect allowlist | Demo identity is in-memory; no cryptographic grants, workload identity, key rotation, distributed revocation, or production auth integration | **Reference policy only** |
 | HTTP and process lifecycle | Bounded stdlib HTTP host, loopback-only demo, body/JSON limits, bounded admission, graceful worker/relay shutdown | Not an internet-facing hardened host; no TLS termination, external process supervisor, production health/readiness/draining, or deployment/upgrade strategy | **Development host only** |
 | External effects | Transactional outbox/inbox, at-least-once relay, consumer deduplication, fenced leases | No general external receiver idempotency contract, broker selection, distributed transaction, or remote exactly-once guarantee | **Single-node semantic proof only** |
@@ -75,32 +89,34 @@ The older `REPORT.md` still says no live-model trial has occurred, and `research
 
 ## 3. E-007 benchmark status
 
-- Ten task definitions exist in `corpus.json` and `TASKS.md`.
-- `trace.schema.json` defines provider-neutral run, candidate, model, task, tool, usage, acceptance, and failure metadata.
-- `metrics.py` validates telemetry and aggregates token use, tool calls, repair events, interventions, inference cost, wall time, runtime metrics, acceptance, and cost per accepted task.
-- `prepare_workspace.py` materializes one public task without oracle IDs or unrelated task prompts.
-- `ORACLE_ISOLATION.md` specifies agent/evaluator trust zones and insists on a disposable OS/container/VM boundary.
-- The packager is **not** a sandbox and does **not** execute an agent. The E-007 README and issue #15 explicitly state that no E-007 agent runs or hidden oracles exist.
-- `EVALUATION.md` specifies three model capability tiers and eleven task categories; the current E-007 corpus has ten tasks. It has no completed E-007 model cohort across constrained, general, and advanced agents. The separate E-005 pilot provides a paired schedule, adapter, finalizer, and statistical analyzer, but its protocol CI uses deterministic provider doubles rather than completed real-model/evaluator-backed observations.
-- The separate pilot already has a provider adapter, trace/finalizer contracts, paired schedule, and statistical analysis, but its CI uses deterministic provider doubles. It is not an independent hidden evaluator and has not generated real-agent acceptance data.
-- E-009's Ollama runner is a real-model feasibility harness for one fixed inspect/propose/validate/plan task. It is not an E-007 corpus runner.
+- Ten public task definitions exist in `corpus.json` and `TASKS.md`; these are a starting corpus, not broad benchmark coverage.
+- `trace.schema.json` and `metrics.py` provide provider-neutral event validation and aggregation for tokens, tool calls, repairs, interventions, inference cost, wall time, runtime metrics, acceptance, and cost per accepted task.
+- `prepare_workspace.py` materializes one public task without oracle IDs or unrelated task prompts. It is a packager, not a sandbox or agent runner.
+- `ORACLE_ISOLATION.md` defines evaluator trust boundaries, but a generic isolated hidden-oracle runner is not implemented.
+- E-007 now has a specialized executable case/runner for one fixed E-009 Gateway task, three deterministic scorers, raw provider/tool traces, nested validation-diagnostic taxonomy, and aggregate token/time reservation. CI verifies the implementation; the real-model cohort was 0/3 accepted.
+- The model's new operation input array was correctly shaped. The missing top-level `ir_version` and existing operations caused the complete-snapshot contract violation. The model then called plan despite `result.valid=false`.
+- The three runs used `temperature=0`, `seed=42`; matching token counts/tool paths and Ollama logs show prompt/KV cache reuse. This is a deterministic failure reproduction, not independent statistical evidence.
+- A three-tier cohort and broader 30-task design is only future work in [e007-future-evaluation-plan.md](e007-future-evaluation-plan.md). It has not been executed.
+- The separate E-005 pilot's protocol CI uses deterministic provider doubles; this is wiring evidence, not real-model evaluation.
 
-Consequently, E-007 is more than an empty benchmark template—it has a task corpus, telemetry model, metrics code, and isolation design—but it is not yet an executable benchmark.
+E-007 is now an **executable single-case real-agent harness**, not a full ten-task benchmark or an independent hidden-oracle evaluation system.
 
 ## 4. E-002 decision-evidence audit
 
-The existing `EVALUATION.md` already defines a broad metric set and a sound decision principle: primary metric is total cost per accepted task; security, data integrity, and minimum runtime performance are hard gates; composite scores require published weights and sensitivity analysis. The gap is that no candidate-specific thresholds or weighted scoring rubric have been registered.
+The E-002 matrix has pre-registered weights/gates and ten randomized repetitions per candidate, 5,000 requests per repetition, concurrency 32, and warm-up 250. It completed [workflow 44087449181](https://github.com/mojtaba-arvin/agent-native/actions/runs/44087449181); the [ten-run diagnostic](../experiments/e002/results/2026-11-17-ten-run-diagnostic.md) contains distributions and partial contributions.
 
-The pinned E-002 CI smoke matrix used three randomized repetitions per candidate, 1,000 requests per repetition, concurrency 32, and a trivial in-memory `GET /work?ms=0` workload. Its medians were:
+All candidates passed functional, p99, throughput, RSS, and startup screens, but all failed the provisional CPU screen:
 
-| Candidate | Throughput (req/s) | p50 (ms) | p95 (ms) | p99 (ms) | Sampled CPU (s) | Sampled peak RSS (MiB) |
-|---|---:|---:|---:|---:|---:|---:|
-| Rust / Tokio + Hyper | 4,009 | 7.271 | 13.344 | 16.035 | 0.10 | 3.92 |
-| Elixir / BEAM | 3,751 | 7.880 | 14.374 | 17.307 | 0.29 | 91.89 |
-| Go / net/http | 3,707 | 7.984 | 14.425 | 18.689 | 0.16 | 11.90 |
-| WASI P2 / Wasmtime 50.0.1 | 3,319 | 8.919 | 16.576 | 19.880 | 0.30 | 28.02 |
+| Candidate | Mean CPU s / 5,000 | CPU ms / request | Gate |
+|---|---:|---:|---|
+| Rust / Tokio + Hyper | 0.687 | 0.1374 | Fail |
+| Go / net/http | 1.092 | 0.2184 | Fail |
+| Elixir / BEAM | 1.917 | 0.3834 | Fail |
+| WASI P2 / Wasmtime 50.0.1 | 1.949 | 0.3898 | Fail |
 
-These values establish that the four candidates passed the same trivial smoke workload and that the measurement pipeline produced observations. They do **not** establish a winner: hosted-runner noise, only three repetitions, sampled CPU/RSS, missing database/authorization/inter-service workloads, and missing production failure semantics make the data non-decision-grade. The repository explicitly records no runtime decision.
+The 0.5 s threshold was pre-registered but is not traceable to a product SLO, vCPU capacity target, or deployment-cost model. It equals 0.1 ms CPU/request (10,000 requests per CPU-second), stricter than all observed means. CPU accounting uses process-tree `/proc` snapshots at the start/end of the batch; the 20 ms monitor is used for RSS, not CPU, leaving a possible short-lived-child accounting gap. Do not revise the gate retrospectively or treat it as a validated product requirement. A future threshold must be derived from a documented capacity/cost model before a new run. See [CPU gate analysis](../experiments/e002/cpu-gate-analysis.md).
+
+Ecosystem/operability, injected failure semantics, and comparable artifact size remain unmeasured. No final weighted score or runtime decision is justified; E-002 remains diagnostic.
 
 ## 5. Threat model and behavioral governance
 
@@ -161,3 +177,10 @@ It is too broad to say that token cost always grows quadratically with the numbe
 7. The report and resource-policy documents need their real-model evidence snapshots refreshed after the next validation cycle.
 
 **No implementation language, service syntax, runtime substrate, broker, or production database is selected by this audit.**
+
+## 10. Evidence and decisions
+
+- [Design decisions](design-decisions.md) records deterministic/cache findings, complete IR semantics, validation gating, aggregate budget behavior, nested failure taxonomy, and CPU-gate provenance.
+- [Evidence index](evidence-index.md) classifies E-002/E-007/E-009 artifacts as diagnostic, initial, or implementation-verification evidence.
+- [Future E-007 evaluation plan](e007-future-evaluation-plan.md) describes a multi-tier, broader-corpus experiment as future work only; it has not been executed.
+- [E-009 IR contract](../experiments/e009/ir-contract.md) defines full-snapshot proposal semantics and validation-result handling.
