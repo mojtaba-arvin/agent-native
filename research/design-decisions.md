@@ -208,3 +208,22 @@ The diagnostic label for the first artifact is prefill_not_completed_at_wall_dea
 **Decision threshold:** after the redesigned prompt is validated, if three consecutive full-task runs each produce a Gateway-accepted proposal, complete prefill, but still fail to invoke model-driven service.validate, trigger an architecture review. A runner-invoked validation control may then be evaluated as a separately labelled orchestration arm; it must not count as autonomous model behavior. Earlier runs with incomplete prefill or no accepted proposal do not satisfy this trigger's preconditions.
 
 **Open measurement:** a fixed approximately 1,000-token isolated prefill benchmark has not yet been run. The daemon checkpoints are preliminary host-specific observations, not a standalone benchmark. No further full-task Qwen3 budget increase is authorized before prompt-compaction CI, a short schema probe, and the bounded infrastructure baseline.
+
+## D-023 — A schema probe must reproduce the full upfront session surface
+
+**Evidence:** workflow [44193765741](https://github.com/mojtaba-arvin/agent-native/actions/runs/44193765741), artifact [14378248130](https://github.com/mojtaba-arvin/agent-native/actions/runs/44193765741/artifacts/14378248130). The short probe supplied only the generic agent.invoke envelope schema and omitted the Gateway session surface containing per-tool input schemas. It observed an empty nested arguments object, but the model was not given the same schema context as the production upfront arm.
+
+**Decision:** invalidate the schema-adherence interpretation of that probe. The diagnostic must include the exact live Gateway session surface as a model message, matching local_agent.py. A regression test enforces this. Do not use the previous empty-arguments response as evidence of model incapability or of context-window failure.
+
+## D-024 — Cache measurements must keep the model loaded and report provider cache telemetry
+
+**Evidence:** workflow 44193765741 used keep_alive=0 for every repeated prefill request. Ollama unloads the model immediately with this setting, so the run measured cold requests and cannot establish warm KV-cache reuse. The historical lifecycle artifact's 764 cached prefix tokens remain a trace observation, not a causal diagnosis.
+
+**Decision:** use keep_alive=10m, nested prompts with exact shared prefixes, exact warm repeats, and prompt_eval_cached_count. Missing cache telemetry remains unknown, not zero. Distinguish stable-prefix reuse from changed conversation suffixes.
+
+## D-025 — Thread-count comparisons are bounded by process-visible CPU allocation
+
+**Evidence:** workflow 44193765741 reported an AMD EPYC 7763 64-Core host model but lscpu exposed only four logical CPUs (0–3); Ollama selected two model threads. Host product-core count is not the job's CPU allocation.
+
+**Decision:** compare requested 2 and 4 threads as the primary settings and include 16 only as an explicitly labelled oversubscription stress arm. Record process affinity and cgroup CPU quota/cpuset with every measurement. Never describe a 16-thread request as using 16 cores on a four-CPU runner.
+
