@@ -174,6 +174,9 @@ adapter.admit_job(
             db.rollback()
             with self.assertRaisesRegex(psycopg.Error, "audit_append_only"):
                 db.execute("DELETE FROM e002_audit")
+            db.rollback()
+            with self.assertRaisesRegex(psycopg.Error, "audit_append_only"):
+                db.execute("TRUNCATE e002_audit")
 
 
     def test_outbox_lease_expiry_fences_stale_acknowledgement(self):
