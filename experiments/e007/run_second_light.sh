@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-PINNED_REV="1f5450d1516e19c0caa97197ab0c1c0c36df94c1"
+PINNED_REV="b85fda8a7a96f0a09ab80607f73e1829177a1213"
 ROOT="$(git rev-parse --show-toplevel)"
 WORKTREE="$(mktemp -d "${TMPDIR:-/tmp}/agent-native-second-light.XXXXXX")"
 rmdir "$WORKTREE"
