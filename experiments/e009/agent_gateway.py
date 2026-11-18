@@ -256,15 +256,43 @@ class AgentNativeGateway:
         if tool == "service.inspect" and response.get("ok"):
             operation = arguments.get("operation")
             if operation is None:
-                self._inspected_revision = response["result"]["revision"]
-                self._inspected_service = copy.deepcopy(response["result"]["service"])
-                self._inspected_types = copy.deepcopy(response["result"]["types"])
-                self._inspected_operations.clear()
-                self._inspected_operation_contracts.clear()
-                self._required_inspection_order = [
-                    item["name"] for item in response["result"]["operations"]
-                ]
-                self._required_inspection_operations = set(self._required_inspection_order)
+                revision = response["result"]["revision"]
+                if self._inspected_revision == revision:
+                    missing = [
+                        name for name in self._required_inspection_order
+                        if name not in self._inspected_operations
+                    ]
+                    if missing:
+                        return self._error(
+                            request_id,
+                            "INSPECTION_OPERATION_REQUIRED",
+                            "The service-level inspection is already complete. Inspect each existing operation contract individually; repeating service.inspect without operation does not complete inspection.",
+                            next_actions=[
+                                f"service.inspect with operation={name}"
+                                for name in missing
+                            ],
+                            fix_hint=(
+                                'Call service.inspect with arguments {"service_id":"catalog","operation":"<exact available operation name>"}. '
+                                "Start with the first name in next_actions; do not repeat the service-level inspection."
+                            ),
+                        )
+                    response["next_actions"] = [
+                        "service.propose with the inspected base_revision and complete canonical IR snapshot"
+                    ]
+                else:
+                    self._inspected_revision = revision
+                    self._inspected_service = copy.deepcopy(response["result"]["service"])
+                    self._inspected_types = copy.deepcopy(response["result"]["types"])
+                    self._inspected_operations.clear()
+                    self._inspected_operation_contracts.clear()
+                    self._required_inspection_order = [
+                        item["name"] for item in response["result"]["operations"]
+                    ]
+                    self._required_inspection_operations = set(self._required_inspection_order)
+                    response["next_actions"] = [
+                        f"service.inspect with operation={name}"
+                        for name in self._required_inspection_order
+                    ]
             elif self._inspected_revision is not None:
                 self._inspected_operations.add(operation)
                 full_contract = (response.get("result") or {}).get("operation")
