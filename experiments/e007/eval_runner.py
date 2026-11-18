@@ -675,12 +675,15 @@ def _persist_subprocess_diagnostics(
     stdout: str,
     stderr: str,
 ) -> dict:
-    """Persist child-process output so startup failures are diagnosable and reproducible."""
+    """Persist bounded child-process output so startup failures remain diagnosable."""
+    max_saved_chars = 64 * 1024
+    saved_stdout = stdout[-max_saved_chars:]
+    saved_stderr = stderr[-max_saved_chars:]
     prefix = f"attempt-{attempt}-runner"
     stdout_path = eval_dir / f"{prefix}.stdout.log"
     stderr_path = eval_dir / f"{prefix}.stderr.log"
-    stdout_path.write_text(stdout, encoding="utf-8")
-    stderr_path.write_text(stderr, encoding="utf-8")
+    stdout_path.write_text(saved_stdout, encoding="utf-8")
+    stderr_path.write_text(saved_stderr, encoding="utf-8")
     stdout_path.chmod(0o600)
     stderr_path.chmod(0o600)
     diagnostic_path = eval_dir / f"{prefix}.json"
@@ -697,9 +700,11 @@ def _persist_subprocess_diagnostics(
         "stderr_path": str(stderr_path),
         "stdout_chars": len(stdout),
         "stderr_chars": len(stderr),
+        "stdout_truncated": len(stdout) > max_saved_chars,
+        "stderr_truncated": len(stderr) > max_saved_chars,
         "stdout_sha256": hashlib.sha256(stdout.encode("utf-8")).hexdigest(),
         "stderr_sha256": hashlib.sha256(stderr.encode("utf-8")).hexdigest(),
-        "stderr_excerpt": stderr[-8000:],
+        "stderr_excerpt": saved_stderr[-8000:],
     }
     _write_json(diagnostic_path, diagnostic)
     diagnostic["diagnostic_path"] = str(diagnostic_path)
