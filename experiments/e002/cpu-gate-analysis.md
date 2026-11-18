@@ -27,7 +27,9 @@ Both cohorts used ten randomized repetitions on the same class of GitHub-hosted 
 
 ## Measurement limitations
 
-`benchmark.py` records process-tree CPU by reading `/proc` at the beginning and end of the measured batch and subtracting the two snapshots. The 20 ms monitor samples estimate peak RSS; CPU is not integrated from those periodic samples. A short-lived descendant that exists and exits between the two CPU snapshots could be absent from both snapshots. The current reports do not demonstrate that this occurred, but the method leaves it as a measurement risk. The shared hosted runner and trivial endpoint also limit external validity.
+**Historical method:** the two November cohorts used the then-current `benchmark.py`, which measured process-tree CPU from `/proc` snapshots at the beginning and end of each batch. The 20 ms monitor samples estimated peak RSS; CPU was not integrated from those samples. A short-lived descendant could therefore be absent from both CPU snapshots. The raw reports remain valid records of what that version measured, with this limitation. The shared hosted runner and trivial endpoint also limit external validity.
+
+**Prospective harness correction:** the current `benchmark.py` now samples the visible process tree every 5 ms, parses `/proc/<pid>/stat` without assuming the command name contains no spaces, identifies processes by `(PID, start-time ticks)`, and retains each process's maximum observed cumulative CPU so a child that exits between later samples is not dropped from the accumulated total. RSS remains the peak sum of visible process-tree RSS samples. This improves accounting for short-lived descendants but is still not cgroup accounting: a child that starts and exits entirely between samples, or is reparented before discovery, can still be missed. These new measurements must be labelled with the new method and must not be pooled with historical cohorts.
 
 ## Product-scenario addendum — 18 November 2026
 
