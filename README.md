@@ -32,7 +32,7 @@ Active first-principles experiments E-001 through E-010, plus an E-011 inter-ser
 - **E-008:** transactional outbox/inbox reference model demonstrating at-least-once delivery with idempotent consumer processing; no arbitrary external API exactly-once guarantee.
 - **E-009:** integrated framework-kernel vertical slice composing the service IR/parser, capability checks, tenant-scoped storage, bounded HTTP host, durable jobs, outbox/inbox delivery, audit, and Agent Gateway. The default Gateway supports inspect/propose/validate/plan and keeps apply disabled.
 - **E-010:** isolated sandbox-apply demonstration using a private temporary SQLite store and an explicitly injected coordinator. It is not a production mutation or deployment path.
-- **E-011:** research plan for inter-service invocation and distributed failure semantics. It distinguishes service RPC, agent-tool protocols, agent-to-agent collaboration, event delivery, and orchestration layers. It is gated on E-007 real-agent acceptance and E-010 sandbox-apply review; no transport is selected.
+- **E-011:** [research plan](research/e011-interservice-communication-plan.md) for inter-service invocation and distributed failure semantics. It distinguishes service RPC, agent-tool protocols, agent-to-agent collaboration, event delivery, and orchestration layers. It is gated on E-007 real-agent acceptance and E-010 sandbox-apply review; no transport is selected.
 
 The historical E-002 Go/Rust/WASI/BEAM probes remain diagnostic; no runtime has been selected. No product language, syntax, runtime, service protocol, or persistence substrate has been selected. The next E-007 step is a manually dispatched, no-apply matched pilot using unchanged Qwen3 settings; branch pushes cannot start that model workflow.
 
