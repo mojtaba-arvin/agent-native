@@ -362,8 +362,8 @@ class AgentGatewayTests(unittest.TestCase):
             "service_id": "catalog",
             "base_revision": "0" * 64,
             "changes": [{"kind": "add_operation", "operation": {
-                "name": "new_read", "method": "GET", "path": "/items/new",
-                "input": [], "output": "Item", "errors": ["NotFound"],
+                "name": "new_read", "method": "GET", "path": "/experimental/new-read/{id}",
+                "input": [{"name": "id", "source": "path", "type": "String"}], "output": "Item", "errors": ["NotFound"],
                 "validation": [], "effects": ["repository.read"], "capability": "items.read",
             }}],
         }
