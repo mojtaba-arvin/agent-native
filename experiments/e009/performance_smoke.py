@@ -317,19 +317,34 @@ def main():
 
             with concurrent.futures.ThreadPoolExecutor(max_workers=args.concurrency) as pool:
                 warmup = list(pool.map(one, range(-100, 0)))
-                cpu_tracker = ProcessTreeCpuTracker()
-                cpu_tracker.observe(proc_tree_sample(process.pid))
-                start_cpu_seconds = cpu_tracker.total_cpu_seconds
-                cpu_tracker.peak_tree_rss_bytes = 0
-                stop_cpu_monitor = threading.Event()
+                if args.containerized:
+                    inspect = subprocess.check_output(
+                        ["docker", "inspect", "--format", "{{.State.Pid}}", container_name],
+                        text=True,
+                    ).strip()
+                    container_pid = int(inspect)
+                    cgroup_start = cgroup_v2_snapshot(container_pid)
+                    if cgroup_start is None or cgroup_start["cpu_quota_cores"] is None:
+                        raise RuntimeError("container cgroup v2 CPU quota is unavailable")
+                    cpu_tracker = None
+                    stop_cpu_monitor = None
+                    cpu_monitor = None
+                else:
+                    container_pid = process.pid
+                    cgroup_start = None
+                    cpu_tracker = ProcessTreeCpuTracker()
+                    cpu_tracker.observe(proc_tree_sample(process.pid))
+                    start_cpu_seconds = cpu_tracker.total_cpu_seconds
+                    cpu_tracker.peak_tree_rss_bytes = 0
+                    stop_cpu_monitor = threading.Event()
 
-                def monitor_server_cpu():
-                    while not stop_cpu_monitor.is_set():
-                        cpu_tracker.observe(proc_tree_sample(process.pid))
-                        stop_cpu_monitor.wait(PROCESS_SAMPLE_INTERVAL_SECONDS)
+                    def monitor_server_cpu():
+                        while not stop_cpu_monitor.is_set():
+                            cpu_tracker.observe(proc_tree_sample(process.pid))
+                            stop_cpu_monitor.wait(PROCESS_SAMPLE_INTERVAL_SECONDS)
 
-                cpu_monitor = threading.Thread(target=monitor_server_cpu, daemon=True)
-                cpu_monitor.start()
+                    cpu_monitor = threading.Thread(target=monitor_server_cpu, daemon=True)
+                    cpu_monitor.start()
                 repetitions = []
                 all_results = []
                 for repetition in range(args.repetitions):
@@ -350,12 +365,24 @@ def main():
                     repetitions.append({"repetition": repetition + 1, **summarize(results, elapsed)})
                     all_results.extend(results)
 
-            stop_cpu_monitor.set()
-            cpu_monitor.join()
-            cpu_tracker.observe(proc_tree_sample(process.pid))
-            server_cpu_seconds = max(0.0, cpu_tracker.total_cpu_seconds - start_cpu_seconds)
-            server_peak_rss_bytes = cpu_tracker.peak_tree_rss_bytes or None
-            server_observed_process_count = cpu_tracker.observed_process_count
+            if args.containerized:
+                cgroup_end = cgroup_v2_snapshot(container_pid)
+                if cgroup_end is None:
+                    raise RuntimeError("container cgroup v2 metrics disappeared before shutdown")
+                server_cpu_seconds = max(
+                    0.0, (cgroup_end["cpu_usage_usec"] - cgroup_start["cpu_usage_usec"]) / 1_000_000
+                )
+                server_peak_rss_bytes = cgroup_end["memory_peak_bytes"]
+                server_observed_process_count = cgroup_end["pids_current"]
+                cgroup_limits = cgroup_end
+            else:
+                stop_cpu_monitor.set()
+                cpu_monitor.join()
+                cpu_tracker.observe(proc_tree_sample(process.pid))
+                server_cpu_seconds = max(0.0, cpu_tracker.total_cpu_seconds - start_cpu_seconds)
+                server_peak_rss_bytes = cpu_tracker.peak_tree_rss_bytes or None
+                server_observed_process_count = cpu_tracker.observed_process_count
+                cgroup_limits = None
             total_elapsed = sum(item["elapsed_seconds"] for item in repetitions)
             aggregate = summarize(all_results, total_elapsed)
             by_kind = {
@@ -365,7 +392,13 @@ def main():
 
             # Stop gracefully so serve.py can report the counters collected by
             # the same FULL-synchronous audit sink used for the measured calls.
-            process.send_signal(signal.SIGINT)
+            if args.containerized:
+                subprocess.run(
+                    ["docker", "stop", "--time", "10", container_name],
+                    check=False, capture_output=True, text=True,
+                )
+            else:
+                process.send_signal(signal.SIGINT)
             process.wait(timeout=15)
             remaining_output = process.stdout.read() if process.stdout else ""
             audit_match = re.search(r"E009_AUDIT_METRICS=(\{[^\n]+\})", remaining_output)
@@ -398,12 +431,14 @@ def main():
                 },
                 "aggregate": aggregate,
                 "resource_metrics": {
-                    "accounting": "5ms /proc process-tree cumulative-max; diagnostic, not cgroup v2",
+                    "accounting": ("container cgroup v2 cpu.stat + memory.peak" if args.containerized else "5ms /proc process-tree cumulative-max; diagnostic, not cgroup v2"),
                     "server_cpu_seconds": server_cpu_seconds,
                     "server_peak_rss_bytes": server_peak_rss_bytes,
                     "server_observed_process_count": server_observed_process_count,
                     "server_cpu_affinity": server_cpu_affinity,
-                    "cgroup_v2_limits": cgroup_v2_limits(),
+                    "server_cpu_quota_cores": cgroup_limits["cpu_quota_cores"] if cgroup_limits else None,
+                    "cgroup_v2_limits": cgroup_limits,
+                    "server_containerized": args.containerized,
                     "server_cpu_percent_of_one_core_during_load": (
                         server_cpu_seconds / total_elapsed * 100 if total_elapsed else None
                     ),
@@ -432,14 +467,20 @@ def main():
             if failures:
                 raise SystemExit(f"{len(failures)} of {len(all_results)} measured requests did not match expected status")
         finally:
-            if "stop_cpu_monitor" in locals():
+            if "stop_cpu_monitor" in locals() and stop_cpu_monitor is not None:
                 stop_cpu_monitor.set()
-            if "cpu_monitor" in locals():
+            if "cpu_monitor" in locals() and cpu_monitor is not None:
                 cpu_monitor.join()
             if process.poll() is None:
-                process.send_signal(signal.SIGINT)
+                if args.containerized and container_name:
+                    subprocess.run(
+                        ["docker", "stop", "--time", "5", container_name],
+                        check=False, capture_output=True, text=True,
+                    )
+                else:
+                    process.send_signal(signal.SIGINT)
                 try:
-                    process.wait(timeout=10)
+                    process.wait(timeout=15)
                 except subprocess.TimeoutExpired:
                     process.kill()
                     process.wait()
