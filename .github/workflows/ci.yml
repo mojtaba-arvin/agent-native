@@ -149,7 +149,10 @@ jobs:
   extended:
     name: Layer 1 · native, container, and database validation
     needs: changes
-    if: github.event_name == 'merge_group' || github.event_name == 'schedule' || needs.changes.outputs.extended == 'true'
+    concurrency:
+      group: layer-1-${{ github.event.pull_request.head.ref || github.ref_name }}
+      cancel-in-progress: false
+    if: always() && (github.event_name == 'merge_group' || github.event_name == 'schedule' || needs.changes.result != 'success' || needs.changes.outputs.extended == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     services:
@@ -240,6 +243,10 @@ jobs:
     name: Layer 2 · manual CPU diagnostics (not M3 acceptance)
     if: github.event_name == 'workflow_dispatch' && inputs.model_suite != 'none'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+      issues: write
     timeout-minutes: 360
     steps:
       - uses: actions/checkout@v4
@@ -277,7 +284,7 @@ jobs:
         run: |
           python experiments/e007/validate_factorial_dispatch.py
           bash -n experiments/e007/run_factorial_pilot.sh
-          python -m unittest discover -s experiments/e007 -p 'test_*.py' -v
+          python -m unittest discover -s experiments/e007 -p 'test*.py' -v
           bash experiments/e007/run_factorial_pilot.sh
       - name: Run E-009 bounded real-agent trial
         if: inputs.model_suite == 'e009'
@@ -307,6 +314,40 @@ jobs:
             ${{ runner.temp }}/ollama-serve.log
           if-no-files-found: warn
           retention-days: 30
+      - name: Publish E-007 run and artifact reference to issue #61
+        if: always() && inputs.model_suite == 'e007'
+        uses: actions/github-script@v7
+        env:
+          PINNED_SHA: ${{ github.sha }}
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const { data: run } = await github.rest.actions.getWorkflowRun({
+              owner, repo, run_id: context.runId
+            });
+            const { data: listed } = await github.rest.actions.listWorkflowRunArtifacts({
+              owner, repo, run_id: context.runId
+            });
+            const artifact = listed.artifacts.find(item =>
+              item.name === 'layer-2-model-evidence-' + context.runId + '-' + context.runAttempt
+            );
+            const artifactLine = artifact
+              ? '[model evidence artifact ' + artifact.id + '](https://github.com/' + owner + '/' + repo + '/actions/runs/' + context.runId + '/artifacts/' + artifact.id + ')'
+              : 'No model evidence artifact was uploaded.';
+            await github.rest.issues.createComment({
+              owner, repo, issue_number: 61,
+              body: [
+                '## E-007 manual CPU diagnostic run',
+                '',
+                'Run: ' + run.html_url,
+                'Run ID: ' + run.id,
+                'Conclusion: ' + (run.conclusion || run.status),
+                'Pinned commit: `' + process.env.PINNED_SHA + '`',
+                artifactLine,
+                '',
+                'CPU-only output is exploratory; verify four cells and same-hash propose → validate → plan. This is not M3 decision-grade acceptance.'
+              ].join('\n')
+            });
 
   benchmark:
     name: Layer 1 · explicit performance matrix
