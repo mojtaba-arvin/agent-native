@@ -9,6 +9,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from eval_runner import (score_run, _wilson, _eligible, _failure_categories, _budget_can_start_next, _estimate_cost_usd, run_eval, _e007_events)
+from metrics import summarize
 
 
 class EvalRunnerTests(unittest.TestCase):
@@ -20,10 +21,10 @@ class EvalRunnerTests(unittest.TestCase):
                 "timestamp_ns": 2_000_000_000,
                 "request": {"tool": "service.inspect", "arguments": {"service_id": "catalog"}},
                 "response": {"ok": True, "result": {}},
-            }) + "\\n", encoding="utf-8")
+            }) + "\n", encoding="utf-8")
             (root / "provider-responses.jsonl").write_text(json.dumps({
                 "prompt_eval_count": 10, "eval_count": 5,
-            }) + "\\n", encoding="utf-8")
+            }) + "\n", encoding="utf-8")
             record = {
                 "run_id": "clock-run",
                 "model": "qwen3:8b",
@@ -47,7 +48,7 @@ class EvalRunnerTests(unittest.TestCase):
                 [event["timestamp_ns"] for event in events if event["event_type"] == "task_finished"],
                 [4_000_000_000],
             )
-            result = __import__("metrics").summarize(events)
+            result = summarize(events)
             self.assertEqual(result["tasks"][0]["wall_clock_seconds"], 3.0)
 
     def test_wilson_interval_is_bounded_and_defined_for_empty_sample(self):
@@ -414,11 +415,11 @@ class EvalRunnerTests(unittest.TestCase):
                 max_tool_calls=20, max_wall_seconds=10.0, num_ctx=8192,
                 num_predict=50, temperature=0.0, top_p=1.0, seed=42,
             )
-            stderr = "argparse: error: unrecognized arguments: --unexpected-flag\\n"
+            stderr = "argparse: error: unrecognized arguments: --unexpected-flag\n"
 
             def fake_run(command, **kwargs):
                 if command[0] == "git":
-                    output = "mock-revision\\n" if command[1] == "rev-parse" else ""
+                    output = "mock-revision\n" if command[1] == "rev-parse" else ""
                     return subprocess.CompletedProcess(command, 0, stdout=output, stderr="")
                 return subprocess.CompletedProcess(command, 2, stdout="", stderr=stderr)
 
