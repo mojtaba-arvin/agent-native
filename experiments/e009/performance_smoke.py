@@ -485,6 +485,7 @@ def main():
                 kind: summarize_kind([item for item in all_results if item["kind"] == kind])
                 for kind in sorted({item["kind"] for item in all_results})
             }
+            sqlite_file_sizes_during_load = sqlite_file_sizes(db)
 
             # Stop gracefully so serve.py can report the counters collected by
             # the same FULL-synchronous audit sink used for the measured calls.
@@ -496,6 +497,7 @@ def main():
             else:
                 process.send_signal(signal.SIGINT)
             process.wait(timeout=15)
+            sqlite_file_sizes_after_shutdown = sqlite_file_sizes(db)
             remaining_output = process.stdout.read() if process.stdout else ""
             audit_match = re.search(r"E009_AUDIT_METRICS=(\{[^\n]+\})", remaining_output)
             if audit_match is None:
@@ -539,7 +541,8 @@ def main():
                     "cgroup_v2_limits": cgroup_limits,
                     "cgroup_v2_start_snapshot": cgroup_start if args.containerized else None,
                     "server_containerized": args.containerized,
-                    "sqlite_file_sizes_bytes": sqlite_file_sizes(db),
+                    "sqlite_file_sizes_during_load_bytes": sqlite_file_sizes_during_load,
+                    "sqlite_file_sizes_after_shutdown_bytes": sqlite_file_sizes_after_shutdown,
                     "server_cpu_percent_of_one_core_during_load": (
                         server_cpu_seconds / total_elapsed * 100 if total_elapsed else None
                     ),
