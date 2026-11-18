@@ -220,7 +220,7 @@ def main():
             process.send_signal(signal.SIGINT)
             process.wait(timeout=15)
             remaining_output = process.stdout.read() if process.stdout else ""
-            audit_match = re.search(r"E009_AUDIT_METRICS=(\\{[^\\n]+\\})", remaining_output)
+            audit_match = re.search(r"E009_AUDIT_METRICS=(\{[^\n]+\})", remaining_output)
             if audit_match is None:
                 raise RuntimeError("server did not emit final audit commit counters")
             audit_metrics = json.loads(audit_match.group(1))
