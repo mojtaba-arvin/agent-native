@@ -7,6 +7,7 @@ import concurrent.futures
 import fnmatch
 import os
 import subprocess
+import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -20,18 +21,18 @@ class Suite:
     paths: tuple[str, ...]
 
 SUITES = (
-    Suite("e001-prototype", ("python", "-m", "unittest", "discover", "-s", "experiments/e001/prototype", "-p", "test_*.py"), ("experiments/e001/**",)),
-    Suite("e002-python", ("python", "-m", "unittest", "discover", "-s", "experiments/e002", "-p", "test_*.py"), ("experiments/e002/**",)),
-    Suite("e003-semantics", ("python", "-m", "unittest", "discover", "-s", "experiments/e003", "-p", "test_*.py"), ("experiments/e003/**",)),
-    Suite("e004-security", ("python", "-m", "unittest", "discover", "-s", "experiments/e004", "-p", "test_*.py"), ("experiments/e004/**",)),
-    Suite("e005-interface", ("python", "-m", "unittest", "discover", "-s", "experiments/e005", "-p", "test_*.py"), ("experiments/e005/**",)),
-    Suite("e006-durable", ("python", "-m", "unittest", "discover", "-s", "experiments/e006", "-p", "test_*.py"), ("experiments/e006/**",)),
-    Suite("e007-corpus", ("python", "-m", "unittest", "discover", "-s", "experiments/e007", "-p", "test_*.py"), ("experiments/e007/**",)),
-    Suite("e008-outbox", ("python", "-m", "unittest", "discover", "-s", "experiments/e008", "-p", "test_*.py"), ("experiments/e008/**",)),
-    Suite("e009-kernel", ("python", "-m", "unittest", "discover", "-s", "experiments/e009", "-p", "test_*.py"), ("experiments/e009/**",)),
-    Suite("e010-apply", ("python", "-m", "unittest", "discover", "-s", "experiments/e010", "-p", "test_*.py"), ("experiments/e010/**",)),
-    Suite("e011-semantics", ("python", "-m", "unittest", "discover", "-s", "experiments/e011", "-p", "test_*.py"), ("experiments/e011/**",)),
-    Suite("pilot-protocol", ("python", "-m", "unittest", "discover", "-s", "experiments/pilot", "-p", "test_*.py"), ("experiments/pilot/**",)),
+    Suite("e001-prototype", (sys.executable, "-m", "unittest", "discover", "-s", "experiments/e001/prototype", "-p", "test_*.py"), ("experiments/e001/**",)),
+    Suite("e002-python", (sys.executable, "-m", "unittest", "discover", "-s", "experiments/e002", "-p", "test_*.py"), ("experiments/e002/**",)),
+    Suite("e003-semantics", (sys.executable, "-m", "unittest", "discover", "-s", "experiments/e003", "-p", "test_*.py"), ("experiments/e003/**",)),
+    Suite("e004-security", (sys.executable, "-m", "unittest", "discover", "-s", "experiments/e004", "-p", "test_*.py"), ("experiments/e004/**",)),
+    Suite("e005-interface", (sys.executable, "-m", "unittest", "discover", "-s", "experiments/e005", "-p", "test_*.py"), ("experiments/e005/**",)),
+    Suite("e006-durable", (sys.executable, "-m", "unittest", "discover", "-s", "experiments/e006", "-p", "test_*.py"), ("experiments/e006/**",)),
+    Suite("e007-corpus", (sys.executable, "-m", "unittest", "discover", "-s", "experiments/e007", "-p", "test_*.py"), ("experiments/e007/**",)),
+    Suite("e008-outbox", (sys.executable, "-m", "unittest", "discover", "-s", "experiments/e008", "-p", "test_*.py"), ("experiments/e008/**",)),
+    Suite("e009-kernel", (sys.executable, "-m", "unittest", "discover", "-s", "experiments/e009", "-p", "test_*.py"), ("experiments/e009/**",)),
+    Suite("e010-apply", (sys.executable, "-m", "unittest", "discover", "-s", "experiments/e010", "-p", "test_*.py"), ("experiments/e010/**",)),
+    Suite("e011-semantics", (sys.executable, "-m", "unittest", "discover", "-s", "experiments/e011", "-p", "test_*.py"), ("experiments/e011/**",)),
+    Suite("pilot-protocol", (sys.executable, "-m", "unittest", "discover", "-s", "experiments/pilot", "-p", "test_*.py"), ("experiments/pilot/**",)),
 )
 DEPENDENCIES = {
     "experiments/e001/": {"e001-prototype", "pilot-protocol"},
