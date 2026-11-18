@@ -120,7 +120,7 @@ class FactorialDispatchTests(unittest.TestCase):
         self.assertEqual(len(rows), 4)
         fields = rows[0].split("\t")
         self.assertEqual(len(fields), 15)
-        self.assertTrue(fields[0].startswith("experiments/e009/"))
+        self.assertTrue(fields[0].startswith("experiments/e007/evals/"))
         self.assertIn(fields[2], {"snapshot", "delta"})
         self.assertIn(fields[3], {"per_operation", "upfront_full"})
         self.assertEqual(fields[4], "upfront")
