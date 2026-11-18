@@ -117,3 +117,6 @@ Cgroup evidence during the measured interval:
 
 The contrast with the 2 ms cgroup cohort is material: 2 ms had p99 252.021 ms and failed, while 0.5 ms had p99 27.465 ms and passed. This supports testing the shorter audit collection window further, but **does not yet prove causality or justify changing the default**: host I/O pressure and shared-runner effects remain, and each profile needs another independent cgroup cohort. The 0.5 ms cohort also shows that CPU quota throttling was not responsible for its tail.
 
+
+A second independent 0.5 ms cgroup cohort is now requested with the identical request mix, 1-CPU/1-GiB limits, FULL audit durability, 100 req/s target and executable capacity gate. Keep this as a separate raw run; do not pool or average it with the first cohort until both individual runs pass.
+
