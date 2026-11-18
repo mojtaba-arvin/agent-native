@@ -2,6 +2,7 @@ name: E-005 agent interface checks
 
 on:
   pull_request:
+    types: [opened, reopened, ready_for_review]
     paths:
       - "experiments/e005/**"
       - ".github/workflows/e005-agent-interface.yml"
@@ -15,6 +16,10 @@ on:
 
 permissions:
   contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
 
 jobs:
   protocol-reference:
