@@ -557,7 +557,7 @@ class LocalAgentRunnerTests(unittest.TestCase):
                 run_dir = next((Path(temp) / "results").iterdir())
                 events = [json.loads(line) for line in (run_dir / "tool-trace.jsonl").read_text(encoding="utf-8").splitlines()]
                 prompt_states = [json.loads(line) for line in (run_dir / "prompt-states.jsonl").read_text(encoding="utf-8").splitlines()]
-                self.assertEqual(len(prompt_states), len(responses))
+                self.assertEqual(len(prompt_states), Handler.index)
                 self.assertTrue(all(item["state_sha256"] == digest(item["state"]) for item in prompt_states))
                 return result, gateway_calls, events, Handler.index
         finally:
