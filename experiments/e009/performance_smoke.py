@@ -78,9 +78,10 @@ def main():
     env = dict(os.environ, AGENT_NATIVE_DEMO_TOKEN=token)
     with tempfile.TemporaryDirectory(prefix="e009-perf-") as temp:
         db = Path(temp) / "kernel.sqlite3"
+        server_concurrency = max(64, args.concurrency * 2)
         process = subprocess.Popen(
             [sys.executable, "experiments/e009/serve.py", "--database", str(db),
-             "--port", "0", "--max-concurrency", str(args.concurrency)],
+             "--port", "0", "--max-concurrency", str(server_concurrency)],
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, env=env,
             bufsize=1,
         )
@@ -152,7 +153,7 @@ def main():
                     "mix": {"authorized_item_read": 0.6, "authorized_job_read": 0.2,
                             "durable_job_admission": 0.1, "unauthenticated_read": 0.1},
                     "database": "file-backed SQLite WAL via E-009 serve.py",
-                    "server_max_concurrency": args.concurrency,
+                    "server_max_concurrency": server_concurrency,
                 },
                 "result": {
                     "completed_requests": len(results), "failed_expectations": len(failures),
