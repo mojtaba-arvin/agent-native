@@ -32,13 +32,13 @@
       "status": "open",
       "severity": "high",
       "title": "Unified CI candidate needs safety and cost corrections before port",
-      "description": "The reboot-core fast runner now corrects deleted-file selection, project-control path coverage, and suite-selection tests. The unified workflow branch additionally restricts pushes, normalizes concurrency, makes the E-002 matrix manual-only, and labels CPU model runs as diagnostic. Remaining risk is authoritative execution after the base branch contains the new workflow.",
+      "description": "The unified workflow is implemented on the stacked PR. Its first run validated Layer 1 but exposed a stale E-007 workflow-manifest path; after fixing that path, Layer 0 passed 14/14. The latest Layer 1 job was cancelled during PR state transitions. A final single run with both layers green is still required.",
       "owner_action_required": false,
       "unblocks": [
         "CP-006",
         "CP-007"
       ],
-      "next_step": "Keep the migration PR stacked on PR #64; after PR #64 is integrated, retarget and run the unified workflow before merging it."
+      "next_step": "Trigger one final run without changing PR draft/ready state; confirm both Layer 0 and Layer 1 complete successfully under the no-concurrency policy."
     },
     {
       "id": "BLK-004",
