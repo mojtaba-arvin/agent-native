@@ -33,8 +33,12 @@ def _json(value: Any) -> str:
                       separators=(",", ":"), allow_nan=False)
 
 
+CANONICALIZATION_VERSION = "json-sort-keys-compact-utf8-v1"
+
+
 def _hash(value: Any) -> str:
-    return hashlib.sha256(_json(value).encode("utf-8")).hexdigest()
+    canonical = _json(value).encode("utf-8")
+    return hashlib.sha256(CANONICALIZATION_VERSION.encode("ascii") + b"\\0" + canonical).hexdigest()
 
 
 class SQLiteReferenceAdapter:
@@ -306,5 +310,22 @@ class SQLiteReferenceAdapter:
         try:
             return {table: int(db.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0])
                     for table in ("jobs", "outbox", "idempotency_records", "audit")}
+        finally:
+            db.close()
+
+    def metadata(self) -> dict[str, Any]:
+        """Return the engine and effective connection durability settings."""
+        db = self._connect()
+        try:
+            return {
+                "engine": "sqlite",
+                "engine_version": sqlite3.sqlite_version,
+                "journal_mode": db.execute("PRAGMA journal_mode").fetchone()[0],
+                "synchronous": int(db.execute("PRAGMA synchronous").fetchone()[0]),
+                "foreign_keys": int(db.execute("PRAGMA foreign_keys").fetchone()[0]),
+                "busy_timeout_ms": int(db.execute("PRAGMA busy_timeout").fetchone()[0]),
+                "canonicalization_version": CANONICALIZATION_VERSION,
+                "durability_profile": "WAL + synchronous=FULL",
+            }
         finally:
             db.close()
