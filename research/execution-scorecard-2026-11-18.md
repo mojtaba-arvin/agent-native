@@ -69,7 +69,7 @@ The E-009 smoke is a real HTTP/SQLite/worker/relay workload on a shared CI runne
 - E-009 CI now cancels stale branch runs and only executes its five-repetition performance workload when a pull-request head commit has the explicit subject `perf(e009): request five-run product-path measurement`; ordinary code/docs updates still run correctness tests but skip the expensive load test. The Actions connector does not expose push-triggered E-007 run listing; its marker commit is recorded as a dispatch request, not a verified model result.
 
 
-## E-009 audit group-commit experiment — queued for verification
+## E-009 audit group-commit experiment — first controlled smoke requested
 
 A bounded synchronous group-commit path has been implemented in `experiments/e009/audit.py`. Concurrent callers may share one SQLite WAL transaction, but each caller waits for the FULL-synchronous commit before dispatch can reach its application handler. The batch is bounded to 32 events and a 2 ms collection window by default. Commit failure is propagated to every caller in the batch; no caller is acknowledged on queue insertion alone.
 
