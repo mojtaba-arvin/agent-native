@@ -2,8 +2,8 @@
 set -euo pipefail
 
 ROOT="$(git rev-parse --show-toplevel)"
-PINNED_REV="${GITHUB_SHA:-$(git -C "$ROOT" rev-parse HEAD)}"
-REF_NAME="${GITHUB_REF_NAME:-$(git -C "$ROOT" branch --show-current)}"
+PINNED_REV="${E007_PINNED_REV:-${GITHUB_SHA:-$(git -C "$ROOT" rev-parse HEAD)}}"
+REF_NAME="${E007_REF_NAME:-${GITHUB_REF_NAME:-$(git -C "$ROOT" branch --show-current)}}"
 if [[ "$REF_NAME" != "research/reboot-core" ]]; then
   echo "Refusing factorial pilot: expected research/reboot-core, got $REF_NAME" >&2
   exit 78
