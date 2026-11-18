@@ -7,7 +7,6 @@ import concurrent.futures
 import fnmatch
 import os
 import subprocess
-import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -40,7 +39,6 @@ DEPENDENCIES = {
     "experiments/e005/": {"e005-interface", "pilot-protocol"},
     "experiments/e009/": {"e009-kernel", "e010-apply"},
 }
-ALL_NAMES = {suite.name for suite in SUITES}
 ALWAYS_ALL = (".github/workflows/", "scripts/ci.py", "scripts/fast.sh")
 
 def changed_paths(base: str) -> list[str]:
