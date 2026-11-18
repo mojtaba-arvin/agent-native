@@ -17,7 +17,6 @@ concurrency:
 
 jobs:
   reproduce-one-cell:
-    if: github.ref_name == 'research/reboot-core' && github.event.head_commit.message == 'experiment(e007): diagnose one Qwen3 provider failure'
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
@@ -25,12 +24,17 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Validate one-cell diagnostic request
+      - name: Validate one-cell diagnostic request and explicit commit
         run: |
           python - <<'PY'
           import json
+          import os
           from pathlib import Path
 
+          event = json.loads(Path(os.environ["GITHUB_EVENT_PATH"]).read_text())
+          subject = event["head_commit"]["message"].splitlines()[0]
+          if event.get("ref") != "refs/heads/research/reboot-core" or subject != "experiment(e007): diagnose one Qwen3 provider failure":
+              raise SystemExit("not the explicit one-cell provider diagnostic commit")
           request = json.loads(Path("experiments/e007/provider-diagnostic-request.json").read_text())
           expected = {
               "schema_version": 1,
