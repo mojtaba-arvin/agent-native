@@ -8,6 +8,7 @@ owned by this kernel. It contains no existing backend framework dependency.
 
 from __future__ import annotations
 
+import copy
 import math
 import re
 import sys
@@ -15,6 +16,7 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
+from types import MappingProxyType
 from typing import Any, Callable
 from urllib.parse import parse_qsl, unquote, urlsplit
 
@@ -193,7 +195,8 @@ class ServiceRuntime:
         if not isinstance(handlers, dict):
             raise ConfigurationError("operation_handlers_must_be_a_mapping")
 
-        operations = tuple(ir["operations"])
+        owned_ir = copy.deepcopy(ir)
+        operations = tuple(owned_ir["operations"])
         operation_names = {item["name"] for item in operations}
         if set(handlers) != operation_names or any(not callable(item) for item in handlers.values()):
             raise ConfigurationError("handler_names_must_match_service_operations_exactly")
@@ -201,12 +204,12 @@ class ServiceRuntime:
             if not set(operation["effects"]).issubset(trusted_effects):
                 raise ConfigurationError(f"untrusted_effect_in_service_contract:{operation['name']}")
 
-        self.ir = ir
-        self.operations = tuple(
-            (item, _path_pattern(item["path"]))
+        self._ir = owned_ir
+        self._operations = tuple(
+            (copy.deepcopy(item), _path_pattern(item["path"]))
             for item in operations
         )
-        self.handlers = dict(handlers)
+        self._handlers = MappingProxyType(dict(handlers))
         self.repository = repository
         self.trusted_effects = frozenset(trusted_effects)
         self.policy = PolicyEngine()
@@ -221,9 +224,24 @@ class ServiceRuntime:
             for item in operations
         }
 
+    @property
+    def ir(self) -> dict:
+        """Return a defensive copy; callers cannot mutate the active contract."""
+        return copy.deepcopy(self._ir)
+
+    @property
+    def operations(self) -> tuple[dict, ...]:
+        """Return defensive operation copies for inspection and diagnostics."""
+        return tuple(copy.deepcopy(operation) for operation, _pattern in self._operations)
+
+    @property
+    def handlers(self):
+        """Read-only view of the registered trusted handler mapping."""
+        return self._handlers
+
     def _route(self, method: str, path: str) -> tuple[dict, dict[str, str]]:
         matches = []
-        for operation, pattern in self.operations:
+        for operation, pattern in self._operations:
             match = pattern.fullmatch(path)
             if match:
                 matches.append((operation, match.groupdict()))
@@ -399,7 +417,7 @@ class ServiceRuntime:
                 normalized_headers,
             )
             context = HandlerContext(
-                operation=operation,
+                operation=copy.deepcopy(operation),
                 values=values,
                 headers=normalized_headers,
                 identity=trusted_identity,
@@ -408,7 +426,7 @@ class ServiceRuntime:
                 request_id=request_id,
             )
             try:
-                result = self.handlers[operation["name"]](context)
+                result = self._handlers[operation["name"]](context)
             except DomainFault as error:
                 if error.code not in operation["errors"]:
                     raise RuntimeFault("HANDLER_CONTRACT_VIOLATION", 500) from None
@@ -423,7 +441,7 @@ class ServiceRuntime:
             if status_code == 204:
                 if data is not None:
                     raise RuntimeFault("INVALID_HANDLER_RESULT", 500)
-            elif not _validate_output(self.ir, operation["output"], data):
+            elif not _validate_output(self._ir, operation["output"], data):
                 raise RuntimeFault("INVALID_HANDLER_RESULT", 500)
             for key, value in response_headers.items():
                 if (
