@@ -60,7 +60,7 @@ failures=0
 cohort_abort=""
 for ((index=0; index<${#CASE_ROWS[@]}; index++)); do
   row="${CASE_ROWS[$index]}"
-  IFS=$'\\t' read -r CASE_PATH EVAL_ID PROPOSAL_MODE BASE_DISCLOSURE ARM REPETITIONS TEMPERATURE TOP_P SEED NUM_CTX NUM_PREDICT MAX_INPUT MAX_OUTPUT MAX_TOOLS MAX_WALL <<< "$row"
+  IFS=$'\t' read -r CASE_PATH EVAL_ID PROPOSAL_MODE BASE_DISCLOSURE ARM REPETITIONS TEMPERATURE TOP_P SEED NUM_CTX NUM_PREDICT MAX_INPUT MAX_OUTPUT MAX_TOOLS MAX_WALL <<< "$row"
   echo "Running $EVAL_ID ($PROPOSAL_MODE / $BASE_DISCLOSURE)"
   set +e
   python "$WORKTREE/experiments/e007/eval_runner.py" \\
@@ -80,7 +80,7 @@ for ((index=0; index<${#CASE_ROWS[@]}; index++)); do
     --output-dir "$OUTPUT_ROOT/$EVAL_ID"
   EXIT_CODE=$?
   set -e
-  printf '%s\\t%s\\t%s\\t%s\\t%s\\n' "$CASE_PATH" "$EVAL_ID" "$PROPOSAL_MODE" "$BASE_DISCLOSURE" "$EXIT_CODE" >> "$OUTPUT_ROOT/cell-results.tsv"
+  printf '%s\t%s\t%s\t%s\t%s\n' "$CASE_PATH" "$EVAL_ID" "$PROPOSAL_MODE" "$BASE_DISCLOSURE" "$EXIT_CODE" >> "$OUTPUT_ROOT/cell-results.tsv"
   if [[ "$EXIT_CODE" -ne 0 ]]; then failures=$((failures + 1)); fi
 
   # Keep the matched cohort complete after an agent/task failure. Abort only
@@ -96,11 +96,11 @@ for ((index=0; index<${#CASE_ROWS[@]}; index++)); do
     if [[ "$GUARD_EXIT" -ne 0 ]]; then cohort_abort="$GUARD_OUTPUT"; fi
   fi
   if [[ -n "$cohort_abort" ]]; then
-    printf 'abort_reason=%s\\nabort_after_cell=%s\\n' "$cohort_abort" "$EVAL_ID" > "$OUTPUT_ROOT/cohort-abort.txt"
+    printf 'abort_reason=%s\nabort_after_cell=%s\n' "$cohort_abort" "$EVAL_ID" > "$OUTPUT_ROOT/cohort-abort.txt"
     echo "Stopping matched cohort before further model calls: $cohort_abort" >&2
     for ((remaining=index+1; remaining<${#CASE_ROWS[@]}; remaining++)); do
-      IFS=$'\\t' read -r SKIP_PATH SKIP_ID SKIP_MODE SKIP_DISCLOSURE _ <<< "${CASE_ROWS[$remaining]}"
-      printf '%s\\t%s\\t%s\\t%s\\tnot_started_infrastructure_abort\\n' "$SKIP_PATH" "$SKIP_ID" "$SKIP_MODE" "$SKIP_DISCLOSURE" >> "$OUTPUT_ROOT/cell-results.tsv"
+      IFS=$'\t' read -r SKIP_PATH SKIP_ID SKIP_MODE SKIP_DISCLOSURE _ <<< "${CASE_ROWS[$remaining]}"
+      printf '%s\t%s\t%s\t%s\tnot_started_infrastructure_abort\n' "$SKIP_PATH" "$SKIP_ID" "$SKIP_MODE" "$SKIP_DISCLOSURE" >> "$OUTPUT_ROOT/cell-results.tsv"
     done
     exit 2
   fi
