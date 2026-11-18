@@ -48,6 +48,7 @@ class SQLiteAuditSink:
     The next confirmatory pass uses ten repetitions to quantify first-repetition tail variability.
     The latest HTTP trust-boundary suite passes before the confirmatory performance cohort.
     Audit-window comparison holds all other open-loop workload parameters fixed at 100 req/s and ten repetitions.
+    The 2 ms trial lowered tail latency but did not reduce commit count; the 0.5 ms baseline is being replicated before changing defaults.
     """
 
     def __init__(
