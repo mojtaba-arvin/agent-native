@@ -3,9 +3,11 @@
   "updated_at": "2026-11-19",
   "active_branch": "feat/project-control-plane",
   "baseline_branch": "research/reboot-core",
-  "baseline_commit": "unresolved-by-control-plane-bootstrap",
+  "baseline_commit": "23f9c77d8ce9a8d55895c6c4903a4ff409ba5781",
   "current_milestone": "C0",
-  "active_task_ids": ["CP-001"],
+  "active_task_ids": [
+    "CP-001"
+  ],
   "last_completed_task_id": null,
   "last_known_green_revision": null,
   "wip_limit": 2,
