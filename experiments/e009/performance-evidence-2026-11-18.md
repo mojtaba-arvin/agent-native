@@ -90,3 +90,33 @@ A separate uncontainerized 0.5 ms audit-window cohort [workflow 44340325781](htt
 
 **Decision:** do not claim repeatable p99 compliance and do not select an audit batching delay. The first cgroup cohort is a successful sample, not a stable SLO. The second cohort reveals severe tail variance under the same nominal limits. The harness now records cgroup CPU throttling counters, per-device I/O counters, and CPU/I/O/memory pressure snapshots so the next run can distinguish quota throttling, storage stalls, and host contention. Cgroup limits do not control host disk latency or shared-runner contention.
 
+
+## 0.5 ms cgroup comparison — capacity gate passed
+
+The first 0.5 ms audit-window cohort under the same 1-CPU/1-GiB cgroup limits passed the executable gate: [workflow 44357166863](https://github.com/mojtaba-arvin/agent-native/actions/runs/44357166863).
+
+| Metric | Observed |
+|---|---:|
+| Requests / repetitions | 10,000 / 10 |
+| Achieved throughput | 100.018 req/s |
+| Aggregate p50 / p95 / p99 | 4.484 / 15.875 / 27.465 ms |
+| Service-only p99 | 27.342 ms |
+| Client queue p99 | 0.217 ms |
+| Repetition p99 range | 8.671–69.714 ms (10/10 ≤100 ms) |
+| Server CPU | 22.46% of one core |
+| Peak cgroup memory | 39,129,088 bytes (37.30 MiB) |
+| Unexpected outcomes | 0 |
+| Capacity gate | **PASS** |
+
+Cgroup evidence during the measured interval:
+- CPU quota: exactly one core; 999 periods; **0 throttled periods and 0 throttled microseconds**.
+- CPU pressure (some): approximately 0.148 seconds over the ~100-second cohort; no full CPU pressure.
+- I/O pressure (some/full): approximately 3.61 / 3.59 seconds over the cohort.
+- Memory pressure (some/full): 0 / 0.
+- cgroup I/O counters recorded about 497.9 MB written and 246.6 MB discarded during the interval; these are container/device counters, not logical SQLite payload bytes.
+
+The contrast with the 2 ms cgroup cohort is material: 2 ms had p99 252.021 ms and failed, while 0.5 ms had p99 27.465 ms and passed. This supports testing the shorter audit collection window further, but **does not yet prove causality or justify changing the default**: host I/O pressure and shared-runner effects remain, and each profile needs another independent cgroup cohort. The 0.5 ms cohort also shows that CPU quota throttling was not responsible for its tail.
+
+
+A second independent 0.5 ms cgroup cohort is now requested with the identical request mix, 1-CPU/1-GiB limits, FULL audit durability, 100 req/s target and executable capacity gate. Keep this as a separate raw run; do not pool or average it with the first cohort until both individual runs pass.
+
