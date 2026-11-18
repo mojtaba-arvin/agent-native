@@ -208,6 +208,62 @@ def map_tool_call(call: Any, index: int) -> dict:
     }
 
 
+
+def prevalidate_tool_call(request: dict, surface: dict) -> dict | None:
+    """Validate known tool-specific required arguments before crossing the Gateway boundary."""
+    tool_name = request.get("tool")
+    arguments = request.get("arguments")
+    exposed_tools = surface.get("tools") if isinstance(surface, dict) else None
+    if not isinstance(tool_name, str) or not isinstance(exposed_tools, list):
+        return None
+    tool_spec = next(
+        (item for item in exposed_tools if isinstance(item, dict) and item.get("name") == tool_name),
+        None,
+    )
+    schema = tool_spec.get("input_schema") if isinstance(tool_spec, dict) else None
+    if not isinstance(schema, dict) or schema.get("type") != "object":
+        return None
+    if not isinstance(arguments, dict):
+        return {
+            "protocol_version": "0.1",
+            "request_id": request.get("request_id"),
+            "ok": False,
+            "result": None,
+            "diagnostics": [{
+                "code": "ARGUMENT_SHAPE",
+                "message": f"{tool_name} arguments must be a JSON object.",
+                "source_span": None,
+                "fix_hint": "Pass the tool arguments as an object.",
+            }],
+            "next_actions": ["Retry with an arguments object matching the exposed input schema."],
+        }
+    required = schema.get("required", [])
+    if not isinstance(required, list):
+        return None
+    missing = [name for name in required if isinstance(name, str) and name not in arguments]
+    if not missing:
+        return None
+    if tool_name == "service.inspect" and "service_id" in missing:
+        message = 'service.inspect requires arguments.service_id; provide service_id: "catalog".'
+        fix_hint = 'Set arguments to {"service_id":"catalog"}; omit operation for the service-level inspection.'
+    else:
+        message = f"{tool_name} is missing required argument(s): {', '.join(missing)}."
+        fix_hint = f"Provide all required fields: {', '.join(missing)}."
+    return {
+        "protocol_version": "0.1",
+        "request_id": request.get("request_id"),
+        "ok": False,
+        "result": None,
+        "diagnostics": [{
+            "code": "ARGUMENTS_REQUIRED",
+            "message": message,
+            "source_span": None,
+            "fix_hint": fix_hint,
+        }],
+        "next_actions": ["Correct the missing required argument(s) and retry once."],
+    }
+
+
 def _append_jsonl(path: Path, event: dict) -> None:
     with path.open("ab") as stream:
         stream.write(canonical_json(event) + b"\n")
@@ -526,6 +582,7 @@ def run(args: argparse.Namespace) -> dict:
         plan_change_set_id = None
         tool_sequence: list[str] = []
         failed_tool_requests: set[str] = set()
+        prevalidation_repair_attempts: set[str] = set()
         final_content = None
         turn = 0
         call_number = 0
@@ -606,11 +663,24 @@ def run(args: argparse.Namespace) -> dict:
                         )
                     else:
                         nested = None
+                    execution_origin = "runner_gate" if nested is not None else "gateway"
+                    prevalidation_repair_exhausted = False
                     if nested is None:
-                        result = gateway_exchange(process, request)
-                        if result.get("type") != "tool_result" or not isinstance(result.get("response"), dict):
-                            raise AgentRunError("gateway_tool_result_invalid")
-                        nested = result["response"]
+                        prevalidated = prevalidate_tool_call(request, surface)
+                        if prevalidated is not None:
+                            execution_origin = "runner_prevalidation"
+                            diagnostic = (prevalidated.get("diagnostics") or [{}])[0]
+                            repair_key = f"{tool_name}:{diagnostic.get('code')}"
+                            if repair_key in prevalidation_repair_attempts:
+                                prevalidation_repair_exhausted = True
+                            else:
+                                prevalidation_repair_attempts.add(repair_key)
+                            nested = prevalidated
+                        else:
+                            result = gateway_exchange(process, request)
+                            if result.get("type") != "tool_result" or not isinstance(result.get("response"), dict):
+                                raise AgentRunError("gateway_tool_result_invalid")
+                            nested = result["response"]
                     if tool_name == "service.propose" and nested.get("ok") and successful_proposal is not None:
                         previous_valid = bool(
                             validation_result
@@ -649,9 +719,12 @@ def run(args: argparse.Namespace) -> dict:
                         "sequence": call_number,
                         "request": request,
                         "response": nested,
+                        "execution_origin": execution_origin,
                     })
                     record["tool_calls"] = call_number
                     tool_sequence.append(tool_name if isinstance(tool_name, str) else "<invalid>")
+                    if prevalidation_repair_exhausted:
+                        raise AgentRunError("prevalidation_repair_failed")
                     if not nested.get("ok"):
                         fingerprint = json.dumps(
                             request,
