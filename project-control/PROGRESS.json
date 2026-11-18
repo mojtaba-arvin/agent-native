@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "as_of": "2026-11-19",
+  "overall_status": "bootstrap",
+  "completion_claims": [],
+  "milestones": {
+    "C0": {"status": "in_progress", "verified_exit_criteria": [], "total_exit_criteria": 4},
+    "C1": {"status": "pending", "verified_exit_criteria": [], "total_exit_criteria": 4},
+    "C2": {"status": "pending", "verified_exit_criteria": [], "total_exit_criteria": 3},
+    "C3": {"status": "pending", "verified_exit_criteria": [], "total_exit_criteria": 3},
+    "C4": {"status": "pending", "verified_exit_criteria": [], "total_exit_criteria": 3},
+    "M0": {"status": "pending", "verified_exit_criteria": [], "total_exit_criteria": 3},
+    "M1": {"status": "pending", "verified_exit_criteria": [], "total_exit_criteria": 4},
+    "M2": {"status": "pending", "verified_exit_criteria": [], "total_exit_criteria": 4},
+    "M3": {"status": "pending", "verified_exit_criteria": [], "total_exit_criteria": 4},
+    "M4": {"status": "pending", "verified_exit_criteria": [], "total_exit_criteria": 4},
+    "M5": {"status": "pending", "verified_exit_criteria": [], "total_exit_criteria": 4}
+  },
+  "known_baseline_facts": [
+    {"claim": "E-009 integrated single-node kernel and durable SQLite audit sink exist", "status": "observed_in_prior_project_snapshot", "verification_required": true},
+    {"claim": "E-007 real-model runs have not established complete end-to-end acceptance", "status": "observed_in_prior_project_snapshot", "verification_required": true},
+    {"claim": "E-002 candidate measurements are diagnostic and do not select a runtime", "status": "observed_in_prior_project_snapshot", "verification_required": true}
+  ]
+}
