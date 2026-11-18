@@ -555,6 +555,7 @@ def run(args: argparse.Namespace) -> dict:
         "task_id": TASK_ID,
         "model": args.model,
         "arm": args.arm,
+        "compaction_enabled": bool(getattr(args, "enable_compaction", False)),
         "status": "running",
         "started_at_monotonic_ns": started,
         "finished_at_monotonic_ns": None,
@@ -882,13 +883,14 @@ def run(args: argparse.Namespace) -> dict:
                         "tool_name": "agent.invoke",
                         "content": json.dumps(nested, ensure_ascii=False, sort_keys=True, separators=(",", ":")),
                     })
-                messages = _compact_conversation(
-                    base_messages,
-                    inspected,
-                    inspected_operations,
-                    tool_sequence,
-                    tool_outcomes,
-                )
+                if getattr(args, "enable_compaction", False):
+                    messages = _compact_conversation(
+                        base_messages,
+                        inspected,
+                        inspected_operations,
+                        tool_sequence,
+                        tool_outcomes,
+                    )
                 continue
 
             content = message.get("content")
@@ -956,6 +958,7 @@ def main() -> None:
     parser.add_argument("--top-p", type=float, default=1.0)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--think", action="store_true")
+    parser.add_argument("--enable-compaction", action="store_true", default=False)
     args = parser.parse_args()
     for name in ("max_input_tokens", "max_output_tokens", "max_tool_calls", "max_wall_seconds", "num_ctx", "num_predict"):
         value = getattr(args, name)

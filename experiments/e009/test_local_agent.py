@@ -511,6 +511,14 @@ class LocalAgentRunnerTests(unittest.TestCase):
         self.assertNotIn("assistant", [item["role"] for item in compacted])
         self.assertNotIn("tool_calls", compacted[3]["content"])
 
+    def test_compaction_is_opt_in_and_defaults_off(self):
+        import argparse
+
+        parser = argparse.ArgumentParser()
+        parser.add_argument("--enable-compaction", action="store_true", default=False)
+        self.assertFalse(parser.parse_args([]).enable_compaction)
+        self.assertTrue(parser.parse_args(["--enable-compaction"]).enable_compaction)
+
     def test_compaction_ledger_is_deterministic_and_traceable(self):
         tool_sequence = ["service.inspect", "service.propose"]
         outcomes = [{"tool": "service.inspect", "ok": True}]
