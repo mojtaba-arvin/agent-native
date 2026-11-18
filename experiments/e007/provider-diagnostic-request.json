@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "request_id": "e007-provider-http500-repro-a-20261118",
+  "request_id": "e007-provider-http500-repro-a-20261118-attempt2",
   "branch": "research/reboot-core",
   "workflow": "e007-provider-diagnostic.yml",
   "model": "qwen3:8b",
