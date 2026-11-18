@@ -51,3 +51,15 @@ The fast runner, wrapper, and selector regression tests have now been added to t
 The first two target-branch workflow attempts (runs 962 and 963) failed **before any suite executed**. The job log showed that checkout used the default shallow depth of one commit, so the PR base SHA was unavailable to `git diff`. This is a CI checkout/configuration failure, not a test failure. The workflow now sets `fetch-depth: 0`; the corrected run is still pending and must be inspected before CP-006 is complete.
 
 The corrected reboot-core-based PR run (workflow run 967) completed successfully: **14/14 suites passed in 16.22 seconds**, with 509 unit tests plus four validator negative cases. The path selector and project-control suite were executed, not merely inspected. The E-009 suite was the longest at 15.29 seconds (131 tests); optimization opportunities should be measured separately rather than weakening coverage.
+
+## Measured HTTP shutdown-poll optimization
+
+Applied `poll_interval=0.01` to the four E-009 HTTP-server test threads and the E-001 prototype HTTP-server test thread. The same 14-suite CI cohort was rerun:
+
+| Measurement | Before | After |
+|---|---:|---:|
+| Total fast CI wall time | 16.22 s | 5.79 s |
+| E-009 suite wall time | 15.29 s | 5.34 s |
+| E-001 suite wall time | 5.04 s | 0.41 s |
+
+All 14 suites passed both times; coverage remained 509 unit tests plus four validator negative cases. Total wall time fell by 64.3% on these two GitHub-hosted runs. Treat this as a measured run-to-run comparison, not a cross-runner performance guarantee.
