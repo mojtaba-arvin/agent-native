@@ -7,6 +7,7 @@ import stat
 import sys
 import tempfile
 import threading
+import time
 import unittest
 from unittest.mock import patch
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -20,6 +21,7 @@ import local_agent
 from kernel import load_service_ir
 from local_agent import (
     AgentRunError,
+    provider_chat,
     EXPECTED_OPERATION,
     SERVICE_ID,
     TASK_ID,
@@ -420,6 +422,41 @@ class LocalAgentRunnerTests(unittest.TestCase):
                 self.assertTrue(all(event["execution_origin"] == "runner_prevalidation" for event in events))
                 self.assertIn('service_id: "catalog"', events[0]["response"]["diagnostics"][0]["message"])
                 self.assertEqual(Handler.index, 2)
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=5)
+
+    def test_provider_chat_enforces_absolute_deadline_during_slow_drip_response(self):
+        class SlowDripHandler(BaseHTTPRequestHandler):
+            def do_POST(self):
+                length = int(self.headers["Content-Length"])
+                self.rfile.read(length)
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", "100")
+                self.end_headers()
+                try:
+                    self.wfile.write(b"{")
+                    self.wfile.flush()
+                    for _ in range(99):
+                        time.sleep(0.05)
+                        self.wfile.write(b" ")
+                        self.wfile.flush()
+                except OSError:
+                    return
+
+            def log_message(self, *_args):
+                return
+
+        server = HTTPServer(("127.0.0.1", 0), SlowDripHandler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        started = time.monotonic()
+        try:
+            with self.assertRaisesRegex(AgentRunError, "provider_deadline_exceeded"):
+                provider_chat(("127.0.0.1", server.server_port), {}, timeout=0.25)
+            self.assertLess(time.monotonic() - started, 1.0)
         finally:
             server.shutdown()
             server.server_close()

@@ -13,6 +13,8 @@ import json
 import math
 import os
 import subprocess
+import socket
+import threading
 import sys
 import time
 import uuid
@@ -111,25 +113,52 @@ def provider_chat(
 ) -> dict:
     host, port = endpoint
     connection = HTTPConnection(host, port, timeout=timeout)
+    deadline_expired = threading.Event()
+
+    def interrupt_socket() -> None:
+        deadline_expired.set()
+        active_socket = connection.sock
+        if active_socket is not None:
+            try:
+                active_socket.shutdown(socket.SHUT_RDWR)
+            except OSError:
+                pass
+            try:
+                active_socket.close()
+            except OSError:
+                pass
+
+    timer = threading.Timer(timeout, interrupt_socket)
+    timer.daemon = True
     try:
+        timer.start()
         connection.request(
             "POST",
             "/api/chat",
             body=canonical_json(payload),
             headers={"Content-Type": "application/json", "Connection": "close"},
         )
+        if deadline_expired.is_set():
+            raise AgentRunError("provider_deadline_exceeded")
         response = connection.getresponse()
         raw = response.read(MAX_PROVIDER_BYTES + 1)
+        if deadline_expired.is_set():
+            raise AgentRunError("provider_deadline_exceeded")
         if len(raw) > MAX_PROVIDER_BYTES:
             raise AgentRunError("provider_response_too_large")
         if response.status != 200:
             raise AgentRunError(f"provider_http_{response.status}")
         result = strict_json(raw)
     except AgentRunError:
+        if deadline_expired.is_set():
+            raise AgentRunError("provider_deadline_exceeded")
         raise
     except Exception as error:
+        if deadline_expired.is_set():
+            raise AgentRunError("provider_deadline_exceeded") from error
         raise AgentRunError("provider_transport_failure") from error
     finally:
+        timer.cancel()
         connection.close()
     if not isinstance(result, dict):
         raise AgentRunError("provider_response_must_be_object")
