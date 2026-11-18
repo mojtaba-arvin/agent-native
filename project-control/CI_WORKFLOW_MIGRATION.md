@@ -36,3 +36,7 @@ The 15 workflow deletions exist only on this stacked branch. The PR must not be 
 ## First unified-workflow execution finding
 
 The first run of the new workflow (run 18) parsed and started successfully. The impact detector completed, Layer 0 selected all 14 suites, and 13 passed. E-007 failed in two cases because `experiments/e007/eval_runner.py` still included the removed legacy workflow path in its source manifest. The manifest now hashes `.github/workflows/ci.yml` instead. Layer 1 native checks were running independently at the time this finding was recorded; a corrected Layer 0 rerun is required before the migration is considered verified.
+
+## Concurrency safety finding
+
+The first unified-workflow run completed Layer 0 but its workflow run was cancelled when a second run for the same PR started; the Layer 1 job was cancelled with it. The fast job's `cancel-in-progress: true` policy can therefore discard in-flight extended evidence even though Layer 1 itself is configured not to cancel. Because Layer 0 now completes in roughly five seconds, the unified workflow changes this to `cancel-in-progress: false`: runs for the same branch serialize instead of cancelling a workflow that may be collecting Layer 1 evidence. This is an intentional safety trade-off; avoid claiming independent L0 cancellation while both layers share one workflow run.
