@@ -303,9 +303,16 @@ def score_run(run_record: dict, run_dir: Path, case: dict) -> dict:
         index for index, (tool, arguments, response) in enumerate(tools)
         if tool == "service.inspect" and response.get("ok") and "operation" not in arguments
     ]
+    operation_inspect_attempts = [
+        (index, arguments, response)
+        for index, (tool, arguments, response) in enumerate(tools)
+        if tool == "service.inspect" and isinstance(arguments.get("operation"), str)
+    ]
     operation_inspect_indices = [
-        index for index, (tool, arguments, response) in enumerate(tools)
-        if tool == "service.inspect" and response.get("ok") and isinstance(arguments.get("operation"), str)
+        index for index, _, response in operation_inspect_attempts if response.get("ok")
+    ]
+    operation_inspect_names = [
+        arguments.get("operation") for _, arguments, response in operation_inspect_attempts
     ]
     successful_proposal_indices = [index for index, _, _, _ in proposals]
     inspection_order_ok = False
@@ -317,14 +324,17 @@ def score_run(run_record: dict, run_dir: Path, case: dict) -> dict:
             observed_names = set(operation_contracts)
             inspection_order_ok = bool(
                 initial_inspection and observed_names == expected_names
-                and operation_inspect_indices
+                and len(operation_inspect_attempts) == len(expected_names)
+                and len(operation_inspect_indices) == len(operation_inspect_attempts)
+                and set(operation_inspect_names) == expected_names
+                and len(operation_inspect_names) == len(set(operation_inspect_names))
                 and min(operation_inspect_indices) > service_inspect_indices[0]
                 and max(operation_inspect_indices) < first_proposal
             )
         elif base_disclosure == "upfront_full":
             observed_names = set(operation_contracts)
             inspection_order_ok = bool(
-                initial_inspection and not operation_inspect_indices
+                initial_inspection and not operation_inspect_attempts
                 and observed_names == expected_names
                 and operation_contracts == {item["name"]: item for item in trusted_base["operations"]}
                 and inspected.get("operations") == trusted_base.get("operations")
@@ -333,7 +343,7 @@ def score_run(run_record: dict, run_dir: Path, case: dict) -> dict:
             observed_names = expected_names
             inspection_order_ok = bool(
                 proposal_mode == "delta" and initial_inspection
-                and not operation_inspect_indices
+                and not operation_inspect_attempts
                 and inspected.get("service") == trusted_base.get("service")
                 and inspected.get("types") == trusted_base.get("types")
                 and inspected.get("revision") == trusted_revision
