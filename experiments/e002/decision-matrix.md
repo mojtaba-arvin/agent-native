@@ -8,19 +8,19 @@
 
 The weighted score is a transparent comparison aid, not a substitute for hard correctness/security gates. A candidate that fails a hard gate is not eligible for ranking, regardless of its weighted score. The weights below are frozen for the next comparable measurement cycle; changing them requires a dated rationale and a sensitivity analysis.
 
-| Criterion | Weight | Metric / scoring input | Provisional screening gate |
-|---|---:|---|---|
-| p99 latency | 25 | Run-level p99 milliseconds | ≤ 50 ms |
-| Throughput | 20 | Successful requests/second | ≥ 1,000 req/s |
-| Peak process-tree RSS | 15 | MiB | ≤ 128 MiB |
-| CPU time | 10 | CPU seconds per 5,000-request measurement batch | Historical trivial-workload screen: ≤ 0.5 s; prospective product workload: ≤ 25 s (provisional capacity hypothesis) |
-| Ecosystem / operability | 10 | Evidence-based rubric, 0–5 | ≥ 3/5 |
-| Failure semantics | 10 | Defined fault-injection assertions | 100% pass; also a hard gate |
-| Startup time | 5 | Process start to first healthy response | ≤ 5 s |
-| Deployable artifact size | 5 | Documented comparable package size | ≤ 100 MiB |
-| **Total** | **100** | | |
+| Criterion | Weight | Metric / scoring input | Historical trivial HTTP screen | Prospective product workload hypothesis |
+|---|---:|---|---:|---:|
+| p99 latency | 25 | Run-level p99 milliseconds | ≤ 50 ms | ≤ 100 ms |
+| Throughput | 20 | Completed requests/second | ≥ 1,000 req/s | ≥ 100 req/s |
+| Peak process-tree RSS | 15 | MiB | ≤ 128 MiB | Not set |
+| CPU time | 10 | CPU seconds per 5,000-request batch | ≤ 0.5 s (historical only) | ≤ 25 s (provisional) |
+| Ecosystem / operability | 10 | Evidence-based rubric, 0–5 | ≥ 3/5 | Not measured |
+| Failure semantics | 10 | Defined fault-injection assertions | 100% pass; also a hard gate | 100% pass; also a hard gate |
+| Startup time | 5 | Process start to first healthy response | ≤ 5 s | Not set |
+| Deployable artifact size | 5 | Documented comparable package size | ≤ 100 MiB | Not set |
+| **Total** | **100** | | | |
 
-Except where superseded by the dated product-scenario addendum below, these are the historical research screening ceilings/floors for the fixed trivial HTTP workload, not production SLOs. The 0.5 CPU-second gate remains attached to the completed historical cohorts only; it is not a prospective product eligibility gate. The later product-scenario capacity envelope governs the next product-representative measurement cycle.
+The historical column records the preregistered screens for the completed trivial HTTP workload; those values must not be retroactively changed. The prospective product column records only the capacity hypotheses currently justified by the product scenario. Blank or 'Not set' product criteria must be derived and preregistered before a decision-grade cohort. Neither column is a validated production SLO. The 0.5 CPU-second historical gate is not a prospective product eligibility gate.
 
 ### Ecosystem / operability rubric (0–5)
 
