@@ -218,10 +218,10 @@ P1 is the critical path. P2 and P3 can proceed after their contracts are fixed a
 | P1.5 — Complete-IR, preservation and validation-gate correction | Implemented; real-model verification open | E-005 publishes a complete IR JSON schema and AN021 fix hint; E-009 task/prompt specify full snapshots; plan gate requires result.valid=true for exact current proposal hash; deterministic tests pass |
 | P1.6 — Stochastic post-fix probe | Complete as an exploratory experiment; acceptance failed | Run [44105440141](https://github.com/mojtaba-arvin/agent-native/actions/runs/44105440141), artifact [14337879630](https://github.com/mojtaba-arvin/agent-native/actions/runs/44105440141/artifacts/14337879630): one Qwen3 run at temperature 0.7/seed 20261117; produced full top-level seven-op IR with array inputs but rewrote five existing operations; first proposal was blocked for incomplete inspection, model inspected all six afterward, then run hit the 900s wall ceiling before retry/validate/plan |
 | P1.7 — Deterministic post-Gateway-preservation trial | Complete as an experiment; ineligible due to input-budget exhaustion | [Workflow 44144939813](https://github.com/mojtaba-arvin/agent-native/actions/runs/44144939813), [artifact 14357367813](https://github.com/mojtaba-arvin/agent-native/actions/runs/44144939813/artifacts/14357367813): temperature 0 / seed 42; 48,307/48,000 input tokens after 5/6 inspections; 1,020s/1,200s; no second proposal, validation or plan; no observed provider/OOM failure |
-| P1.8 — Expanded-budget deterministic probe | Experiment complete; partial proposal success, lifecycle incomplete | [Workflow 44149712970](https://github.com/mojtaba-arvin/agent-native/actions/runs/44149712970), [artifact 14360782135](https://github.com/mojtaba-arvin/agent-native/actions/runs/44149712970/artifacts/14360782135), [analysis](../experiments/e007/results/2026-11-17-expanded-budget-proposal-accepted-timeout.md): all six operations inspected; two bounded proposal rejections (inspection incomplete, then preservation mismatch); third proposal accepted with complete IR and exact preservation; no AN021; run hit 1,800s while next model response generated; no validate/plan |
-| P1.9 — Separate proposal-contract and lifecycle scoring | Implemented; deterministic CI pending | Scorer now checks Gateway-accepted proposal from raw trace if final JSON wrapper is absent; only candidate-contract score can pass, while lifecycle/safety remain false without validate/plan; regression test covers this distinction |
-| P1.10 — Wall-budget terminal transport classification | Implemented; 53-test CI pass | Retain raw provider transport error, add timeout/resource-budget categories and `wall_budget_terminal_transport` when failure coincides with configured wall ceiling; Ollama log independently shows cancellation at boundary and no OOM marker |
-| P1.11 — Deterministic post-proposal continuation | Dispatched; evidence pending | [Workflow 44189163401](https://github.com/mojtaba-arvin/agent-native/actions/runs/44189163401): same Qwen3/temperature 0/seed 42/task/Gateway and scorers; clearer upfront inspect→propose→validate→plan instructions, no schema-discovery calls, context 16,384, input cap 120,000, wall cap 3,000s. One bounded exploratory attempt; no statistical claim |
+| P1.8 — Expanded-budget deterministic probe | Experiment complete; partial proposal success, lifecycle incomplete | [Workflow 44149712970](https://github.com/mojtaba-arvin/agent-native/actions/runs/44149712970), [artifact 14360782135](https://github.com/mojtaba-arvin/agent-native/actions/runs/44149712970/artifacts/14360782135), [analysis](../experiments/e007/results/2026-11-17-expanded-budget-proposal-accepted-timeout.md): all six operations inspected; two bounded proposal rejections (inspection incomplete, then preservation mismatch); third proposal accepted with complete IR and exact preservation; no AN021; run hit the global 1,800s deadline during incomplete prompt prefill for the next model turn; decoding and validate/plan did not begin |
+| P1.9 — Separate proposal-contract and lifecycle scoring | Implemented; deterministic CI passed | Scorer now checks Gateway-accepted proposal from raw trace if final JSON wrapper is absent; only candidate-contract score can pass, while lifecycle/safety remain false without validate/plan; regression test covers this distinction |
+| P1.10 — Wall-budget terminal transport classification | Implemented; 53-test CI pass | Preserve the historical raw provider symptom; derived classification at a proven wall-deadline cancellation is timeout + resource_budget_exceeded, not transport_error. Regression tests distinguish this from transport loss before the deadline |
+| P1.11 — Deterministic post-proposal continuation | Complete; failed on repeated invalid tool arguments | [Workflow 44189163401](https://github.com/mojtaba-arvin/agent-native/actions/runs/44189163401), [artifact 14376970288](https://github.com/mojtaba-arvin/agent-native/actions/runs/44189163401/artifacts/14376970288), [analysis](../experiments/e007/results/2026-11-17-post-proposal-continuation-analysis.md): two identical `service.inspect(arguments={})` calls returned `ARGUMENTS_REQUIRED`; stopped after 267.785s, well below 3,000s; no proposal/validate/plan |
 | P2 — Durable E-009 audit sink | Complete | SQLite sink wired into serve.py; allow/deny, reopen, concurrent append, append-only, and fail-closed tests; 80 E-009 tests pass |
 | P3.1 — E-002 decision criteria | Complete | Weighted criteria and provisional gates registered before the ten-run matrix; [CPU gate analysis](../experiments/e002/cpu-gate-analysis.md) documents the missing product-side provenance |
 | P3.2 — E-002 ten-run matrices | Complete, diagnostic only | Two 10×5,000-request cohorts completed for each candidate; all functional, p99, throughput, RSS, startup gates pass; all four candidates fail the provisional CPU screen. Deployable payload sizes were measured once per candidate in run 44124537511; ecosystem/operability and comparable fault-injection criteria remain unmeasured |
@@ -247,7 +247,7 @@ The final report must distinguish:
 4. Whether those corrections have been verified by a post-fix real-model artifact.
 5. What remains diagnostic, not measured, unpriced, or future work.
 
-The three-run Qwen3 cohort is 0/3 accepted and is a deterministic failure reproduction. The stochastic probe produced a full-shaped but non-preserving IR and timed out before resubmission. The 1,200s deterministic post-Gateway probe exhausted its 48,000-input-token cap after five of six inspections. The 1,800s expanded-budget deterministic run then inspected all six operations, recovered from two Gateway rejections, and submitted one complete exact-preserving proposal accepted by the Gateway; it produced no AN021. The run timed out while the next model response was being generated, before validation or plan. Thus the IR/proposal correction has one positive real-model observation, but the full proposal/validate/plan loop remains unproven. A single bounded continuation trial is now dispatched with clearer upfront sequencing and a larger context/time envelope; its result is pending. E-002 is diagnostic, not decision-grade. No runtime is selected. The model-tier/corpus expansion is a documented future plan, not executed evidence.
+The three-run Qwen3 cohort is 0/3 accepted and is a deterministic failure reproduction. The stochastic probe produced a full-shaped but non-preserving IR and timed out before resubmission. The 1,200s deterministic post-Gateway probe exhausted its 48,000-input-token cap after five of six inspections. The 1,800s expanded-budget deterministic run then inspected all six operations, recovered from two Gateway rejections, and submitted one complete exact-preserving proposal accepted by the Gateway; it produced no AN021. The run reached its global wall deadline while the next prompt was still being prefetched; no assistant decoding, validation, or plan began. Thus the IR/proposal correction has one positive real-model observation, but the full proposal/validate/plan loop remains unproven. The bounded 3,000s/context-16,384 continuation is complete and failed on repeated empty arguments to service.inspect; it is not a timeout. The 1,800s accepted-proposal run is confounded by CPU-only inference and incomplete prompt prefill at the global deadline. Prompt-history compaction is implemented and passes the 81-test E-009 suite. A separate short-schema/prefill diagnostic workflow is running; its artifact must be inspected before any further full-task trial. E-002 is diagnostic, not decision-grade. No runtime is selected. The model-tier/corpus expansion is a documented future plan, not executed evidence.
 
 ## Explicit scope limits for this cycle
 
@@ -260,3 +260,100 @@ The three-run Qwen3 cohort is 0/3 accepted and is a deterministic failure reprod
 - No enabling `service.apply`, production deployment, or autonomous destructive action.
 - No statistical claim from three model repetitions and no runtime decision from GitHub-hosted smoke measurements.
 - No open-ended expansion of the E-007 corpus. One executable case is the minimum milestone; expand the corpus only after the runner, scorer, and evidence path work end to end.
+
+
+**E-007 continuation decision (17 Nov 2026):** the 1,800s artifact and the bounded 3,000s/context-16,384 follow-up have both been inspected. No further resource increase is allowed for this Qwen3 task. Redesign the tool interaction and test required-argument/schema alignment with adversarial provider doubles before another real-model run. Validation remains model-invoked; a runner-invoked validation control, if ever tested, must be reported as orchestration-driven rather than autonomous model behavior.
+
+
+## RPI update — infrastructure validity and prompt compaction (18 November 2026)
+
+### P1.12 — Treat CPU-only inference as a confounder, not an agent decision
+
+The raw Ollama logs for workflows 44149712970 and 44189163401 show CPU-only backends, CPU model buffers, and two model threads on standard GitHub-hosted workers. The 1,800s run's final 7,734-token prompt was not fully prefetched before the global wall deadline. Logged prefill checkpoints were 20.09, 19.05, 18.05, and 17.04 tok/s. The often-quoted 2.38 tok/s is decode throughput from the preceding request, not prefill. See [the infrastructure baseline](../experiments/e007/results/2026-11-18-ollama-cpu-prefill-baseline.md).
+
+**Acceptance:** report this as an explicit threat to validity; do not infer model refusal/forgetfulness from the 1,800s run; keep the 3,000s empty-arguments failure separate.
+
+### P1.13 — Compact model-visible interaction history before another full run
+
+Implemented in experiments/e009/local_agent.py: replace repeated assistant/tool transcript after each tool batch with an authoritative state ledger containing exact service inspection, exact inspected operation declarations, tool sequence, and compact recent outcomes/diagnostics. Raw provider responses and append-only tool traces remain unchanged.
+
+**Validation:** a provider-double test checks exact inspection declaration and diagnostic preservation. This is implementation evidence only; await full E-009 CI and do not dispatch another full Qwen3 lifecycle run before it passes.
+
+### P1.14 — Corrected schema probe and prefill/cache/thread matrix
+
+**First diagnostic inspected:** workflow 44193765741 completed successfully. It measured a 1,008-token cold prompt at approximately 12.7 prefill tokens/second on a CPU-only runner exposing four logical CPUs; Ollama used two model threads. The probe's short-schema response is invalid for schema-adherence conclusions because the probe omitted the live Gateway session surface and supplied only the generic dispatch envelope. The repeated prompt requests also used keep_alive=0, so they did not measure warm cache reuse. See [forensic review](../experiments/e007/results/2026-11-18-short-schema-and-cold-prefill-review.md).
+
+**Corrective implementation:** the diagnostic now includes the exact upfront session surface, sets num_thread explicitly, records process affinity/cgroup quota, and measures nested 1k/2k/4k/8k prompts with keep_alive=10m, cached-token telemetry, and exact warm repeats. Requested thread counts are 2, 4, and 16; 16 is an oversubscription stress arm on the previously observed four-CPU runner, not a 16-core comparison. The test suite runs before any Ollama installation or model pull. See [the preregistered protocol](../experiments/e007/results/2026-11-18-prefill-cache-thread-benchmark-plan.md).
+
+**Acceptance:** tests must pass; artifact must report actual CPU quota/affinity, model placement, prompt_eval_count, prompt_eval_cached_count, prefill duration/rate, and warm-repeat cache behavior. The corrected schema probe must be reviewed with the exact session surface included. This remains infrastructure/schema diagnostic evidence, not E-007 lifecycle acceptance. No GPU runner is provisioned, and no full-task Qwen3 run or budget increase is authorized by this work.
+
+
+### Follow-up validity controls (registered before interpreting benchmark outcomes)
+
+1. **Thread topology:** compare 2 vs 4 requested threads as the primary in-runner comparison. Record `OLLAMA_NUM_THREADS` if set, the Ollama server's effective `n_threads` and `n_threads_batch`, process affinity, cgroup quota, and cpuset. A selected default of 2 on a four-logical-CPU runner is an observation, not proof of incorrect cgroup detection; only the combined environment and server evidence can support that diagnosis. Sixteen threads are oversubscription only. Pre-registered hypothesis: 16 will be slower than 4 due to scheduling/context-switch overhead; if it is faster, document the counter-result and do not discard it.
+2. **Timing separation:** report `load_duration`, `prompt_eval_duration` (prefill), and request elapsed time as separate fields. Interpret the first model load separately from subsequent warm requests. Report cached tokens and uncached prefill rate independently; never combine model loading with prefill throughput.
+3. **Schema length control:** after the current bounded benchmark, run two schema probes against the same exact live Gateway session surface and dispatch contract: a short prompt with no conversation history, and a long prompt with eight prior turns. Preserve the same task and tool-call requirement. Compare actual prompt token counts, tool-call arguments, completion status, and latency. A short-pass/long-fail outcome supports a context-length sensitivity hypothesis; it does not by itself prove compaction is the only remedy.
+4. **State contract conformance:** add a representative Gateway trace fixture and assert that the deterministic state extracted by the local runner preserves every required inspected service/type/operation contract, identity/revision, and ordering required by the Gateway contract. Include the prior AN021-shaped trace as a regression case where applicable. Hash stability alone is insufficient: it proves repeatability of bytes, not semantic completeness.
+5. **Compaction priority gate:** if the benchmark demonstrates effective warm prefix reuse and 4-thread uncached prefill is only a few seconds at the relevant prompt size, lower compaction optimization priority while retaining deterministic state correctness. If cache reuse is absent/ineffective or prefill remains materially slow, raise compaction priority. Do not make this decision from a single prompt size or from cache counters without checking exact-prefix equivalence.
+
+These controls do not change E-007 acceptance criteria or authorize a full lifecycle rerun. The current workflow is a bounded infrastructure probe only.
+
+### Hard stop and architecture review threshold
+
+No further increase to Qwen3 wall time, context, or token ceilings is authorized. The next full-task attempt requires successful deterministic compaction tests and the bounded schema/infrastructure probes. After the redesigned prompt is validated, if three consecutive full-task runs each produce a Gateway-accepted proposal, complete prompt prefill, but still fail to invoke model-driven service.validate, trigger an architecture review. Runs that fail before an accepted proposal or do not complete prefill do not satisfy this trigger.
+
+E-002 remains diagnostic and no runtime is selected. Set the decision review deadline to 14 days after E-007's redesigned evaluation contract is validated; until then, preserve the preregistered CPU gate without retroactively changing it.
+
+
+### Meta-work stop rule and benchmark deadline
+
+**Execution priority:** produce and inspect benchmark evidence before adding further process or methodology decisions. After D-027, do not add another methodological decision until the current real benchmark artifact has been inspected, unless a newly observed measurement defect requires a narrowly scoped correction. Do not run the short/long schema probes in parallel with the prefill benchmark. CI completion is not a prerequisite for inspecting or continuing the benchmark; CI results remain a separate implementation-verification track.
+
+**Hard deadline:** workflow 44195269778 started at 2026-11-17T22:59:24Z. Its 48-hour deadline is **2026-11-19T22:59:24Z**. If no artifact is available by that deadline, stop treating the run as an active experiment, mark it timed out/stalled, and inspect the runner/script path before dispatching another run. Do not silently extend the deadline.
+
+**Partial-evidence handling:** the current run began before the later `OLLAMA_NUM_THREADS` capture change. If its artifact is produced, classify it as **partial but usable infrastructure evidence**: retain measured prompt counts, prefill/load durations, cache telemetry, CPU/cgroup observations, server logs, and effective Ollama thread telemetry where available; explicitly mark the environment-variable field as not captured by this run. Do not merge its measurements with a later run. The next workflow version writes an atomic checkpoint after every prefill observation and uploads the checkpoint even when the benchmark step fails or reaches the workflow timeout.
+
+**No parallel behavior probe:** do not run short-vs-eight-turn schema probes until this prefill/cache/thread benchmark has completed or reached the hard deadline and its partial artifact (if any) has been inspected.
+
+
+### Measurement progress criterion
+
+Progress is measured by completed, analyzable observations—not by the number of decisions, notes, or documents produced.
+
+
+## First Light execution plan — 18 November 2026
+
+**North-star acceptance:** E-007 closes only after two complete, reproducible real-Qwen3 lifecycles. Each lifecycle must independently complete `inspect → propose → validate → plan`; every stage must have a successful Gateway response; the exact proposal/change-set hash must remain continuous through validation and plan; no human intervention or `service.apply` is permitted; and the run artifact must retain raw trace, payload/prompt hashes, provider token usage, and timing. A proposal-only success, a benchmark, or deterministic CI is not lifecycle acceptance.
+
+### Phase 1 — First Light (through 25 November 2026)
+
+1. Integrate the isolated Commit B runner-side prevalidation into `research/reboot-core`; do not merge the unrelated 100-commit PR #17.
+2. After reviewing the completed phase-1 diagnostics artifact, run exactly one real `qwen3:8b` lifecycle using the upfront Gateway surface, `temperature=0`, `top_p=1`, `seed=42`, `num_ctx=16384`, one repetition, and a 3,000-second per-run/aggregate wall budget. Preserve every failed attempt and all raw telemetry.
+3. If the next model turn cannot complete prefill, implement only the existing deterministic state-ledger compaction design. Preserve exact service/type/operation declarations, identity/revision, operation order, tool sequence, and recent diagnostics; keep the raw append-only trace. Do not broaden the redesign.
+4. Gate: at least one complete lifecycle by 25 November. If absent, do not extend Phase 1 or increase Qwen3's CPU wall budget again; enter Phase 2's one-time infrastructure control.
+
+### Phase 2 — Reproduction and infrastructure decision (26 November–9 December)
+
+- If Phase 1 succeeds, execute one second lifecycle with the same pinned task, model, prompt arm, temperature, seed, context, and budgets. Two complete runs permit E-007 closure as **initial evidence, two deterministic repetitions**; do not describe fixed-seed repetitions as statistically independent.
+- If Phase 1 does not produce a complete lifecycle, stop iterative CPU debugging. Run one controlled infrastructure comparison only: GPU-backed Qwen3 or a larger Qwen3 cloud provider. Keep task, Gateway contract, scoring, and safety gates unchanged. Report the result strictly as an infrastructure effect; do not use it to claim model superiority.
+- E-009: demonstrate one real end-to-end request through the HTTP service to a durable audit record using a concrete task (for example, HLS playlist creation). The audit event must be correlated to the request and persisted before any protected handler action.
+- E-002: choose one of the three registered product scenarios, derive a provisional SLO from that scenario, re-evaluate the thresholds, and select one runtime or explicitly select none with an evidence-backed reason. Indefinite deferral is not an outcome.
+
+### Phase 3 — Paper and reproducible artifact (10 December 2026–15 January 2027)
+
+- Center the paper on the semantic-contract boundary between the Gateway's tool semantics and the provider-facing dispatch schema, and the evidence-backed runner-side prevalidation/repair mechanism.
+- Include only verified material: failure taxonomy, audit/lease/fencing architecture, and the completed benchmark/lifecycle artifacts. Separate implementation evidence, synthetic diagnostics, provider-double evidence, and real-model evidence.
+- Deliver one reproducibility script that starts from a clean checkout and replays the documented environment, model, task, Gateway, budgets, and artifact collection.
+
+### Phase 4 — Submission (15–31 January 2027)
+
+- First target: a software-engineering conference demo/tool track (FSE/ASE), subject to current call-for-papers fit and deadlines.
+- Second target: an expanded journal submission such as IEEE Access.
+
+### Stop rules — binding
+
+1. **Three lifecycle failures:** after three consecutive real lifecycle failures under identical pinned settings, stop debugging the same path and begin the infrastructure/model upgrade decision. Preserve all three artifacts. A provider-double or benchmark run does not count as a lifecycle attempt.
+2. **24-hour benchmark ceiling:** no benchmark workflow may remain `in_progress` for more than 24 hours without an explicit decision to inspect the runner or close it as **no evidence**. Do not silently leave it running or dispatch an overlapping run.
+3. **One focused commit:** every change is one focused commit with one objective. Do not combine unrelated implementation and research decisions in a single commit.
+4. **Same-day paper notes:** record every paper-worthy discovery, failure, or evidence item in `paper-notes.md` on the day it is established.
+5. **Acceptance integrity:** E-007 remains open until two full real-model lifecycles satisfy every north-star condition. Never infer a lifecycle pass from a successful proposal, a schema probe, a provider-double, or green CI.

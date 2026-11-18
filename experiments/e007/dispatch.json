@@ -4,11 +4,6 @@
   "model_id": "qwen3:8b",
   "repetitions": 1,
   "arm": "upfront",
-  "dispatched_at": "2026-11-18T02:10:00+04:00",
-  "purpose": "One bounded deterministic continuation after the prior 1,800-second run produced a Gateway-accepted exact-preserving proposal but timed out before validate/plan. Keep Qwen3, temperature=0, seed=42, task, Gateway preservation, scorers, validation gate and no-apply policy unchanged. Explicitly instruct the upfront action order and skip interface.describe; increase context to 16,384, input ceiling to 120,000 and wall ceiling to 3,000 seconds so the next model turn can complete. This is exploratory follow-up, not statistical evidence.",
-  "temperature": 0,
-  "seed": 42,
-  "max_wall_seconds": 3000,
-  "max_input_tokens": 120000,
-  "num_ctx": 16384
+  "dispatched_at": "2026-11-18T09:27:00+04:00",
+  "purpose": "First Light: one real Qwen3 lifecycle using Commit A measurement corrections and Commit B runner-side prevalidation. Phase-1 diagnostics workflow 44202267381 completed 8/8 observations in 632.808s within its 1,200s budget. Keep task, Gateway, scorer, no-apply policy, temperature=0, top_p=1, seed=42, context=16,384, 120,000 cumulative input-token ceiling, 6,000 output-token ceiling, 20 tool calls, and 3,000s per-run/aggregate wall budget pinned. This is one lifecycle attempt, not E-007 acceptance; acceptance still requires a second complete repeat."
 }

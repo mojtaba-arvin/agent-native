@@ -150,7 +150,7 @@ The 48,000-input-token cap stopped the post-Gateway run after five of six inspec
 
 **Evidence:** E-007 run [44149712970](https://github.com/mojtaba-arvin/agent-native/actions/runs/44149712970), artifact [14360782135](https://github.com/mojtaba-arvin/agent-native/actions/runs/44149712970/artifacts/14360782135), source revision `cb640a2db1fe35ff9f5065abff8399ed5a3422ba). The fixed-seed Qwen3 run inspected all six existing operations. Proposal attempt one was rejected with `INSPECTION_INCOMPLETE`; attempt two was rejected with `IR_PRESERVATION_MISMATCH` for `submit_rebuild`; attempt three was accepted by the Gateway. The accepted IR included `ir_version=1`, the service and types, the six exact existing operations in original order, and the requested seventh operation with array-shaped input. Independent canonical SHA-256 recomputation matched the Gateway's change-set ID.
 
-The run then reached its 1,800-second wall ceiling while the provider was generating the next assistant response. The Ollama daemon log shows the active request cancelled at the boundary and an HTTP 500 symptom; no OOM evidence or earlier independent outage was observed. No `service.validate` or `service.plan` call occurred.
+The run then reached its 1,800-second global wall ceiling while Ollama was still prefilling the next assistant prompt; assistant decoding had not begun. The Ollama daemon log shows the active request cancelled at the boundary and an HTTP 500 symptom; no OOM evidence or earlier independent outage was observed. No `service.validate` or `service.plan` call occurred.
 
 **Decision:** report this as one deterministic observation of successful proposal construction and Gateway acceptance, not a successful E-007 task. Do not conflate proposal acceptance with semantic validation, plan safety, or the full lifecycle.
 
@@ -170,3 +170,74 @@ The earlier candidate-contract scorer returned zero when no final candidate JSON
 **Interpretation:** the trace supports a bounded continuation/prompt-prefill problem, not a claim that the Gateway or validation rejected the proposal. The run never reached the model response that would have called `service.validate`.
 
 **Decision:** one follow-up keeps model, task, temperature, seed, Gateway preservation, scorer thresholds, same-hash validation gate and no-apply policy fixed; it makes the upfront action order explicit, tells the model not to call schema discovery when all schemas are already exposed, increases context to 16,384, input allowance to 120,000, and wall ceiling to 3,000 seconds. This is an exploratory resource/prompt adjustment, not a statistical comparison. Do not keep increasing resources if this bounded attempt fails; inspect its trace and reassess the interaction design.
+
+
+## D-019 — The 1,800-second post-proposal stop was prompt-prefill timeout, not a missed validate decision
+
+**Evidence:** workflow [44149712970](https://github.com/mojtaba-arvin/agent-native/actions/runs/44149712970), artifact [14360782135](https://github.com/mojtaba-arvin/agent-native/actions/runs/44149712970/artifacts/14360782135), and the retained Ollama daemon log. The accepted proposal response contained `next_actions: ["service.validate with the change_set_id"]`; the system prompt independently required an immediate `service.validate` call with that exact ID. The adapter appended the tool result and requested the next model turn. The next prompt contained 7,734 tokens under an 8,192-token context; at the 1,800-second deadline, daemon prompt evaluation had advanced only to about 4,860 tokens. No completed provider response or validate tool call was recorded.
+
+**Decision:** retain model-invoked validation for the current Agent Native evaluation. Do not switch to automatic validation based on this trace: the model did not complete prompt prefill and therefore never had a recorded opportunity to select its next tool. A future runner-invoked validation control must be labelled orchestration-driven and cannot count as evidence of autonomous model tool selection.
+
+## D-020 — Stop Qwen3 resource escalation after the bounded 3,000-second attempt
+
+**Evidence:** workflow [44189163401](https://github.com/mojtaba-arvin/agent-native/actions/runs/44189163401), artifact [14376970288](https://github.com/mojtaba-arvin/agent-native/actions/runs/44189163401/artifacts/14376970288), source SHA `32ede5a7f63584784143851b7c4f9c5a72d30084`. The run used context 16,384, a 120,000 input-token ceiling, and a 3,000-second wall ceiling, but stopped after 267.785 seconds and 5,418 input / 78 output tokens. Qwen3 called `service.inspect` twice with empty argument objects; both were rejected with `ARGUMENTS_REQUIRED`, and the runner terminated the repeated identical invalid call. No inspection, proposal, validation, or plan succeeded.
+
+**Decision:** no further increase to wall time, context, or token budgets for this Qwen3 task. The next step is interaction-protocol and tool-schema debugging, with provider-double/adversarial tests before any new real-model attempt. This failure is an eligible agent/tool-contract failure, not a resource-budget stop.
+
+## D-021 — A provider symptom at a proven wall-deadline cancellation is not an independent transport failure
+
+**Evidence:** workflow [44149712970](https://github.com/mojtaba-arvin/agent-native/actions/runs/44149712970) ended at 1,800.116 seconds; the Ollama daemon log shows the active request cancelled at the runner wall boundary and an HTTP 500 symptom. No independent outage or OOM evidence was observed.
+
+**Decision:** preserve the raw historical failure code, but classify this boundary-correlated event as `timeout` and `resource_budget_exceeded`, not `transport_error`. A transport failure well before the wall deadline remains `transport_error`. The evaluator regression tests both cases. Historical artifact contents are not rewritten.
+
+
+## D-022 — CPU-only inference and prefill/decode metrics must be separated
+
+**Evidence:** raw Ollama daemon logs retained in artifacts [14360782135](https://github.com/mojtaba-arvin/agent-native/actions/runs/44149712970/artifacts/14360782135) and [14376970288](https://github.com/mojtaba-arvin/agent-native/actions/runs/44189163401); detailed analysis in [the CPU/prefill baseline](../experiments/e007/results/2026-11-18-ollama-cpu-prefill-baseline.md).
+
+Both real-model workflows loaded a CPU backend only, with CPU model buffers and two llama.cpp threads on four visible logical CPUs. The first host reported AMD EPYC 9V74 / ggml-cpu-zen4; the second AMD EPYC 7763 / ggml-cpu-haswell. No GPU backend or GPU model buffer was loaded.
+
+For the 1,800-second run, the final request prompt was 7,734 tokens in an 8,192-token context, with 764 cached prefix tokens. The global run budget had only about 240 seconds remaining when that request began. Ollama logged prefill at 20.09, 19.05, 18.05, and 17.04 tokens/second across successive 1,024-token checkpoints, reaching 4,860 total prompt tokens before cancellation. The preceding request's 2.38 tokens/second was decode throughput (863 generated tokens / 362.45 seconds), not prefill. The run-level 1,800 seconds must not be divided into the final prompt token count to estimate prefill throughput.
+
+**Decision:** classify CPU-only inference and the global wall ceiling as an explicit threat to validity. The 1,800-second artifact demonstrates an accepted proposal followed by incomplete prompt prefill; it does not show that the model ignored or refused the validate instruction. The 3,000-second artifact remains a separate repeated-empty-tool-arguments failure. No model capability conclusion is drawn from either run.
+
+The diagnostic label for the first artifact is prefill_not_completed_at_wall_deadline, derived only by correlating the raw run with Ollama daemon telemetry. Do not infer this phase label from provider_transport_failure alone; the runner does not currently receive structured prompt-prefill progress. The historical run.json and provider response files remain immutable.
+
+**Implementation decision:** compact repeated assistant/tool history after each tool batch into a verified Gateway-state ledger containing the exact service inspection, exact inspected operation declarations, tool sequence, and compact recent outcomes/diagnostics. Preserve raw provider responses and append-only tool traces. This reduces prompt replay without relaxing IR, preservation, validation, planning, or no-apply gates.
+
+**Decision threshold:** after the redesigned prompt is validated, if three consecutive full-task runs each produce a Gateway-accepted proposal, complete prefill, but still fail to invoke model-driven service.validate, trigger an architecture review. A runner-invoked validation control may then be evaluated as a separately labelled orchestration arm; it must not count as autonomous model behavior. Earlier runs with incomplete prefill or no accepted proposal do not satisfy this trigger's preconditions.
+
+**Open measurement:** a fixed approximately 1,000-token isolated prefill benchmark has not yet been run. The daemon checkpoints are preliminary host-specific observations, not a standalone benchmark. No further full-task Qwen3 budget increase is authorized before prompt-compaction CI, a short schema probe, and the bounded infrastructure baseline.
+
+## D-023 — A schema probe must reproduce the full upfront session surface
+
+**Evidence:** workflow [44193765741](https://github.com/mojtaba-arvin/agent-native/actions/runs/44193765741), artifact [14378248130](https://github.com/mojtaba-arvin/agent-native/actions/runs/44193765741/artifacts/14378248130). The short probe supplied only the generic agent.invoke envelope schema and omitted the Gateway session surface containing per-tool input schemas. It observed an empty nested arguments object, but the model was not given the same schema context as the production upfront arm.
+
+**Decision:** invalidate the schema-adherence interpretation of that probe. The diagnostic must include the exact live Gateway session surface as a model message, matching local_agent.py. A regression test enforces this. Do not use the previous empty-arguments response as evidence of model incapability or of context-window failure.
+
+## D-024 — Cache measurements must keep the model loaded and report provider cache telemetry
+
+**Evidence:** workflow 44193765741 used keep_alive=0 for every repeated prefill request. Ollama unloads the model immediately with this setting, so the run measured cold requests and cannot establish warm KV-cache reuse. The historical lifecycle artifact's 764 cached prefix tokens remain a trace observation, not a causal diagnosis.
+
+**Decision:** use keep_alive=10m, nested prompts with exact shared prefixes, exact warm repeats, and prompt_eval_cached_count. Missing cache telemetry remains unknown, not zero. Distinguish stable-prefix reuse from changed conversation suffixes.
+
+## D-025 — Thread-count comparisons are bounded by process-visible CPU allocation
+
+**Evidence:** workflow 44193765741 reported an AMD EPYC 7763 64-Core host model but lscpu exposed only four logical CPUs (0–3); Ollama selected two model threads. Host product-core count is not the job's CPU allocation.
+
+**Decision:** compare requested 2 and 4 threads as the primary settings and include 16 only as an explicitly labelled oversubscription stress arm. Record process affinity and cgroup CPU quota/cpuset with every measurement. Never describe a 16-thread request as using 16 cores on a four-CPU runner.
+
+## D-026 — Compacted prompt state is deterministic and persisted per model turn
+
+**Evidence:** experiments/e009/local_agent.py constructs the Gateway-state ledger only from trusted Gateway inspection results, the local tool-call sequence, and compacted tool outcomes. No LLM summarization step is used.
+
+**Decision:** persist the exact state snapshot supplied for every provider turn in prompt-states.jsonl, with a SHA-256 digest, prompt-message digest, and base-message digest. The provider-response record references the corresponding state and prompt hashes. The initial turn records the live session surface; subsequent turns record the deterministic Gateway-state ledger. This makes compaction reviewable without replacing the append-only raw tool trace. Regression tests cover deterministic state construction and per-turn persistence, including the diagnostic state after an invalid tool call; the integrated E-009 CI run [44195694000](https://github.com/mojtaba-arvin/agent-native/actions/runs/44195694000) passed 82 tests before the final provider-turn hash-correlation assertion was added; that final assertion is awaiting CI.
+
+
+## D-027 — Negative model findings require measurement-validity review
+
+**Evidence:** the E-007 investigation has identified three cases where an apparent negative result was attributable, at least in part, to the measurement or classification path: the `multiple_successful_proposals` classification, timeout-boundary `transport_failure`, and the initial short schema probe that omitted the live Gateway session surface. The initial cold-prefill/cache experiment also used `keep_alive=0`, so it could not establish warm-cache behavior.
+
+**Decision:** no negative result is attributed to model capability or behavior until the evaluator's input completeness, instrumentation, lifecycle boundary, timeout semantics, and classification logic have been checked against the raw trace. Invalid probes are retained as invalid measurement evidence and must not be reinterpreted as model failures. A failed measurement-validity check blocks the corresponding model-level conclusion; it does not imply that the model would have passed a valid test.
+
+**Follow-up controls:** compare short and eight-turn-history schema probes using the same live Gateway surface and tool contract; add a trace-to-Gateway-state conformance fixture; record Ollama's effective thread settings alongside requested `num_thread`; and keep model-load duration separate from prompt-evaluation duration. Treat 16 threads on a four-logical-CPU runner as an oversubscription stress arm. The pre-registered directional hypothesis is that 16 threads will be slower than 4 because of scheduling/context-switch overhead; a contrary result is reported as an unexpected observation, not explained away.

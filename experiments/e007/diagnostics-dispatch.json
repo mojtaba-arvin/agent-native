@@ -1,0 +1,4 @@
+{
+  "run": "ollama-phase-1-8-observation-matrix",
+  "reason": "measurement-controls-verified-phase1-1k-4k-words-threads-2-4-budget-20m"
+}

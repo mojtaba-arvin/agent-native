@@ -8,6 +8,7 @@ import sys
 import tempfile
 import threading
 import unittest
+from unittest.mock import patch
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from types import SimpleNamespace
@@ -15,6 +16,7 @@ from types import SimpleNamespace
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(Path(__file__).parent))
 
+import local_agent
 from kernel import load_service_ir
 from local_agent import (
     AgentRunError,
@@ -29,6 +31,8 @@ from local_agent import (
     _persist_candidate_response,
     _proposal_budget_response,
     _proposal_attempt_gate,
+    _compact_conversation,
+    _build_compaction_ledger,
 )
 
 
@@ -321,6 +325,26 @@ class LocalAgentRunnerTests(unittest.TestCase):
                 )
                 run_dir = Path(result["candidate_path"]).parent
                 self.assertTrue((run_dir / "tool-trace.jsonl").is_file())
+                prompt_states = [
+                    json.loads(line)
+                    for line in (run_dir / "prompt-states.jsonl").read_text(encoding="utf-8").splitlines()
+                ]
+                self.assertEqual(len(prompt_states), len(responses))
+                self.assertEqual(prompt_states[0]["kind"], "initial_session_surface")
+                self.assertEqual(prompt_states[1]["kind"], "gateway_state_ledger")
+                self.assertTrue(all(item["state_sha256"] == digest(item["state"]) for item in prompt_states))
+                provider_rows = [
+                    json.loads(line)
+                    for line in (run_dir / "provider-responses.jsonl").read_text(encoding="utf-8").splitlines()
+                ]
+                self.assertEqual(
+                    [item["prompt_state_sha256"] for item in provider_rows],
+                    [item["state_sha256"] for item in prompt_states],
+                )
+                self.assertTrue(all(len(item["payload_sha256"]) == 64 for item in provider_rows))
+                self.assertEqual([item["payload_metadata"]["turn"] for item in provider_rows],
+                                 list(range(1, len(provider_rows) + 1)))
+                self.assertTrue(all(item["payload_metadata"]["keep_alive"] == "10m" for item in provider_rows))
                 self.assertEqual(stat.S_IMODE((run_dir / "candidate.json").stat().st_mode), 0o600)
                 self.assertEqual(stat.S_IMODE(run_dir.stat().st_mode), 0o700)
                 self.assertEqual(Handler.index, len(responses))
@@ -336,7 +360,7 @@ class LocalAgentRunnerTests(unittest.TestCase):
                 "arguments": {
                     "request_id": "same-invalid-request",
                     "tool": "service.inspect",
-                    "arguments": {"name": "Catalog"},
+                    "arguments": {},
                 },
             },
         }
@@ -404,19 +428,104 @@ class LocalAgentRunnerTests(unittest.TestCase):
                     seed=7,
                     think=False,
                 )
-                result = run(args)
+                with patch.object(local_agent, "gateway_exchange", side_effect=AssertionError("invalid call reached Gateway")) as gateway_call:
+                    result = run(args)
+                self.assertEqual(gateway_call.call_count, 0)
                 self.assertEqual(result["status"], "failed")
-                self.assertEqual(result["failure"], "AgentRunError:repeated_invalid_tool_call")
+                self.assertEqual(result["failure"], "AgentRunError:prevalidation_repair_failed")
                 self.assertEqual(result["tool_calls"], 2)
                 run_dirs = list((Path(temp) / "results").iterdir())
                 self.assertEqual(len(run_dirs), 1)
                 trace = run_dirs[0] / "tool-trace.jsonl"
-                self.assertEqual(len(trace.read_text(encoding="utf-8").splitlines()), 2)
+                events = [
+                    json.loads(line)
+                    for line in trace.read_text(encoding="utf-8").splitlines()
+                ]
+                prompt_states = [
+                    json.loads(line)
+                    for line in (run_dirs[0] / "prompt-states.jsonl").read_text(encoding="utf-8").splitlines()
+                ]
+                self.assertEqual(len(prompt_states), 2)
+                self.assertEqual(prompt_states[1]["state"]["tool_sequence"], ["service.inspect"])
+                self.assertEqual(
+                    prompt_states[1]["state"]["recent_tool_outcomes"][-1]["diagnostics"][0]["code"],
+                    "ARGUMENTS_REQUIRED",
+                )
+                self.assertEqual(len(events), 2)
+                self.assertEqual(
+                    [event["response"]["diagnostics"][0]["code"] for event in events],
+                    ["ARGUMENTS_REQUIRED", "ARGUMENTS_REQUIRED"],
+                )
+                self.assertTrue(all(event["execution_origin"] == "runner_prevalidation" for event in events))
+                self.assertIn('service_id: "catalog"', events[0]["response"]["diagnostics"][0]["message"])
                 self.assertEqual(Handler.index, 2)
         finally:
             server.shutdown()
             server.server_close()
             thread.join(timeout=5)
+
+    def test_compacted_conversation_preserves_exact_gateway_state_and_latest_diagnostics(self):
+        base = [
+            {"role": "system", "content": "system"},
+            {"role": "user", "content": "task"},
+            {"role": "user", "content": "tool schemas"},
+        ]
+        operation = copy.deepcopy(self.inspected_operations["get_item_by_name"])
+        ordered_operations = {
+            "get_job": copy.deepcopy(self.inspected_operations["get_job"]),
+            "get_item_by_name": operation,
+        }
+        diagnostics = [{
+            "code": "IR_PRESERVATION_MISMATCH",
+            "message": "changed existing operation",
+            "fix_hint": "Copy the exact inspected declaration",
+        }]
+        compacted = _compact_conversation(
+            base,
+            self.inspected,
+            ordered_operations,
+            ["service.inspect", "service.propose"],
+            [
+                {"tool": "service.inspect", "ok": True},
+                {
+                    "tool": "service.propose",
+                    "ok": False,
+                    "diagnostics": diagnostics,
+                    "next_actions": ["Correct the complete IR"],
+                },
+            ],
+        )
+        self.assertEqual(compacted[:3], base)
+        self.assertEqual(len(compacted), 4)
+        self.assertEqual([item["role"] for item in compacted], ["system", "user", "user", "user"])
+        ledger = json.loads(compacted[3]["content"].split("\n", 1)[1])
+        self.assertEqual(ledger["service_inspection"], self.inspected)
+        self.assertEqual(
+            ledger["operation_inspections"]["get_item_by_name"],
+            operation,
+        )
+        self.assertEqual(list(ledger["operation_inspections"]), ["get_job", "get_item_by_name"])
+        self.assertEqual(ledger["tool_sequence"], ["service.inspect", "service.propose"])
+        self.assertEqual(ledger["recent_tool_outcomes"][-1]["diagnostics"], diagnostics)
+        self.assertEqual(ledger["recent_tool_outcomes"][-1]["next_actions"], ["Correct the complete IR"])
+        self.assertNotIn("assistant", [item["role"] for item in compacted])
+        self.assertNotIn("tool_calls", compacted[3]["content"])
+
+    def test_compaction_ledger_is_deterministic_and_traceable(self):
+        tool_sequence = ["service.inspect", "service.propose"]
+        outcomes = [{"tool": "service.inspect", "ok": True}]
+        first = _build_compaction_ledger(
+            self.inspected, self.inspected_operations, tool_sequence, outcomes
+        )
+        second = _build_compaction_ledger(
+            self.inspected, self.inspected_operations, tool_sequence, outcomes
+        )
+        self.assertEqual(first, second)
+        self.assertEqual(digest(first), digest(second))
+        self.assertEqual(first["service_inspection"], self.inspected)
+        self.assertEqual(first["operation_inspections"], self.inspected_operations)
+        self.assertEqual(first["tool_sequence"], tool_sequence)
+        self.assertEqual(first["recent_tool_outcomes"], outcomes)
 
     def test_ollama_endpoint_is_strictly_loopback_ip(self):
         self.assertEqual(validate_ollama_endpoint("http://127.0.0.1:11434"), ("127.0.0.1", 11434))

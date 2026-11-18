@@ -1,0 +1,98 @@
+name: E-007 Ollama infrastructure diagnostics
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - "research/**"
+    paths:
+      - "experiments/e007/diagnostics-dispatch.json"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e007-ollama-infrastructure-diagnostics
+  cancel-in-progress: false
+
+jobs:
+  ollama-diagnostics:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.sha }}
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.11.18"
+
+      - name: Test diagnostic measurement semantics
+        run: python -m unittest discover -s experiments/e007 -p 'test_ollama_diagnostics.py' -v
+
+      - name: Record host and install Ollama
+        shell: bash
+        run: |
+          set -euo pipefail
+          uname -a | tee /tmp/host.txt
+          lscpu | tee /tmp/lscpu.txt
+          printf 'OLLAMA_NUM_THREADS=%s\n' "${OLLAMA_NUM_THREADS-<unset>}" | tee /tmp/ollama-env.txt
+          env | sort | grep '^OLLAMA_' | tee -a /tmp/ollama-env.txt || true
+          if command -v nvidia-smi >/dev/null 2>&1; then
+            nvidia-smi -q > /tmp/nvidia-smi.txt
+          else
+            echo "nvidia-smi unavailable" > /tmp/nvidia-smi.txt
+          fi
+          curl --fail --silent --show-error --location https://ollama.com/install.sh | sh
+          ollama --version | tee /tmp/ollama-version.txt
+
+      - name: Start CPU-hosted Ollama with compatible template renderer
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo systemctl stop ollama.service 2>/dev/null || true
+          OLLAMA_GO_TEMPLATE=false OLLAMA_HOST=127.0.0.1:11434 ollama serve > /tmp/ollama-serve.log 2>&1 &
+          for attempt in $(seq 1 60); do
+            if ollama list >/dev/null 2>&1; then
+              break
+            fi
+            sleep 2
+          done
+          ollama pull qwen3:8b
+          ollama list | tee /tmp/ollama-models.txt
+          ollama show qwen3:8b --modelfile > /tmp/qwen3-modelfile.txt
+
+      - name: Run bounded prefill and short-schema probes
+        run: |
+          python experiments/e007/ollama_diagnostics.py \
+            --model qwen3:8b \
+            --thread-counts 2,4 \
+            --word-sizes 1000,4000 \
+            --budget-seconds 1200 \
+            --probe-timeout-seconds 120 \
+            --request-timeout-seconds 600 \
+            --output /tmp/e007-ollama-diagnostics/diagnostics.json \
+            --checkpoint /tmp/e007-ollama-diagnostics/prefill-checkpoint.json
+
+      - name: Record loaded model placement
+        if: always()
+        run: ollama ps > /tmp/ollama-ps.txt || true
+
+      - name: Upload infrastructure evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: e007-ollama-cpu-prefill-and-schema-diagnostics
+          path: |
+            /tmp/e007-ollama-diagnostics/
+            /tmp/host.txt
+            /tmp/lscpu.txt
+            /tmp/nvidia-smi.txt
+            /tmp/ollama-version.txt
+            /tmp/ollama-env.txt
+            /tmp/ollama-models.txt
+            /tmp/qwen3-modelfile.txt
+            /tmp/ollama-serve.log
+          if-no-files-found: warn
+          retention-days: 14

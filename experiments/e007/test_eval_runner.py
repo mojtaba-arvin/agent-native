@@ -8,7 +8,7 @@ from argparse import Namespace
 from pathlib import Path
 from unittest.mock import patch
 
-from eval_runner import (score_run, _wilson, _eligible, _failure_categories, _budget_can_start_next, _estimate_cost_usd, run_eval)
+from eval_runner import (score_run, _wilson, _eligible, _failure_class, _failure_categories, _budget_can_start_next, _estimate_cost_usd, run_eval)
 
 
 class EvalRunnerTests(unittest.TestCase):
@@ -212,6 +212,43 @@ class EvalRunnerTests(unittest.TestCase):
             self.assertFalse(result["scores"]["proposal_lifecycle"]["passed"])
             self.assertTrue(result["scores"]["candidate_contract"]["passed"])
 
+    def test_provider_symptom_at_wall_deadline_is_timeout_not_transport_failure(self):
+        record = {
+            "failure": "AgentRunError:provider_transport_failure",
+            "duration_ms": 1800116.206,
+        }
+        categories = _failure_categories(record, max_wall_seconds=1800.0)
+        self.assertIn("timeout", categories)
+        self.assertIn("resource_budget_exceeded", categories)
+        self.assertNotIn("transport_error", categories)
+        self.assertNotIn("agent_or_runner_failure", categories)
+        self.assertEqual(_failure_class(record), "provider_transport_failure")
+        self.assertEqual(
+            _failure_class(record, max_wall_seconds=1800.0),
+            "wall_clock_budget_exhausted",
+        )
+
+    def test_provider_transport_failure_before_wall_deadline_remains_transport_error(self):
+        record = {
+            "failure": "AgentRunError:provider_transport_failure",
+            "duration_ms": 12000.0,
+        }
+        categories = _failure_categories(record, max_wall_seconds=1800.0)
+        self.assertIn("transport_error", categories)
+        self.assertNotIn("timeout", categories)
+        self.assertNotIn("resource_budget_exceeded", categories)
+
+    def test_repeated_invalid_tool_call_below_wall_ceiling_is_agent_failure(self):
+        record = {
+            "failure": "AgentRunError:repeated_invalid_tool_call",
+            "duration_ms": 267784.561,
+        }
+        categories = _failure_categories(record, max_wall_seconds=3000.0)
+        self.assertIn("repeated_tool_or_repair", categories)
+        self.assertNotIn("timeout", categories)
+        self.assertNotIn("resource_budget_exceeded", categories)
+        self.assertTrue(_eligible(record))
+
     def test_failure_taxonomy_preserves_schema_and_repeated_proposal_evidence(self):
         with tempfile.TemporaryDirectory() as temporary:
             root=Path(temporary)
@@ -366,7 +403,7 @@ class EvalRunnerTests(unittest.TestCase):
                 root,
                 max_wall_seconds=900.0,
             )
-            self.assertIn("provider_http_error", categories)
+            self.assertNotIn("provider_http_error", categories)
             self.assertIn("timeout", categories)
             self.assertIn("resource_budget_exceeded", categories)
             self.assertNotIn("transport_error", categories)
@@ -383,10 +420,10 @@ class EvalRunnerTests(unittest.TestCase):
                 root,
                 max_wall_seconds=1800.0,
             )
-            self.assertIn("transport_error", categories)
+            self.assertNotIn("transport_error", categories)
             self.assertIn("timeout", categories)
             self.assertIn("resource_budget_exceeded", categories)
-            self.assertIn("wall_budget_terminal_transport", categories)
+            self.assertNotIn("wall_budget_terminal_transport", categories)
             self.assertNotIn("resource_exhaustion", categories)
 
     def test_provider_transport_below_wall_ceiling_is_not_timeout(self):
