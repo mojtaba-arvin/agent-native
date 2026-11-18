@@ -10,7 +10,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 
 from identity import IdentityProvider
-from kernel import RuntimeResponse, ServiceRuntime
+from kernel import RuntimeRegistry, RuntimeResponse, ServiceRuntime
 
 
 MAX_REQUEST_BODY_BYTES = 1_048_576
@@ -87,7 +87,7 @@ class BoundedThreadingHTTPServer(ThreadingHTTPServer):
 
 
 def create_server(
-    runtime: ServiceRuntime,
+    runtime: ServiceRuntime | RuntimeRegistry,
     identity_provider: IdentityProvider,
     *,
     host: str = "127.0.0.1",
@@ -112,6 +112,9 @@ def create_server(
             self.send_header("Content-Length", str(len(encoded)))
             self.send_header("Connection", "close")
             self.send_header("X-Request-ID", request_id)
+            revision = getattr(self, "_runtime_revision", None)
+            if revision is not None:
+                self.send_header("X-Runtime-Revision", str(revision))
             for key, value in (headers or {}).items():
                 self.send_header(key, value)
             self.end_headers()
@@ -131,6 +134,9 @@ def create_server(
             return result
 
         def _dispatch(self, method: str) -> None:
+            snapshot = runtime.snapshot() if isinstance(runtime, RuntimeRegistry) else None
+            active_runtime = snapshot.runtime if snapshot is not None else runtime
+            self._runtime_revision = snapshot.revision if snapshot is not None else None
             request_id = str(uuid.uuid4())
             headers = self._request_headers()
             if headers is None:
@@ -139,12 +145,12 @@ def create_server(
 
             identity = identity_provider.authenticate(headers.get("authorization"))
             if identity is None:
-                if runtime.audit_sink is not None:
+                if active_runtime.audit_sink is not None:
                     try:
-                        timestamp = runtime.clock()
+                        timestamp = active_runtime.clock()
                         if type(timestamp) is not int or timestamp < 0:
                             raise ValueError("invalid_audit_clock")
-                        runtime.audit_sink({
+                        active_runtime.audit_sink({
                             "principal_id": None,
                             "tenant_id": None,
                             "operation": f"unauthenticated.{method.lower()}",
@@ -199,7 +205,7 @@ def create_server(
                     self._send(400, {"error": {"code": "BODY_NOT_ALLOWED"}}, request_id=request_id)
                     return
 
-            response: RuntimeResponse = runtime.dispatch(
+            response: RuntimeResponse = active_runtime.dispatch(
                 method,
                 self.path,
                 body,
