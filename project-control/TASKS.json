@@ -222,11 +222,13 @@
         "project-control/CI_PORT_AUDIT.md"
       ],
       "acceptance": [
-        "All legacy workflow responsibilities are mapped",
+        "All 15 legacy workflow responsibilities are mapped",
         "Unified L0/L1/L2 triggers and permissions are reviewed",
-        "Expensive E-002 matrix is manual-only",
-        "Model acceptance is not based on CPU-only Qwen3 runs",
-        "Legacy workflow deletion is covered by the same PR's verified unified workflow"
+        "Layer 0 and Layer 1 pass in one workflow run after the workflow is present in the base branch",
+        "E-002 benchmark and E-009 ten-run confirmation are manual-only",
+        "CPU-only model runs are explicitly non-acceptance diagnostics",
+        "No workflow concurrency policy cancels in-flight evidence",
+        "Legacy workflow deletion is covered by the verified unified workflow"
       ],
       "expected_outputs": [
         "Unified CI workflow",
