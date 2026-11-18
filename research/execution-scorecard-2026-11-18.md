@@ -44,14 +44,14 @@ The two storage engines now have executable single-node conformance and cross-en
 
 | Metric | Current evidence | Acceptance gate |
 |---|---|---|
-| Kernel tests | On `research/ci-policy-staging`, [workflow 44355460886](https://github.com/mojtaba-arvin/agent-native/actions/runs/44355460886): 129 E-009 tests passed, including three new capacity-gate tests | Keep regression suite green |
+| Kernel tests | On `research/reboot-core`, [workflow 44359302167](https://github.com/mojtaba-arvin/agent-native/actions/runs/44359302167): 131 E-009 tests passed, including the provisional 0.5 ms default assertion and capacity-gate tests | Keep regression suite green |
 | E-010 tests | Same run: 3 E-010 tests passed | Keep demo limitations explicit; no arbitrary callback isolation claim |
 | Client identity injection | Six HTTP regression cases cover spoofed body claims, untrusted headers, unauthenticated requests and tenant isolation. `MemoryIdentityProvider` is explicitly a test/demo fixture, not production authentication | A production host-supplied identity provider must authenticate the bearer token and construct `RequestContext`; client principal, tenant and grants never become authority |
 | Runtime publication | `RuntimeRegistry` atomically publishes monotonic frozen `RuntimeSnapshot` records; each request captures one snapshot. HTTP tests cover publication during an in-flight request and single-revision request handling | No request observes a mixed runtime revision; reject non-monotonic revisions |
 | E-009 catalog vertical-slice performance (not E-002 mix) | cgroup runs [44357166863](https://github.com/mojtaba-arvin/agent-native/actions/runs/44357166863), [44358347560](https://github.com/mojtaba-arvin/agent-native/actions/runs/44358347560), [44359451102](https://github.com/mojtaba-arvin/agent-native/actions/runs/44359451102): 0.5 ms profile p99 27.465/4.571/144.727 ms; third run failed during high I/O pressure. The request mix is 60% item read, 20% job read, 10% job admission, 10% unauthenticated denial | 0.5 ms remains provisional; **no repeatable p99 SLO**. This is not E-002 acceptance because its 20% validate/plan class is not implemented |
 | Controlled capacity / soak | Single shared GitHub host and one E-009 SQLite process; no cross-runtime or 30-minute soak | Paired randomized storage/runtime cohorts, then 30-minute soak and crash/recovery |
 
-The 2 ms profile failed the p99 gate (252.021 ms, 9/10 reps >100 ms); a subsequent 0.5 ms cgroup profile passed (27.465 ms aggregate p99, all 10 reps ≤69.714 ms). The 0.5 ms profile is not selected yet: repeat it once more under the same cgroup settings. Telemetry shows no CPU quota throttling in that passing cohort, with measurable I/O pressure. The full comparison is in [E-009 performance evidence](../experiments/e009/performance-evidence-2026-11-18.md).
+The 0.5 ms profile remains provisional: two cgroup cohorts passed, but the third default-profile cohort failed p99 at 144.727 ms during 4.08 s full I/O pressure, with zero CPU throttling. The E-009 workload is also not the E-002 control-plane mix because it uses 20% job reads instead of validate/plan. No repeatable SLO or E-002 product-workload acceptance is claimed. See [E-009 performance evidence](../experiments/e009/performance-evidence-2026-11-18.md).
 
 ## E-011 — inter-service semantics
 
