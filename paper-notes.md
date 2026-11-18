@@ -36,3 +36,8 @@ The previous 3,000-second/context-16,384 Qwen3 run emitted two identical `servic
 - The 1k→4k nested-prefix experiment reused 1,007 tokens. Exact warm repeats reused almost the full prompt. This confirms prefix caching for these controlled prompts, but it does not identify the cause of the earlier post-proposal cache reduction in a real 14-turn history.
 
 **Not established:** no complete `inspect → propose → validate → plan` lifecycle; no human-free lifecycle acceptance; no second repeat; no evidence that compaction is unnecessary.
+
+
+### 2026-11-18 — Commit B isolated integration passed
+
+The prevalidation change was ported as a single focused commit to `research/reboot-core` via [PR #18](https://github.com/mojtaba-arvin/agent-native/pull/18), then merged after the integrated-kernel check passed. Merge commit: `f41478fb0a7d414f90e2740173347a38a93fe415`. The PR changed only `experiments/e009/local_agent.py` and `experiments/e009/test_local_agent.py`; the CI suite passed 39 E-001 tests, 21 E-004 tests, and 80 integrated E-009 tests. The repeated-invalid-arguments provider-double test passed with the Gateway exchange patched to fail if invoked. This confirms the isolated integration and test wiring, not real Qwen3 repair behavior.
