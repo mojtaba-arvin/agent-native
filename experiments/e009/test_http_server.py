@@ -155,13 +155,13 @@ class KernelHTTPServerTests(unittest.TestCase):
         previous_base = self.base_url
         self.base_url = f"http://127.0.0.1:{server.server_port}"
         try:
-            first_status, first_headers, _first_body = self.request("GET", "/items")
-            self.assertEqual(first_status, 200)
+            first_status, first_headers, _first_body = self.request("GET", "/items/by-name/not-found")
+            self.assertEqual(first_status, 404)
             self.assertEqual(first_headers.get("X-Runtime-Revision"), "7")
 
             registry.publish(self.runtime, revision=8)
-            second_status, second_headers, _second_body = self.request("GET", "/items")
-            self.assertEqual(second_status, 200)
+            second_status, second_headers, _second_body = self.request("GET", "/items/by-name/not-found")
+            self.assertEqual(second_status, 404)
             self.assertEqual(second_headers.get("X-Runtime-Revision"), "8")
         finally:
             self.base_url = previous_base
