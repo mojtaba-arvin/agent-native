@@ -34,7 +34,7 @@ A separate one-cell A diagnostic has been staged with the same model settings an
 | Candidate build/conformance | [Workflow 44345013099](https://github.com/mojtaba-arvin/agent-native/actions/runs/44345013099): Go, Rust, WASI P2 and BEAM all passed | All candidate arms pass the same semantic suite at pinned revisions |
 | SQLite reference storage | 24-test reference suite passed in the E-002 storage workflow | Mandatory atomicity, idempotency, audit, recovery and crash-injection cases pass |
 | PostgreSQL reference storage | PostgreSQL 16.4 / psycopg 3.2.9; 9 conformance tests passed | Same mandatory contract; no production selection from CI alone |
-| Cross-engine semantic parity | Same workflow passed 3 parity tests: five seeds × 60 generated operations = 300 operations per engine; identical normalized traces/digests; four pre-commit fault boundaries; crash-after-commit reconciliation | Keep the same generated trace and fault suite green on both engines |
+| Cross-engine semantic parity | Same workflow passed 3 parity tests in [run 44356165574](https://github.com/mojtaba-arvin/agent-native/actions/runs/44356165574): 25 seeds × 60 generated operations = 1,500 operations per engine; identical normalized traces/digests; four pre-commit fault boundaries; expired-lease reclaim and stale-ack fencing; crash-after-commit reconciliation | Keep the same generated trace and fault suite green on both engines |
 | Product workload / capacity | No cross-runtime product workload yet | 100 completed req/s, concurrency 32, p99 ≤100 ms, CPU ≤50%, measured under equivalent cgroup v2 limits |
 | Decision-grade runtime repetitions | Benchmark matrix remains skipped | 10 randomized repetitions × 5,000 requests per candidate after runtime adapter conformance |
 
