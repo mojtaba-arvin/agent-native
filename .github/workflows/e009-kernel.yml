@@ -36,7 +36,7 @@ jobs:
       - name: Validate integrated E-009 kernel
         run: python -m unittest discover -s experiments/e009 -v
       - name: Run E-009 durable HTTP performance smoke
-        run: python experiments/e009/performance_smoke.py --requests 1000 --concurrency 32 --output "$RUNNER_TEMP/e009-performance.json"
+        run: python experiments/e009/performance_smoke.py --requests 1000 --repetitions 5 --concurrency 32 --output "$RUNNER_TEMP/e009-performance.json"
       - name: Preserve E-009 performance measurements
         if: always()
         uses: actions/upload-artifact@v4
