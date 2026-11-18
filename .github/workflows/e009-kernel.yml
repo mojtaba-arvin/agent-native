@@ -2,7 +2,7 @@ name: E-009 integrated framework-kernel checks
 
 on:
   pull_request:
-    types: [opened, reopened, ready_for_review]
+    types: [opened, reopened, ready_for_review, synchronize]
     paths:
       - "experiments/e009/**"
       - "experiments/e010/**"
