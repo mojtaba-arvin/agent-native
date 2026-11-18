@@ -57,29 +57,53 @@ printf 'pinned_revision=%s\n' "$ACTUAL_REV" > "$OUTPUT_ROOT/pilot-provenance.txt
 printf 'case_path\teval_id\tproposal_mode\tbase_disclosure\texit_code\n' > "$OUTPUT_ROOT/cell-results.tsv"
 
 failures=0
-for row in "${CASE_ROWS[@]}"; do
-  IFS=$'\t' read -r CASE_PATH EVAL_ID PROPOSAL_MODE BASE_DISCLOSURE ARM REPETITIONS TEMPERATURE TOP_P SEED NUM_CTX NUM_PREDICT MAX_INPUT MAX_OUTPUT MAX_TOOLS MAX_WALL <<< "$row"
+cohort_abort=""
+for ((index=0; index<${#CASE_ROWS[@]}; index++)); do
+  row="${CASE_ROWS[$index]}"
+  IFS=$'\\t' read -r CASE_PATH EVAL_ID PROPOSAL_MODE BASE_DISCLOSURE ARM REPETITIONS TEMPERATURE TOP_P SEED NUM_CTX NUM_PREDICT MAX_INPUT MAX_OUTPUT MAX_TOOLS MAX_WALL <<< "$row"
   echo "Running $EVAL_ID ($PROPOSAL_MODE / $BASE_DISCLOSURE)"
   set +e
-  python "$WORKTREE/experiments/e007/eval_runner.py" \
-    --case "$WORKTREE/$CASE_PATH" \
-    --model qwen3:8b \
-    --arm "$ARM" \
-    --repetitions "$REPETITIONS" \
-    --max-input-tokens "$MAX_INPUT" \
-    --max-output-tokens "$MAX_OUTPUT" \
-    --max-tool-calls "$MAX_TOOLS" \
-    --max-wall-seconds "$MAX_WALL" \
-    --num-ctx "$NUM_CTX" \
-    --num-predict "$NUM_PREDICT" \
-    --temperature "$TEMPERATURE" \
-    --top-p "$TOP_P" \
-    --seed "$SEED" \
+  python "$WORKTREE/experiments/e007/eval_runner.py" \\
+    --case "$WORKTREE/$CASE_PATH" \\
+    --model qwen3:8b \\
+    --arm "$ARM" \\
+    --repetitions "$REPETITIONS" \\
+    --max-input-tokens "$MAX_INPUT" \\
+    --max-output-tokens "$MAX_OUTPUT" \\
+    --max-tool-calls "$MAX_TOOLS" \\
+    --max-wall-seconds "$MAX_WALL" \\
+    --num-ctx "$NUM_CTX" \\
+    --num-predict "$NUM_PREDICT" \\
+    --temperature "$TEMPERATURE" \\
+    --top-p "$TOP_P" \\
+    --seed "$SEED" \\
     --output-dir "$OUTPUT_ROOT/$EVAL_ID"
   EXIT_CODE=$?
   set -e
-  printf '%s\t%s\t%s\t%s\t%s\n' "$CASE_PATH" "$EVAL_ID" "$PROPOSAL_MODE" "$BASE_DISCLOSURE" "$EXIT_CODE" >> "$OUTPUT_ROOT/cell-results.tsv"
+  printf '%s\\t%s\\t%s\\t%s\\t%s\\n' "$CASE_PATH" "$EVAL_ID" "$PROPOSAL_MODE" "$BASE_DISCLOSURE" "$EXIT_CODE" >> "$OUTPUT_ROOT/cell-results.tsv"
   if [[ "$EXIT_CODE" -ne 0 ]]; then failures=$((failures + 1)); fi
+
+  # Keep the matched cohort complete after an agent/task failure. Abort only
+  # when shared infrastructure is broken or the result artifact is unusable.
+  RESULT_FILE="$(find "$OUTPUT_ROOT/$EVAL_ID" -type f -name result.json -print | sort | tail -n 1)"
+  if [[ -z "$RESULT_FILE" ]]; then
+    cohort_abort="result_artifact_missing"
+  else
+    set +e
+    GUARD_OUTPUT="$(python "$WORKTREE/experiments/e007/pilot_guard.py" "$RESULT_FILE" 2>&1)"
+    GUARD_EXIT=$?
+    set -e
+    if [[ "$GUARD_EXIT" -ne 0 ]]; then cohort_abort="$GUARD_OUTPUT"; fi
+  fi
+  if [[ -n "$cohort_abort" ]]; then
+    printf 'abort_reason=%s\\nabort_after_cell=%s\\n' "$cohort_abort" "$EVAL_ID" > "$OUTPUT_ROOT/cohort-abort.txt"
+    echo "Stopping matched cohort before further model calls: $cohort_abort" >&2
+    for ((remaining=index+1; remaining<${#CASE_ROWS[@]}; remaining++)); do
+      IFS=$'\\t' read -r SKIP_PATH SKIP_ID SKIP_MODE SKIP_DISCLOSURE _ <<< "${CASE_ROWS[$remaining]}"
+      printf '%s\\t%s\\t%s\\t%s\\tnot_started_infrastructure_abort\\n' "$SKIP_PATH" "$SKIP_ID" "$SKIP_MODE" "$SKIP_DISCLOSURE" >> "$OUTPUT_ROOT/cell-results.tsv"
+    done
+    exit 2
+  fi
 done
 
 if [[ "$failures" -ne 0 ]]; then
