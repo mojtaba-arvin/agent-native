@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import random
 import unittest
 
 from semantics import (
@@ -9,6 +10,46 @@ from semantics import (
 
 
 class CallLifecycleTests(unittest.TestCase):
+    def test_seeded_transition_fuzz_preserves_the_state_machine(self):
+        allowed = {
+            CallState.CREATED: {
+                CallState.REJECTED_BEFORE_DISPATCH, CallState.ACCEPTED,
+                CallState.FAILED_BEFORE_EFFECT, CallState.OUTCOME_UNKNOWN,
+            },
+            CallState.ACCEPTED: {
+                CallState.COMPLETED, CallState.FAILED_BEFORE_EFFECT,
+                CallState.CANCEL_REQUESTED, CallState.OUTCOME_UNKNOWN,
+            },
+            CallState.CANCEL_REQUESTED: {
+                CallState.CANCELLED_AND_STOPPED, CallState.COMPLETED,
+                CallState.OUTCOME_UNKNOWN,
+            },
+            CallState.OUTCOME_UNKNOWN: {
+                CallState.ACCEPTED, CallState.COMPLETED,
+                CallState.FAILED_BEFORE_EFFECT, CallState.CANCEL_REQUESTED,
+                CallState.CANCELLED_AND_STOPPED,
+            },
+            CallState.REJECTED_BEFORE_DISPATCH: set(),
+            CallState.COMPLETED: set(),
+            CallState.FAILED_BEFORE_EFFECT: set(),
+            CallState.CANCELLED_AND_STOPPED: set(),
+        }
+        rng = random.Random(20261118)
+        call = CallLifecycle()
+        for _ in range(10_000):
+            candidate = rng.choice(list(CallState))
+            before_state, before_history = call.state, call.history
+            if candidate in allowed[before_state]:
+                call.transition(candidate)
+                self.assertEqual(call.state, candidate)
+                self.assertEqual(call.history, (*before_history, candidate))
+            else:
+                with self.assertRaises(InvalidTransition):
+                    call.transition(candidate)
+                self.assertEqual(call.state, before_state)
+                self.assertEqual(call.history, before_history)
+            self.assertEqual(call.history[-1], call.state)
+
     def test_lost_response_after_commit_reconciles_same_key(self):
         call = CallLifecycle()
         call.transition(CallState.ACCEPTED)
@@ -91,6 +132,23 @@ class CapabilityTests(unittest.TestCase):
 
 
 class IdempotencyTests(unittest.TestCase):
+    def test_stored_and_returned_outcomes_are_defensively_copied(self):
+        ledger = IdempotencyLedger()
+        original = {"job": {"id": "j1", "labels": ["accepted"]}}
+        status, returned = ledger.record_or_replay(
+            tenant="t1", operation="create", key="k-copy",
+            payload={"name": "lamp"}, outcome=original,
+        )
+        self.assertEqual(status, "created")
+        original["job"]["labels"].append("caller-mutated")
+        returned["job"]["id"] = "caller-mutated"
+        replay_status, replayed = ledger.record_or_replay(
+            tenant="t1", operation="create", key="k-copy",
+            payload={"name": "lamp"}, outcome={"job": {"id": "j2"}},
+        )
+        self.assertEqual(replay_status, "replayed")
+        self.assertEqual(replayed, {"job": {"id": "j1", "labels": ["accepted"]}})
+
     def test_same_key_same_payload_replays_original_outcome(self):
         ledger = IdempotencyLedger()
         first = ledger.record_or_replay(
