@@ -80,3 +80,8 @@ The BEAM smoke's reported 2,453 requests/s is a 100-request short-run diagnostic
 | E-011 distributed semantics | [Transport-neutral semantic envelope v1](e011-semantic-envelope-v1.md) | Design specification | Semantics now separated from transport choice; implementation remains gated on E-007 acceptance and E-010 review |
 
 The four artifacts are independent outputs, not four completed product capabilities. E-010 source-level review is now documented; E-007 remains the blocking real-agent acceptance gate. No transport/runtime/storage selection is justified by this review.
+
+
+## E-011 — Executable semantic model
+
+[Executable semantics model](../experiments/e011/README.md) adds deterministic state transitions, retry classification, monotonic remaining-deadline arithmetic, audience/operation/resource/expiry attenuation, and tenant/operation/key-scoped idempotency replay/conflict. It is a pure in-memory model only; it does not prove persistence, concurrency/linearizability, transport behavior, credential cryptography, or two-process communication. Its dedicated GitHub Actions workflow is [e011-semantics.yml](../.github/workflows/e011-semantics.yml). First run exposed fixture/state-model defects; those were corrected in a follow-up commit and the corrected revision is awaiting CI.
