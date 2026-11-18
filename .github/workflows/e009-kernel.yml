@@ -23,6 +23,7 @@ on:
       - ".github/workflows/e009-kernel.yml"
       - "project-control/**"
       - "project_control.py"
+      - "scripts/**"
 
 permissions:
   contents: read
