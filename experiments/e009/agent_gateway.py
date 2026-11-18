@@ -157,6 +157,8 @@ class AgentNativeGateway:
             raise AgentGatewayError("unknown_disclosure_arm")
         if proposal_mode not in {"snapshot", "delta"}:
             raise AgentGatewayError("unknown_proposal_mode")
+        if proposal_mode == "delta" and apply_callback is not None:
+            raise AgentGatewayError("delta_mode_apply_disabled")
         source = service_source
         if source is None:
             source = (E009_ROOT / "catalog.an").read_text(encoding="utf-8")
