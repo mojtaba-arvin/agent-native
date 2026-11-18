@@ -39,6 +39,9 @@ def identity(*, grants=True):
 
 
 class SQLiteAuditSinkTests(unittest.TestCase):
+    def test_default_audit_collection_window_is_half_millisecond(self):
+        self.assertEqual(self.sink.max_batch_delay_seconds, 0.0005)
+
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
         self.database = Path(self.temporary.name) / "catalog.sqlite3"
