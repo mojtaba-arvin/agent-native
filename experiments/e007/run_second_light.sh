@@ -24,9 +24,10 @@ fi
 # Commit A's per-turn measurement contract is required for a comparable repeat.
 if ! grep -q 'payload_sha256' "$WORKTREE/experiments/e009/local_agent.py" ||
    ! grep -q 'prompt_states_path' "$WORKTREE/experiments/e009/local_agent.py" ||
-   ! grep -q 'payload_metadata' "$WORKTREE/experiments/e009/local_agent.py"; then
-  echo "Refusing Second Light: pinned revision $PINNED_REV does not contain Commit A's per-turn payload/hash metadata." >&2
-  echo "The pinned SHA must contain the complete per-turn instrumentation contract." >&2
+   ! grep -q 'payload_metadata' "$WORKTREE/experiments/e009/local_agent.py" ||
+   ! grep -q 'def _build_compaction_ledger' "$WORKTREE/experiments/e009/local_agent.py" ||
+   ! grep -q 'def prevalidate_catalog_operation' "$WORKTREE/experiments/e009/local_agent.py"; then
+  echo "Refusing Second Light: pinned revision $PINNED_REV is missing First Light prompt-state, compaction, payload, or operation-guard instrumentation." >&2
   exit 78
 fi
 

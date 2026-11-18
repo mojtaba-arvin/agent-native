@@ -45,21 +45,9 @@ jobs:
           ollama show qwen3:8b --modelfile > /tmp/qwen3-modelfile.txt
           ollama list > /tmp/ollama-models.txt
       - name: Run one deterministic expanded-budget real-agent eval
-        run: |
-          python experiments/e007/eval_runner.py \
-            --case experiments/e007/evals/e009-readonly-proposal-postfix-expanded-budget.eval.json \
-            --model qwen3:8b \
-            --arm upfront \
-            --repetitions 1 \
-            --max-input-tokens 120000 \
-            --max-output-tokens 6000 \
-            --max-tool-calls 20 \
-            --max-wall-seconds 3000 \
-            --num-ctx 16384 \
-            --num-predict 2048 \
-            --temperature 0 \
-            --seed 42 \
-            --output-dir /tmp/agent-native-e007-evals
+        env:
+          SECOND_LIGHT_OUTPUT_DIR: /tmp/agent-native-e007-evals
+        run: bash experiments/e007/run_second_light.sh
       - name: Upload eval evidence
         if: always()
         uses: actions/upload-artifact@v4
