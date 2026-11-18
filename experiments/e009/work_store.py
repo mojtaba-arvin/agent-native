@@ -177,7 +177,7 @@ class DurableWorkStore:
             or audit_receipt is None
             or not callable(getattr(self.audit_sink, "write_in_transaction", None))
         ):
-            raise ValueError("atomic_audit_sink_and_receipt_required")
+            raise AuditCommitError("atomic_audit_sink_and_receipt_required")
         payload_json = _json(payload)
         request_digest = _digest({"task_type": task_type, "payload": payload})
 
