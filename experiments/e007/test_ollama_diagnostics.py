@@ -3,7 +3,10 @@ from __future__ import annotations
 import json
 import os
 import tempfile
+import threading
+import time
 import unittest
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from unittest.mock import patch
 
@@ -11,6 +14,46 @@ import ollama_diagnostics
 
 
 class OllamaDiagnosticsTests(unittest.TestCase):
+    def test_post_json_enforces_absolute_deadline_for_slow_drip_response(self):
+        class SlowDripHandler(BaseHTTPRequestHandler):
+            def do_POST(self):
+                length = int(self.headers["Content-Length"])
+                self.rfile.read(length)
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", "100")
+                self.end_headers()
+                try:
+                    self.wfile.write(b"{")
+                    self.wfile.flush()
+                    for _ in range(99):
+                        time.sleep(0.05)
+                        self.wfile.write(b" ")
+                        self.wfile.flush()
+                except OSError:
+                    return
+
+            def log_message(self, *_args):
+                return
+
+        server = HTTPServer(("127.0.0.1", 0), SlowDripHandler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        started = time.monotonic()
+        try:
+            with self.assertRaisesRegex(TimeoutError, "benchmark_request_deadline_exhausted"):
+                ollama_diagnostics.post_json(
+                    "http://127.0.0.1:{}/api/chat".format(server.server_port),
+                    {},
+                    timeout=5.0,
+                    deadline=time.monotonic() + 0.25,
+                )
+            self.assertLess(time.monotonic() - started, 1.0)
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=5)
+
     def test_prefill_curve_preserves_prefix_and_measures_warm_cache(self):
         responses = [
             {
