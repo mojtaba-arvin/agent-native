@@ -19,13 +19,13 @@
       "status": "open",
       "severity": "medium",
       "title": "Baseline branch head and complete CI workflow inventory need fresh verification",
-      "description": "The PR metadata confirms reboot-core base SHA 23f9c77d8ce9a8d55895c6c4903a4ff409ba5781. Nine workflow runs are associated with that revision and all completed successfully; the E-009 workflow definition is identified as .github/workflows/e009-kernel.yml. The other workflow file paths and their full trigger/path policies remain to be mapped before a safe CI consolidation.",
+      "description": "The PR metadata confirms reboot-core base SHA 23f9c77d8ce9a8d55895c6c4903a4ff409ba5781. Nine workflow runs are associated with that revision and all completed successfully. Eight workflow definition paths have been identified; the E-001 workflow filename remains unresolved, and full trigger/path policies still need review before consolidation.",
       "owner_action_required": false,
       "unblocks": [
         "CP-004",
         "Accurate CI integration"
       ],
-      "next_step": "Map the remaining eight workflow definitions and their path filters; compare them with the staging fast-CI proposal before selecting a minimal port."
+      "next_step": "Identify the E-001 workflow file, then inspect all nine workflow triggers, permissions, concurrency, and suite commands before porting the staging fast-CI design."
     }
   ]
 }
