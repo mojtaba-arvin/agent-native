@@ -280,7 +280,15 @@ def prevalidate_tool_call(request: dict, surface: dict) -> dict | None:
         return None
     if tool_name == "service.inspect" and "service_id" in missing:
         message = 'service.inspect requires arguments.service_id; provide service_id: "catalog".'
-        fix_hint = 'Set arguments to {"service_id":"catalog"}; omit operation for the service-level inspection.'
+        fix_hint = 'Set arguments to {"service_id":"catalog"}; omit operation for the initial service-level inspection.'
+    elif tool_name == "service.propose":
+        message = f"service.propose is missing required argument(s): {', '.join(missing)}."
+        fix_hint = (
+            "The arguments object must contain service_id, base_revision, and ir. "
+            "Use service_id='catalog', base_revision from the initial service.inspect result, "
+            "and ir as the complete canonical service snapshot. Do not flatten operation fields "
+            "into the top-level proposal arguments."
+        )
     else:
         message = f"{tool_name} is missing required argument(s): {', '.join(missing)}."
         fix_hint = f"Provide all required fields: {', '.join(missing)}."
@@ -298,6 +306,13 @@ def prevalidate_tool_call(request: dict, surface: dict) -> dict | None:
         "next_actions": ["Correct the missing required argument(s) and retry once."],
     }
 
+
+
+def prevalidation_repair_key(tool_name: str, diagnostic: dict) -> str:
+    """Scope one repair to a distinct deterministic contract diagnostic."""
+    code = diagnostic.get("code", "unknown")
+    signature = diagnostic.get("message") or diagnostic.get("fix_hint") or ""
+    return f"{tool_name}:{code}:{signature}"
 
 
 def prevalidate_catalog_operation(
@@ -915,7 +930,7 @@ def run(args: argparse.Namespace) -> dict:
                         if prevalidated is not None:
                             execution_origin = "runner_prevalidation"
                             diagnostic = (prevalidated.get("diagnostics") or [{}])[0]
-                            repair_key = f"{tool_name}:{diagnostic.get('code')}"
+                            repair_key = prevalidation_repair_key(tool_name, diagnostic)
                             if repair_key in prevalidation_repair_attempts:
                                 prevalidation_repair_exhausted = True
                             else:
