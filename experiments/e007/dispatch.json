@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
-  "eval_id": "e009-readonly-operation-postfix-extended-context-v2",
+  "eval_id": "e009-second-light-operation-guard-instrumented",
   "model_id": "qwen3:8b",
   "repetitions": 1,
   "arm": "upfront",
   "dispatched_at": "2026-11-18T02:10:00+04:00",
-  "purpose": "One bounded deterministic continuation after the prior 1,800-second run produced a Gateway-accepted exact-preserving proposal but timed out before validate/plan. Keep Qwen3, temperature=0, seed=42, task, Gateway preservation, scorers, validation gate and no-apply policy unchanged. Explicitly instruct the upfront action order and skip interface.describe; increase context to 16,384, input ceiling to 120,000 and wall ceiling to 3,000 seconds so the next model turn can complete. This is exploratory follow-up, not statistical evidence.",
+  "purpose": "Second Light: one bounded deterministic Qwen3 lifecycle repeat on the instrumented operation-catalog guard revision. Preserve the same task, model, temperature=0, seed=42, context=16384, output/tool limits, Gateway validation and no-apply policy. The runner permits one correction for an operation name absent from the inspected catalog and stops on repetition. This is a repeatability observation, not statistical evidence; E-007 remains open until the required two validate opportunities are recorded.",
   "temperature": 0,
   "seed": 42,
   "max_wall_seconds": 3000,

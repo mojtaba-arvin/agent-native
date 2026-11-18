@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-PINNED_REV="f41478fb0a7d414f90e2740173347a38a93fe415"
+PINNED_REV="2e718ec85d0b8d7b00de153f69e344cb377701a8"
 ROOT="$(git rev-parse --show-toplevel)"
 WORKTREE="$(mktemp -d "${TMPDIR:-/tmp}/agent-native-second-light.XXXXXX")"
 rmdir "$WORKTREE"
@@ -26,7 +26,7 @@ if ! grep -q 'payload_sha256' "$WORKTREE/experiments/e009/local_agent.py" ||
    ! grep -q 'prompt_states_path' "$WORKTREE/experiments/e009/local_agent.py" ||
    ! grep -q 'payload_metadata' "$WORKTREE/experiments/e009/local_agent.py"; then
   echo "Refusing Second Light: pinned revision $PINNED_REV does not contain Commit A's per-turn payload/hash metadata." >&2
-  echo "The requested post-merge SHA contains Commit B, but Commit A is still isolated on the First Light branch." >&2
+  echo "The pinned SHA must contain the complete per-turn instrumentation contract." >&2
   exit 78
 fi
 
