@@ -23,20 +23,26 @@ from trace_runner import run_reference_trace
     "requires disposable PostgreSQL service and psycopg",
 )
 class CrossEngineTraceParityTests(unittest.TestCase):
-    def test_identical_generated_trace_has_identical_sqlite_and_postgres_outcomes(self):
+    def test_identical_generated_traces_have_identical_sqlite_and_postgres_outcomes(self):
         dsn = os.environ["AGENT_NATIVE_E002_POSTGRES_DSN"]
+        seeds = (20261118, 20261119, 20261120, 20261121, 20261122)
+        digests = []
         with tempfile.TemporaryDirectory() as directory:
-            sqlite = SQLiteReferenceAdapter(os.path.join(directory, "trace.sqlite3"))
             postgres = PostgresReferenceAdapter(dsn)
-            postgres.reset()
+            for seed in seeds:
+                sqlite = SQLiteReferenceAdapter(os.path.join(directory, f"trace-{seed}.sqlite3"))
+                postgres.reset()
+                sqlite_result = run_reference_trace(sqlite, seed=seed)
+                postgres_result = run_reference_trace(postgres, seed=seed)
+                self.assertEqual(sqlite_result, postgres_result)
+                self.assertEqual(sqlite_result["operations"], 60)
+                self.assertEqual(
+                    sqlite_result["outbox_claimed"], sqlite_result["record_counts"]["jobs"]
+                )
+                self.assertEqual(sqlite_result["outbox_acked"], sqlite_result["outbox_claimed"])
+                digests.append(sqlite_result["trace_digest"])
 
-            sqlite_result = run_reference_trace(sqlite)
-            postgres_result = run_reference_trace(postgres)
-
-        self.assertEqual(sqlite_result, postgres_result)
-        self.assertEqual(sqlite_result["operations"], 60)
-        self.assertEqual(sqlite_result["outbox_claimed"], sqlite_result["record_counts"]["jobs"])
-        self.assertEqual(sqlite_result["outbox_acked"], sqlite_result["outbox_claimed"])
+        self.assertEqual(len(set(digests)), len(seeds))
 
 
 if __name__ == "__main__":
