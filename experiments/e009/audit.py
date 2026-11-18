@@ -37,6 +37,7 @@ class SQLiteAuditSink:
     Batch counters are process-local diagnostics; they never gate or bypass commits.
     The pilot varies the collection window while retaining the same commit contract.
     Every reported latency sample includes the durable audit decision path.
+    The durable job path shares its commit with the audit row and outbox event.
     """
 
     def __init__(
