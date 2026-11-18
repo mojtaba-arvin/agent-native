@@ -2,7 +2,7 @@ name: E-011 transport-neutral semantics model
 
 on:
   push:
-    branches: [main, research/reboot-core]
+    branches: [main, "research/**"]
     paths:
       - "experiments/e011/**"
       - ".github/workflows/e011-semantics.yml"
