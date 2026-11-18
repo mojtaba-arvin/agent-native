@@ -45,10 +45,10 @@ The existing process-tree sampler is diagnostic only. It is not a substitute for
 | E-010 tests | Same run: 3 E-010 tests passed | Keep demo limitations explicit; no arbitrary callback isolation claim |
 | Client identity injection | Trusted identity is constructed by host fixture; no production identity adapter | 100% of attempts to submit principal, tenant or grants from client input are rejected |
 | Runtime publication | Defensive ownership implemented; publication race contract not implemented | No request may observe a mixed runtime revision under concurrent publication |
-| Product-path performance | New [performance smoke harness](../experiments/e009/performance_smoke.py) is committed and wired into E-009 CI; no artifact inspected in this scorecard | 1,000 requests, concurrency 32, 60/20/10/10 mix; zero unexpected statuses; record throughput and p50/p95/p99; preserve JSON artifact |
+| Product-path performance | [Run 44303432415](https://github.com/mojtaba-arvin/agent-native/actions/runs/44303432415), [artifact 14425569770](https://github.com/mojtaba-arvin/agent-native/actions/runs/44303432415/artifacts/14425569770): 1,000 requests, client concurrency 32; 490.64 req/s; p50 4.71 ms, p95 331.08 ms, p99 1,231.72 ms; 12 unexpected 503s | **Failed** initial target: p99 ≤100 ms and zero unexpected statuses. Follow-up isolates server admission capacity at 64 while client concurrency remains 32; preserve audit durability |
 | Controlled capacity | Not measured | Dedicated host/cgroup, warm-up, 10 repetitions, source and environment pinned |
 
-The E-009 smoke is an initial real HTTP/SQLite/worker/relay workload on a shared CI runner. It is not a capacity claim, not a cross-runtime comparison, and does not provide isolated CPU/memory accounting.
+The E-009 smoke is an initial real HTTP/SQLite/worker/relay workload on a shared CI runner. The first measured sample failed the p99 and unexpected-status gates. Synchronous SQLite FULL audit writes are a plausible contributor to tail latency; durability was not weakened. This is not a controlled capacity claim, cross-runtime comparison, or isolated CPU/memory accounting.
 
 ## E-011 — inter-service semantics
 
