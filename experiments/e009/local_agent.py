@@ -918,6 +918,7 @@ def run(args: argparse.Namespace) -> dict:
                     execution_origin = "runner_gate" if nested is not None else "gateway"
                     prevalidation_repair_exhausted = False
                     catalog_guard_exhausted = False
+                    inspection_progression_exhausted = False
                     if nested is None:
                         catalog_prevalidated, catalog_guard_exhausted = prevalidate_catalog_operation(
                             request, inspected, invalid_catalog_operation_attempts
@@ -975,6 +976,14 @@ def run(args: argparse.Namespace) -> dict:
                                     "Correct the IR input array using {name, source, type}; then submit one new proposal."
                                 ],
                             }
+                    inspection_progression_exhausted = (
+                        tool_name == "service.inspect"
+                        and any(
+                            item.get("code") == "INSPECTION_PROGRESS_REPAIR_EXHAUSTED"
+                            for item in (nested.get("diagnostics") or [])
+                            if isinstance(item, dict)
+                        )
+                    )
                     _append_jsonl(trace_path, {
                         "sequence": call_number,
                         "request": request,
@@ -988,6 +997,8 @@ def run(args: argparse.Namespace) -> dict:
                         raise AgentRunError("prevalidation_repair_failed")
                     if catalog_guard_exhausted:
                         raise AgentRunError("operation_not_in_catalog")
+                    if inspection_progression_exhausted:
+                        raise AgentRunError("inspection_progression_failed")
                     if not nested.get("ok"):
                         fingerprint = json.dumps(
                             request,
