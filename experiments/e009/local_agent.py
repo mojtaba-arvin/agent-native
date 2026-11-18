@@ -244,7 +244,6 @@ def map_tool_call(call: Any, index: int) -> dict:
     }
 
 
-
 def prevalidate_tool_call(request: dict, surface: dict) -> dict | None:
     """Validate known tool-specific required arguments before crossing the Gateway boundary."""
     tool_name = request.get("tool")
@@ -303,37 +302,44 @@ def prevalidate_tool_call(request: dict, surface: dict) -> dict | None:
 
 def prevalidate_catalog_operation(
     request: dict, inspected: dict | None, repair_attempts: set[str]
-) -> dict | None:
-    """Reject unknown catalog operations before crossing the Gateway boundary."""
+) -> tuple[dict | None, bool]:
+    """Reject unknown catalog operations before Gateway; permit one repair per run."""
     if request.get("tool") != "service.inspect":
-        return None
+        return None, False
     arguments = request.get("arguments")
     if not isinstance(arguments, dict) or not isinstance(arguments.get("operation"), str):
-        return None
+        return None, False
     if not isinstance(inspected, dict):
-        return None
+        return None, False
     operations = inspected.get("operations")
     if not isinstance(operations, list):
-        return None
+        return None, False
     available = [item.get("name") for item in operations
                  if isinstance(item, dict) and isinstance(item.get("name"), str)]
     operation = arguments["operation"]
     if operation in available:
-        return None
-    if operation in repair_attempts:
-        raise AgentRunError("operation_not_in_catalog")
-    repair_attempts.add(operation)
+        return None, False
+    exhausted = bool(repair_attempts)
+    if not exhausted:
+        repair_attempts.add(operation)
     return {
-        "protocol_version": "0.1", "request_id": request.get("request_id"),
-        "ok": False, "result": None,
+        "protocol_version": "0.1",
+        "request_id": request.get("request_id"),
+        "ok": False,
+        "result": None,
         "diagnostics": [{
             "code": "OPERATION_NOT_IN_CATALOG",
             "message": f"Operation '{operation}' not found. Available operations: [{', '.join(available)}]. If you want to create it, use service.propose instead.",
             "source_span": None,
             "fix_hint": "Choose an operation from the inspected catalog. Use service.propose to add a new operation; do not inspect a proposed operation.",
         }],
-        "next_actions": ["Retry service.inspect once with an available operation, or use service.propose to create a new operation."],
-    }
+        "next_actions": [
+            "Stop: the one permitted operation-name correction has been used."
+            if exhausted else
+            "Retry once with an operation from the available catalog, or use service.propose to create a new operation."
+        ],
+    }, exhausted
+
 
 
 def _append_jsonl(path: Path, event: dict) -> None:
@@ -482,6 +488,80 @@ def _proposal_budget_response(request: dict) -> dict:
     }
 
 
+def _compact_tool_outcome(tool_name: str, arguments: Any, response: dict) -> dict:
+    """Keep control-relevant outcomes; exact inspection data lives in the ledger."""
+    outcome = {"tool": tool_name, "ok": response.get("ok") is True}
+    if tool_name == "service.inspect":
+        if isinstance(arguments, dict):
+            outcome["operation"] = arguments.get("operation")
+            outcome["service_id"] = arguments.get("service_id")
+    elif tool_name in {"service.validate", "service.plan"}:
+        if isinstance(arguments, dict):
+            outcome["change_set_id"] = arguments.get("change_set_id")
+        result = response.get("result")
+        if isinstance(result, dict):
+            for key in ("valid", "will_mutate", "will_deploy", "effects"):
+                if key in result:
+                    outcome[key] = result[key]
+            if isinstance(result.get("diagnostics"), list):
+                outcome["result_diagnostics"] = result["diagnostics"]
+    elif tool_name == "service.propose":
+        result = response.get("result")
+        if isinstance(result, dict):
+            outcome["change_set_id"] = result.get("change_set_id")
+            outcome["base_revision"] = result.get("base_revision")
+    elif isinstance(arguments, dict):
+        outcome["arguments"] = arguments
+    diagnostics = response.get("diagnostics")
+    if isinstance(diagnostics, list) and diagnostics:
+        outcome["diagnostics"] = diagnostics
+    next_actions = response.get("next_actions")
+    if isinstance(next_actions, list) and next_actions:
+        outcome["next_actions"] = next_actions
+    return outcome
+
+
+def _build_compaction_ledger(
+    inspected: dict | None,
+    inspected_operations: dict[str, dict],
+    tool_sequence: list[str],
+    tool_outcomes: list[dict],
+) -> dict:
+    """Extract a deterministic, reviewable state snapshot from trusted tool results."""
+    return {
+        "service_inspection": inspected,
+        "operation_inspections": {
+            name: inspected_operations[name] for name in inspected_operations
+        },
+        "tool_sequence": list(tool_sequence),
+        "recent_tool_outcomes": tool_outcomes[-12:],
+    }
+
+
+def _compact_conversation(
+    base_messages: list[dict],
+    inspected: dict | None,
+    inspected_operations: dict[str, dict],
+    tool_sequence: list[str],
+    tool_outcomes: list[dict],
+) -> list[dict]:
+    """Replace repeated assistant/tool history with an exact Gateway-state ledger."""
+    ledger = _build_compaction_ledger(
+        inspected, inspected_operations, tool_sequence, tool_outcomes
+    )
+    return [
+        *base_messages,
+        {
+            "role": "user",
+            "content": (
+                "Verified Gateway interaction state (authoritative tool results; "
+                "use these exact declarations and continue from the latest outcome):\n"
+                + json.dumps(ledger, ensure_ascii=False, separators=(",", ":"))
+            ),
+        },
+    ]
+
+
 def _plan_gate_response(
     request: dict,
     successful_proposal: dict | None,
@@ -540,6 +620,8 @@ def run(args: argparse.Namespace) -> dict:
     _write_exclusive(trace_path, b"")
     provider_diagnostics_path = run_dir / "provider-responses.jsonl"
     _write_exclusive(provider_diagnostics_path, b"")
+    prompt_states_path = run_dir / "prompt-states.jsonl"
+    _write_exclusive(prompt_states_path, b"")
     candidate_path = run_dir / "candidate.json"
     result_path = run_dir / "run.json"
 
@@ -559,6 +641,7 @@ def run(args: argparse.Namespace) -> dict:
         "output_tokens": 0,
         "tool_calls": 0,
         "candidate_path": None,
+        "prompt_states_path": str(prompt_states_path),
         "verification": None,
         "failure": None,
     }
@@ -627,14 +710,15 @@ def run(args: argparse.Namespace) -> dict:
             "Return only the exact final JSON candidate requested by the task. Never invent tool results."
         )
         task = (E009_ROOT / "AGENT_TASK.md").read_text(encoding="utf-8")
-        messages = [
+        base_messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": task},
             {
                 "role": "user",
-                "content": "Session surface JSON:\n" + json.dumps(surface, ensure_ascii=False, sort_keys=True),
+                "content": "Session surface JSON:\\n" + json.dumps(surface, ensure_ascii=False, sort_keys=True),
             },
         ]
+        messages = list(base_messages)
         tool_definition = {
             "type": "function",
             "function": {
@@ -653,6 +737,7 @@ def run(args: argparse.Namespace) -> dict:
         plan_result = None
         plan_change_set_id = None
         tool_sequence: list[str] = []
+        tool_outcomes: list[dict] = []
         failed_tool_requests: set[str] = set()
         prevalidation_repair_attempts: set[str] = set()
         invalid_catalog_operation_attempts: set[str] = set()
@@ -669,6 +754,24 @@ def run(args: argparse.Namespace) -> dict:
             remaining_output = args.max_output_tokens - record["output_tokens"]
             if remaining_output <= 0:
                 raise AgentRunError("output_token_budget_exhausted")
+            prompt_state = (
+                {"session_surface": surface}
+                if turn == 1
+                else _build_compaction_ledger(
+                    inspected, inspected_operations, tool_sequence, tool_outcomes
+                )
+            )
+            prompt_state_kind = "initial_session_surface" if turn == 1 else "gateway_state_ledger"
+            prompt_state_sha256 = digest(prompt_state)
+            prompt_messages_sha256 = digest(messages)
+            _append_jsonl(prompt_states_path, {
+                "turn": turn,
+                "kind": prompt_state_kind,
+                "state_sha256": prompt_state_sha256,
+                "prompt_messages_sha256": prompt_messages_sha256,
+                "base_messages_sha256": digest(base_messages),
+                "state": prompt_state,
+            })
             payload = {
                 "model": args.model,
                 "messages": messages,
@@ -700,6 +803,8 @@ def run(args: argparse.Namespace) -> dict:
                 calls_for_diagnostics = message.get("tool_calls")
                 _append_jsonl(provider_diagnostics_path, {
                     "response_index": turn,
+                    "prompt_state_sha256": prompt_state_sha256,
+                    "prompt_messages_sha256": prompt_messages_sha256,
                     "payload_sha256": payload_sha256,
                     "payload_metadata": payload_metadata,
                     "model": response.get("model"),
@@ -751,8 +856,9 @@ def run(args: argparse.Namespace) -> dict:
                         nested = None
                     execution_origin = "runner_gate" if nested is not None else "gateway"
                     prevalidation_repair_exhausted = False
+                    catalog_guard_exhausted = False
                     if nested is None:
-                        catalog_prevalidated = prevalidate_catalog_operation(
+                        catalog_prevalidated, catalog_guard_exhausted = prevalidate_catalog_operation(
                             request, inspected, invalid_catalog_operation_attempts
                         )
                         if catalog_prevalidated is not None:
@@ -816,8 +922,11 @@ def run(args: argparse.Namespace) -> dict:
                     })
                     record["tool_calls"] = call_number
                     tool_sequence.append(tool_name if isinstance(tool_name, str) else "<invalid>")
+                    tool_outcomes.append(_compact_tool_outcome(tool_name, arguments, nested))
                     if prevalidation_repair_exhausted:
                         raise AgentRunError("prevalidation_repair_failed")
+                    if catalog_guard_exhausted:
+                        raise AgentRunError("operation_not_in_catalog")
                     if not nested.get("ok"):
                         fingerprint = json.dumps(
                             request,
@@ -863,6 +972,13 @@ def run(args: argparse.Namespace) -> dict:
                         "tool_name": "agent.invoke",
                         "content": json.dumps(nested, ensure_ascii=False, sort_keys=True, separators=(",", ":")),
                     })
+                messages = _compact_conversation(
+                    base_messages,
+                    inspected,
+                    inspected_operations,
+                    tool_sequence,
+                    tool_outcomes,
+                )
                 continue
 
             content = message.get("content")
