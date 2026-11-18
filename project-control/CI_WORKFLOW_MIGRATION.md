@@ -32,3 +32,7 @@ This migration is intentionally stacked on PR #64 (`feat/project-control-plane`)
 ## Review boundary
 
 The 15 workflow deletions exist only on this stacked branch. The PR must not be merged until PR #64 is integrated and the unified workflow has completed its first authoritative run on a base branch that contains it. No branch protection, merge queue, secrets, production deployment, or release settings are changed here.
+
+## First unified-workflow execution finding
+
+The first run of the new workflow (run 18) parsed and started successfully. The impact detector completed, Layer 0 selected all 14 suites, and 13 passed. E-007 failed in two cases because `experiments/e007/eval_runner.py` still included the removed legacy workflow path in its source manifest. The manifest now hashes `.github/workflows/ci.yml` instead. Layer 1 native checks were running independently at the time this finding was recorded; a corrected Layer 0 rerun is required before the migration is considered verified.
