@@ -40,6 +40,7 @@ permissions:
   pull-requests: read
 
 jobs:
+  # No job-level concurrency groups: preserve in-flight evidence across PR updates.
   changes:
     name: Detect extended-check impact
     runs-on: ubuntu-latest
@@ -111,9 +112,6 @@ jobs:
     if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    concurrency:
-      group: layer-0-${{ github.event.pull_request.head.ref || github.ref_name }}
-      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
         with:
@@ -149,9 +147,6 @@ jobs:
   extended:
     name: Layer 1 · native, container, and database validation
     needs: changes
-    concurrency:
-      group: layer-1-${{ github.event.pull_request.head.ref || github.ref_name }}
-      cancel-in-progress: false
     if: always() && (github.event_name == 'merge_group' || github.event_name == 'schedule' || needs.changes.result != 'success' || needs.changes.outputs.extended == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 45
