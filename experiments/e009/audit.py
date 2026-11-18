@@ -38,6 +38,7 @@ class SQLiteAuditSink:
     The pilot varies the collection window while retaining the same commit contract.
     Every reported latency sample includes the durable audit decision path.
     The durable job path shares its commit with the audit row and outbox event.
+    Idle worker and relay polls are read-only until actual work is available.
     """
 
     def __init__(
