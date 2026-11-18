@@ -400,6 +400,96 @@ class LocalAgentRunnerTests(unittest.TestCase):
             {prevalidation_repair_key("service.propose", missing_snapshot["diagnostics"][0])},
         )
 
+    def test_runner_stops_after_repeated_service_inspection_without_operation(self):
+        def invoke(request_id):
+            return {
+                "message": {
+                    "role": "assistant",
+                    "content": "",
+                    "tool_calls": [{
+                        "function": {
+                            "name": "agent.invoke",
+                            "arguments": {
+                                "request_id": request_id,
+                                "tool": "service.inspect",
+                                "arguments": {"service_id": "catalog"},
+                            },
+                        },
+                    }],
+                },
+                "prompt_eval_count": 30,
+                "eval_count": 12,
+            }
+
+        responses = [invoke("inspect-1"), invoke("inspect-2"), invoke("inspect-3")]
+
+        class Handler(BaseHTTPRequestHandler):
+            index = 0
+            response_values = responses
+
+            def do_POST(self):
+                length = int(self.headers["Content-Length"])
+                self.rfile.read(length)
+                if type(self).index >= len(type(self).response_values):
+                    self.send_error(500)
+                    return
+                value = type(self).response_values[type(self).index]
+                type(self).index += 1
+                raw = json.dumps(value, separators=(",", ":")).encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(raw)))
+                self.end_headers()
+                self.wfile.write(raw)
+
+            def log_message(self, *_args):
+                return
+
+        server = HTTPServer(("127.0.0.1", 0), Handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            with tempfile.TemporaryDirectory(prefix="agent-native-e009-", dir="/tmp") as temp:
+                args = SimpleNamespace(
+                    model="deterministic-inspection-loop-double",
+                    ollama_url=f"http://127.0.0.1:{server.server_port}",
+                    arm="upfront",
+                    results_dir=Path(temp) / "results",
+                    max_input_tokens=2000,
+                    max_output_tokens=1000,
+                    max_tool_calls=20,
+                    max_wall_seconds=30.0,
+                    num_ctx=4096,
+                    num_predict=256,
+                    temperature=0.0,
+                    top_p=1.0,
+                    seed=7,
+                    think=False,
+                )
+                result = run(args)
+                self.assertEqual(result["status"], "failed")
+                self.assertEqual(result["failure"], "AgentRunError:inspection_progression_failed")
+                self.assertEqual(result["tool_calls"], 3)
+                self.assertEqual(Handler.index, 3)
+                run_dir = next((Path(temp) / "results").iterdir())
+                events = [
+                    json.loads(line)
+                    for line in (run_dir / "tool-trace.jsonl").read_text(encoding="utf-8").splitlines()
+                ]
+                self.assertTrue(events[0]["response"]["ok"])
+                self.assertEqual(
+                    events[1]["response"]["diagnostics"][0]["code"],
+                    "INSPECTION_OPERATION_REQUIRED",
+                )
+                self.assertEqual(
+                    events[2]["response"]["diagnostics"][0]["code"],
+                    "INSPECTION_PROGRESS_REPAIR_EXHAUSTED",
+                )
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=5)
+
     def test_runner_stops_after_repeating_an_identical_invalid_tool_call(self):
         invalid_call = {
             "function": {
