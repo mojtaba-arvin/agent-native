@@ -79,6 +79,7 @@ class DurableWorkStore:
         *,
         max_outstanding: int = 1000,
         max_concurrency: int = 16,
+        audit_sink: Any | None = None,
     ):
         raw = str(database)
         if raw == ":memory:":
@@ -92,6 +93,9 @@ class DurableWorkStore:
         self.database = str(Path(raw).expanduser().resolve())
         self.max_outstanding = max_outstanding
         self.max_concurrency = max_concurrency
+        self.audit_sink = audit_sink
+        if audit_sink is not None and getattr(audit_sink, "database", None) != self.database:
+            raise ValueError("audit_sink_must_share_work_store_database")
 
     def _connect(self) -> sqlite3.Connection:
         connection = sqlite3.connect(
@@ -102,6 +106,7 @@ class DurableWorkStore:
         connection.row_factory = sqlite3.Row
         connection.execute("PRAGMA foreign_keys = ON")
         connection.execute("PRAGMA busy_timeout = 5000")
+        connection.execute("PRAGMA synchronous = FULL")
         return connection
 
     @staticmethod
@@ -149,6 +154,8 @@ class DurableWorkStore:
         now: int,
         deadline_at: int,
         max_attempts: int = 3,
+        audit_event: dict | None = None,
+        audit_receipt: Any | None = None,
     ) -> tuple[dict, bool]:
         tenant_id = _text(tenant_id, "tenant_id")
         task_type = _text(task_type, "task_type")
@@ -160,6 +167,12 @@ class DurableWorkStore:
             raise ValueError("deadline_must_be_in_the_future")
         if not isinstance(payload, dict):
             raise ValueError("job_payload_must_be_object")
+        if audit_event is not None and (
+            self.audit_sink is None
+            or audit_receipt is None
+            or not callable(getattr(self.audit_sink, "write_in_transaction", None))
+        ):
+            raise ValueError("atomic_audit_sink_and_receipt_required")
         payload_json = _json(payload)
         request_digest = _digest({"task_type": task_type, "payload": payload})
 
@@ -181,7 +194,15 @@ class DurableWorkStore:
                     "SELECT * FROM durable_jobs WHERE task_id = ?",
                     (previous["task_id"],),
                 ).fetchone()
+                if audit_event is not None:
+                    try:
+                        self.audit_sink.write_in_transaction(connection, audit_event)
+                    except Exception as error:
+                        raise AuditCommitError("atomic_audit_insert_failed") from error
                 connection.commit()
+                if audit_event is not None:
+                    self.audit_sink.note_transactional_commit()
+                    audit_receipt.mark_committed()
                 return self._job(row), True
 
             active = connection.execute(
@@ -218,11 +239,19 @@ class DurableWorkStore:
                 },
                 now=now,
             )
+            if audit_event is not None:
+                try:
+                    self.audit_sink.write_in_transaction(connection, audit_event)
+                except Exception as error:
+                    raise AuditCommitError("atomic_audit_insert_failed") from error
             row = connection.execute(
                 "SELECT * FROM durable_jobs WHERE task_id = ?",
                 (task_id,),
             ).fetchone()
             connection.commit()
+            if audit_event is not None:
+                self.audit_sink.note_transactional_commit()
+                audit_receipt.mark_committed()
             return self._job(row), False
         except Exception:
             connection.rollback()
