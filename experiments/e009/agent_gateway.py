@@ -239,20 +239,20 @@ class AgentNativeGateway:
             return self._error(*args, **kwargs)["response"]
 
         if self.proposal_mode != "delta":
-            return self._error(request_id, "UNKNOWN_TOOL", "Delta proposals are not enabled in this Gateway instance.")
+            return delta_error(request_id, "UNKNOWN_TOOL", "Delta proposals are not enabled in this Gateway instance.")
         if self._inspected_revision is None:
-            return self._error(
+            return delta_error(
                 request_id, "INSPECTION_REQUIRED", "Inspect the service before proposing a delta.",
                 next_actions=["service.inspect with service_id=catalog"],
             )
         if arguments.get("base_revision") != self._inspected_revision:
-            return self._error(
+            return delta_error(
                 request_id, "STALE_BASE_REVISION", "The delta base must match the exact inspected service revision.",
                 next_actions=["service.inspect with service_id=catalog"],
             )
         current_service = self.interface.services.get(arguments.get("service_id"))
         if current_service is None:
-            return self._error(request_id, "SERVICE_NOT_FOUND", "Unknown service for delta proposal.")
+            return delta_error(request_id, "SERVICE_NOT_FOUND", "Unknown service for delta proposal.")
         try:
             materialized = materialize_add_operation(
                 _encode(arguments),
@@ -263,7 +263,7 @@ class AgentNativeGateway:
             )
         except DeltaMaterializationError as error:
             code = "DELTA_" + error.code.upper()
-            return self._error(
+            return delta_error(
                 request_id, code, "The append-only delta was rejected by the trusted materializer.",
                 fix_hint="Submit exactly one add_operation against the current inspected base, using only trusted effects and capabilities.",
             )
