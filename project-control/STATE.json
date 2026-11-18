@@ -11,7 +11,7 @@
   "last_completed_task_id": "CP-004",
   "last_known_green_revision": null,
   "wip_limit": 2,
-  "next_action": "Execute the new path-aware fast runner and its selector regression tests in PR CI; correct any failures before preparing the unified workflow migration.",
+  "next_action": "Verify that fetch-depth 0 makes the PR base available, then inspect all fast-suite output and fix any test or path-selection failures.",
   "recovery": {
     "unchanged_failure_limit": 2,
     "no_progress_attempt_limit": 3,
