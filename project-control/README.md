@@ -15,6 +15,7 @@ This directory is the versioned execution state for the Agent Native v0.1 progra
 - [POLICY.json](POLICY.json): autonomy, safety, retry, and integration rules.
 - [HANDOFF.md](HANDOFF.md): deterministic resume instructions.
 - [CI_PORT_AUDIT.md](CI_PORT_AUDIT.md): reviewed risks and safe port sequence for the staging fast-CI candidate.
+- [CI_WORKFLOW_MIGRATION.md](CI_WORKFLOW_MIGRATION.md): responsibility map for the unified CI workflow.
 
 ## Validate
 
