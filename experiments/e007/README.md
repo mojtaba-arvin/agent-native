@@ -32,7 +32,7 @@ The corrected E-007 factorial is now implemented end-to-end:
 - **D:** delta + complete contracts in one service-level inspection.
 - **E (exploratory only):** delta + minimal disclosure. E is not part of the 2×2 factorial.
 
-The five case manifests are under `evals/e007-factorial-*.eval.json`. The Gateway, local-agent adapter, and independent evaluator consume the same pinned `proposal_mode` and `base_disclosure` values. The evaluator independently rebuilds delta proposals from the trusted `catalog.an` base, verifies the materialized change-set hash, and requires the exact same hash for successful validation and safe planning. The agent never receives the evaluator's trusted base as a hidden oracle in minimal mode.
+The five case manifests are under `evals/e007-factorial-*.eval.json`. The Gateway, local-agent adapter, and independent evaluator consume the same pinned `proposal_mode` and `base_disclosure` values. The evaluator independently rebuilds delta proposals from the trusted `catalog.an` base, verifies the materialized change-set hash, and requires the exact same hash for successful validation and safe planning. The agent never receives the evaluator's trusted base as a hidden oracle in minimal mode. Seeded generated-base tests cover 12 valid base-service variants and verify exact preservation under shuffled operation order; formal mutation testing remains a gate before broadening the change language or enabling apply.
 
 Deterministic implementation checks passed:
 - E-009 integrated Gateway/local-agent suite: [workflow 44280943921](https://github.com/mojtaba-arvin/agent-native/actions/runs/44280943921).
