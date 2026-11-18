@@ -29,7 +29,7 @@ on:
         type: boolean
         default: false
       model_suite:
-        description: Optional Layer 2 model evaluation
+        description: Optional manual CPU diagnostic; not M3 acceptance
         required: false
         type: choice
         default: none
@@ -113,7 +113,7 @@ jobs:
     timeout-minutes: 5
     concurrency:
       group: layer-0-${{ github.event.pull_request.head.ref || github.ref_name }}
-      cancel-in-progress: true
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
         with:
