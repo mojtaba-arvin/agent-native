@@ -171,6 +171,16 @@ adapter.admit_job(
         finally:
             db.close()
 
+    def test_metadata_reports_pinned_engine_and_durability_profile(self):
+        metadata = self.adapter.metadata()
+        self.assertEqual(metadata["engine"], "sqlite")
+        self.assertTrue(metadata["engine_version"])
+        self.assertEqual(metadata["journal_mode"].lower(), "wal")
+        self.assertEqual(metadata["synchronous"], 2)
+        self.assertEqual(metadata["foreign_keys"], 1)
+        self.assertEqual(metadata["busy_timeout_ms"], 10000)
+        self.assertEqual(metadata["canonicalization_version"], "json-sort-keys-compact-utf8-v1")
+
     def test_memory_database_is_rejected_for_durable_contract(self):
         with self.assertRaisesRegex(ValueError, "file_backed"):
             SQLiteReferenceAdapter(":memory:")
