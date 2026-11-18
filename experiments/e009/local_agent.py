@@ -491,6 +491,8 @@ def verify_candidate(
             raise AgentRunError("inspect_all_existing_operations_before_proposal")
         if base_disclosure == "upfront_full" and set(inspected_operations) != expected_names:
             raise AgentRunError("upfront_full_contracts_missing")
+        if base_disclosure == "minimal" and inspected_operations:
+            raise AgentRunError("minimal_disclosure_contract_leak")
         proposal_indices = [i for i, name in enumerate(tool_sequence) if name == "service.propose_delta"]
         validation_indices = [i for i, name in enumerate(tool_sequence) if name == "service.validate"]
         plan_indices = [i for i, name in enumerate(tool_sequence) if name == "service.plan"]
