@@ -454,7 +454,7 @@ def main():
                     all_results, key=lambda item: item["latency_ms"], reverse=True
                 )[:20],
                 "limitations": [
-                    "shared GitHub-hosted runner; no isolated cgroup CPU or memory claim",
+                    "shared GitHub host; server resource limits and accounting are cgroup v2 controlled when containerized" if args.containerized else "shared GitHub host; server process-tree accounting is diagnostic only",
                     "single E-009 process and one SQLite database",
                     "not a 10-repetition controlled cross-runtime capacity comparison",
                 ],
