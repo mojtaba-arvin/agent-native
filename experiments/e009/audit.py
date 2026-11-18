@@ -41,6 +41,7 @@ class SQLiteAuditSink:
     Idle worker and relay polls are read-only until actual work is available.
     Durable job admission uses bounded synchronous commit batching.
     The product pilot varies the job batch window independently from audit batching.
+    Server resource usage is sampled separately from host-wide cgroup limits.
     """
 
     def __init__(
