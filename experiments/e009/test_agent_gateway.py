@@ -284,6 +284,7 @@ class AgentGatewayTests(unittest.TestCase):
         )
         self.assertTrue(inspected["ok"])
         base_revision = inspected["result"]["revision"]
+        self.assertIn("service.propose_delta", inspected["next_actions"][0])
         delta = {
             "service_id": "catalog",
             "base_revision": base_revision,
@@ -326,6 +327,17 @@ class AgentGatewayTests(unittest.TestCase):
         self.assertTrue(planned["result"]["valid"])
         self.assertFalse(planned["result"]["will_mutate"])
         self.assertFalse(planned["result"]["will_deploy"])
+
+    def test_progressive_delta_mode_discloses_schema_only_on_request(self):
+        gateway = AgentNativeGateway("progressive", proposal_mode="delta")
+        tools = {item["name"]: item for item in gateway.session_message()["surface"]["tools"]}
+        self.assertNotIn("input_schema", tools["service.propose_delta"])
+        described = self.call(
+            gateway, "describe-delta", "interface.describe", {"name": "service.propose_delta"}
+        )
+        self.assertTrue(described["ok"])
+        self.assertIn("input_schema", described["result"])
+        self.assertEqual(described["result"]["input_schema"]["properties"]["changes"]["maxItems"], 1)
 
     def test_delta_mode_rejects_snapshot_tool_and_default_mode_rejects_delta_tool(self):
         delta_gateway = AgentNativeGateway("upfront", proposal_mode="delta")
