@@ -53,3 +53,18 @@
 - Three fixed-seed temperature-zero attempts are deterministic failure reproductions; the single non-zero-temperature probe is one exploratory observation, not a statistical comparison. The post-Gateway-preservation deterministic trial (44144939813) is a resource-budget-ineligible observation; it did not reach validation. The 96k-token/1,800s follow-up (44149712970) completed with a Gateway-accepted exact-preserving proposal but no validation or plan.
 - The E-007 aggregate token/time budget and wall-limit taxonomy are runner-level controls. Local Ollama currency cost remains unpriced, not zero.
 - No runtime has been selected; no production-readiness, model-superiority, or Agent Native productivity claim is supported.
+
+
+## E-002 — Process-tree sampler cross-runtime smoke (18 November 2026)
+
+| Evidence | Location | Classification | What it supports | What remains open |
+|---|---|---|---|---|
+| Go process-tree sampler smoke | [Workflow 44294049076](https://github.com/mojtaba-arvin/agent-native/actions/runs/44294049076) | **Harness smoke only** | 100/100 HTTP 200 at concurrency 8 after 10 warm-up requests; emitted sampled-process-tree CPU metadata. Reported 0.01 CPU seconds, 8,286,208 bytes peak summed RSS and p99 4.70 ms in one short shared-runner sample | Not cgroup accounting, controlled capacity, or a runtime comparison |
+| BEAM process-tree sampler smoke | [Workflow 44294310926](https://github.com/mojtaba-arvin/agent-native/actions/runs/44294310926) | **Harness smoke only** | 100/100 HTTP 200 at concurrency 8 after 10 warm-up requests; 4 BEAM unit tests passed; E-002 black-box conformance passed; sampler observed 2 processes and emitted the expected method metadata. One short sample reported 0.04 CPU seconds, 93,364,224 bytes peak summed RSS, p99 6.66 ms, startup 0.613 s | Shared-runner noise, 5 ms sampling gaps, and reparenting limitations remain; no cgroup accounting or product workload |
+| E-002 candidate build/conformance checks | [Workflow 44294310926](https://github.com/mojtaba-arvin/agent-native/actions/runs/44294310926) | **Implementation verification** | Go, Rust, WASI P2 and BEAM jobs completed successfully; Rust tests/build/conformance, WASI component build/Wasmtime conformance, BEAM tests/conformance and Go tests/build/conformance all passed | The benchmark-matrix job was skipped. These probes do not implement authenticated product lifecycle or durable job/outbox semantics; no runtime selection is supported |
+
+The BEAM smoke's reported 2,453 requests/s is a 100-request short-run diagnostic and must not be compared with the 5,000-request randomized matrix or interpreted as capacity. The Go and BEAM smoke numbers are not directly comparable because they were collected in separate workflow runs.
+
+## E-002 — Shared durable storage conformance contract
+
+[Storage conformance contract v1](../experiments/e002/storage-conformance-contract.md) defines atomic job/outbox/idempotency/audit admission, idempotency race semantics, local durable-commit profile, recovery and fault-injection tests, and benchmark fairness. It is a preregistered design artifact only; no storage adapter is implemented or selected. The research basis distinguishes PostgreSQL WAL flush/acknowledgement modes and SQLite WAL synchronous modes ([PostgreSQL WAL documentation](https://www.postgresql.org/docs/current/runtime-config-wal.html); [SQLite WAL documentation](https://www.sqlite.org/wal.html)). 
