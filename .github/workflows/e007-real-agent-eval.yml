@@ -1,24 +1,20 @@
-name: E-007 deterministic post-fix expanded-budget Qwen3 trial
+name: E-007 matched proposal-surface factorial pilot
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - "research/**"
-    paths:
-      - "experiments/e007/dispatch.json"
 
 permissions:
   contents: read
 
 concurrency:
-  group: e007-real-agent-eval-${{ github.ref }}
-  cancel-in-progress: true
+  group: e007-factorial-pilot-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
-  qwen3-deterministic-postfix-expanded-budget:
+  matched-qwen3-factorial:
+    if: github.ref_name == 'research/reboot-core'
     runs-on: ubuntu-latest
-    timeout-minutes: 75
+    timeout-minutes: 360
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -28,36 +24,36 @@ jobs:
         run: |
           curl --fail --silent --show-error --location https://ollama.com/install.sh | sh
           ollama --version | tee /tmp/ollama-version.txt
-      - name: Start Ollama with the Qwen3-compatible template renderer
+      - name: Start Ollama and pull the pinned model
         shell: bash
         run: |
           set -euo pipefail
           sudo systemctl stop ollama.service 2>/dev/null || true
           OLLAMA_GO_TEMPLATE=false OLLAMA_HOST=127.0.0.1:11434 ollama serve > /tmp/ollama-serve.log 2>&1 &
           for attempt in $(seq 1 60); do
-            if ollama list >/dev/null 2>&1; then
-              break
-            fi
+            if ollama list >/dev/null 2>&1; then break; fi
             sleep 2
           done
           ollama list
           ollama pull qwen3:8b
           ollama show qwen3:8b --modelfile > /tmp/qwen3-modelfile.txt
           ollama list > /tmp/ollama-models.txt
-      - name: Run one deterministic expanded-budget real-agent eval
+      - name: Run matched A-D pilot
         env:
-          SECOND_LIGHT_OUTPUT_DIR: /tmp/agent-native-e007-evals
-        run: bash experiments/e007/run_second_light.sh
-      - name: Upload eval evidence
+          FACTORIAL_OUTPUT_DIR: /tmp/agent-native-e007-factorial
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+        run: bash experiments/e007/run_factorial_pilot.sh
+      - name: Upload factorial evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: e007-qwen3-deterministic-postfix-expanded-budget
+          name: e007-matched-proposal-surface-factorial
           path: |
-            /tmp/agent-native-e007-evals/
+            /tmp/agent-native-e007-factorial/
             /tmp/ollama-version.txt
             /tmp/ollama-models.txt
             /tmp/qwen3-modelfile.txt
             /tmp/ollama-serve.log
           if-no-files-found: warn
-          retention-days: 14
+          retention-days: 30
