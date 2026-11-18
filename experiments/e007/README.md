@@ -35,10 +35,10 @@ The corrected E-007 factorial is now implemented end-to-end:
 The five case manifests are under `evals/e007-factorial-*.eval.json`. The Gateway, local-agent adapter, and independent evaluator consume the same pinned `proposal_mode` and `base_disclosure` values. The evaluator independently rebuilds delta proposals from the trusted `catalog.an` base, verifies the materialized change-set hash, and requires the exact same hash for successful validation and safe planning. The agent never receives the evaluator's trusted base as a hidden oracle in minimal mode. Seeded generated-base tests cover 12 valid base-service variants and verify exact preservation under shuffled operation order; formal mutation testing remains a gate before broadening the change language or enabling apply.
 
 Deterministic implementation checks passed:
-- E-009 integrated Gateway/local-agent suite: [workflow 44280943921](https://github.com/mojtaba-arvin/agent-native/actions/runs/44280943921).
-- E-007 scorer and factorial tests: [workflow 44281034211](https://github.com/mojtaba-arvin/agent-native/actions/runs/44281034211).
+- E-009 integrated Gateway/local-agent suite: [workflow 44282349404](https://github.com/mojtaba-arvin/agent-native/actions/runs/44280943921).
+- E-007 scorer and factorial tests: [workflow 44282651696](https://github.com/mojtaba-arvin/agent-native/actions/runs/44281034211).
 
-These are protocol and evaluator tests only. **No real-model factorial run has been dispatched.** The next gate is to repair the dispatch manifest/case identity mismatch and pin the integrated runner revision. Existing Qwen3 settings and ceilings remain unchanged; no model tokens should be spent before that gate passes.
+These are protocol and evaluator tests only. **No real-model factorial run has been dispatched.** The dispatch/case identity mismatch is resolved by a version-2 manifest that separates dispatch_id from case eval_id and binds exact case paths. A fail-closed validator checks the complete A–D cohort, equal model settings/budgets, no-apply policy, and seeded execution order C-A-D-B before any model request. The real-agent workflow is manual-dispatch-only; ordinary research-branch pushes cannot launch Qwen3. Existing Qwen3 settings and ceilings remain unchanged.
 
 ## First three-run Qwen3 result — not accepted
 
