@@ -68,3 +68,15 @@ The BEAM smoke's reported 2,453 requests/s is a 100-request short-run diagnostic
 ## E-002 — Shared durable storage conformance contract
 
 [Storage conformance contract v1](../experiments/e002/storage-conformance-contract.md) defines atomic job/outbox/idempotency/audit admission, idempotency race semantics, local durable-commit profile, recovery and fault-injection tests, and benchmark fairness. It is a preregistered design artifact only; no storage adapter is implemented or selected. The research basis distinguishes PostgreSQL WAL flush/acknowledgement modes and SQLite WAL synchronous modes ([PostgreSQL WAL documentation](https://www.postgresql.org/docs/current/runtime-config-wal.html); [SQLite WAL documentation](https://www.sqlite.org/wal.html)). 
+
+
+## Four-track independent review — 18 November 2026
+
+| Track | New artifact | Classification | Decision / remaining gate |
+|---|---|---|---|
+| E-007 Agent lifecycle | [Manual pilot operator runbook](../experiments/e007/manual-pilot-operator-runbook.md) | Execution readiness / not dispatched | Four-cell Qwen3 factorial is ready for authorized manual dispatch; connector lacks workflow_dispatch write capability. No lifecycle acceptance yet |
+| E-002 runtime and storage | [Product benchmark gap analysis](../experiments/e002/product-benchmark-gap-analysis.md) | Architecture decision record | Retain Go, Rust, WASI P2, BEAM; no runtime/storage ranking until product lifecycle parity, durable adapter conformance, and controlled cgroup measurements |
+| E-009 / E-010 security | [Kernel and sandbox trust-boundary review](../experiments/e009/security-review-2026-11-18.md) | Static source review | Trusted identity host boundary, mutable runtime contract/handlers, non-atomic audit/business state, and callback sandbox limitations are explicit engineering gates; no exploit or penetration-test claim |
+| E-011 distributed semantics | [Transport-neutral semantic envelope v1](e011-semantic-envelope-v1.md) | Design specification | Semantics now separated from transport choice; implementation remains gated on E-007 acceptance and E-010 review |
+
+The four artifacts are independent outputs, not four completed product capabilities. E-010 source-level review is now documented; E-007 remains the blocking real-agent acceptance gate. No transport/runtime/storage selection is justified by this review.
