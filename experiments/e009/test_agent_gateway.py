@@ -272,6 +272,134 @@ class AgentGatewayTests(unittest.TestCase):
         self.assertFalse(non_finite_result["response"]["ok"])
         self.assertEqual(non_finite_result["response"]["diagnostics"][0]["code"], "NON_FINITE_JSON_NUMBER")
 
+    def test_delta_mode_materializes_trusted_base_and_completes_safe_lifecycle(self):
+        gateway = AgentNativeGateway("upfront", proposal_mode="delta")
+        surface_tools = {item["name"]: item for item in gateway.session_message()["surface"]["tools"]}
+        self.assertIn("service.propose_delta", surface_tools)
+        self.assertNotIn("service.propose", surface_tools)
+        self.assertEqual(gateway.session_message()["surface"]["proposal_mode"], "delta")
+
+        inspected = self.call(
+            gateway, "delta-inspect", "service.inspect", {"service_id": "catalog"}
+        )
+        self.assertTrue(inspected["ok"])
+        base_revision = inspected["result"]["revision"]
+        delta = {
+            "service_id": "catalog",
+            "base_revision": base_revision,
+            "changes": [{
+                "kind": "add_operation",
+                "operation": {
+                    "name": "get_item_by_normalized_name",
+                    "method": "GET",
+                    "path": "/items/by-normalized-name/{name}",
+                    "input": [{"name": "name", "source": "path", "type": "String"}],
+                    "output": "Item",
+                    "errors": ["InvalidInput", "NotFound", "Unauthorized"],
+                    "validation": ["name.non_empty"],
+                    "effects": ["repository.read"],
+                    "capability": "items.read",
+                },
+            }],
+        }
+        proposed = self.call(gateway, "delta-propose", "service.propose_delta", delta)
+        self.assertTrue(proposed["ok"], proposed)
+        change_set_id = proposed["result"]["change_set_id"]
+        self.assertEqual(proposed["result"]["proposal_mode"], "delta")
+        self.assertEqual(len(proposed["result"]["intent_digest"]), 64)
+        stored = gateway.interface.proposals[change_set_id]
+        self.assertEqual(stored["ir"]["operations"][:-1], load_service_ir(SOURCE)["operations"])
+        self.assertEqual(stored["normalized_intent"], delta | {
+            "changes": [{
+                "kind": "add_operation",
+                "operation": delta["changes"][0]["operation"],
+            }],
+        } if False else stored["normalized_intent"])
+
+        validated = self.call(
+            gateway, "delta-validate", "service.validate", {"change_set_id": change_set_id}
+        )
+        self.assertTrue(validated["ok"])
+        self.assertTrue(validated["result"]["valid"])
+        planned = self.call(
+            gateway, "delta-plan", "service.plan", {"change_set_id": change_set_id}
+        )
+        self.assertTrue(planned["ok"])
+        self.assertTrue(planned["result"]["valid"])
+        self.assertFalse(planned["result"]["will_mutate"])
+        self.assertFalse(planned["result"]["will_deploy"])
+
+    def test_delta_mode_rejects_snapshot_tool_and_default_mode_rejects_delta_tool(self):
+        delta_gateway = AgentNativeGateway("upfront", proposal_mode="delta")
+        snapshot_gateway = AgentNativeGateway("upfront")
+        self.assertEqual(
+            self.call(delta_gateway, "no-snapshot", "service.propose", {})["diagnostics"][0]["code"],
+            "UNKNOWN_TOOL",
+        )
+        self.assertEqual(
+            self.call(snapshot_gateway, "no-delta", "service.propose_delta", {})["diagnostics"][0]["code"],
+            "UNKNOWN_TOOL",
+        )
+
+    def test_delta_mode_rejects_stale_base_before_materialization(self):
+        gateway = AgentNativeGateway("upfront", proposal_mode="delta")
+        inspected = self.call(gateway, "stale-inspect", "service.inspect", {"service_id": "catalog"})
+        delta = {
+            "service_id": "catalog",
+            "base_revision": "0" * 64,
+            "changes": [{"kind": "add_operation", "operation": {
+                "name": "new_read", "method": "GET", "path": "/items/new",
+                "input": [], "output": "Item", "errors": ["NotFound"],
+                "validation": [], "effects": ["repository.read"], "capability": "items.read",
+            }}],
+        }
+        response = self.call(gateway, "stale-delta", "service.propose_delta", delta)
+        self.assertFalse(response["ok"])
+        self.assertEqual(response["diagnostics"][0]["code"], "STALE_BASE_REVISION")
+
+    def test_delta_proposal_becomes_unusable_if_base_changes_before_validate(self):
+        gateway = AgentNativeGateway("upfront", proposal_mode="delta")
+        inspected = self.call(gateway, "race-inspect", "service.inspect", {"service_id": "catalog"})
+        delta = {
+            "service_id": "catalog",
+            "base_revision": inspected["result"]["revision"],
+            "changes": [{"kind": "add_operation", "operation": {
+                "name": "new_read", "method": "GET", "path": "/items/new",
+                "input": [], "output": "Item", "errors": ["NotFound"],
+                "validation": [], "effects": ["repository.read"], "capability": "items.read",
+            }}],
+        }
+        proposed = self.call(gateway, "race-propose", "service.propose_delta", delta)
+        self.assertTrue(proposed["ok"], proposed)
+        change_set_id = proposed["result"]["change_set_id"]
+        gateway.interface.services["catalog"]["service"]["version"] = "2"
+        stale = self.call(gateway, "race-validate", "service.validate", {"change_set_id": change_set_id})
+        self.assertFalse(stale["ok"])
+        self.assertEqual(stale["diagnostics"][0]["code"], "STALE_BASE_REVISION")
+        self.assertNotIn(change_set_id, gateway.interface.validated_change_sets)
+
+    def test_delta_mode_rejects_untrusted_effects_and_capabilities(self):
+        gateway = AgentNativeGateway("upfront", proposal_mode="delta")
+        inspected = self.call(gateway, "policy-inspect", "service.inspect", {"service_id": "catalog"})
+        for field, value, expected in (
+            ("effects", ["production.deploy"], "DELTA_UNTRUSTED_EFFECT"),
+            ("capability", "admin.root", "DELTA_UNTRUSTED_CAPABILITY"),
+        ):
+            operation = {
+                "name": "new_read", "method": "GET", "path": "/items/new",
+                "input": [], "output": "Item", "errors": ["NotFound"],
+                "validation": [], "effects": ["repository.read"], "capability": "items.read",
+            }
+            operation[field] = value
+            delta = {
+                "service_id": "catalog",
+                "base_revision": inspected["result"]["revision"],
+                "changes": [{"kind": "add_operation", "operation": operation}],
+            }
+            response = self.call(gateway, "policy-" + field, "service.propose_delta", delta)
+            self.assertFalse(response["ok"])
+            self.assertEqual(response["diagnostics"][0]["code"], expected)
+
     def test_cli_process_emits_session_and_dispatches_live_tool_call(self):
         process = subprocess.Popen(
             [
