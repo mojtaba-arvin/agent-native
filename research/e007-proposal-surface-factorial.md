@@ -162,7 +162,7 @@ If the delta improves authoring cost but complicates the trusted runtime substan
 6. **Pinned cases created:** A–D are the corrected 2×2 factorial cells under `experiments/e007/evals/e007-factorial-*.eval.json`; E is the separate minimal-disclosure exploratory case. All cells use the same task and fixed Qwen3 settings/budgets from the already-tested expanded-budget case; no model budget was increased.
 7. **Deterministic CI passed:** the E-009 integrated runner/Gateway suite and E-007 evaluator suite pass, including delta candidate verification and all three disclosure modes. These tests are implementation evidence, not real-agent outcomes.
 8. **Before any model dispatch:** fix the Second Light dispatch/case identity mismatch, make the dispatch manifest select and validate an exact case path and eval ID, pin the integrated runner revision, and run the full protocol/kernel CI on that exact revision.
-9. Only then run one matched, no-apply pilot for A–D with identical model/runtime settings and inspect raw traces. Run E separately and label it exploratory. Do not increase Qwen3 budgets or run the model before all preflight checks pass.
+9. Only then manually run one matched, no-apply pilot for A–D with identical model/runtime settings and inspect raw traces. Run E separately and label it exploratory. Do not increase Qwen3 budgets or run the model before all preflight checks pass.
 10. Expand to additional tasks only after the pilot establishes that instrumentation, scoring, and safety boundaries are sound.
 
 ## 10. Claim boundary
