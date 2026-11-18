@@ -47,6 +47,7 @@ class SQLiteAuditSink:
     Open-loop reports distinguish scheduled latency from service time and client queue delay.
     The next confirmatory pass uses ten repetitions to quantify first-repetition tail variability.
     The latest HTTP trust-boundary suite passes before the confirmatory performance cohort.
+    Audit-window comparison holds all other open-loop workload parameters fixed at 100 req/s and ten repetitions.
     """
 
     def __init__(
