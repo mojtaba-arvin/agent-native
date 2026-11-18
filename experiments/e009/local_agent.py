@@ -992,6 +992,7 @@ def run(args: argparse.Namespace) -> dict:
                     )
                     _append_jsonl(trace_path, {
                         "sequence": call_number,
+                        "timestamp_ns": time.monotonic_ns(),
                         "request": request,
                         "response": nested,
                         "execution_origin": execution_origin,
