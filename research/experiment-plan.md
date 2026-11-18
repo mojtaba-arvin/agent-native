@@ -123,3 +123,15 @@ E-009 trusted host identity and atomic runtime publication remain open; the curr
 
 
 - E-002 now has two independently implemented single-node storage adapters: SQLite (24 passing tests) and PostgreSQL 16.4 (9 passing tests) in [workflow 44341683697](https://github.com/mojtaba-arvin/agent-native/actions/runs/44341683697). Five shared 60-operation traces (300 operations total), four matching pre-commit fault traces, and process-crash-after-commit reconciliation now pass against both engines in [workflow 44344568192](https://github.com/mojtaba-arvin/agent-native/actions/runs/44344568192). Next: broaden property-based generation, lease-expiry fault parity and power-loss/replication evidence, then compare performance.
+
+
+## Executed evidence update — 18 November 2026
+
+The next-stage work has produced the following executed evidence; it does not change the no-winner decision:
+
+- E-002: SQLite and PostgreSQL reference adapters now pass independent suites and a shared five-seed × 60-operation trace parity suite. [Workflow 44345013099](https://github.com/mojtaba-arvin/agent-native/actions/runs/44345013099) also passed the Go, Rust, WASI P2 and BEAM baseline jobs. The 10×5,000 cross-runtime performance matrix remains skipped until product-lifecycle and adapter conformance are implemented for each runtime.
+- E-009: [Workflow 44345238807](https://github.com/mojtaba-arvin/agent-native/actions/runs/44345238807) measured 10,000 requests at 100.044 req/s, p99 6.536 ms, 21.66% of one CPU and 35.18 MiB peak cgroup memory, under a 1-CPU/1-GiB server limit with FULL SQLite audit durability. This passes the current single-node target. PostgreSQL-backed E-009, paired randomized storage cohorts, and soak/crash tests remain next.
+- E-007: the marker-gated route launched the Qwen3 factorial, but [run 44337025030](https://github.com/mojtaba-arvin/agent-native/actions/runs/44337025030) aborted after cell C's repair-budget failure and cell A's provider HTTP 500. No cell was accepted. Provider error-body capture is now tested; a single-cell reproduction is queued before another full factorial.
+- E-011: [workflow 44337266191](https://github.com/mojtaba-arvin/agent-native/actions/runs/44337266191) passed 13 deterministic semantic tests. Two-process persistence and transport remain gated.
+
+The E-002/E-009 measurements live on `research/ci-policy-staging`; E-007 provider diagnostics and the provider error-detail fix live on `research/reboot-core`. These branches are divergent and must be reconciled by reviewed changes, not merged wholesale. `main` remains untouched and PR #6 remains Draft.
