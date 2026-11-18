@@ -64,7 +64,7 @@ jobs:
             core.setOutput('run', subject === 'perf(e009): request ten-run cgroup audit confirmation' ? 'true' : 'false');
       - name: Run E-009 durable HTTP performance smoke
         if: (github.event_name == 'pull_request' || github.event_name == 'push') && steps.performance-request.outputs.run == 'true'
-        run: python experiments/e009/performance_smoke.py --requests 1000 --repetitions 10 --concurrency 32 --target-rps 100 --containerized --audit-batch-delay-ms 2.0 --job-batch-size 32 --job-batch-delay-ms 2.0 --output "$RUNNER_TEMP/e009-performance.json"
+        run: python experiments/e009/performance_smoke.py --requests 1000 --repetitions 10 --concurrency 32 --target-rps 100 --containerized --enforce-capacity-gate --audit-batch-delay-ms 2.0 --job-batch-size 32 --job-batch-delay-ms 2.0 --output "$RUNNER_TEMP/e009-performance.json"
       - name: Preserve E-009 performance measurements
         if: always() && (github.event_name == 'pull_request' || github.event_name == 'push') && steps.performance-request.outputs.run == 'true'
         uses: actions/upload-artifact@v4
@@ -108,6 +108,7 @@ jobs:
               '- Server resources: ' + resource.server_cpu_seconds.toFixed(3) + ' CPU-s; ' + resource.server_cpu_percent_of_one_core_during_load.toFixed(1) + '% of one core during load; linear estimate at 100 req/s ' + resource.estimated_cpu_percent_at_100_rps.toFixed(1) + '%; peak cgroup memory/RSS ' + (resource.server_peak_cgroup_memory_bytes || resource.server_peak_rss_bytes) + ' bytes; CPU quota ' + resource.server_cpu_quota_cores + ' cores; cgroup pids ' + resource.server_cgroup_pids_current,
               '- Resource accounting: ' + resource.accounting,
               '- cgroup v2 limits: ' + (cgroup ? 'cpu.max=' + cgroup.cpu_max + '; memory.max=' + cgroup.memory_max + '; path=' + cgroup.path : 'unavailable'),
+              '- Capacity gate: ' + (result.capacity_gate ? (result.capacity_gate.passed ? 'PASS' : 'FAIL') + ' — ' + Object.entries(result.capacity_gate.checks).map(([name, passed]) => name + '=' + passed).join(', ') : 'not enforced'),
               '',
               'This is a shared-runner product-path measurement, not a controlled capacity claim. FULL audit durability remains enabled.'
             ].join('\n');
