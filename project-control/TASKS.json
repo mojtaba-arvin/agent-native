@@ -92,7 +92,7 @@
       "id": "CP-004",
       "title": "Port and verify the fast deterministic CI design on reboot-core",
       "milestone": "C1",
-      "status": "pending",
+      "status": "in_progress",
       "priority": 4,
       "depends_on": [
         "CP-001"
@@ -150,6 +150,76 @@
       "replan_after_failures": 2,
       "stop_conditions": [
         "Never synthesize run IDs, hashes, or benchmark metrics"
+      ],
+      "evidence_ids": []
+    },
+    {
+      "id": "CP-006",
+      "title": "Port and test the path-aware fast runner on reboot-core",
+      "milestone": "C1",
+      "status": "pending",
+      "priority": 6,
+      "depends_on": [
+        "CP-004"
+      ],
+      "owner": "ci",
+      "scope": [
+        "scripts/ci.py",
+        "scripts/fast.sh",
+        "scripts/test_ci.py",
+        "project_control.py",
+        "project-control/"
+      ],
+      "acceptance": [
+        "Deleted source/test paths select the affected suite",
+        "Project-control changes select the validator/self-test suite",
+        "Path selection and cross-suite dependencies have unit tests",
+        "All selected deterministic suites pass on the reboot-core base"
+      ],
+      "expected_outputs": [
+        "Fast suite runner port",
+        "Path-selection regression tests",
+        "Measured target-branch run"
+      ],
+      "max_unchanged_retries": 1,
+      "replan_after_failures": 2,
+      "stop_conditions": [
+        "Do not port the divergent branch history",
+        "Do not claim staging timings as reboot-core measurements"
+      ],
+      "evidence_ids": []
+    },
+    {
+      "id": "CP-007",
+      "title": "Consolidate workflow policy without losing manual and extended checks",
+      "milestone": "C1",
+      "status": "pending",
+      "priority": 7,
+      "depends_on": [
+        "CP-006"
+      ],
+      "owner": "ci",
+      "scope": [
+        ".github/workflows/",
+        "project-control/CI_PORT_AUDIT.md"
+      ],
+      "acceptance": [
+        "All legacy workflow responsibilities are mapped",
+        "Unified L0/L1/L2 triggers and permissions are reviewed",
+        "Expensive E-002 matrix is manual-only",
+        "Model acceptance is not based on CPU-only Qwen3 runs",
+        "Legacy workflow deletion is covered by the same PR's verified unified workflow"
+      ],
+      "expected_outputs": [
+        "Unified CI workflow",
+        "Workflow responsibility matrix",
+        "CI migration evidence"
+      ],
+      "max_unchanged_retries": 1,
+      "replan_after_failures": 2,
+      "stop_conditions": [
+        "Do not weaken trust-boundary tests",
+        "Do not enable unattended paid model runs"
       ],
       "evidence_ids": []
     }
