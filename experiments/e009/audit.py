@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import json
 import sqlite3
+import threading
+import time
 from pathlib import Path
 from typing import Any
 
@@ -25,13 +27,42 @@ _REQUIRED_FIELDS = {
 
 
 class SQLiteAuditSink:
-    """Persist authorization decisions before the request handler is invoked."""
+    """Append audit events with bounded synchronous group commit.
 
-    def __init__(self, database: str | Path):
+    Callers do not return until their event's transaction has committed under
+    SQLite synchronous=FULL. Concurrent callers may share one WAL commit;
+    an event is never acknowledged merely because it entered the in-memory
+    batch. A failed transaction fails every caller in that batch closed.
+    """
+
+    def __init__(
+        self,
+        database: str | Path,
+        *,
+        max_batch_size: int = 32,
+        max_batch_delay_seconds: float = 0.002,
+    ):
         raw = str(database)
         if raw == ":memory:":
             raise ValueError("file_backed_audit_database_required")
+        if type(max_batch_size) is not int or not 1 <= max_batch_size <= 1024:
+            raise ValueError("invalid_audit_batch_size")
+        if (
+            isinstance(max_batch_delay_seconds, bool)
+            or not isinstance(max_batch_delay_seconds, (int, float))
+            or not 0 <= max_batch_delay_seconds <= 0.050
+        ):
+            raise ValueError("invalid_audit_batch_delay")
         self.database = str(Path(raw).expanduser().resolve())
+        self.max_batch_size = max_batch_size
+        self.max_batch_delay_seconds = float(max_batch_delay_seconds)
+        self._condition = threading.Condition()
+        self._pending: list[dict[str, Any]] = []
+        self._flushing = False
+        self._stats_lock = threading.Lock()
+        self._committed_batches = 0
+        self._committed_events = 0
+        self._largest_batch = 0
         Path(self.database).parent.mkdir(parents=True, exist_ok=True)
         self._initialize()
 
@@ -84,7 +115,8 @@ class SQLiteAuditSink:
         finally:
             connection.close()
 
-    def __call__(self, event: dict[str, Any]) -> None:
+    @staticmethod
+    def _prepare(event: dict[str, Any]) -> tuple:
         if not isinstance(event, dict) or set(event) != _REQUIRED_FIELDS:
             raise ValueError("invalid_audit_event_fields")
 
@@ -114,27 +146,30 @@ class SQLiteAuditSink:
             separators=(",", ":"),
             allow_nan=False,
         )
+        return (
+            event["request_id"],
+            event["timestamp"],
+            event["principal_id"],
+            event["tenant_id"],
+            event["operation"],
+            event["resource"],
+            effects_json,
+            event["decision"],
+            event["reason_code"],
+        )
+
+    def _write_batch(self, batch: list[dict[str, Any]]) -> None:
         connection = self._connect()
         try:
             connection.execute("BEGIN IMMEDIATE")
-            connection.execute(
+            connection.executemany(
                 """
                 INSERT INTO audit_events(
                     request_id, timestamp, principal_id, tenant_id, operation,
                     resource, requested_effects_json, decision, reason_code
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                (
-                    event["request_id"],
-                    event["timestamp"],
-                    event["principal_id"],
-                    event["tenant_id"],
-                    event["operation"],
-                    event["resource"],
-                    effects_json,
-                    event["decision"],
-                    event["reason_code"],
-                ),
+                [item["row"] for item in batch],
             )
             connection.commit()
         except Exception:
@@ -142,6 +177,67 @@ class SQLiteAuditSink:
             raise
         finally:
             connection.close()
+
+    def _flush_as_leader(self) -> None:
+        while True:
+            with self._condition:
+                deadline = time.monotonic() + self.max_batch_delay_seconds
+                while (
+                    len(self._pending) < self.max_batch_size
+                    and self.max_batch_delay_seconds > 0
+                ):
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0:
+                        break
+                    self._condition.wait(remaining)
+                batch = self._pending[: self.max_batch_size]
+                del self._pending[: len(batch)]
+
+            if batch:
+                error = None
+                try:
+                    self._write_batch(batch)
+                    with self._stats_lock:
+                        self._committed_batches += 1
+                        self._committed_events += len(batch)
+                        self._largest_batch = max(self._largest_batch, len(batch))
+                except Exception as caught:
+                    error = caught
+                for item in batch:
+                    item["error"] = error
+                    item["done"].set()
+
+            with self._condition:
+                if not self._pending:
+                    self._flushing = False
+                    self._condition.notify_all()
+                    return
+
+    def __call__(self, event: dict[str, Any]) -> None:
+        item = {"row": self._prepare(event), "done": threading.Event(), "error": None}
+        with self._condition:
+            self._pending.append(item)
+            leader = not self._flushing
+            if leader:
+                self._flushing = True
+            self._condition.notify_all()
+
+        if leader:
+            self._flush_as_leader()
+        else:
+            item["done"].wait()
+
+        if item["error"] is not None:
+            raise OSError("audit_batch_commit_failed") from item["error"]
+
+    def metrics(self) -> dict[str, int]:
+        """Return process-local counters; these are diagnostics, not durable state."""
+        with self._stats_lock:
+            return {
+                "committed_batches": self._committed_batches,
+                "committed_events": self._committed_events,
+                "largest_batch": self._largest_batch,
+            }
 
     def list_events(self, *, request_id: str | None = None) -> list[dict[str, Any]]:
         connection = self._connect()
