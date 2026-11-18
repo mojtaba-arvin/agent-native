@@ -46,7 +46,7 @@ jobs:
           ollama list > /tmp/ollama-models.txt
       - name: Run real-agent inspect-propose-validate-plan-apply lifecycle
         run: |
-          python experiments/e010/run_demo.py \
+          bash experiments/e010/run_demo.sh \
             --model qwen3:8b \
             --arm upfront \
             --max-input-tokens 120000 \
