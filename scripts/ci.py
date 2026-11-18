@@ -21,20 +21,20 @@ class Suite:
     paths: tuple[str, ...]
 
 SUITES = (
-    Suite("e001-prototype", (sys.executable, "-m", "unittest", "discover", "-s", "experiments/e001/prototype", "-p", "test_*.py"), ("experiments/e001/**",)),
-    Suite("e002-python", (sys.executable, "-m", "unittest", "discover", "-s", "experiments/e002", "-p", "test_*.py"), ("experiments/e002/**",)),
-    Suite("e003-semantics", (sys.executable, "-m", "unittest", "discover", "-s", "experiments/e003", "-p", "test_*.py"), ("experiments/e003/**",)),
-    Suite("e004-security", (sys.executable, "-m", "unittest", "discover", "-s", "experiments/e004", "-p", "test_*.py"), ("experiments/e004/**",)),
-    Suite("e005-interface", (sys.executable, "-m", "unittest", "discover", "-s", "experiments/e005", "-p", "test_*.py"), ("experiments/e005/**",)),
-    Suite("e006-durable", (sys.executable, "-m", "unittest", "discover", "-s", "experiments/e006", "-p", "test_*.py"), ("experiments/e006/**",)),
-    Suite("e007-corpus", (sys.executable, "-m", "unittest", "discover", "-s", "experiments/e007", "-p", "test_*.py"), ("experiments/e007/**",)),
-    Suite("e008-outbox", (sys.executable, "-m", "unittest", "discover", "-s", "experiments/e008", "-p", "test_*.py"), ("experiments/e008/**",)),
-    Suite("e009-kernel", (sys.executable, "-m", "unittest", "discover", "-s", "experiments/e009", "-p", "test_*.py"), ("experiments/e009/**",)),
-    Suite("e010-apply", (sys.executable, "-m", "unittest", "discover", "-s", "experiments/e010", "-p", "test_*.py"), ("experiments/e010/**",)),
-    Suite("e011-semantics", (sys.executable, "-m", "unittest", "discover", "-s", "experiments/e011", "-p", "test_*.py"), ("experiments/e011/**",)),
-    Suite("pilot-protocol", (sys.executable, "-m", "unittest", "discover", "-s", "experiments/pilot", "-p", "test_*.py"), ("experiments/pilot/**",)),
+    Suite("e001-prototype", (sys.executable, "-m", "unittest", "discover", "-s", "experiments/e001/prototype", "-p", "test*.py"), ("experiments/e001/**",)),
+    Suite("e002-python", (sys.executable, "-m", "unittest", "discover", "-s", "experiments/e002", "-p", "test*.py"), ("experiments/e002/**",)),
+    Suite("e003-semantics", (sys.executable, "-m", "unittest", "discover", "-s", "experiments/e003", "-p", "test*.py"), ("experiments/e003/**",)),
+    Suite("e004-security", (sys.executable, "-m", "unittest", "discover", "-s", "experiments/e004", "-p", "test*.py"), ("experiments/e004/**",)),
+    Suite("e005-interface", (sys.executable, "-m", "unittest", "discover", "-s", "experiments/e005", "-p", "test*.py"), ("experiments/e005/**",)),
+    Suite("e006-durable", (sys.executable, "-m", "unittest", "discover", "-s", "experiments/e006", "-p", "test*.py"), ("experiments/e006/**",)),
+    Suite("e007-corpus", (sys.executable, "-m", "unittest", "discover", "-s", "experiments/e007", "-p", "test*.py"), ("experiments/e007/**",)),
+    Suite("e008-outbox", (sys.executable, "-m", "unittest", "discover", "-s", "experiments/e008", "-p", "test*.py"), ("experiments/e008/**",)),
+    Suite("e009-kernel", (sys.executable, "-m", "unittest", "discover", "-s", "experiments/e009", "-p", "test*.py"), ("experiments/e009/**",)),
+    Suite("e010-apply", (sys.executable, "-m", "unittest", "discover", "-s", "experiments/e010", "-p", "test*.py"), ("experiments/e010/**",)),
+    Suite("e011-semantics", (sys.executable, "-m", "unittest", "discover", "-s", "experiments/e011", "-p", "test*.py"), ("experiments/e011/**",)),
+    Suite("pilot-protocol", (sys.executable, "-m", "unittest", "discover", "-s", "experiments/pilot", "-p", "test*.py"), ("experiments/pilot/**",)),
     Suite("project-control", (sys.executable, "project_control.py", "validate"), ("project-control/**", "project_control.py")),
-    Suite("ci-runner", (sys.executable, "-m", "unittest", "discover", "-s", "scripts", "-p", "test_*.py"), ("scripts/**",)),
+    Suite("ci-runner", (sys.executable, "-m", "unittest", "discover", "-s", "scripts", "-p", "test*.py"), ("scripts/**",)),
 )
 DEPENDENCIES = {
     "experiments/e001/": {"e001-prototype", "pilot-protocol"},
