@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "blockers": [
+    {
+      "id": "BLK-001",
+      "status": "open",
+      "severity": "high",
+      "title": "GitHub autonomous merge and required-check authority is not established",
+      "description": "AGENTS.md reserves repository security settings and main merges for explicit owner authorization. CI can be prepared in a PR, but rulesets, merge queue, tokens/secrets, and unattended merge acceptance require owner action.",
+      "owner_action_required": true,
+      "unblocks": ["Autonomous merge-to-main acceptance test", "Automated release publication"],
+      "next_step": "Keep PR-based integration; prepare a least-privilege setup checklist without changing repository settings."
+    },
+    {
+      "id": "BLK-002",
+      "status": "open",
+      "severity": "medium",
+      "title": "Baseline branch head and complete CI workflow inventory need fresh verification",
+      "description": "The initial project snapshot provides a reboot-core commit reference, but the GitHub connector did not return a verifiable branch-head SHA in the bootstrap read. Workflow paths differ from an earlier staging proposal; do not assume staging CI is present on reboot-core.",
+      "owner_action_required": false,
+      "unblocks": ["CP-004", "Accurate CI integration"],
+      "next_step": "Inspect the current branch tree and branch metadata through GitHub before porting any CI change."
+    }
+  ]
+}
