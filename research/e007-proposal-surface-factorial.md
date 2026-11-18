@@ -1,6 +1,6 @@
 # E-007 follow-up — proposal representation and base-disclosure factorial experiment
 
-**Status:** corrected research protocol with an isolated materializer and opt-in Gateway delta mode merged; not wired into the E-007 local-agent runner, not dispatched to a model, and not evidence of an architecture decision.  
+**Status:** corrected factorial implemented through Gateway, local-agent adapter, independent scorer, and five pinned case manifests; deterministic CI passes. No factorial cell has been dispatched to a real model, and no architecture decision follows.  
 **Parent evidence:** E-009 full-snapshot proposal task; E-007 real-agent traces through 2026-11-18.  
 **Decision question:** Separately estimate the effect of proposal representation and the delivery sequence of the same complete base contract. Treat reduced-information/minimal disclosure as a separate exploratory treatment, not as a cell in the factorial.
 
@@ -41,7 +41,7 @@ The initial draft mixed two different meanings of "base disclosure": full contra
 | C | Complete canonical IR snapshot | Complete canonical base IR supplied upfront |
 | D | Constrained typed delta | Complete canonical base IR supplied upfront |
 
-All four arms receive the same service identity, types, and complete existing operation contracts. In A/B, full operation contracts arrive through individual inspection calls and proposal is blocked until all required inspections are complete. In C/D, the service-level inspection returns the complete canonical base IR and no per-operation calls are needed. The validator, planner, effect policy, task, model/runtime, and no-apply rule remain identical.
+All four arms receive the same service identity, types, and complete existing operation contracts. In A/B, full operation contracts arrive through individual inspection calls and proposal is blocked until all required inspections are complete. In C/D, the service-level inspection returns the complete service object, types, and full operation contracts in one response; no per-operation calls are needed. The `ir_version=1` envelope constant is part of the task/schema contract in both snapshot cells. The validator, planner, effect policy, task, model/runtime, and no-apply rule remain identical.
 
 This is a genuine factorial: the A↔B contrast estimates representation under per-operation delivery; C↔D estimates representation under upfront delivery; A↔C and B↔D estimate delivery-sequence effects for each representation. The interaction term tests whether the benefit of delta depends on how the base is disclosed.
 
@@ -152,17 +152,19 @@ A delta arm becomes a serious candidate only if:
 
 If the delta improves authoring cost but complicates the trusted runtime substantially, report that trade-off rather than hiding it. If the factorial results show inspection burden dominates, optimize the disclosure workflow separately. If neither factor helps, preserve the current design and investigate prompt/tool sequencing or model capability without silently relaxing correctness gates.
 
-## 9. Execution sequence
+## 9. Execution sequence and implementation status
 
 1. Preserve and inspect the completed Second Light artifact; its trace analysis is recorded. Do not rerun the unchanged full-snapshot task.
-2. **Prototype component complete:** `experiments/e007/delta_materializer.py` implements strict one-operation add materialization against a trusted current base. It is not wired into the Gateway or agent surface.
-3. **Gateway component complete:** PR #48 adds opt-in `proposal_mode=delta` with trusted materialization, stale-base checks, strict read-only operation policy, and no apply callback. It implements the separate minimal-disclosure exploratory treatment E, not one of the four factorial cells. It is not wired into the E-007 local-agent runner.
-4. Implement the independent inspection-delivery factor (per-operation vs full-upfront) for both snapshot and delta modes, then add the four arm manifests and trusted evaluator assertions.
-5. Run protocol and kernel CI first. Do not spend model tokens until all four cells pass deterministic and adversarial tests.
-6. Calibrate a single small matched pilot. If resource reservations do not fit, do not dispatch.
-7. Run paired arms and inspect raw traces before updating the evidence index or making a design recommendation.
-8. Expand to additional tasks only after the pilot establishes that the instrumentation, scoring, and safety boundaries are sound.
+2. **Trusted materializer complete:** `experiments/e007/delta_materializer.py` strictly materializes one append-only operation against the trusted current base, validates the canonical result, and binds the exact base revision and result hash.
+3. **Gateway treatment controls complete:** `AgentNativeGateway` exposes orthogonal `proposal_mode` and `base_disclosure` settings. The four factorial combinations are supported; minimal disclosure is restricted to delta as exploratory treatment E. Invalid combinations and attempts to cross treatment boundaries fail closed.
+4. **Local-agent adapter complete:** `local_agent.py` accepts the proposal and disclosure modes, uses a mode-specific task contract, tracks both proposal tools, verifies delta candidates by independently re-materializing against the trusted catalog, and preserves the selected treatment in run metadata.
+5. **Independent evaluator complete:** `eval_runner.py` reconstructs the trusted base outside the agent-visible context, recomputes the delta materialization and change-set hash, checks exact candidate schema, verifies the proposal/validation/plan hash chain, and enforces disclosure-specific inspection behavior.
+6. **Pinned cases created:** A–D are the corrected 2×2 factorial cells under `experiments/e007/evals/e007-factorial-*.eval.json`; E is the separate minimal-disclosure exploratory case. All cells use the same task and fixed Qwen3 settings/budgets from the already-tested expanded-budget case; no model budget was increased.
+7. **Deterministic CI passed:** the E-009 integrated runner/Gateway suite and E-007 evaluator suite pass, including delta candidate verification and all three disclosure modes. These tests are implementation evidence, not real-agent outcomes.
+8. **Before any model dispatch:** fix the Second Light dispatch/case identity mismatch, make the dispatch manifest select and validate an exact case path and eval ID, pin the integrated runner revision, and run the full protocol/kernel CI on that exact revision.
+9. Only then run one matched, no-apply pilot for A–D with identical model/runtime settings and inspect raw traces. Run E separately and label it exploratory. Do not increase Qwen3 budgets or run the model before all preflight checks pass.
+10. Expand to additional tasks only after the pilot establishes that instrumentation, scoring, and safety boundaries are sound.
 
 ## 10. Claim boundary
 
-This document is a proposed experiment, not a selected architecture. An isolated trusted materializer prototype and an opt-in minimal-disclosure delta Gateway mode exist, with deterministic Gateway lifecycle and adversarial tests. The delta mode is not wired into the E-007 local-agent runner. The four-cell corrected factorial has not been implemented or run; no independent oracle service or statistical result exists. The full-snapshot proposal remains the only active/default interface. No language, syntax, runtime, transport, or persistence technology is selected by this proposal.
+The corrected factorial is now implemented in the Gateway, local-agent adapter, independent evaluator, and case manifests. CI verifies the deterministic protocol and scorer paths. No A–D cell or E treatment has been dispatched to a real model, no acceptance or comparative performance result exists, and no architecture decision has been made. The snapshot interface remains the default. No language, syntax, runtime, transport, or persistence technology is selected by this experiment.
