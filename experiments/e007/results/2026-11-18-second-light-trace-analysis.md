@@ -80,6 +80,10 @@ Do not immediately rerun the same full-snapshot task with identical settings. Fi
 
 A future run should not increase model budgets simply to mask repeated invalid tool behavior. The next meaningful gain should come from better protocol enforcement and an experimentally justified authoring surface.
 
-## 6. Claim boundary
+## 6. Dispatch identity / provenance caveat
+
+The workflow artifact's `eval_id` is `e009-readonly-operation-postfix-extended-context-v2`, matching the pinned case file `experiments/e007/evals/e009-readonly-proposal-postfix-expanded-budget.eval.json`. The contemporaneous `experiments/e007/dispatch.json` instead declared `e009-second-light-task-path-fixed-v4`. Inspection of `run_second_light.sh` confirms it passed the pinned case file directly to `eval_runner.py`; it did not read or propagate the dispatch manifest's `eval_id`. Therefore the artifact identity is the case-file ID, and the dispatch manifest's ID was not the executed eval ID. This is a provenance-label mismatch, not evidence that the wrong model settings or task file were used. It must be resolved before the next dispatch by separating a unique `dispatch_id` from the reusable `eval_id` and having the runner validate the pair.
+
+## 7. Claim boundary
 
 This report analyzes one deterministic Qwen3 run. It does not prove the model cannot complete the task, that delta proposals are superior, or that the Gateway architecture is wrong. It records the observed behavior, the runner defect exposed by the trace, and the next discriminating experiment.
