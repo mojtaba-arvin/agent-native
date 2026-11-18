@@ -45,10 +45,10 @@ The existing process-tree sampler is diagnostic only. It is not a substitute for
 | E-010 tests | Same run: 3 E-010 tests passed | Keep demo limitations explicit; no arbitrary callback isolation claim |
 | Client identity injection | Trusted identity is constructed by host fixture; no production identity adapter | 100% of attempts to submit principal, tenant or grants from client input are rejected |
 | Runtime publication | Defensive ownership implemented; publication race contract not implemented | No request may observe a mixed runtime revision under concurrent publication |
-| Product-path performance | [Run 44303882187](https://github.com/mojtaba-arvin/agent-native/actions/runs/44303882187), [artifact 14426952929](https://github.com/mojtaba-arvin/agent-native/actions/runs/44303882187/artifacts/14426952929): 1,000 requests, client concurrency 32/server cap 64; 759.48 req/s; p50 6.10 ms, p95 132.78 ms, p99 1,068.81 ms; 0 unexpected statuses | **Harness passed; latency gate failed** (p99 target ≤100 ms). Five repetitions × 1,000 plus warm-up and slowest-operation capture are now wired for the next run; preserve SQLite FULL audit durability |
+| Product-path performance | [Run 44304494521](https://github.com/mojtaba-arvin/agent-native/actions/runs/44304494521), [artifact 14427192929](https://github.com/mojtaba-arvin/agent-native/actions/runs/44304494521/artifacts/14427192929): 5×1,000 requests, client concurrency 32/server cap 64; 1,090.21 req/s; p50 5.41 ms, p95 115.42 ms, p99 333.51 ms, max 835.82 ms; 0 unexpected statuses | **Harness passed; latency gate failed** (p99 target ≤100 ms, observed 3.3×). Preserve SQLite FULL audit durability; next isolate synchronous audit commit/group-commit cost |
 | Controlled capacity | Not measured | Dedicated host/cgroup, warm-up, 10 repetitions, source and environment pinned |
 
-The E-009 smoke is a real HTTP/SQLite/worker/relay workload on a shared CI runner. The first sample had 12/1,000 503s and p99 1,231.72 ms; after separating server admission capacity from offered client concurrency, the next sample had 0/1,000 unexpected statuses but p99 remained 1,068.81 ms. Synchronous SQLite FULL audit writes are a plausible contributor to tail latency; durability was not weakened. Repeated measurements and per-operation tail attribution are next. This is not a controlled capacity claim, cross-runtime comparison, or isolated CPU/memory accounting.
+The E-009 smoke is a real HTTP/SQLite/worker/relay workload on a shared CI runner. An initial 1k run had 12/1,000 503s; a 5k repeated run still had rare transport resets. The root cause was the TCP listen backlog being set after socket activation. Moving the backlog assignment before `super().__init__` removed transport errors in the next 5k run and improved p99 from ~1.07 s to 333.51 ms (about 69% lower). p99 remains 3.3× the 100 ms target and p95 is 115.42 ms. FULL-durability audit writes remain enabled. This is not a controlled capacity claim, cross-runtime comparison, or isolated CPU/memory accounting.
 
 ## E-011 — inter-service semantics
 
@@ -63,7 +63,7 @@ The E-009 smoke is a real HTTP/SQLite/worker/relay workload on a shared CI runne
 ## Repository state
 
 - Working branch: `research/reboot-core`.
-- Latest verified E-009/E-011 code commit at scorecard update: `e3d86c96ce1bdc69caed18254992c6078dc77c52`; one-shot E-007 dispatch marker commit: `49a178ced8751e5f9a5edbf96054603a55497532`.
+- Latest verified E-009 server/CI fix commit: `b7fe2cafc084e46c30ce1ef6819d1f7d5357a43e`; E-011 semantic hardening commit: `70d8de4a970f44fe8f15c3c62f9e4009d54a8f3a`; one-shot E-007 dispatch marker commit: `49a178ced8751e5f9a5edbf96054603a55497532`.
 - `main` remains at `da3736c7ea4d239d1ea520d8b56025b4e3251b33`.
 - PR #6 remains Open/Draft; no merge is authorized.
-- The Actions connector exposes job/artifact inspection by run ID but not a list-workflow-runs or workflow-dispatch write action. Where a push-triggered run cannot be inspected through the available action surface, its status is explicitly unknown until an artifact/run reference is available.
+- E-009 CI now cancels stale branch runs and only executes its five-repetition performance workload when a pull-request head commit has the explicit subject `perf(e009): request five-run product-path measurement`; ordinary code/docs updates still run correctness tests but skip the expensive load test. The Actions connector does not expose push-triggered E-007 run listing; its marker commit is recorded as a dispatch request, not a verified model result.
