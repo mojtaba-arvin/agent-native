@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "decisions": [
+    {
+      "id": "CPD-001",
+      "date": "2026-11-19",
+      "status": "decision",
+      "statement": "Keep project execution governance in a versioned project-control directory, separate from the Agent Native framework runtime.",
+      "rationale": "The project needs durable checkpoints and machine-readable progress without turning project management into part of the product architecture.",
+      "alternatives": ["External project board only", "Runtime-coupled control-plane implementation"],
+      "evidence": ["AGENTS.md architecture boundary", "Current repository execution requirements"],
+      "revisit_when": "The project requires shared multi-repository orchestration."
+    },
+    {
+      "id": "CPD-002",
+      "date": "2026-11-19",
+      "status": "decision",
+      "statement": "Use JSON for machine-readable control-plane contracts and Python standard library for validation.",
+      "rationale": "Avoid new runtime dependencies and make validation available in a clean Python environment.",
+      "alternatives": ["YAML plus an external parser", "Database-backed project state"],
+      "evidence": ["No package/dependency baseline is assumed for this control-plane bootstrap"],
+      "revisit_when": "Schema complexity or concurrent writers justify a dedicated schema tool or service."
+    }
+  ]
+}
