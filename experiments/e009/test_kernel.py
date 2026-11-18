@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 
 from catalog import build_catalog_handlers
-from kernel import ConfigurationError, HandlerContext, HandlerResult, ServiceRuntime, load_service_ir
+from kernel import ConfigurationError, HandlerContext, HandlerResult, RuntimeRegistry, ServiceRuntime, load_service_ir
 from repository import SQLiteCatalogRepository
 from work_store import DurableWorkStore
 from security_model import Grant, RequestContext
@@ -112,6 +112,58 @@ class KernelTests(unittest.TestCase):
         self.assertEqual(result.body["error"]["code"], "NotFound")
         with self.assertRaises(TypeError):
             runtime.handlers["get_item"] = lambda _context: {}
+
+    def test_runtime_registry_publishes_immutable_monotonic_snapshots(self):
+        second_runtime = ServiceRuntime(
+            load_service_ir(SOURCE),
+            handlers=build_catalog_handlers(self.repository, self.work_store),
+            repository=self.repository,
+            trusted_effects=TRUSTED_EFFECTS,
+            clock=lambda: 101,
+        )
+        registry = RuntimeRegistry(self.runtime, revision=1)
+        first_snapshot = registry.snapshot()
+        published = registry.publish(second_runtime, revision=2)
+        self.assertEqual(first_snapshot.revision, 1)
+        self.assertIs(first_snapshot.runtime, self.runtime)
+        self.assertEqual(published.revision, 2)
+        self.assertIs(published.runtime, second_runtime)
+        with self.assertRaisesRegex(ConfigurationError, "must_increase"):
+            registry.publish(self.runtime, revision=2)
+        with self.assertRaisesRegex((AttributeError, TypeError)):
+            first_snapshot.revision = 9
+
+    def test_concurrent_runtime_readers_never_observe_torn_revision_runtime_pairs(self):
+        second_runtime = ServiceRuntime(
+            load_service_ir(SOURCE),
+            handlers=build_catalog_handlers(self.repository, self.work_store),
+            repository=self.repository,
+            trusted_effects=TRUSTED_EFFECTS,
+            clock=lambda: 101,
+        )
+        registry = RuntimeRegistry(self.runtime, revision=1)
+        expected = {id(self.runtime): 1, id(second_runtime): 2}
+        barrier = threading.Barrier(9)
+
+        def reader(_index):
+            barrier.wait()
+            for _ in range(1000):
+                snapshot = registry.snapshot()
+                self.assertEqual(expected[id(snapshot.runtime)], snapshot.revision)
+
+        def publisher():
+            barrier.wait()
+            registry.publish(second_runtime, revision=2)
+
+        with ThreadPoolExecutor(max_workers=9) as pool:
+            readers = [pool.submit(reader, index) for index in range(8)]
+            writer = pool.submit(publisher)
+            for future in readers:
+                future.result()
+            writer.result()
+        final = registry.snapshot()
+        self.assertEqual(final.revision, 2)
+        self.assertIs(final.runtime, second_runtime)
 
     def test_idempotent_create_replays_exact_result_and_conflicting_payload_fails(self):
         first = self.dispatch(
