@@ -147,6 +147,58 @@ class KernelHTTPServerTests(unittest.TestCase):
         finally:
             server.server_close()
 
+    def test_inflight_http_request_keeps_its_snapshot_during_publication(self):
+        entered = threading.Event()
+        release = threading.Event()
+        provider_lock = threading.Lock()
+        first_call = {"value": True}
+
+        class BlockingProvider:
+            def authenticate(_self, headers):
+                with provider_lock:
+                    should_block = first_call["value"]
+                    first_call["value"] = False
+                if should_block:
+                    entered.set()
+                    if not release.wait(timeout=5):
+                        raise TimeoutError("test did not release blocked authentication")
+                return self.identity.authenticate(headers)
+
+        registry = RuntimeRegistry(self.runtime, revision=7)
+        server = create_server(registry, BlockingProvider(), max_concurrency=8)
+        server_thread = threading.Thread(target=server.serve_forever, daemon=True)
+        server_thread.start()
+        previous_base = self.base_url
+        self.base_url = f"http://127.0.0.1:{server.server_port}"
+        result = {}
+
+        def send_first_request():
+            result["first"] = self.request("GET", "/items/by-name/not-found")
+
+        request_thread = threading.Thread(target=send_first_request, daemon=True)
+        try:
+            request_thread.start()
+            self.assertTrue(entered.wait(timeout=3))
+            registry.publish(self.runtime, revision=8)
+            release.set()
+            request_thread.join(timeout=5)
+            self.assertFalse(request_thread.is_alive())
+            first_status, first_headers, _first_body = result["first"]
+            self.assertEqual(first_status, 404)
+            self.assertEqual(first_headers.get("X-Runtime-Revision"), "7")
+
+            second_status, second_headers, _second_body = self.request(
+                "GET", "/items/by-name/not-found"
+            )
+            self.assertEqual(second_status, 404)
+            self.assertEqual(second_headers.get("X-Runtime-Revision"), "8")
+        finally:
+            release.set()
+            self.base_url = previous_base
+            server.shutdown()
+            server.server_close()
+            server_thread.join(timeout=5)
+
     def test_non_loopback_binding_requires_explicit_host_opt_in(self):
         with self.assertRaisesRegex(ValueError, "must_be_loopback"):
             create_server(self.runtime, self.identity, host="0.0.0.0")
