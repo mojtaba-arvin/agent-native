@@ -176,6 +176,49 @@ def summarize(results, elapsed):
     }
 
 
+def evaluate_capacity_gate(aggregate, resource_metrics):
+    """Evaluate the preregistered single-node E-009 target using server cgroup metrics."""
+    cgroup = resource_metrics.get("cgroup_v2_limits") or {}
+    checks = {
+        "throughput_at_least_100_rps": (
+            aggregate.get("throughput_requests_per_second", 0) >= 100.0
+        ),
+        "aggregate_p99_at_most_100_ms": (
+            (aggregate.get("latency_ms") or {}).get("p99", float("inf")) <= 100.0
+        ),
+        "server_cpu_at_most_50_percent_of_one_core": (
+            resource_metrics.get("server_cpu_percent_of_one_core_during_load", float("inf")) <= 50.0
+        ),
+        "peak_cgroup_memory_at_most_1_gib": (
+            resource_metrics.get("server_peak_cgroup_memory_bytes") is not None
+            and resource_metrics["server_peak_cgroup_memory_bytes"] <= 1_073_741_824
+        ),
+        "server_cgroup_is_one_cpu": (
+            resource_metrics.get("server_containerized") is True
+            and resource_metrics.get("server_cpu_quota_cores") == 1.0
+            and cgroup.get("cpu_max") == "100000 100000"
+        ),
+        "server_cgroup_memory_limit_is_1_gib": (
+            cgroup.get("memory_max") == "1073741824"
+        ),
+        "zero_unexpected_outcomes": aggregate.get("failed_expectations") == 0,
+    }
+    return {
+        "enabled": True,
+        "passed": all(checks.values()),
+        "thresholds": {
+            "minimum_throughput_requests_per_second": 100.0,
+            "maximum_aggregate_p99_ms": 100.0,
+            "maximum_one_core_cpu_percent": 50.0,
+            "maximum_peak_cgroup_memory_bytes": 1_073_741_824,
+            "required_server_cpu_quota_cores": 1.0,
+            "required_server_memory_limit_bytes": 1_073_741_824,
+            "maximum_unexpected_outcomes": 0,
+        },
+        "checks": checks,
+    }
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--requests", type=int, default=1000, help="measured requests per repetition")
@@ -185,6 +228,8 @@ def main():
                         help="open-loop offered rate per repetition; 0 selects saturation mode")
     parser.add_argument("--containerized", action="store_true",
                         help="run the server in a one-CPU/1-GiB cgroup-limited container")
+    parser.add_argument("--enforce-capacity-gate", action="store_true",
+                        help="fail unless the measured run meets the 100 req/s single-node gate")
     parser.add_argument("--audit-batch-delay-ms", type=float, default=2.0)
     parser.add_argument("--job-batch-size", type=int, default=32)
     parser.add_argument("--job-batch-delay-ms", type=float, default=0.5)
@@ -475,6 +520,10 @@ def main():
                     "not a 10-repetition controlled cross-runtime capacity comparison",
                 ],
             }
+            if args.enforce_capacity_gate:
+                summary["capacity_gate"] = evaluate_capacity_gate(
+                    summary["aggregate"], summary["resource_metrics"]
+                )
             rendered = json.dumps(summary, indent=2, sort_keys=True)
             print(rendered)
             if args.output:
@@ -482,6 +531,11 @@ def main():
                 args.output.write_text(rendered + "\n", encoding="utf-8")
             if failures:
                 raise SystemExit(f"{len(failures)} of {len(all_results)} measured requests did not match expected status")
+            if args.enforce_capacity_gate and not summary["capacity_gate"]["passed"]:
+                failed_checks = [
+                    name for name, passed in summary["capacity_gate"]["checks"].items() if not passed
+                ]
+                raise SystemExit("E-009 capacity gate failed: " + ", ".join(failed_checks))
         finally:
             if "stop_cpu_monitor" in locals() and stop_cpu_monitor is not None:
                 stop_cpu_monitor.set()
