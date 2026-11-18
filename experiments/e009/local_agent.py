@@ -376,6 +376,9 @@ def verify_candidate(
     tool_sequence: list[str],
     validation_change_set_id: str | None = None,
     plan_change_set_id: str | None = None,
+    expected_task_id: str = TASK_ID,
+    allow_sandbox_apply: bool = False,
+    apply_result: dict | None = None,
 ) -> dict:
     required = {
         "schema_version", "task_id", "service_id",
@@ -383,7 +386,7 @@ def verify_candidate(
     }
     if not isinstance(candidate, dict) or set(candidate) != required:
         raise AgentRunError("candidate_fields_invalid")
-    if type(candidate["schema_version"]) is not int or candidate["schema_version"] != 1 or candidate["task_id"] != TASK_ID:
+    if type(candidate["schema_version"]) is not int or candidate["schema_version"] != 1 or candidate["task_id"] != expected_task_id:
         raise AgentRunError("candidate_identity_invalid")
     if candidate["service_id"] != SERVICE_ID:
         raise AgentRunError("candidate_service_invalid")
@@ -417,7 +420,21 @@ def verify_candidate(
     if not plan_result.get("ok"):
         raise AgentRunError("proposal_plan_not_successful")
     plan = plan_result.get("result") or {}
-    if not plan.get("valid") or plan.get("will_mutate") is not False or plan.get("will_deploy") is not False:
+    if not plan.get("valid") or plan.get("will_deploy") is not False:
+        raise AgentRunError("proposal_plan_not_safe")
+    if allow_sandbox_apply:
+        if plan.get("will_mutate") is not True or plan.get("sandbox_only") is not True:
+            raise AgentRunError("proposal_plan_not_sandbox_apply")
+        if (
+            not isinstance(apply_result, dict)
+            or not apply_result.get("ok")
+            or not isinstance(apply_result.get("result"), dict)
+            or apply_result["result"].get("applied") is not True
+            or apply_result["result"].get("sandbox_only") is not True
+            or apply_result["result"].get("runtime_smoke_test", {}).get("status_code") != 200
+        ):
+            raise AgentRunError("sandbox_apply_not_successful")
+    elif plan.get("will_mutate") is not False:
         raise AgentRunError("proposal_plan_not_safe")
 
     expected_service = inspected["service"]
@@ -440,12 +457,18 @@ def verify_candidate(
     proposal_indices = [i for i, name in enumerate(tool_sequence) if name == "service.propose"]
     validation_indices = [i for i, name in enumerate(tool_sequence) if name == "service.validate"]
     plan_indices = [i for i, name in enumerate(tool_sequence) if name == "service.plan"]
+    apply_indices = [i for i, name in enumerate(tool_sequence) if name == "service.apply"]
+    apply_sequence_valid = (
+        len(apply_indices) == 1 and apply_indices[0] > plan_indices[-1]
+        if allow_sandbox_apply and plan_indices else
+        len(apply_indices) == 0
+    )
     if (
         not proposal_indices
         or len(proposal_indices) > 3
         or not validation_indices
         or not plan_indices
-        or tool_sequence.count("service.apply") != 0
+        or not apply_sequence_valid
         or "service.inspect" not in tool_sequence
         or proposal_indices[-1] <= tool_sequence.index("service.inspect")
         or validation_indices[-1] <= proposal_indices[-1]
@@ -453,14 +476,19 @@ def verify_candidate(
     ):
         raise AgentRunError("required_tool_sequence_invalid")
     return {
-        "task_id": TASK_ID,
+        "task_id": expected_task_id,
         "service_id": SERVICE_ID,
         "base_revision": candidate["base_revision"],
         "change_set_id": computed_id,
         "preserved_operation_count": len(original_operations),
         "added_operation": EXPECTED_OPERATION["name"],
         "validation": "passed",
-        "plan": "valid_no_mutation_no_deployment",
+        "plan": "valid_sandbox_apply_no_deployment" if allow_sandbox_apply else "valid_no_mutation_no_deployment",
+        "applied": bool(allow_sandbox_apply),
+        "runtime_smoke_test": (
+            (apply_result or {}).get("result", {}).get("runtime_smoke_test")
+            if allow_sandbox_apply else None
+        ),
     }
 
 
@@ -605,6 +633,9 @@ def _plan_gate_response(
 
 def run(args: argparse.Namespace) -> dict:
     endpoint = validate_ollama_endpoint(args.ollama_url)
+    task_id = getattr(args, "task_id", TASK_ID)
+    allow_sandbox_apply = bool(getattr(args, "allow_sandbox_apply", False))
+    task_path = Path(getattr(args, "task_path", E009_ROOT / "AGENT_TASK.md")).expanduser().resolve()
     results_root = args.results_dir.expanduser().resolve()
     try:
         results_root.relative_to(ROOT.resolve())
@@ -613,7 +644,8 @@ def run(args: argparse.Namespace) -> dict:
     else:
         raise ValueError("results_directory_must_be_outside_repository")
     results_root.mkdir(parents=True, exist_ok=True, mode=0o700)
-    run_id = f"e009-{time.strftime('%Y%m%dT%H%M%SZ', time.gmtime())}-{uuid.uuid4().hex[:8]}"
+    run_prefix = "e010" if allow_sandbox_apply else "e009"
+    run_id = f"{run_prefix}-{time.strftime('%Y%m%dT%H%M%SZ', time.gmtime())}-{uuid.uuid4().hex[:8]}"
     run_dir = results_root / run_id
     run_dir.mkdir(mode=0o700, exist_ok=False)
     trace_path = run_dir / "tool-trace.jsonl"
@@ -624,6 +656,9 @@ def run(args: argparse.Namespace) -> dict:
     _write_exclusive(prompt_states_path, b"")
     candidate_path = run_dir / "candidate.json"
     result_path = run_dir / "run.json"
+    sandbox_dir = run_dir / "sandbox" if allow_sandbox_apply else None
+    if sandbox_dir is not None:
+        sandbox_dir.mkdir(mode=0o700)
 
     started = time.monotonic_ns()
     deadline = time.monotonic() + args.max_wall_seconds
@@ -631,7 +666,7 @@ def run(args: argparse.Namespace) -> dict:
     record = {
         "schema_version": 1,
         "run_id": run_id,
-        "task_id": TASK_ID,
+        "task_id": task_id,
         "model": args.model,
         "arm": args.arm,
         "status": "running",
@@ -642,7 +677,9 @@ def run(args: argparse.Namespace) -> dict:
         "tool_calls": 0,
         "candidate_path": None,
         "prompt_states_path": str(prompt_states_path),
+        "sandbox_dir": str(sandbox_dir) if sandbox_dir is not None else None,
         "verification": None,
+        "apply_result": None,
         "failure": None,
     }
 
@@ -654,6 +691,7 @@ def run(args: argparse.Namespace) -> dict:
                 str(E009_ROOT / "agent_gateway.py"),
                 "--arm",
                 args.arm,
+                *(["--sandbox-apply", "--sandbox-dir", str(sandbox_dir)] if allow_sandbox_apply else []),
             ],
             cwd=ROOT,
             stdin=subprocess.PIPE,
@@ -679,6 +717,11 @@ def run(args: argparse.Namespace) -> dict:
             if args.arm == "upfront"
             else
             "This run uses the progressive disclosure arm. Before each tool whose detailed schema has not yet been retrieved, call interface.describe with its exact name and use that returned schema. Retrieve the service.inspect schema first. "
+        )
+        apply_instruction = (
+            "After service.plan returns valid=true, will_mutate=true, sandbox_only=true, and will_deploy=false, call service.apply exactly once with the same change_set_id. The apply is restricted to the isolated temporary E-010 sandbox; it cannot deploy or mutate production. Read the apply result and ensure its runtime_smoke_test status_code is 200. "
+            if allow_sandbox_apply else
+            "Never call service.apply. "
         )
         system_prompt = (
             "You are an engineering agent working on the live Agent Native E-009 service. "
@@ -706,10 +749,10 @@ def run(args: argparse.Namespace) -> dict:
             "Follow the gateway next_actions and diagnostics; never propose while an inspection is still missing. "
             "Preserve every existing type and operation exactly. Propose exactly the task operation. "
             "Use the inspected revision. Validate the exact proposal, then plan it. "
-            "Never call service.apply. No shell, files, network, secrets, or deployment tools exist. "
+            + apply_instruction + "No shell, files, network, secrets, or production deployment tools exist. "
             "Return only the exact final JSON candidate requested by the task. Never invent tool results."
         )
-        task = (E009_ROOT / "AGENT_TASK.md").read_text(encoding="utf-8")
+        task = task_path.read_text(encoding="utf-8")
         base_messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": task},
@@ -736,6 +779,7 @@ def run(args: argparse.Namespace) -> dict:
         validation_change_set_id = None
         plan_result = None
         plan_change_set_id = None
+        apply_result = None
         tool_sequence: list[str] = []
         tool_outcomes: list[dict] = []
         failed_tool_requests: set[str] = set()
@@ -966,7 +1010,9 @@ def run(args: argparse.Namespace) -> dict:
                         plan_result = nested
                         plan_change_set_id = arguments.get("change_set_id") if isinstance(arguments, dict) else None
                     elif tool_name == "service.apply":
-                        raise AgentRunError("agent_attempted_apply")
+                        if not allow_sandbox_apply:
+                            raise AgentRunError("agent_attempted_apply")
+                        apply_result = nested
                     messages.append({
                         "role": "tool",
                         "tool_name": "agent.invoke",
@@ -1006,8 +1052,12 @@ def run(args: argparse.Namespace) -> dict:
             tool_sequence=tool_sequence,
             validation_change_set_id=validation_change_set_id,
             plan_change_set_id=plan_change_set_id,
+            expected_task_id=task_id,
+            allow_sandbox_apply=allow_sandbox_apply,
+            apply_result=apply_result,
         )
         record["verification"] = verification
+        record["apply_result"] = apply_result
         record["status"] = "candidate_verified_locally"
 
     except Exception as error:
@@ -1046,6 +1096,9 @@ def main() -> None:
     parser.add_argument("--top-p", type=float, default=1.0)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--think", action="store_true")
+    parser.add_argument("--task-path", type=Path)
+    parser.add_argument("--task-id", default=TASK_ID)
+    parser.add_argument("--sandbox-apply", action="store_true")
     args = parser.parse_args()
     for name in ("max_input_tokens", "max_output_tokens", "max_tool_calls", "max_wall_seconds", "num_ctx", "num_predict"):
         value = getattr(args, name)
@@ -1063,6 +1116,7 @@ def main() -> None:
         or args.num_ctx < 1024
     ):
         parser.error("generation settings, seed, context, or time budget are out of range")
+    args.allow_sandbox_apply = args.sandbox_apply
     try:
         record = run(args)
     except (ValueError, OSError) as error:
