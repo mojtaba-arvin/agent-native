@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-PINNED_REV="__NEW_SHA__"
+PINNED_REV="2e718ec85d0b8d7b00de153f69e344cb377701a8"
 ROOT="$(git rev-parse --show-toplevel)"
 WORKTREE="$(mktemp -d "${TMPDIR:-/tmp}/agent-native-second-light.XXXXXX")"
 rmdir "$WORKTREE"
