@@ -93,8 +93,9 @@ def create_server(
     host: str = "127.0.0.1",
     port: int = 0,
     max_concurrency: int = 64,
+    allow_non_loopback: bool = False,
 ) -> BoundedThreadingHTTPServer:
-    if host not in {"127.0.0.1", "localhost"}:
+    if host not in {"127.0.0.1", "localhost"} and not allow_non_loopback:
         raise ValueError("e009_http_host_must_be_loopback")
     if type(port) is not int or not 0 <= port <= 65535:
         raise ValueError("invalid_http_port")
