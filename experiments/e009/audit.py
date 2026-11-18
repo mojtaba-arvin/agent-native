@@ -49,6 +49,7 @@ class SQLiteAuditSink:
     The latest HTTP trust-boundary suite passes before the confirmatory performance cohort.
     Audit-window comparison holds all other open-loop workload parameters fixed at 100 req/s and ten repetitions.
     The 2 ms trial lowered tail latency but did not reduce commit count; the 0.5 ms baseline is being replicated before changing defaults.
+    A second 2 ms cohort tests whether the lower p99 is repeatable despite higher CPU and unchanged commit count.
     """
 
     def __init__(
