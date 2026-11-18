@@ -76,7 +76,9 @@ def retry_action(state: CallState, *, operation_retryable: bool) -> str:
         return "return_recorded_outcome"
     if state == CallState.REJECTED_BEFORE_DISPATCH:
         return "retry_new_attempt" if operation_retryable else "stop"
-    if state in {CallState.FAILED_BEFORE_EFFECT, CallState.CANCELLED_AND_STOPPED}:
+    if state == CallState.CANCELLED_AND_STOPPED:
+        return "return_recorded_outcome"
+    if state == CallState.FAILED_BEFORE_EFFECT:
         return "retry_same_key" if operation_retryable else "stop"
     return "do_not_retry"
 
@@ -112,6 +114,7 @@ class Capability:
     operations: frozenset[str]
     resources: frozenset[str]
     expires_at: int
+    delegable_audiences: frozenset[str] = frozenset()
 
     def attenuate(
         self,
@@ -123,6 +126,8 @@ class Capability:
     ) -> "Capability":
         if audience == "":
             raise ValueError("empty_audience")
+        if audience not in self.delegable_audiences:
+            raise ValueError("capability_audience_escalation")
         if not operations.issubset(self.operations):
             raise ValueError("capability_operation_escalation")
         if not resources.issubset(self.resources):
@@ -137,6 +142,7 @@ class Capability:
             operations=operations,
             resources=resources,
             expires_at=expires_at,
+            delegable_audiences=frozenset(),
         )
 
 
