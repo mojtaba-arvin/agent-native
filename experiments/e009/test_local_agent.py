@@ -127,6 +127,10 @@ class LocalAgentRunnerTests(unittest.TestCase):
         expected = (Path(__file__).parent / "AGENT_TASK.md").resolve()
         self.assertEqual(_resolve_task_path(None), expected)
 
+    def test_delta_mode_resolves_to_delta_specific_task_contract(self):
+        expected = (Path(__file__).parent / "AGENT_TASK_DELTA.md").resolve()
+        self.assertEqual(_resolve_task_path(None, "delta"), expected)
+
     def test_explicit_task_path_is_preserved(self):
         with tempfile.TemporaryDirectory() as temporary:
             explicit = Path(temporary) / "custom-task.md"
