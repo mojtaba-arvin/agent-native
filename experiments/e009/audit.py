@@ -54,7 +54,7 @@ class SQLiteAuditSink:
     The confirmatory cohort runs the server in a Docker cgroup capped at one CPU and 1 GiB; CPU/memory are read from that server cgroup.
     Container startup failures now retain the Docker stdout/stderr tail so the cgroup launch path can be debugged from CI evidence.
     The container benchmark opts into non-loopback binding through both the serve CLI environment guard and create_server allow_non_loopback flag; default hosts remain loopback-only.
-    The next cohort repeats the same one-CPU/1-GiB container workload with only audit_batch_delay_ms changed from 2.0 to 0.5.
+    The 0.5 ms cgroup cohort showed severe tail variance; repeat the 2.0 ms cgroup profile before selecting a provisional audit window.
     """
 
     def __init__(
