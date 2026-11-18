@@ -135,7 +135,7 @@
   },
   "cross_engine_trace_parity": {
     "status": "passed",
-    "workflow_run_id": 44344048163,
+    "workflow_run_id": 44344568192,
     "runner": "experiments/e002/trace_runner.py",
     "seed": 20261118,
     "operations": 60,
@@ -152,11 +152,13 @@
       "outbox claim and fenced acknowledgement",
       "normalized record counts",
       "canonical trace digest",
-      "matching zero-state after each of four pre-commit injected faults"
+      "matching zero-state after each of four pre-commit injected faults",
+      "process termination after commit and before response on both engines",
+      "same-key reconciliation after reopen with matching durable record counts"
     ],
     "limitations": [
       "five deterministic seeds, not exhaustive property-based search",
-      "fault parity covers four pre-commit logical write boundaries",
+      "fault parity covers four pre-commit logical write boundaries plus post-commit process crash",
       "no power-loss or replicated durability claim",
       "no runtime-candidate adapter parity"
     ],
