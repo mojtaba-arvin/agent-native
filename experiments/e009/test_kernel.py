@@ -132,7 +132,7 @@ class KernelTests(unittest.TestCase):
         self.assertIs(published.runtime, second_runtime)
         with self.assertRaisesRegex(ConfigurationError, "must_increase"):
             registry.publish(self.runtime, revision=2)
-        with self.assertRaisesRegex((AttributeError, TypeError)):
+        with self.assertRaises((AttributeError, TypeError)):
             first_snapshot.revision = 9
 
     def test_concurrent_runtime_readers_never_observe_torn_revision_runtime_pairs(self):
