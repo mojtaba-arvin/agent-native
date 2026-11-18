@@ -81,6 +81,16 @@ class FactorialDispatchTests(unittest.TestCase):
             with self.assertRaisesRegex(DispatchValidationError, "execution_order_invalid"):
                 validate_dispatch(root, manifest_path)
 
+
+    def test_randomization_seed_must_reproduce_the_recorded_order(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root, manifest_path = self._copy_fixture(temporary)
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["randomization_seed"] += 1
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+            with self.assertRaisesRegex(DispatchValidationError, "execution_order_invalid"):
+                validate_dispatch(root, manifest_path)
+
     def test_model_budget_change_is_rejected(self):
         with tempfile.TemporaryDirectory() as temporary:
             root, manifest_path = self._copy_fixture(temporary)
