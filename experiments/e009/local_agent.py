@@ -173,7 +173,15 @@ def provider_chat(
         if len(raw) > MAX_PROVIDER_BYTES:
             raise AgentRunError("provider_response_too_large")
         if response.status != 200:
-            raise AgentRunError(f"provider_http_{response.status}")
+            detail = None
+            try:
+                error_payload = strict_json(raw)
+                if isinstance(error_payload, dict) and isinstance(error_payload.get("error"), str):
+                    detail = " ".join(error_payload["error"].split())[:240]
+            except (ValueError, TypeError):
+                detail = None
+            suffix = f":{detail}" if detail else ""
+            raise AgentRunError(f"provider_http_{response.status}{suffix}")
         result = strict_json(raw)
     except AgentRunError:
         if deadline_expired.is_set():
