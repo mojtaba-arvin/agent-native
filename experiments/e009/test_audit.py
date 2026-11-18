@@ -226,6 +226,70 @@ class SQLiteAuditSinkTests(unittest.TestCase):
         self.assertEqual(sink.list_events(), [])
         self.assertEqual(sink.metrics()["committed_events"], 0)
 
+
+    def test_job_outbox_idempotency_and_audit_share_one_durable_transaction(self):
+        runtime = self.runtime()
+        first = runtime.dispatch(
+            "POST",
+            "/items/rebuild",
+            {},
+            identity(),
+            headers={"idempotency-key": "atomic-job-001"},
+            request_id="atomic-job-attempt-1",
+        )
+        self.assertEqual(first.status_code, 202)
+        first_job_id = first.body["data"]["id"]
+        first_audit = self.sink.list_events(request_id="atomic-job-attempt-1")
+        self.assertEqual(len(first_audit), 1)
+        self.assertEqual(first_audit[0]["decision"], "allow")
+
+        replay = runtime.dispatch(
+            "POST",
+            "/items/rebuild",
+            {},
+            identity(),
+            headers={"idempotency-key": "atomic-job-001"},
+            request_id="atomic-job-attempt-2",
+        )
+        self.assertEqual(replay.status_code, 200)
+        self.assertEqual(replay.body["data"]["id"], first_job_id)
+        self.assertEqual(len(self.sink.list_events(request_id="atomic-job-attempt-2")), 1)
+
+        connection = sqlite3.connect(self.repository.database)
+        try:
+            self.assertEqual(connection.execute("SELECT COUNT(*) FROM durable_jobs").fetchone()[0], 1)
+            self.assertEqual(connection.execute("SELECT COUNT(*) FROM durable_outbox").fetchone()[0], 1)
+        finally:
+            connection.close()
+        metrics = self.sink.metrics()
+        self.assertEqual(metrics["transactional_events"], 2)
+
+    def test_atomic_audit_insert_failure_rolls_back_job_and_outbox_then_fails_closed(self):
+        def fail_insert(_connection, _event):
+            raise OSError("simulated audit insert failure")
+
+        self.sink.write_in_transaction = fail_insert
+        runtime = self.runtime()
+        response = runtime.dispatch(
+            "POST",
+            "/items/rebuild",
+            {},
+            identity(),
+            headers={"idempotency-key": "atomic-job-fail-001"},
+            request_id="atomic-job-fail-001",
+        )
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.body["error"]["code"], "ServiceUnavailable")
+        connection = sqlite3.connect(self.repository.database)
+        try:
+            self.assertEqual(connection.execute("SELECT COUNT(*) FROM durable_jobs").fetchone()[0], 0)
+            self.assertEqual(connection.execute("SELECT COUNT(*) FROM durable_outbox").fetchone()[0], 0)
+        finally:
+            connection.close()
+        fallback = self.sink.list_events(request_id="atomic-job-fail-001")
+        self.assertEqual(len(fallback), 1)
+        self.assertEqual(fallback[0]["decision"], "allow")
+
     def test_audit_rows_reject_update_and_delete(self):
         self.sink({
             "principal_id": "user-a",
