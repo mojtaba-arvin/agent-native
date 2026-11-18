@@ -52,6 +52,7 @@ class SQLiteAuditSink:
     A second 2 ms cohort tests whether the lower p99 is repeatable despite higher CPU and unchanged commit count.
     Atomic runtime publication tests are green before this confirmatory 2 ms cohort.
     The confirmatory cohort runs the server in a Docker cgroup capped at one CPU and 1 GiB; CPU/memory are read from that server cgroup.
+    Container startup failures now retain the Docker stdout/stderr tail so the cgroup launch path can be debugged from CI evidence.
     """
 
     def __init__(
