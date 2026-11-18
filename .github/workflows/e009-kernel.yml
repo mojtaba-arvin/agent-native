@@ -62,7 +62,7 @@ jobs:
             core.setOutput('run', subject === 'perf(e009): request five-run product-path measurement' ? 'true' : 'false');
       - name: Run E-009 durable HTTP performance smoke
         if: (github.event_name == 'pull_request' || github.event_name == 'push') && steps.performance-request.outputs.run == 'true'
-        run: python experiments/e009/performance_smoke.py --requests 1000 --repetitions 5 --concurrency 32 --audit-batch-delay-ms 0.5 --output "$RUNNER_TEMP/e009-performance.json"
+        run: python experiments/e009/performance_smoke.py --requests 1000 --repetitions 5 --concurrency 32 --audit-batch-delay-ms 0.5 --job-batch-delay-ms 2.0 --output "$RUNNER_TEMP/e009-performance.json"
       - name: Preserve E-009 performance measurements
         if: always() && (github.event_name == 'pull_request' || github.event_name == 'push') && steps.performance-request.outputs.run == 'true'
         uses: actions/upload-artifact@v4
@@ -96,7 +96,7 @@ jobs:
               '- ' + reps,
               '- Operation latency: ' + kinds,
               '- Audit commits: ' + audit.committed_batches + ' group batches for ' + audit.committed_events + ' events; ' + audit.transactional_events + ' events shared the durable job transaction; largest batch ' + audit.largest_batch + '; batch window ' + result.workload.audit_batch_delay_ms + ' ms',
-              '- Durable job submissions: ' + work.committed_submissions + ' submissions across ' + work.submit_batches + ' transactions; largest batch ' + work.largest_submit_batch,
+              '- Durable job submissions: ' + work.committed_submissions + ' submissions across ' + work.submit_batches + ' transactions; largest batch ' + work.largest_submit_batch + '; job batch window ' + result.workload.job_batch_delay_ms + ' ms',
               '',
               'This is a shared-runner product-path measurement, not a controlled capacity claim. FULL audit durability remains enabled.'
             ].join('\n');
