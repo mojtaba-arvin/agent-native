@@ -46,7 +46,13 @@ def main() -> None:
     parser.add_argument("--max-running-jobs", type=int, default=16)
     parser.add_argument("--audit-batch-size", type=int, default=32)
     parser.add_argument("--audit-batch-delay-ms", type=float, default=2.0)
+    parser.add_argument("--job-batch-delay-ms", type=float, default=0.5)
     args = parser.parse_args()
+    if (
+        not math.isfinite(args.job_batch_delay_ms)
+        or not 0 <= args.job_batch_delay_ms <= 50
+    ):
+        parser.error("job batch delay must be between 0 and 50 ms")
     for name, value in (
         ("worker-poll-seconds", args.worker_poll_seconds),
         ("relay-poll-seconds", args.relay_poll_seconds),
@@ -101,7 +107,7 @@ def main() -> None:
             max_concurrency=args.max_running_jobs,
             audit_sink=audit_sink,
             max_submit_batch_size=args.audit_batch_size,
-            max_submit_batch_delay_seconds=args.audit_batch_delay_ms / 1000,
+            max_submit_batch_delay_seconds=args.job_batch_delay_ms / 1000,
         )
     except ValueError as error:
         parser.error(str(error))
