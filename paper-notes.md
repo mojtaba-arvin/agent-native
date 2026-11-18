@@ -73,3 +73,14 @@ This is an evidence plan, not manuscript prose. A claim may be promoted into the
 - Interpretation: the current failure is a model instruction-following/operation-selection failure at inspection. It is not evidence that Commit B's missing-required-argument path regressed, because no empty-arguments request was made.
 
 **Do not claim:** E-007 acceptance, a successful validation opportunity, a compaction benefit, a provider-schema mismatch reproduction, or a hardware bottleneck from this run.
+
+
+### 2026-11-18 — Absolute request deadline under slow-drip transport
+
+**Observation.** The previous urllib timeout was an inactivity timeout: a peer that emitted response bytes more frequently than the socket timeout could keep a request alive beyond the benchmark's remaining wall budget.
+
+**Correction.** The E-007 diagnostic client now uses a monotonic timer and shuts down the active response-owned socket. The remaining shared benchmark budget is still passed as the per-request deadline; no timeout was increased.
+
+**Regression evidence.** [PR #24](https://github.com/mojtaba-arvin/agent-native/pull/24) merged as 40b9d9f70e32a848d54a8569888d38a332830268. [CI run 44247617828](https://github.com/mojtaba-arvin/agent-native/actions/runs/44247617828) passed. The slow-drip test sends bytes every 50 ms against a 250 ms absolute deadline and verifies interruption within one second.
+
+**Boundary.** This test establishes a hard wall deadline for the diagnostic HTTP request. It does not establish that all subprocess/Gateway IPC or cleanup paths are bounded by the same timer, and it is not a real-model lifecycle result.
