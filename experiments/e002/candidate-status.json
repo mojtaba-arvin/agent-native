@@ -102,5 +102,35 @@
     ],
     "product_storage_selection": null,
     "canonicalization_version": "json-sort-keys-compact-utf8-v1"
+  },
+  "postgres_reference_adapter": {
+    "id": "postgresql-wal-full-reference",
+    "implementation": "experiments/e002/postgres_reference_adapter.py",
+    "tests": "experiments/e002/test_postgres_reference_adapter.py",
+    "status": "single-adapter-conformance-passed",
+    "workflow_run_id": 44341683697,
+    "tests_passed": 9,
+    "engine_version": "PostgreSQL 16.4 service image",
+    "driver_version": "psycopg 3.2.9",
+    "durability_profile": "fsync=on; synchronous_commit=on",
+    "canonicalization_version": "json-sort-keys-compact-utf8-v1",
+    "guarantees_tested": [
+      "atomic job+outbox+idempotency+audit admission",
+      "rollback at each pre-commit logical write boundary",
+      "tenant+operation-scoped idempotency using transaction advisory lock",
+      "32-way same-hash and different-hash races",
+      "process crash after commit and before response reconciliation",
+      "audit outage fails closed",
+      "append-only audit",
+      "outbox lease expiry and stale-ack fencing"
+    ],
+    "limitations": [
+      "disposable single-node CI service only",
+      "no replication or synchronous standby durability",
+      "no power-loss certification",
+      "no cross-runtime storage adapter parity",
+      "no controlled performance comparison"
+    ],
+    "product_storage_selection": null
   }
 }
