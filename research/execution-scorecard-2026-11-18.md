@@ -57,7 +57,7 @@ The 10-run cohort passes the current single-node product-path threshold with sub
 
 | Metric | Current evidence | Acceptance gate |
 |---|---|---|
-| Deterministic model | [Run 44303882125](https://github.com/mojtaba-arvin/agent-native/actions/runs/44303882125): **11/11 tests passed**, including seeded 10,000-transition state-machine exercise and idempotency outcome defensive-copy regression | Continue property-based transition sequences; distributed semantics still not proved |
+| Deterministic model | [Run 44337266191](https://github.com/mojtaba-arvin/agent-native/actions/runs/44337266191): **13/13 tests passed**, including seeded 10,000-transition state-machine exercise and idempotency outcome defensive-copy regression | Continue property-based transition sequences; distributed semantics still not proved |
 | Retry and unknown outcome | Same-key reconciliation is modelled | No timeout after dispatch may be treated as proof of non-execution |
 | Idempotency | In-memory tenant/operation/key model | Across two processes and durable restart, 100 concurrent duplicate requests yield exactly one logical admission |
 | Capability attenuation | Audience, operation, resource and expiry escalation rejected by deterministic tests | Property tests find zero accepted escalation cases |
@@ -120,3 +120,15 @@ This section supersedes older status snapshots above where they conflict. New wo
 
 
 CI execution policy: E-002 and E-009 now set cancel-in-progress=false so a later commit does not terminate an active conformance or long-running performance cohort. The newest pending run may still replace an older pending run, but an in-progress experiment is preserved.
+
+
+## Latest verified update — 18 November 2026, 20:53 local
+
+This addendum supersedes conflicting older snapshots in the supplemental section above.
+
+- **E-007:** the marker-gated route did execute the real Qwen3 workflow. [Run 44337025030](https://github.com/mojtaba-arvin/agent-native/actions/runs/44337025030) failed; artifact [14444849207](https://github.com/mojtaba-arvin/agent-native/actions/runs/44337025030/artifacts/14444849207) shows cell C failed with `proposal_repair_budget_exceeded`, cell A failed with `provider_http_500`, and D/B were not started after infrastructure abort. Zero accepted cells; no apply. The exact Ollama HTTP 500 response body was not captured in that run. Provider error detail capture plus a regression test is now on `research/reboot-core`; [PR CI 44353796608](https://github.com/mojtaba-arvin/agent-native/actions/runs/44353796608) passed 116 E-009 and 3 E-010 tests. A bounded one-cell A reproduction with unchanged Qwen3 settings is queued as [run 44354856148](https://github.com/mojtaba-arvin/agent-native/actions/runs/44354856148); it is diagnostic only, not a factorial acceptance result.
+- **E-002:** [run 44345013099](https://github.com/mojtaba-arvin/agent-native/actions/runs/44345013099) passed Go/Rust/WASI P2/BEAM baseline jobs, 9 PostgreSQL 16.4 storage tests, and 3 cross-engine parity tests. Five deterministic seeds × 60 operations were replayed against both SQLite and PostgreSQL (300 operations per engine) with matching semantic traces; four pre-commit fault points rolled back identically and post-commit process-crash reconciliation matched. The randomized cross-runtime benchmark matrix remains skipped.
+- **E-009:** [run 44345238807](https://github.com/mojtaba-arvin/agent-native/actions/runs/44345238807) completed 10×1,000 open-loop requests at 100 req/s in a one-CPU/1-GiB cgroup-limited server container: 100.044 req/s, p99 6.536 ms, 21.66% of one core, 35.18 MiB peak cgroup memory, zero unexpected outcomes. FULL SQLite audit durability remained enabled. This passes the current single-node threshold, not a production or cross-runtime capacity claim.
+- **E-011:** [run 44337266191](https://github.com/mojtaba-arvin/agent-native/actions/runs/44337266191) passed 13 deterministic tests, including seeded transition fuzzing and idempotency defensive-copy checks. Two-process persistence/transport remains unimplemented.
+- **Branch separation:** `research/reboot-core` contains the E-007/E-009 diagnostic change and is the head of PR #6. `research/ci-policy-staging` contains the E-002/E-009 measurement work and remains divergent; these are not yet one integrated source revision. `main` remains unchanged at `da3736c7ea4d239d1ea520d8b56025b4e3251b33`; PR #6 remains Open/Draft.
+
