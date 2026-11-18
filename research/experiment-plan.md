@@ -63,7 +63,7 @@ Cells A–D are the 2×2 comparison. Minimal-disclosure Delta E is a separate ex
 
 **Acceptance remains strict:** a single proposal hash must be accepted, semantically validated, and planned; the evaluator must verify exact preservation of the trusted base and the requested change; the plan must be safe with no mutation/deployment; apply must never be invoked. Proposal-only success, budget exhaustion, provider failure, and deterministic mock tests are not lifecycle acceptance.
 
-**Next action:** run the manual workflow on `research/reboot-core` after preflight and inspect the complete artifact before interpreting results. Keep Qwen3 settings and budgets unchanged unless a separate evidence-backed decision explicitly changes them. The current GitHub connector can inspect runs and artifacts but does not expose the workflow-dispatch action, so this particular manual launch cannot be performed from this session.
+**Next action:** run the manual workflow on `research/reboot-core` after preflight and inspect the complete artifact before interpreting results. Keep Qwen3 settings and budgets unchanged unless a separate evidence-backed decision explicitly changes them. The workflow must be launched through GitHub Actions or an authorized workflow_dispatch API; this remains an explicit manual gate rather than an automatic PR/push trigger.
 
 ## E-010 — Sandbox apply boundary
 
