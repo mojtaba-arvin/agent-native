@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import os
+import subprocess
+import sys
 import tempfile
 import unittest
+from pathlib import Path
 
 try:
     import psycopg
@@ -23,6 +26,80 @@ from trace_runner import run_reference_trace
     "requires disposable PostgreSQL service and psycopg",
 )
 class CrossEngineTraceParityTests(unittest.TestCase):
+    def test_process_crash_after_commit_reconciles_identically_on_both_engines(self):
+        dsn = os.environ["AGENT_NATIVE_E002_POSTGRES_DSN"]
+        env = dict(os.environ)
+        env["PYTHONPATH"] = str(Path(__file__).parent)
+        with tempfile.TemporaryDirectory() as directory:
+            sqlite_path = os.path.join(directory, "crash.sqlite3")
+            postgres = PostgresReferenceAdapter(dsn)
+            postgres.reset()
+
+            sqlite_child = """
+import os, sys
+from sqlite_reference_adapter import SQLiteReferenceAdapter
+def crash(stage):
+    if stage == "after_commit":
+        os._exit(77)
+adapter = SQLiteReferenceAdapter(sys.argv[1], _fault_hook=crash)
+adapter.admit_job(
+    tenant_id="tenant-crash", operation_id="jobs.create", idempotency_key="crash-key",
+    payload={"resource": "lamp"}, outbox_payload={"topic": "job.created"},
+    audit_event={"request_id": "crash-before-response", "operation_id": "jobs.create", "created_at": 100},
+)
+"""
+            postgres_child = """
+import os, sys
+from postgres_reference_adapter import PostgresReferenceAdapter
+def crash(stage):
+    if stage == "after_commit":
+        os._exit(77)
+adapter = PostgresReferenceAdapter(sys.argv[1], _fault_hook=crash)
+adapter.admit_job(
+    tenant_id="tenant-crash", operation_id="jobs.create", idempotency_key="crash-key",
+    payload={"resource": "lamp"}, outbox_payload={"topic": "job.created"},
+    audit_event={"request_id": "crash-before-response", "operation_id": "jobs.create", "created_at": 100},
+)
+"""
+            sqlite_crash = subprocess.run(
+                [sys.executable, "-c", sqlite_child, sqlite_path],
+                env=env, check=False, timeout=20,
+            )
+            postgres_crash = subprocess.run(
+                [sys.executable, "-c", postgres_child, dsn],
+                env=env, check=False, timeout=20,
+            )
+            self.assertEqual(sqlite_crash.returncode, 77)
+            self.assertEqual(postgres_crash.returncode, 77)
+
+            sqlite = SQLiteReferenceAdapter(sqlite_path)
+            postgres = PostgresReferenceAdapter(dsn)
+            replay_results = []
+            for adapter in (sqlite, postgres):
+                status, outcome = adapter.admit_job(
+                    tenant_id="tenant-crash", operation_id="jobs.create",
+                    idempotency_key="crash-key", payload={"resource": "lamp"},
+                    outbox_payload={"topic": "job.created"},
+                    audit_event={
+                        "request_id": "retry-after-crash",
+                        "operation_id": "jobs.create",
+                        "created_at": 101,
+                    },
+                )
+                counts = adapter.recover()
+                counts = {key.removeprefix("e002_"): value for key, value in counts.items()}
+                replay_results.append({
+                    "status": status,
+                    "state": outcome["state"],
+                    "counts": counts,
+                })
+
+        self.assertEqual(replay_results[0], replay_results[1])
+        self.assertEqual(replay_results[0]["status"], "replayed")
+        self.assertEqual(replay_results[0]["counts"], {
+            "jobs": 1, "outbox": 1, "idempotency_records": 1, "audit": 2,
+        })
+
     def test_precommit_faults_have_identical_atomic_rollback_on_both_engines(self):
         dsn = os.environ["AGENT_NATIVE_E002_POSTGRES_DSN"]
         stages = ("after_job", "after_outbox", "after_idempotency", "after_audit")
