@@ -34,6 +34,7 @@ class SQLiteAuditSink:
     an event is never acknowledged merely because it entered the in-memory
     batch. A failed transaction fails every caller in that batch closed. The
     performance pilot keeps FULL durability enabled throughout measurement.
+    Batch counters are process-local diagnostics; they never gate or bypass commits.
     """
 
     def __init__(
