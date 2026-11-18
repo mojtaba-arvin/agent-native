@@ -85,3 +85,8 @@ The four artifacts are independent outputs, not four completed product capabilit
 ## E-011 — Executable semantic model
 
 [Executable semantics model](../experiments/e011/README.md) adds deterministic state transitions, retry classification, monotonic remaining-deadline arithmetic, audience/operation/resource/expiry attenuation, and tenant/operation/key-scoped idempotency replay/conflict. It is a pure in-memory model only; it does not prove persistence, concurrency/linearizability, transport behavior, credential cryptography, or two-process communication. Its dedicated GitHub Actions workflow is [e011-semantics.yml](../.github/workflows/e011-semantics.yml). First run exposed fixture/state-model defects; those were corrected in a follow-up commit and the corrected revision is awaiting CI.
+
+
+### E-009 defensive runtime ownership regression — verified
+
+At commit 086f62c851cbfe9dcd77dad66ce32bc626b517dc, [integrated kernel workflow 44299480091](https://github.com/mojtaba-arvin/agent-native/actions/runs/44299480091) passed. The run executed 110 E-009 tests and 3 E-010 tests, all successful, alongside E-001/E-004 checks. This verifies the defensive IR ownership, private operation structures, read-only handler mapping, defensive inspection copies, and caller-mutation regression test. It does not establish authentication of RequestContext origin, hot-reload publication concurrency, formal deep immutability, or production security.
