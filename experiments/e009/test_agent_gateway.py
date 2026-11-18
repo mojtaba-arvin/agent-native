@@ -377,11 +377,20 @@ class AgentGatewayTests(unittest.TestCase):
         delta = {
             "service_id": "catalog",
             "base_revision": inspected["result"]["revision"],
-            "changes": [{"kind": "add_operation", "operation": {
-                "name": "new_read", "method": "GET", "path": "/experimental/new-read/{id}",
-                "input": [{"name": "id", "source": "path", "type": "String"}], "output": "Item", "errors": ["NotFound"],
-                "validation": [], "effects": ["repository.read"], "capability": "items.read",
-            }}],
+            "changes": [{
+                "kind": "add_operation",
+                "operation": {
+                    "name": "get_item_by_normalized_name",
+                    "method": "GET",
+                    "path": "/items/by-normalized-name/{name}",
+                    "input": [{"name": "name", "source": "path", "type": "String"}],
+                    "output": "Item",
+                    "errors": ["InvalidInput", "NotFound", "Unauthorized"],
+                    "validation": ["name.non_empty"],
+                    "effects": ["repository.read"],
+                    "capability": "items.read",
+                },
+            }],
         }
         proposed = self.call(gateway, "race-propose", "service.propose_delta", delta)
         self.assertTrue(proposed["ok"], proposed)
