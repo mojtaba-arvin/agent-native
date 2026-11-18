@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import random
 from pathlib import Path
 from typing import Any
 
@@ -29,7 +30,7 @@ EXPECTED_CELLS = {
 }
 MANIFEST_FIELDS = {
     "schema_version", "dispatch_id", "status", "model_id", "repetitions",
-    "arm", "model_settings", "cases", "execution_order", "no_apply", "purpose",
+    "arm", "model_settings", "cases", "randomization_seed", "randomization_method", "execution_order", "no_apply", "purpose",
 }
 CASE_ENTRY_FIELDS = {"case_path", "eval_id", "proposal_mode", "base_disclosure"}
 
@@ -87,8 +88,15 @@ def validate_dispatch(root: Path, manifest_path: Path) -> tuple[dict, list[dict]
     if not isinstance(cases, list) or len(cases) != 4:
         raise DispatchValidationError("dispatch_must_contain_exactly_four_factorial_cells")
 
+    randomization_seed = manifest.get("randomization_seed")
+    if isinstance(randomization_seed, bool) or not isinstance(randomization_seed, int):
+        raise DispatchValidationError("dispatch_randomization_seed_invalid")
+    if manifest.get("randomization_method") != "python_random.Random(seed).shuffle([A,B,C,D])":
+        raise DispatchValidationError("dispatch_randomization_method_invalid")
+    expected_order = ["A", "B", "C", "D"]
+    random.Random(randomization_seed).shuffle(expected_order)
     execution_order = manifest.get("execution_order")
-    if not isinstance(execution_order, list) or len(execution_order) != 4 or set(execution_order) != {"A", "B", "C", "D"}:
+    if execution_order != expected_order:
         raise DispatchValidationError("dispatch_execution_order_invalid")
     labels = {
         ("snapshot", "per_operation"): "A",
