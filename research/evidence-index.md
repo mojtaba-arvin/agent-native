@@ -119,3 +119,6 @@ At commit 086f62c851cbfe9dcd77dad66ce32bc626b517dc, [integrated kernel workflow 
 
 
 - **E-002 cross-engine semantic trace:** [trace runner](../experiments/e002/trace_runner.py) and [parity test](../experiments/e002/test_cross_engine_trace_parity.py). [Workflow 44343404367](https://github.com/mojtaba-arvin/agent-native/actions/runs/44343404367) replayed the same 60-operation seeded trace against SQLite and PostgreSQL and compared normalized status sequences, idempotency/replay/conflict, durable record counts, outbox claim/ack, and canonical digest. Multi-seed/fault-trace parity remains open.
+
+
+- **E-002 expanded cross-engine trace/fault parity:** [workflow 44344048163](https://github.com/mojtaba-arvin/agent-native/actions/runs/44344048163) passed five deterministic 60-operation traces (300 total) against SQLite and PostgreSQL, plus matching rollback after four injected pre-commit failures. The same run passed both storage suites and all four runtime baselines; benchmark matrix remained skipped.
