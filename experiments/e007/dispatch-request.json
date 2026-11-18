@@ -1,16 +1,16 @@
 {
-    "schema_version": 1,
-    "request_id": "e007-matched-factorial-qwen3-20261118-one-shot",
-    "branch": "research/reboot-core",
-    "workflow": "e007-real-agent-eval.yml",
-    "model": "qwen3:8b",
-    "repetitions": 1,
-    "factorial_cells": [
-        "A",
-        "B",
-        "C",
-        "D"
-    ],
-    "no_apply": true,
-    "budgets_unchanged": true
+  "schema_version": 1,
+  "request_id": "e007-matched-factorial-qwen3-20261118-retry1",
+  "branch": "research/reboot-core",
+  "workflow": "e007-real-agent-eval.yml",
+  "model": "qwen3:8b",
+  "repetitions": 1,
+  "factorial_cells": [
+    "A",
+    "B",
+    "C",
+    "D"
+  ],
+  "no_apply": true,
+  "budgets_unchanged": true
 }
