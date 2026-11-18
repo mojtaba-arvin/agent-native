@@ -55,5 +55,25 @@
     "toolchains_pinned": true,
     "decision_grade": false,
     "runtime_selection": null
+  },
+  "decision_record": {
+    "snapshot": "2026-11-18",
+    "selected_product_scenario": "agent-tool-execution-control-plane",
+    "runtime_selection": null,
+    "runtime_selection_reason": "Current evidence is a trivial in-memory endpoint measured on shared hosted runners; the workload is not representative and ecosystem/failure-semantics evidence is incomplete.",
+    "provisional_capacity_envelope": {
+      "replica_vcpu": 1,
+      "successful_requests_per_second": 100,
+      "concurrency": 32,
+      "p99_latency_ms": 100,
+      "sustained_cpu_fraction": 0.5,
+      "cpu_seconds_per_5000_requests": 25,
+      "model_inference_included": false
+    },
+    "previous_cpu_screen": {
+      "cpu_seconds_per_5000_requests": 0.5,
+      "status": "retired_as_hard_gate",
+      "reason": "No product-capacity provenance; historical results remain unchanged and are not rescored."
+    }
   }
 }

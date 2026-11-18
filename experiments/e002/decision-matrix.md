@@ -1,6 +1,6 @@
 # E-002 weighted runtime decision matrix
 
-**Status:** criteria registered; current measurements remain diagnostic and no runtime is selected.
+**Status:** final provisional product-scenario decision recorded; no runtime selected. The existing runtime measurements remain diagnostic and are not decision-grade.
 **Snapshot:** 17 November 2026
 **Candidates:** Go/net-http, Rust/Tokio+Hyper, WASI P2/Wasmtime, Elixir/BEAM.
 
@@ -87,3 +87,33 @@ Artifact size is now **measured once per candidate** under that Linux packaging 
 - Report mean, sample standard deviation, median, min/max, and bootstrap 95% interval for run-level throughput, p99, CPU, RSS, and startup.
 - Label results from shared GitHub-hosted runners **diagnostic only**. A runtime decision still requires a controlled dedicated machine, representative persistence/serialization/authorization/inter-service workloads, and fault injection.
 - Do not select a runtime in this cycle.
+
+
+## Final product-scenario decision — 18 November 2026
+
+**Selected scenario:** agent/tool-execution control plane. This is the workload closest to Agent Native's product boundary: authenticated HTTP requests, Gateway dispatch, schema/contract checks, authorization, audit persistence, and bounded work submission. Model inference is explicitly outside the runtime comparison because its latency and resource profile belong to the model provider, not the HTTP/runtime substrate.
+
+### Provisional capacity envelope (hypothesis, not a measured SLO)
+
+- One service replica with **1 vCPU**.
+- **100 successful control-plane requests/second** sustained, concurrency 32.
+- **p99 ≤ 100 ms** for the control-plane request path, excluding model inference and external provider calls.
+- **Sustained CPU ≤ 50% of one vCPU** at that load, reserving the other half for bursts, scheduling, and background work.
+- Zero authorization, tenant-isolation, audit-ordering, or data-integrity violations; 100% pass on the explicitly registered deadline, overload, cancellation, retry, and idempotency assertions.
+
+The CPU capacity bound implied by this envelope is:
+
+at 100 requests/s and 50% of one CPU, the available CPU budget is 0.005 CPU-seconds/request, or **25 CPU-seconds per 5,000 requests**. This replaces the former **0.5 CPU-seconds/5,000** screening gate for future product-representative measurements. The old threshold had no documented product-capacity provenance and is retired as a hard eligibility gate; its historical results remain unchanged and are not rescored. The new 25-second bound is a provisional capacity hypothesis, not an acceptance claim, and must be validated under the actual control-plane workload before being treated as a production SLO.
+
+### Runtime decision
+
+**Decision: none selected.**
+
+The existing evidence is insufficient to select Go, Rust, WASI P2, or BEAM:
+1. The measured workload is a trivial in-memory `GET /work?ms=0` endpoint, not authenticated Agent Gateway dispatch with authorization, durable audit, serialization, queue/outbox, or realistic tool execution.
+2. The two ten-run cohorts are shared GitHub-hosted runner diagnostics, not controlled-host capacity measurements.
+3. The ecosystem/operability rubric and comparable injected-failure semantics suite remain unmeasured.
+4. WASI P2 has a different host-owned listener/admission boundary; the current test does not establish equivalent operational behavior.
+5. The observed CPU values are not a basis for runtime elimination under the revised product envelope.
+
+No weighted winner is computed. The next decision-grade comparison must implement the agent/tool-control-plane request mix, the full failure semantics suite, and a controlled-host protocol before selecting a runtime. The four candidates remain research candidates; none is promoted to the product runtime.
