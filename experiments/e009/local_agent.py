@@ -25,6 +25,11 @@ from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parents[2]
 E009_ROOT = Path(__file__).resolve().parent
+if str(E009_ROOT) not in sys.path:
+    sys.path.insert(0, str(E009_ROOT))
+from kernel import load_service_ir  # noqa: E402
+from delta_materializer import materialize_add_operation  # noqa: E402
+
 MAX_MESSAGE_BYTES = 256 * 1024
 MAX_PROVIDER_BYTES = 8 * 1024 * 1024
 MAX_CANDIDATE_BYTES = 1024 * 1024
@@ -287,8 +292,8 @@ def prevalidate_tool_call(request: dict, surface: dict) -> dict | None:
     if tool_name == "service.inspect" and "service_id" in missing:
         message = 'service.inspect requires arguments.service_id; provide service_id: "catalog".'
         fix_hint = 'Set arguments to {"service_id":"catalog"}; omit operation for the initial service-level inspection.'
-    elif tool_name == "service.propose":
-        message = f"service.propose is missing required argument(s): {', '.join(missing)}."
+    elif tool_name in {"service.propose", "service.propose_delta"}:
+        message = f"{tool_name} is missing required argument(s): {', '.join(missing)}."
         fix_hint = (
             "The arguments object must contain service_id, base_revision, and ir. "
             "Use service_id='catalog', base_revision from the initial service.inspect result, "
@@ -397,14 +402,23 @@ def verify_candidate(
     tool_sequence: list[str],
     validation_change_set_id: str | None = None,
     plan_change_set_id: str | None = None,
+    proposal_mode: str = "snapshot",
+    base_disclosure: str = "per_operation",
     expected_task_id: str = TASK_ID,
     allow_sandbox_apply: bool = False,
     apply_result: dict | None = None,
 ) -> dict:
-    required = {
-        "schema_version", "task_id", "service_id",
-        "base_revision", "change_set_id", "ir",
-    }
+    if proposal_mode == "delta":
+        required = {
+            "schema_version", "task_id", "service_id", "base_revision",
+            "change_set_id", "proposal_mode", "intent_digest",
+            "materialized_ir_digest", "changes",
+        }
+    else:
+        required = {
+            "schema_version", "task_id", "service_id",
+            "base_revision", "change_set_id", "ir",
+        }
     if not isinstance(candidate, dict) or set(candidate) != required:
         raise AgentRunError("candidate_fields_invalid")
     if type(candidate["schema_version"]) is not int or candidate["schema_version"] != 1 or candidate["task_id"] != expected_task_id:
@@ -414,6 +428,86 @@ def verify_candidate(
 
     proposal_args = successful_proposal["arguments"]
     proposal_result = successful_proposal["result"]
+    if proposal_mode == "delta":
+        if candidate.get("proposal_mode") != "delta":
+            raise AgentRunError("candidate_proposal_mode_invalid")
+        if candidate["base_revision"] != inspected["revision"]:
+            raise AgentRunError("candidate_base_revision_mismatch")
+        changes = candidate.get("changes")
+        if not isinstance(changes, list) or len(changes) != 1:
+            raise AgentRunError("candidate_delta_shape_invalid")
+        change = changes[0]
+        operation = change.get("operation") if isinstance(change, dict) else None
+        if not isinstance(change, dict) or change.get("kind") != "add_operation" or operation != EXPECTED_OPERATION:
+            raise AgentRunError("candidate_delta_does_not_match_task")
+        trusted_base = load_service_ir((E009_ROOT / "catalog.an").read_text(encoding="utf-8"))
+        try:
+            materialized = materialize_add_operation(
+                canonical_json({
+                    "service_id": SERVICE_ID,
+                    "base_revision": candidate["base_revision"],
+                    "changes": changes,
+                }),
+                service_id=SERVICE_ID,
+                current_service=trusted_base,
+                trusted_effects={"repository.read"},
+                trusted_capabilities={"items.read"},
+            )
+        except Exception as error:
+            raise AgentRunError("candidate_delta_materialization_failed") from error
+        if (
+            proposal_args.get("service_id") != SERVICE_ID
+            or proposal_args.get("base_revision") != candidate["base_revision"]
+            or proposal_args.get("changes") != changes
+            or candidate["change_set_id"] != materialized["change_set_id"]
+            or proposal_result.get("change_set_id") != materialized["change_set_id"]
+            or candidate["intent_digest"] != materialized["intent_digest"]
+            or proposal_result.get("intent_digest") != materialized["intent_digest"]
+            or candidate["materialized_ir_digest"] != materialized["materialized_ir_digest"]
+            or proposal_result.get("materialized_ir_digest") != materialized["materialized_ir_digest"]
+        ):
+            raise AgentRunError("candidate_delta_proposal_identity_mismatch")
+        if validation_change_set_id is not None and validation_change_set_id != materialized["change_set_id"]:
+            raise AgentRunError("candidate_validation_hash_mismatch")
+        if plan_change_set_id is not None and plan_change_set_id != materialized["change_set_id"]:
+            raise AgentRunError("candidate_plan_hash_mismatch")
+        if not validation_result.get("ok") or not validation_result.get("result", {}).get("valid"):
+            raise AgentRunError("proposal_validation_not_successful")
+        if not plan_result.get("ok"):
+            raise AgentRunError("proposal_plan_not_successful")
+        plan = plan_result.get("result") or {}
+        if not plan.get("valid") or plan.get("will_mutate") is not False or plan.get("will_deploy") is not False:
+            raise AgentRunError("proposal_plan_not_safe")
+        if base_disclosure == "per_operation" and set(inspected_operations) != {
+            item["name"] for item in inspected["operations"]
+        }:
+            raise AgentRunError("inspect_all_existing_operations_before_proposal")
+        proposal_indices = [i for i, name in enumerate(tool_sequence) if name == "service.propose_delta"]
+        validation_indices = [i for i, name in enumerate(tool_sequence) if name == "service.validate"]
+        plan_indices = [i for i, name in enumerate(tool_sequence) if name == "service.plan"]
+        if (
+            len(proposal_indices) != 1 or not validation_indices or not plan_indices
+            or "service.inspect" not in tool_sequence
+            or proposal_indices[-1] <= tool_sequence.index("service.inspect")
+            or validation_indices[-1] <= proposal_indices[-1]
+            or plan_indices[-1] <= validation_indices[-1]
+            or "service.apply" in tool_sequence
+        ):
+            raise AgentRunError("required_tool_sequence_invalid")
+        return {
+            "task_id": expected_task_id,
+            "service_id": SERVICE_ID,
+            "base_revision": candidate["base_revision"],
+            "change_set_id": materialized["change_set_id"],
+            "preserved_operation_count": len(trusted_base["operations"]),
+            "added_operation": EXPECTED_OPERATION["name"],
+            "validation": "passed",
+            "plan": "valid_no_mutation_no_deployment",
+            "applied": False,
+            "proposal_mode": "delta",
+            "intent_digest": materialized["intent_digest"],
+            "materialized_ir_digest": materialized["materialized_ir_digest"],
+        }
     ir = candidate["ir"]
     if not isinstance(ir, dict):
         raise AgentRunError("candidate_ir_invalid")
@@ -565,11 +659,14 @@ def _compact_tool_outcome(tool_name: str, arguments: Any, response: dict) -> dic
                     outcome[key] = result[key]
             if isinstance(result.get("diagnostics"), list):
                 outcome["result_diagnostics"] = result["diagnostics"]
-    elif tool_name == "service.propose":
+    elif tool_name in {"service.propose", "service.propose_delta"}:
         result = response.get("result")
         if isinstance(result, dict):
             outcome["change_set_id"] = result.get("change_set_id")
             outcome["base_revision"] = result.get("base_revision")
+            for key in ("proposal_mode", "intent_digest", "materialized_ir_digest"):
+                if key in result:
+                    outcome[key] = result[key]
     elif isinstance(arguments, dict):
         outcome["arguments"] = arguments
     diagnostics = response.get("diagnostics")
@@ -701,6 +798,8 @@ def run(args: argparse.Namespace) -> dict:
         "task_id": task_id,
         "model": args.model,
         "arm": args.arm,
+        "proposal_mode": getattr(args, "proposal_mode", "snapshot"),
+        "base_disclosure": getattr(args, "base_disclosure", None),
         "status": "running",
         "started_at_monotonic_ns": started,
         "finished_at_monotonic_ns": None,
@@ -723,6 +822,9 @@ def run(args: argparse.Namespace) -> dict:
                 str(E009_ROOT / "agent_gateway.py"),
                 "--arm",
                 args.arm,
+                "--proposal-mode",
+                getattr(args, "proposal_mode", "snapshot"),
+                *(["--base-disclosure", args.base_disclosure] if getattr(args, "base_disclosure", None) else []),
                 *(["--sandbox-apply", "--sandbox-dir", str(sandbox_dir)] if allow_sandbox_apply else []),
             ],
             cwd=ROOT,
@@ -744,11 +846,36 @@ def run(args: argparse.Namespace) -> dict:
             raise AgentRunError("gateway_dispatch_contract_invalid")
 
         disclosure_instruction = (
-            "This run uses the upfront disclosure arm: all exposed tool schemas are already present in the session surface. Never call interface.describe. "
-            "Your first tool call must be service.inspect with exactly service_id='catalog' and no operation argument. "
+            "This run uses the upfront tool-schema arm: all exposed tool schemas are already present in the session surface. Never call interface.describe. "
             if args.arm == "upfront"
             else
-            "This run uses the progressive disclosure arm. Before each tool whose detailed schema has not yet been retrieved, call interface.describe with its exact name and use that returned schema. Retrieve the service.inspect schema first. "
+            "This run uses the progressive tool-schema arm. Before each tool whose detailed schema has not yet been retrieved, call interface.describe with its exact name and use that returned schema. Retrieve the service.inspect schema first. "
+        )
+        proposal_mode = getattr(args, "proposal_mode", "snapshot")
+        base_disclosure = getattr(args, "base_disclosure", None) or (
+            "per_operation" if proposal_mode == "snapshot" else "minimal"
+        )
+        if proposal_mode == "snapshot":
+            base_instruction = (
+                "The complete service base is disclosed one operation contract at a time. "
+                if base_disclosure == "per_operation" else
+                "The initial service inspection contains every complete operation contract. Do not inspect operations individually. "
+            )
+            proposal_instruction = "Use service.propose with a complete canonical IR snapshot, never a delta. "
+        else:
+            base_instruction = {
+                "per_operation": "The complete service base is disclosed one operation contract at a time. ",
+                "upfront_full": "The initial service inspection contains every complete operation contract. Do not inspect operations individually. ",
+                "minimal": "Only the service revision and operation summaries are disclosed. Do not request individual operation contracts. ",
+            }[base_disclosure]
+            proposal_instruction = (
+                "Use service.propose_delta with exactly one changes entry of kind add_operation; "
+                "do not send a complete IR snapshot. The Gateway materializes the trusted base. "
+            )
+        inspection_instruction = (
+            "Inspect every existing operation exactly once before proposing. "
+            if base_disclosure == "per_operation" else
+            "Do not call service.inspect with operation; follow the selected disclosure treatment. "
         )
         apply_instruction = (
             "After service.plan returns valid=true, will_mutate=true, sandbox_only=true, and will_deploy=false, call service.apply exactly once with the same change_set_id. The apply is restricted to the isolated temporary E-010 sandbox; it cannot deploy or mutate production. Read the apply result and ensure its runtime_smoke_test status_code is 200. "
@@ -759,30 +886,20 @@ def run(args: argparse.Namespace) -> dict:
             "You are an engineering agent working on the live Agent Native E-009 service. "
             "Use only the single agent.invoke function and the session surface. "
             + disclosure_instruction
-            + "Then inspect each existing operation name returned by the service-level inspection exactly once; never inspect the requested new operation. "
-            "After service.propose returns ok=true, your immediate next tool call MUST be service.validate with the exact returned change_set_id. If result.valid=true, your immediate next tool call MUST be service.plan with that same change_set_id. Do not inspect or propose again after a proposal is accepted. "
-            "The service identifier is exactly 'catalog'; its display name is 'Catalog'. "
-            "For service.inspect, the argument key is service_id, never name; pass service_id='catalog'. "
-            "Follow every exposed input schema exactly and do not invent or rename argument fields. "
-            "The ir argument to service.propose is a COMPLETE canonical service IR snapshot, never a patch or delta. "
-            "It MUST have exactly these top-level fields: ir_version (integer 1), service, types, operations. "
-            "Copy the complete service name/version and every existing type/field from the service inspection. "
-            "Copy every existing operation as the exact JSON object returned by its own service.inspect result; do not recreate, normalize, infer, or edit any field. Preserve method, path, input declarations, errors, validation, effects, and capability exactly, then append the requested operation. "
-            "If a proposal is rejected with INSPECTION_INCOMPLETE, inspect every operation named in next_actions and then immediately resubmit the corrected complete IR. "
-            "If you receive IR_PRESERVATION_MISMATCH, copy the named existing operation objects exactly from the retained inspect results and retry with a new proposal. "
-            "The new operation input MUST be an array of declarations, not an object map: [{name:'name',source:'path',type:'String'}]. "
-            "Every input declaration must contain name, source, and type. Do not omit ir_version or existing operations. "
-            "A service.validate response can have outer ok=true while result.valid=false. Treat valid=false as a validation failure. "
-            "When validation fails, do not call service.plan. Read result.diagnostics and next_actions, fix the COMPLETE IR, and submit a different proposal hash. "
-            "Call service.plan only after service.validate returns result.valid=true for the same change_set_id. "
-            "If a tool returns ok=false, read its diagnostics, correct the request, and never repeat an identical invalid call. "
-            "The service-level inspection lists every existing operation name. Call service.inspect once for each listed existing operation, using service_id='catalog' and operation=<exact listed name>, before proposing. "
-            "Do not inspect the requested new operation; it does not exist until proposed. Inspect only names returned by the service-level inspection. "
-            "Follow the gateway next_actions and diagnostics; never propose while an inspection is still missing. "
-            "Preserve every existing type and operation exactly. Propose exactly the task operation. "
-            "Use the inspected revision. Validate the exact proposal, then plan it. "
+            + "Your first tool call must be service.inspect with service_id='catalog' and no operation argument. "
+            + base_instruction + inspection_instruction
+            + "After a successful proposal, immediately call service.validate with the exact change_set_id; if result.valid=true, immediately call service.plan with the same hash. "
+            + "The service identifier is exactly 'catalog'; service.inspect uses service_id, never name. Follow every exposed input schema. "
+            + proposal_instruction
+            + "The requested operation is get_item_by_normalized_name: GET /items/by-normalized-name/{name}; input [{name:'name',source:'path',type:'String'}]; output Item; errors InvalidInput, NotFound, Unauthorized; validation name.non_empty; effect repository.read; capability items.read. "
+            + "For snapshot mode preserve the complete service object, types array, and all existing operation objects exactly, then append the requested operation. "
+            + "For delta mode submit exactly one add_operation change containing that operation. Do not inspect the requested new operation. "
+            + "Follow gateway next_actions and diagnostics; never propose while required inspection is missing. "
+            + "A service.validate response can have outer ok=true while result.valid=false. Do not plan unless valid=true. "
+            + "If validation fails, read diagnostics and correct the proposal; never repeat an identical invalid call. "
+            + "Call service.plan only after successful validation of the same change_set_id. "
             + apply_instruction + "No shell, files, network, secrets, or production deployment tools exist. "
-            "Return only the exact final JSON candidate requested by the task. Never invent tool results."
+            + "Return only the exact final JSON candidate requested by the task. Never invent tool results."
         )
         task = task_path.read_text(encoding="utf-8")
         base_messages = [
@@ -924,7 +1041,7 @@ def run(args: argparse.Namespace) -> dict:
                         nested = _plan_gate_response(
                             request, successful_proposal, validation_result, validation_change_set_id
                         )
-                    elif tool_name == "service.propose":
+                    elif tool_name in {"service.propose", "service.propose_delta"}:
                         proposal_attempts, nested = _proposal_attempt_gate(
                             request, proposal_attempts
                         )
@@ -957,7 +1074,7 @@ def run(args: argparse.Namespace) -> dict:
                             if result.get("type") != "tool_result" or not isinstance(result.get("response"), dict):
                                 raise AgentRunError("gateway_tool_result_invalid")
                             nested = result["response"]
-                    if tool_name == "service.propose" and nested.get("ok") and successful_proposal is not None:
+                    if tool_name in {"service.propose", "service.propose_delta"} and nested.get("ok") and successful_proposal is not None:
                         previous_valid = bool(
                             validation_result
                             and validation_result.get("ok")
@@ -1031,14 +1148,21 @@ def run(args: argparse.Namespace) -> dict:
                         inspected_result = nested.get("result") or {}
                         if isinstance(arguments, dict) and "operation" not in arguments:
                             inspected = inspected_result
+                            if base_disclosure == "upfront_full":
+                                for item in inspected_result.get("operations", []):
+                                    if isinstance(item, dict) and isinstance(item.get("input"), list):
+                                        inspected_operations[item.get("name")] = item
                         elif isinstance(arguments, dict) and isinstance(arguments.get("operation"), str):
                             inspected_operations[arguments["operation"]] = inspected_result.get("operation")
-                    elif tool_name == "service.propose" and nested.get("ok"):
+                    elif tool_name in {"service.propose", "service.propose_delta"} and nested.get("ok"):
                         if (
-                            inspected is None
-                            or set(inspected_operations) != {
-                                item["name"] for item in inspected["operations"]
-                            }
+                            base_disclosure != "minimal"
+                            and (
+                                inspected is None
+                                or set(inspected_operations) != {
+                                    item["name"] for item in inspected["operations"]
+                                }
+                            )
                         ):
                             raise AgentRunError("inspect_all_existing_operations_before_proposal")
                         successful_proposal = {
@@ -1100,6 +1224,8 @@ def run(args: argparse.Namespace) -> dict:
             validation_change_set_id=validation_change_set_id,
             plan_change_set_id=plan_change_set_id,
             expected_task_id=task_id,
+            proposal_mode=proposal_mode,
+            base_disclosure=base_disclosure,
             allow_sandbox_apply=allow_sandbox_apply,
             apply_result=apply_result,
         )
@@ -1132,6 +1258,8 @@ def main() -> None:
     parser.add_argument("--model", required=True)
     parser.add_argument("--ollama-url", default="http://127.0.0.1:11434")
     parser.add_argument("--arm", choices=("progressive", "upfront"), default="progressive")
+    parser.add_argument("--proposal-mode", choices=("snapshot", "delta"), default="snapshot")
+    parser.add_argument("--base-disclosure", choices=("per_operation", "upfront_full", "minimal"))
     parser.add_argument("--results-dir", type=Path, default=Path("/tmp/agent-native-e009-runs"))
     parser.add_argument("--max-input-tokens", type=int, default=24000)
     parser.add_argument("--max-output-tokens", type=int, default=6000)
@@ -1153,6 +1281,8 @@ def main() -> None:
             parser.error(f"--{name.replace('_', '-')} must be positive")
     if args.num_predict > args.max_output_tokens:
         parser.error("--num-predict cannot exceed --max-output-tokens")
+    if args.base_disclosure == "minimal" and args.proposal_mode == "snapshot":
+        parser.error("--base-disclosure=minimal requires --proposal-mode=delta")
     if (
         not math.isfinite(args.max_wall_seconds)
         or not math.isfinite(args.temperature)
