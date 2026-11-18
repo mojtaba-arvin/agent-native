@@ -106,7 +106,7 @@ class LocalAgentRunnerTests(unittest.TestCase):
         ]
         return candidate, successful_proposal, validation, plan, sequence
 
-    def verify(self, candidate, proposal, validation, plan, sequence, inspected_operations=None, validation_id=None, plan_id=None):
+    def verify(self, candidate, proposal, validation, plan, sequence, inspected_operations=None, validation_id=None, plan_id=None, proposal_mode="snapshot", base_disclosure="per_operation"):
         return verify_candidate(
             candidate,
             inspected=self.inspected,
@@ -119,6 +119,8 @@ class LocalAgentRunnerTests(unittest.TestCase):
             tool_sequence=sequence,
             validation_change_set_id=(proposal["result"]["change_set_id"] if validation_id is None else validation_id),
             plan_change_set_id=(proposal["result"]["change_set_id"] if plan_id is None else plan_id),
+            proposal_mode=proposal_mode,
+            base_disclosure=base_disclosure,
         )
 
     def test_task_path_none_resolves_to_default_agent_task(self):
@@ -948,6 +950,102 @@ class LocalAgentRunnerTests(unittest.TestCase):
         response, exhausted = prevalidate_catalog_operation(second, inspected, attempts)
         self.assertTrue(exhausted)
         self.assertEqual(response["diagnostics"][0]["code"], "OPERATION_NOT_IN_CATALOG")
+
+
+
+
+    def delta_fixture(self, base_disclosure="minimal"):
+        changes = [{
+            "kind": "add_operation",
+            "operation": copy.deepcopy(EXPECTED_OPERATION),
+        }]
+        materialized = local_agent.materialize_add_operation(
+            local_agent.canonical_json({
+                "service_id": SERVICE_ID,
+                "base_revision": self.inspected["revision"],
+                "changes": changes,
+            }),
+            service_id=SERVICE_ID,
+            current_service=self.ir,
+            trusted_effects={"repository.read"},
+            trusted_capabilities={"items.read"},
+        )
+        candidate = {
+            "schema_version": 1,
+            "task_id": TASK_ID,
+            "service_id": SERVICE_ID,
+            "base_revision": self.inspected["revision"],
+            "change_set_id": materialized["change_set_id"],
+            "proposal_mode": "delta",
+            "intent_digest": materialized["intent_digest"],
+            "materialized_ir_digest": materialized["materialized_ir_digest"],
+            "changes": changes,
+        }
+        proposal = {
+            "arguments": {
+                "service_id": SERVICE_ID,
+                "base_revision": self.inspected["revision"],
+                "changes": changes,
+            },
+            "result": {
+                "change_set_id": materialized["change_set_id"],
+                "base_revision": self.inspected["revision"],
+                "proposal_mode": "delta",
+                "intent_digest": materialized["intent_digest"],
+                "materialized_ir_digest": materialized["materialized_ir_digest"],
+            },
+        }
+        validation = {"ok": True, "result": {"valid": True}}
+        plan = {
+            "ok": True,
+            "result": {
+                "valid": True, "will_mutate": False, "will_deploy": False,
+                "effects": ["repository.read"],
+            },
+        }
+        sequence = ["service.inspect"]
+        inspected_operations = {}
+        if base_disclosure in {"per_operation", "upfront_full"}:
+            inspected_operations = copy.deepcopy(self.inspected_operations)
+        if base_disclosure == "per_operation":
+            sequence.extend(["service.inspect"] * len(self.inspected_operations))
+        sequence.extend(["service.propose_delta", "service.validate", "service.plan"])
+        return candidate, proposal, validation, plan, sequence, inspected_operations
+
+    def test_accepts_delta_candidate_in_minimal_disclosure_treatment(self):
+        values = self.delta_fixture("minimal")
+        result = self.verify(
+            *values[:5], inspected_operations=values[5],
+            proposal_mode="delta", base_disclosure="minimal",
+        )
+        self.assertEqual(result["proposal_mode"], "delta")
+        self.assertEqual(result["added_operation"], "get_item_by_normalized_name")
+        self.assertFalse(result["applied"])
+
+    def test_accepts_delta_candidate_after_per_operation_or_upfront_full_disclosure(self):
+        for mode in ("per_operation", "upfront_full"):
+            values = self.delta_fixture(mode)
+            result = self.verify(
+                *values[:5], inspected_operations=values[5],
+                proposal_mode="delta", base_disclosure=mode,
+            )
+            self.assertEqual(result["proposal_mode"], "delta")
+
+    def test_delta_verifier_rejects_modified_intent_and_hash(self):
+        values = list(self.delta_fixture("minimal"))
+        values[0]["intent_digest"] = "0" * 64
+        with self.assertRaisesRegex(AgentRunError, "candidate_delta_proposal_identity_mismatch"):
+            self.verify(
+                *values[:5], inspected_operations=values[5],
+                proposal_mode="delta", base_disclosure="minimal",
+            )
+        values = list(self.delta_fixture("minimal"))
+        values[0]["changes"][0]["operation"]["capability"] = "admin.root"
+        with self.assertRaisesRegex(AgentRunError, "candidate_delta_does_not_match_task"):
+            self.verify(
+                *values[:5], inspected_operations=values[5],
+                proposal_mode="delta", base_disclosure="minimal",
+            )
 
 
 if __name__ == "__main__":
