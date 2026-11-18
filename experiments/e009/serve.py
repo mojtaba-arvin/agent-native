@@ -46,7 +46,7 @@ def main() -> None:
     parser.add_argument("--max-outstanding-jobs", type=int, default=1000)
     parser.add_argument("--max-running-jobs", type=int, default=16)
     parser.add_argument("--audit-batch-size", type=int, default=32)
-    parser.add_argument("--audit-batch-delay-ms", type=float, default=2.0)
+    parser.add_argument("--audit-batch-delay-ms", type=float, default=0.5)
     parser.add_argument("--job-batch-size", type=int, default=32)
     parser.add_argument("--job-batch-delay-ms", type=float, default=0.5)
     args = parser.parse_args()
