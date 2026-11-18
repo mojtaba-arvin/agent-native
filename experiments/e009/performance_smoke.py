@@ -150,6 +150,8 @@ def main():
     parser.add_argument("--requests", type=int, default=1000, help="measured requests per repetition")
     parser.add_argument("--repetitions", type=int, default=5)
     parser.add_argument("--concurrency", type=int, default=32)
+    parser.add_argument("--target-rps", type=float, default=100.0,
+                        help="open-loop offered rate per repetition; 0 selects saturation mode")
     parser.add_argument("--audit-batch-delay-ms", type=float, default=2.0)
     parser.add_argument("--job-batch-size", type=int, default=32)
     parser.add_argument("--job-batch-delay-ms", type=float, default=0.5)
@@ -159,6 +161,8 @@ def main():
         parser.error("requests must be >=100 and repetitions must be 1..10")
     if not 1 <= args.concurrency <= 64:
         parser.error("concurrency must be 1..64")
+    if not math.isfinite(args.target_rps) or args.target_rps < 0:
+        parser.error("target-rps must be finite and non-negative")
     if not math.isfinite(args.audit_batch_delay_ms) or not 0 <= args.audit_batch_delay_ms <= 50:
         parser.error("audit batch delay must be between 0 and 50 ms")
     if not 1 <= args.job_batch_size <= 1024:
@@ -220,7 +224,7 @@ def main():
             if not job_id:
                 raise RuntimeError("seed job response omitted job id")
 
-            def one(index):
+            def one(index, scheduled_at=None):
                 slot = index % 10
                 if slot < 6:
                     kind = "authorized_item_read"
@@ -240,10 +244,21 @@ def main():
                         "GET", f"/items/{item_id}", None, None, None, 401)
                 started = time.perf_counter()
                 status, response = request(base, method, target, auth, body=body, key=key)
-                elapsed_ms = (time.perf_counter() - started) * 1000
+                finished = time.perf_counter()
+                service_latency_ms = (finished - started) * 1000
+                queue_delay_ms = (
+                    max(0.0, started - scheduled_at) * 1000
+                    if scheduled_at is not None else 0.0
+                )
                 return {
                     "kind": kind, "status": status, "expected": expected,
-                    "latency_ms": elapsed_ms, "ok": status == expected,
+                    "latency_ms": (
+                        (finished - scheduled_at) * 1000
+                        if scheduled_at is not None else service_latency_ms
+                    ),
+                    "service_latency_ms": service_latency_ms,
+                    "client_queue_delay_ms": queue_delay_ms,
+                    "ok": status == expected,
                     "response_bytes": len(response),
                 }
 
@@ -267,7 +282,17 @@ def main():
                 for repetition in range(args.repetitions):
                     offset = repetition * args.requests
                     started = time.perf_counter()
-                    results = list(pool.map(one, range(offset, offset + args.requests)))
+                    if args.target_rps == 0:
+                        results = list(pool.map(one, range(offset, offset + args.requests)))
+                    else:
+                        futures = []
+                        for index in range(offset, offset + args.requests):
+                            scheduled_at = started + (index - offset) / args.target_rps
+                            delay = scheduled_at - time.perf_counter()
+                            if delay > 0:
+                                time.sleep(delay)
+                            futures.append(pool.submit(one, index, scheduled_at))
+                        results = [future.result() for future in futures]
                     elapsed = time.perf_counter() - started
                     repetitions.append({"repetition": repetition + 1, **summarize(results, elapsed)})
                     all_results.extend(results)
@@ -308,6 +333,8 @@ def main():
                     "warmup_requests": len(warmup),
                     "measured_requests": len(all_results),
                     "client_concurrency": args.concurrency,
+                    "arrival_mode": "saturated_closed_loop" if args.target_rps == 0 else "open_loop",
+                    "target_rps": args.target_rps or None,
                     "mix": {"authorized_item_read": 0.6, "authorized_job_read": 0.2,
                             "durable_job_admission": 0.1, "unauthenticated_read": 0.1},
                     "database": "file-backed SQLite WAL via E-009 serve.py",
