@@ -111,8 +111,8 @@ def _tool_parts(event: dict) -> tuple[str | None, dict, dict]:
 def score_run(run_record: dict, run_dir: Path, case: dict) -> dict:
     trace = _read_trace(run_dir)
     tools = [_tool_parts(event) for event in trace]
-    proposal_mode = case["proposal_mode"]
-    base_disclosure = case["base_disclosure"]
+    proposal_mode = case.get("proposal_mode", "snapshot")
+    base_disclosure = case.get("base_disclosure", "per_operation")
     service_inspections = [
         response.get("result") or {}
         for tool, arguments, response in tools
@@ -578,7 +578,7 @@ def _e007_events(run_record: dict, run_dir: Path, case: dict, attempt: int, scor
         if tool == "interface.describe":
             fields["schema_lookup"] = True
         result = response.get("result") or {}
-        if tool == "service.propose":
+        if tool in {"service.propose", "service.propose_delta"}:
             change_set_id = result.get("change_set_id")
             if isinstance(change_set_id, str) and len(change_set_id) == 64:
                 fields["change_set_id"] = change_set_id
