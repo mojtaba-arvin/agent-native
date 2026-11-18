@@ -135,7 +135,7 @@
   },
   "cross_engine_trace_parity": {
     "status": "passed",
-    "workflow_run_id": 44345013099,
+    "workflow_run_id": 44356165574,
     "runner": "experiments/e002/trace_runner.py",
     "seed": 20261118,
     "operations": 60,
@@ -150,12 +150,12 @@
       "durable job/outbox visibility and record counts",
       "outbox claim and lease-fenced acknowledgement",
       "four identical pre-commit rollback fault boundaries",
-      "post-commit process termination and same-key reconciliation after reopen"
+      "post-commit process termination and same-key reconciliation after reopen",
+      "lease expiry reclaim and stale-owner acknowledgement fencing"
     ],
     "limitations": [
-      "five deterministic seeds, not exhaustive property-based search",
-      "fault parity covers four pre-commit logical write boundaries plus post-commit process crash",
-      "no power-loss or replicated durability claim",
+      "25 deterministic seeds, not exhaustive property-based search",
+      "four pre-commit fault boundaries plus post-commit process crash; no power-loss or replicated durability claim",
       "no runtime-candidate adapter parity"
     ],
     "seeds": [
@@ -163,10 +163,30 @@
       20261119,
       20261120,
       20261121,
-      20261122
+      20261122,
+      20261123,
+      20261124,
+      20261125,
+      20261126,
+      20261127,
+      20261128,
+      20261129,
+      20261130,
+      20261131,
+      20261132,
+      20261133,
+      20261134,
+      20261135,
+      20261136,
+      20261137,
+      20261138,
+      20261139,
+      20261140,
+      20261141,
+      20261142
     ],
     "operations_per_seed": 60,
-    "total_operations": 300,
+    "total_operations": 1500,
     "fault_stages": [
       "after_job",
       "after_outbox",
