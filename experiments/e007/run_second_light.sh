@@ -30,6 +30,12 @@ if ! grep -q 'payload_sha256' "$WORKTREE/experiments/e009/local_agent.py" ||
   exit 78
 fi
 
+if ! grep -q 'threading.Timer' "$WORKTREE/experiments/e009/local_agent.py" ||
+   ! grep -q 'active_socket.shutdown' "$WORKTREE/experiments/e009/local_agent.py"; then
+  echo "Refusing Second Light: pinned revision $PINNED_REV does not contain the absolute provider-request deadline fix." >&2
+  exit 78
+fi
+
 OUTPUT_DIR="${SECOND_LIGHT_OUTPUT_DIR:-/tmp/agent-native-e007-second-light}"
 python "$WORKTREE/experiments/e007/eval_runner.py" \
   --case "$WORKTREE/experiments/e007/evals/e009-readonly-proposal-postfix-expanded-budget.eval.json" \
