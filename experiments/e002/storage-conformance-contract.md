@@ -1,6 +1,6 @@
 # E-002 — Shared durable storage conformance contract v1
 
-**Status:** preregistered contract; one SQLite reference adapter is implemented and tested; no product adapter selected and no cross-runtime parity established.  
+**Status:** preregistered contract; SQLite and PostgreSQL reference adapters independently pass their current conformance suites; no product adapter selected and no runtime-candidate adapter parity established.  
 **Purpose:** isolate persistence guarantees from runtime/language comparisons.  
 **Normative language:** MUST / MUST NOT describe acceptance requirements for this experiment, not a production certification.
 
@@ -129,13 +129,19 @@ Prefer a dedicated cgroup v2 for whole-process-tree CPU accounting and record `c
 5. Keep no-persistence control-plane results separate from durable product-tier results.
 6. Do not choose a default storage engine until adapter parity and controlled measurements exist.
 
-## 8.1 Current executable reference adapter (2026-11-18)
+## 8.1 Executable SQLite reference adapter (2026-11-18)
 
-`experiments/e002/sqlite_reference_adapter.py` is the first executable adapter behind this contract. It uses a file-backed SQLite WAL database with `synchronous=FULL`; the job, outbox, tenant+operation-scoped idempotency result, and admission audit record commit in one transaction.
+`experiments/e002/sqlite_reference_adapter.py` uses a file-backed SQLite WAL database with `synchronous=FULL`; job, outbox, tenant+operation-scoped idempotency result, and admission audit commit in one transaction. Its 24-test suite passed in [workflow 44339334484](https://github.com/mojtaba-arvin/agent-native/actions/runs/44339334484).
 
-The adapter currently verifies pre-commit rollback at each logical write boundary, same-key replay/conflict, tenant and operation isolation, 32-way same-key races, process termination after commit but before response, append-only audit, and fenced outbox lease/ack behavior. Its conformance tests run in the E-002 Go job because that job already executes the Python experiment suite.
+Coverage includes pre-commit rollback at each logical write boundary, same-key replay/conflict, tenant and operation isolation, 32-way same-hash and different-hash races, real process termination after commit but before response, audit-outage fail-closed behavior, append-only audit, and fenced outbox lease/ack.
 
-This is a reference semantics implementation, not a runtime winner or a production persistence selection. It does not certify power-loss behavior, replication, online migration, backup/PITR, or multi-node linearizability. No Go/Rust/WASI/BEAM adapter parity is claimed.
+## 8.2 Executable PostgreSQL reference adapter (2026-11-18)
+
+`experiments/e002/postgres_reference_adapter.py` implements the same contract against PostgreSQL 16.4 with `fsync=on`, `synchronous_commit=on`, versioned canonical hashing, and transaction-scoped advisory locks for idempotency scope. Its 9-test suite passed in [workflow 44341683697](https://github.com/mojtaba-arvin/agent-native/actions/runs/44341683697), using pinned psycopg 3.2.9.
+
+It covers atomic admission, rollback at every pre-commit write boundary, same-key replay/conflict, tenant+operation isolation, 32-way same-hash and different-hash races, process crash after commit/before response, audit outage fail-closed, append-only audit, and fenced outbox lease/ack.
+
+These two adapters establish useful single-node reference evidence, not a product database choice. They do not certify power-loss behavior, replication, online migration, backup/PITR, or multi-node linearizability. No Go/Rust/WASI/BEAM runtime adapter parity is claimed. The next correctness gate is a shared generated-trace runner that executes identical traces against both adapters and compares outcomes before performance ranking.
 
 ## 9. Explicit non-goals
 
