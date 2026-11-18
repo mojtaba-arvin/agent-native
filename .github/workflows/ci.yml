@@ -10,6 +10,16 @@ on:
     - cron: "17 3 * * *"
   workflow_dispatch:
     inputs:
+      run_benchmark_matrix:
+        description: Run the extended E-002 performance matrix
+        required: false
+        type: boolean
+        default: false
+      generate_lockfiles:
+        description: Generate and upload pinned Rust lockfiles
+        required: false
+        type: boolean
+        default: false
       model_suite:
         description: Optional Layer 2 model evaluation
         required: false
@@ -219,3 +229,91 @@ jobs:
             ${{ runner.temp }}/ollama-serve.log
           if-no-files-found: warn
           retention-days: 30
+
+  benchmark:
+    name: Layer 1 · explicit performance matrix
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.run_benchmark_matrix)
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23.12"
+      - uses: dtolnay/rust-toolchain@1.100.0
+        with:
+          targets: wasm32-wasip2
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: "29.1.2"
+          elixir-version: "1.20.5"
+      - name: Build Go candidate
+        run: go build -o "$RUNNER_TEMP/e002-go" .
+        working-directory: experiments/e002/go
+      - name: Build Rust candidate
+        run: cargo build --locked --release
+        working-directory: experiments/e002/rust
+      - name: Build WASI component
+        run: cargo build --locked --release --target wasm32-wasip2
+        working-directory: experiments/e002/wasi-p2
+      - name: Test and package BEAM candidate
+        run: |
+          mix test
+          MIX_ENV=prod mix release --overwrite
+        working-directory: experiments/e002/beam
+      - name: Install pinned Wasmtime
+        run: |
+          curl -fsSL https://github.com/bytecodealliance/wasmtime/releases/download/v50.0.1/wasmtime-v50.0.1-x86_64-linux.tar.xz -o "$RUNNER_TEMP/wasmtime.tar.xz"
+          tar -xJf "$RUNNER_TEMP/wasmtime.tar.xz" -C "$RUNNER_TEMP"
+          WASMTIME_BIN="$(find "$RUNNER_TEMP" -type f -name wasmtime -perm -111 | head -n 1)"
+          test -n "$WASMTIME_BIN"
+          echo "$(dirname "$WASMTIME_BIN")" >> "$GITHUB_PATH"
+      - name: Measure deployable artifact sizes
+        run: |
+          mkdir -p "$RUNNER_TEMP/e002-results"
+          python experiments/e002/measure_artifacts.py \
+            --go "$RUNNER_TEMP/e002-go" \
+            --rust experiments/e002/rust/target/release/agent-native-e002-rust \
+            --wasi-component experiments/e002/wasi-p2/target/wasm32-wasip2/release/agent_native_e002_wasi_p2.wasm \
+            --wasmtime "$(command -v wasmtime)" \
+            --beam-release experiments/e002/beam/_build/prod/rel/agent_native_e002_beam \
+            --output "$RUNNER_TEMP/e002-results/artifact-sizes.json"
+      - name: Run randomized ten-repetition performance matrix
+        run: |
+          python experiments/e002/run_matrix.py \
+            --go-command "$RUNNER_TEMP/e002-go" \
+            --rust-command experiments/e002/rust/target/release/agent-native-e002-rust \
+            --wasi-command "wasmtime serve --addr=127.0.0.1:8080 -S cli=y -S http=y experiments/e002/wasi-p2/target/wasm32-wasip2/release/agent_native_e002_wasi_p2.wasm" \
+            --beam-command "mix run -e AgentNativeE002Beam.Server.main()" \
+            --requests 5000 --concurrency 32 --warmup 250 --repetitions 10 \
+            --output "$RUNNER_TEMP/e002-results"
+        working-directory: .
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e002-ten-repetition-performance-matrix
+          path: ${{ runner.temp }}/e002-results/
+          if-no-files-found: warn
+          retention-days: 30
+
+  lockfiles:
+    name: Generate pinned Rust dependency lockfiles
+    if: github.event_name == 'workflow_dispatch' && inputs.generate_lockfiles
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.100.0
+      - name: Generate lockfiles with pinned Rust/Cargo
+        run: |
+          cargo generate-lockfile --manifest-path experiments/e001/baselines/rust/Cargo.toml
+          cargo generate-lockfile --manifest-path experiments/e002/rust/Cargo.toml
+          cargo generate-lockfile --manifest-path experiments/e002/wasi-p2/Cargo.toml
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pinned-rust-lockfiles
+          path: |
+            experiments/e001/baselines/rust/Cargo.lock
+            experiments/e002/rust/Cargo.lock
+            experiments/e002/wasi-p2/Cargo.lock
+          if-no-files-found: error
+          retention-days: 14
