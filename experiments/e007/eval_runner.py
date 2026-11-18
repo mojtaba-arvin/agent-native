@@ -705,7 +705,7 @@ def _source_manifest(case_path: Path) -> dict:
         E007_ROOT / "eval_runner.py",
         E007_ROOT / "metrics.py",
         E007_ROOT / "trace.schema.json",
-        ROOT / ".github" / "workflows" / "e007-real-agent-eval.yml",
+        ROOT / ".github" / "workflows" / "ci.yml",
     ]
     hashes = {}
     for path in files:
