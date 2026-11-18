@@ -168,6 +168,52 @@ class KernelHTTPServerTests(unittest.TestCase):
         self.assertEqual(fetched["data"], created["data"])
         self.assertEqual(by_name["data"], created["data"])
 
+    def test_client_supplied_identity_claims_never_override_authenticated_context(self):
+        status, _headers, body = self.request(
+            "POST",
+            "/items",
+            body={
+                "name": "Forged tenant item",
+                "tenant_id": "tenant-b",
+                "principal_id": "attacker",
+                "grants": ["items.create", "admin"],
+            },
+            headers={
+                "X-Tenant-ID": "tenant-b",
+                "X-Principal-ID": "attacker",
+                "X-Capabilities": "admin",
+                "Idempotency-Key": "forged-identity-001",
+            },
+        )
+        self.assertEqual(status, 400)
+        self.assertEqual(body["error"]["code"], "InvalidInput")
+        self.assertIsNone(self.repository.get_item_by_name(
+            tenant_id="tenant-a", name="Forged tenant item"
+        ))
+        self.assertIsNone(self.repository.get_item_by_name(
+            tenant_id="tenant-b", name="Forged tenant item"
+        ))
+
+    def test_untrusted_identity_headers_are_ignored_when_body_is_valid(self):
+        status, _headers, body = self.request(
+            "POST",
+            "/items",
+            body={"name": "Authenticated tenant item"},
+            headers={
+                "X-Tenant-ID": "tenant-b",
+                "X-Principal-ID": "attacker",
+                "X-Capabilities": "admin",
+                "Idempotency-Key": "identity-header-ignored-001",
+            },
+        )
+        self.assertEqual(status, 201)
+        self.assertIsNotNone(self.repository.get_item_by_name(
+            tenant_id="tenant-a", name="Authenticated tenant item"
+        ))
+        self.assertIsNone(self.repository.get_item_by_name(
+            tenant_id="tenant-b", name="Authenticated tenant item"
+        ))
+
     def test_http_submission_creates_durable_job_and_is_idempotent(self):
         first = self.request(
             "POST",
