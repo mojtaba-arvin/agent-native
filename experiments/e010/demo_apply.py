@@ -36,7 +36,7 @@ NEW_OPERATION = {
 
 
 class SandboxApplyCoordinator:
-    """Publishes a new immutable ServiceRuntime snapshot inside a private demo directory."""
+    """Builds and publishes a new ServiceRuntime instance inside a private demo directory."""
 
     def __init__(self, root: str | Path):
         self.root = Path(root).expanduser().resolve()
