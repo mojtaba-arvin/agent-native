@@ -5,15 +5,18 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import platform
+import socket
+import threading
 import selectors
+import http.client
 import hashlib
 import subprocess
 import sys
 import time
-import urllib.error
-import urllib.request
+from urllib.parse import urlsplit
 from pathlib import Path
 from typing import Any
 
@@ -27,15 +30,62 @@ def post_json(url: str, payload: dict, timeout: float = 600.0, deadline: float |
         if remaining <= 0:
             raise TimeoutError("benchmark_deadline_exhausted")
         timeout = min(timeout, remaining)
+    if timeout <= 0 or not math.isfinite(timeout):
+        raise TimeoutError("benchmark_deadline_exhausted")
+    parsed = urlsplit(url)
+    if parsed.scheme != "http" or not parsed.hostname or parsed.username or parsed.password or parsed.fragment:
+        raise ValueError("ollama_url_must_be_plain_http")
+    path = parsed.path or "/"
+    if parsed.query:
+        path += "?" + parsed.query
     raw = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
-    request = urllib.request.Request(
-        url,
-        data=raw,
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
-    with urllib.request.urlopen(request, timeout=timeout) as response:
-        result = json.loads(response.read().decode("utf-8"))
+    connection = http.client.HTTPConnection(parsed.hostname, parsed.port or 80, timeout=timeout)
+    deadline_expired = threading.Event()
+    response = None
+
+    def interrupt_socket() -> None:
+        deadline_expired.set()
+        active_socket = connection.sock
+        if response is not None:
+            response_file = getattr(response, "fp", None)
+            raw_stream = getattr(response_file, "raw", None)
+            response_socket = getattr(raw_stream, "_sock", None)
+            if response_socket is not None:
+                active_socket = response_socket
+        if active_socket is not None:
+            try:
+                active_socket.shutdown(socket.SHUT_RDWR)
+            except OSError:
+                pass
+            try:
+                active_socket.close()
+            except OSError:
+                pass
+
+    timer = threading.Timer(timeout, interrupt_socket)
+    timer.daemon = True
+    try:
+        timer.start()
+        connection.request(
+            "POST", path, body=raw,
+            headers={"Content-Type": "application/json", "Connection": "close"},
+        )
+        if deadline_expired.is_set():
+            raise TimeoutError("benchmark_request_deadline_exhausted")
+        response = connection.getresponse()
+        response_body = response.read()
+        if deadline_expired.is_set():
+            raise TimeoutError("benchmark_request_deadline_exhausted")
+        if response.status != 200:
+            raise RuntimeError("ollama_http_{}".format(response.status))
+        result = json.loads(response_body.decode("utf-8"))
+    except Exception as error:
+        if deadline_expired.is_set():
+            raise TimeoutError("benchmark_request_deadline_exhausted") from error
+        raise
+    finally:
+        timer.cancel()
+        connection.close()
     if not isinstance(result, dict):
         raise ValueError("ollama_response_must_be_object")
     return result
