@@ -224,6 +224,10 @@ def main():
             if audit_match is None:
                 raise RuntimeError("server did not emit final audit commit counters")
             audit_metrics = json.loads(audit_match.group(1))
+            work_match = re.search(r"E009_WORK_METRICS=(\{[^\n]+\})", remaining_output)
+            if work_match is None:
+                raise RuntimeError("server did not emit final durable submission counters")
+            work_metrics = json.loads(work_match.group(1))
             failures = [item for item in all_results if not item["ok"]]
             summary = {
                 "schema_version": 2,
@@ -243,6 +247,7 @@ def main():
                 "aggregate": aggregate,
                 "by_operation_kind": by_kind,
                 "audit_metrics": audit_metrics,
+                "work_metrics": work_metrics,
                 "repetitions": repetitions,
                 "slowest_requests": sorted(
                     all_results, key=lambda item: item["latency_ms"], reverse=True
