@@ -83,16 +83,39 @@ def cgroup_v2_snapshot(pid):
         directory = root / unified.lstrip("/")
         cpu_max = (directory / "cpu.max").read_text(encoding="ascii").strip()
         memory_max = (directory / "memory.max").read_text(encoding="ascii").strip()
-        cpu_stat = dict(
-            line.split() for line in (directory / "cpu.stat").read_text(encoding="ascii").splitlines()
-        )
+        cpu_stat = {
+            key: int(value)
+            for key, value in (
+                line.split() for line in (directory / "cpu.stat").read_text(encoding="ascii").splitlines()
+            )
+        }
+        io_stat = {}
+        for line in (directory / "io.stat").read_text(encoding="ascii").splitlines():
+            fields = line.split()
+            io_stat[fields[0]] = {
+                key: int(value) for key, value in (field.split("=", 1) for field in fields[1:])
+            }
+        def read_pressure(name):
+            parsed = {}
+            for line in (directory / name).read_text(encoding="ascii").splitlines():
+                fields = line.split()
+                parsed[fields[0]] = {
+                    key: (float(value) if key.startswith("avg") else int(value))
+                    for key, value in (field.split("=", 1) for field in fields[1:])
+                }
+            return parsed
         quota, period = cpu_max.split()
         return {
             "path": unified,
             "cpu_max": cpu_max,
             "cpu_quota_cores": None if quota == "max" else int(quota) / int(period),
             "memory_max": memory_max,
+            "cpu_stat": cpu_stat,
             "cpu_usage_usec": int(cpu_stat["usage_usec"]),
+            "io_stat": io_stat,
+            "cpu_pressure": read_pressure("cpu.pressure"),
+            "io_pressure": read_pressure("io.pressure"),
+            "memory_pressure": read_pressure("memory.pressure"),
             "memory_current_bytes": int((directory / "memory.current").read_text(encoding="ascii").strip()),
             "memory_peak_bytes": int((directory / "memory.peak").read_text(encoding="ascii").strip()),
             "pids_current": int((directory / "pids.current").read_text(encoding="ascii").strip()),
@@ -499,6 +522,7 @@ def main():
                     "server_cpu_affinity": server_cpu_affinity,
                     "server_cpu_quota_cores": cgroup_limits["cpu_quota_cores"] if cgroup_limits else None,
                     "cgroup_v2_limits": cgroup_limits,
+                    "cgroup_v2_start_snapshot": cgroup_start if args.containerized else None,
                     "server_containerized": args.containerized,
                     "server_cpu_percent_of_one_core_during_load": (
                         server_cpu_seconds / total_elapsed * 100 if total_elapsed else None
