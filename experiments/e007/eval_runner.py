@@ -183,6 +183,7 @@ def score_run(run_record: dict, run_dir: Path, case: dict) -> dict:
         contract_wrapper_ok = (
             set(candidate) == expected_candidate_fields
             and run_record.get("status") == "candidate_verified_locally"
+            and type(candidate.get("schema_version")) is int
             and candidate.get("schema_version") == 1
             and candidate.get("task_id") == case["task_id"]
             and (candidate.get("proposal_mode") == "delta" if proposal_mode == "delta" else True)
@@ -288,8 +289,8 @@ def score_run(run_record: dict, run_dir: Path, case: dict) -> dict:
         and response.get("ok") and (response.get("result") or {}).get("valid") is True
     ]
     lifecycle_ok = (
-        len(matching_proposals) == 1
-        and bool(proposals)
+        len(proposals) == 1
+        and len(matching_proposals) == 1
         and matching_proposals[0][0] == proposals[-1][0]
         and any(
             matching_proposals[0][0] < validation_index < plan_index
@@ -315,10 +316,14 @@ def score_run(run_record: dict, run_dir: Path, case: dict) -> dict:
         arguments.get("operation") for _, arguments, response in operation_inspect_attempts
     ]
     successful_proposal_indices = [index for index, _, _, _ in proposals]
+    proposal_attempt_indices = [
+        index for index, (tool, _, _) in enumerate(tools)
+        if tool in proposal_tool_names
+    ]
     inspection_order_ok = False
     observed_names: set[str] = set()
-    if inspected and service_inspect_indices and successful_proposal_indices:
-        first_proposal = min(successful_proposal_indices)
+    if inspected and service_inspect_indices and proposal_attempt_indices:
+        first_proposal = min(proposal_attempt_indices)
         initial_inspection = service_inspect_indices[0] < first_proposal
         if base_disclosure == "per_operation":
             observed_names = set(operation_contracts)
