@@ -151,3 +151,5 @@ The E-009 0.5 ms cgroup capacity cohort [44357166863](https://github.com/mojtaba
 
 main remains unchanged at da3736c7ea4d239d1ea520d8b56025b4e3251b33. PR #6 remains Open/Draft. No merge or apply was performed.
 
+
+- **E-009 default verification correction:** [run 44359451102](https://github.com/mojtaba-arvin/agent-native/actions/runs/44359451102) exercised the 0.5 ms code default without a CLI override. It achieved 100.043 req/s with zero unexpected outcomes, but p99 was 144.727 ms and 3/10 repetition p99s exceeded 100 ms. I/O pressure full was 4.08 s; CPU throttling and memory pressure were zero. The gate correctly failed on p99 only. The 0.5 ms default remains provisional; repeatable SLO compliance is not established.
