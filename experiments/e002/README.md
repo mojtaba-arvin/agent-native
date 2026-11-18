@@ -154,3 +154,10 @@ The next E-002 phase is specified in [control-plane-workload.md](control-plane-w
 ## Process-tree CPU sampler integration smoke
 
 The Go candidate's sampler smoke step passed in [E-002 workflow 44294049076](https://github.com/mojtaba-arvin/agent-native/actions/runs/44294049076): 100 measured requests, concurrency 8, warm-up 10; all 100 responses were HTTP 200. The revised sampler emitted the expected method metadata and reported 0.01 CPU seconds and 8,286,208 bytes peak summed RSS; observed p99 was 4.70 ms in this single short shared-runner smoke. This validates that the measurement path executes and emits plausible structured output. It is **not** a performance comparison, cgroup measurement, or product-capacity evidence.
+
+
+## Cross-runtime process-tree sampler smoke
+
+The Go sampler smoke passed in [workflow 44294049076](https://github.com/mojtaba-arvin/agent-native/actions/runs/44294049076). The BEAM sampler smoke passed in [workflow 44294310926](https://github.com/mojtaba-arvin/agent-native/actions/runs/44294310926): 100 requests, concurrency 8, warm-up 10, 100/100 HTTP 200, two observed processes, 0.04 CPU seconds, 93,364,224 bytes peak summed RSS, p99 6.66 ms, startup 0.613 s. Four BEAM tests and black-box conformance also passed. This is a short shared-runner instrumentation smoke, not a Go-vs-BEAM comparison or capacity result. The 2,453 requests/s value is especially unsuitable for comparison because the sample contains only 100 measured requests.
+
+The shared durable storage semantics are now specified in [storage-conformance-contract.md](storage-conformance-contract.md). It is a design contract only: no adapter has been implemented or selected. Durable adapter comparison remains blocked on implementing and passing the same atomicity, idempotency, audit, recovery and fault-injection suite.
