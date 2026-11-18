@@ -253,7 +253,7 @@ class AgentNativeGateway:
             return self._error(request_id, "SERVICE_NOT_FOUND", "Unknown service for delta proposal.")
         try:
             materialized = materialize_add_operation(
-                _encode(arguments).rstrip(b"\\n"),
+                _encode(arguments),
                 service_id="catalog",
                 current_service=current_service,
                 trusted_effects=TRUSTED_EFFECTS,
@@ -455,10 +455,14 @@ class AgentNativeGateway:
                         item["name"] for item in response["result"]["operations"]
                     ]
                     self._required_inspection_operations = set(self._required_inspection_order)
-                    response["next_actions"] = [
-                        f"service.inspect with operation={name}"
-                        for name in self._required_inspection_order
-                    ]
+                    response["next_actions"] = (
+                        ["service.propose_delta with the inspected base_revision and exactly one add_operation change"]
+                        if self.proposal_mode == "delta" else
+                        [
+                            f"service.inspect with operation={name}"
+                            for name in self._required_inspection_order
+                        ]
+                    )
             elif self._inspected_revision is not None:
                 self._inspected_operations.add(operation)
                 full_contract = (response.get("result") or {}).get("operation")
