@@ -43,8 +43,11 @@ class SQLiteAuditSinkTests(unittest.TestCase):
         self.temporary = tempfile.TemporaryDirectory()
         self.database = Path(self.temporary.name) / "catalog.sqlite3"
         self.repository = SQLiteCatalogRepository(self.database)
-        self.work_store = DurableWorkStore(self.repository.database)
         self.sink = SQLiteAuditSink(self.repository.database)
+        self.work_store = DurableWorkStore(
+            self.repository.database,
+            audit_sink=self.sink,
+        )
         self.handlers = build_catalog_handlers(self.repository, self.work_store)
         self.ir = load_service_ir(SOURCE)
 
