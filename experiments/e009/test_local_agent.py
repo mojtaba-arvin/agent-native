@@ -33,6 +33,7 @@ from local_agent import (
     _persist_candidate_response,
     _proposal_budget_response,
     _proposal_attempt_gate,
+    prevalidate_catalog_operation,
 )
 
 
@@ -540,6 +541,33 @@ class LocalAgentRunnerTests(unittest.TestCase):
         response = _proposal_budget_response({"request_id": "fourth-proposal"})
         self.assertFalse(response["ok"])
         self.assertEqual(response["diagnostics"][0]["code"], "PROPOSAL_REPAIR_BUDGET_EXCEEDED")
+
+
+    def test_unknown_catalog_operation_gets_one_repair_then_stops(self):
+        inspected = {"operations": [{"name": name} for name in (
+            "cancel_job", "create_item", "get_item", "get_item_by_name", "get_job", "submit_rebuild"
+        )]}
+        request = {"request_id": "bad-op", "tool": "service.inspect",
+                   "arguments": {"service_id": "catalog", "operation": "get_item_by_normalized_name"}}
+        attempts = set()
+        response = prevalidate_catalog_operation(request, inspected, attempts)
+        self.assertEqual(response["diagnostics"][0]["code"], "OPERATION_NOT_IN_CATALOG")
+        self.assertEqual(response["diagnostics"][0]["message"],
+            "Operation 'get_item_by_normalized_name' not found. Available operations: "
+            "[cancel_job, create_item, get_item, get_item_by_name, get_job, submit_rebuild]. "
+            "If you want to create it, use service.propose instead.")
+        with self.assertRaisesRegex(AgentRunError, "operation_not_in_catalog"):
+            prevalidate_catalog_operation(request, inspected, attempts)
+
+    def test_known_catalog_operation_is_forwarded_and_new_operation_uses_propose(self):
+        inspected = {"operations": [{"name": "get_item"}, {"name": "get_item_by_name"}]}
+        attempts = set()
+        known = {"tool": "service.inspect", "arguments": {"operation": "get_item"}}
+        unknown = {"tool": "service.inspect", "arguments": {"operation": "new_operation"}}
+        self.assertIsNone(prevalidate_catalog_operation(known, inspected, attempts))
+        response = prevalidate_catalog_operation(unknown, inspected, attempts)
+        self.assertIn("service.propose", response["diagnostics"][0]["message"])
+
 
 if __name__ == "__main__":
     unittest.main()

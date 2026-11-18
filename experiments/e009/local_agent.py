@@ -300,6 +300,42 @@ def prevalidate_tool_call(request: dict, surface: dict) -> dict | None:
     }
 
 
+
+def prevalidate_catalog_operation(
+    request: dict, inspected: dict | None, repair_attempts: set[str]
+) -> dict | None:
+    """Reject unknown catalog operations before crossing the Gateway boundary."""
+    if request.get("tool") != "service.inspect":
+        return None
+    arguments = request.get("arguments")
+    if not isinstance(arguments, dict) or not isinstance(arguments.get("operation"), str):
+        return None
+    if not isinstance(inspected, dict):
+        return None
+    operations = inspected.get("operations")
+    if not isinstance(operations, list):
+        return None
+    available = [item.get("name") for item in operations
+                 if isinstance(item, dict) and isinstance(item.get("name"), str)]
+    operation = arguments["operation"]
+    if operation in available:
+        return None
+    if operation in repair_attempts:
+        raise AgentRunError("operation_not_in_catalog")
+    repair_attempts.add(operation)
+    return {
+        "protocol_version": "0.1", "request_id": request.get("request_id"),
+        "ok": False, "result": None,
+        "diagnostics": [{
+            "code": "OPERATION_NOT_IN_CATALOG",
+            "message": f"Operation '{operation}' not found. Available operations: [{', '.join(available)}]. If you want to create it, use service.propose instead.",
+            "source_span": None,
+            "fix_hint": "Choose an operation from the inspected catalog. Use service.propose to add a new operation; do not inspect a proposed operation.",
+        }],
+        "next_actions": ["Retry service.inspect once with an available operation, or use service.propose to create a new operation."],
+    }
+
+
 def _append_jsonl(path: Path, event: dict) -> None:
     with path.open("ab") as stream:
         stream.write(canonical_json(event) + b"\n")
@@ -619,6 +655,7 @@ def run(args: argparse.Namespace) -> dict:
         tool_sequence: list[str] = []
         failed_tool_requests: set[str] = set()
         prevalidation_repair_attempts: set[str] = set()
+        invalid_catalog_operation_attempts: set[str] = set()
         final_content = None
         turn = 0
         call_number = 0
@@ -637,6 +674,7 @@ def run(args: argparse.Namespace) -> dict:
                 "messages": messages,
                 "tools": [tool_definition],
                 "stream": False,
+                "keep_alive": "10m",
                 "options": {
                     "temperature": args.temperature,
                     "top_p": args.top_p,
@@ -646,12 +684,24 @@ def run(args: argparse.Namespace) -> dict:
                 },
                 "think": args.think,
             }
+            payload_sha256 = hashlib.sha256(canonical_json(payload)).hexdigest()
+            payload_metadata = {
+                "turn": turn,
+                "message_count": len(messages),
+                "message_roles": [item.get("role") for item in messages],
+                "tool_definition_count": len(payload["tools"]),
+                "keep_alive": payload["keep_alive"],
+                "num_ctx": payload["options"]["num_ctx"],
+                "num_predict": payload["options"]["num_predict"],
+            }
             response = provider_chat(endpoint, payload, timeout=max(0.1, remaining))
             message = response.get("message")
             if isinstance(message, dict):
                 calls_for_diagnostics = message.get("tool_calls")
                 _append_jsonl(provider_diagnostics_path, {
                     "response_index": turn,
+                    "payload_sha256": payload_sha256,
+                    "payload_metadata": payload_metadata,
                     "model": response.get("model"),
                     "done": response.get("done"),
                     "done_reason": response.get("done_reason"),
@@ -701,6 +751,13 @@ def run(args: argparse.Namespace) -> dict:
                         nested = None
                     execution_origin = "runner_gate" if nested is not None else "gateway"
                     prevalidation_repair_exhausted = False
+                    if nested is None:
+                        catalog_prevalidated = prevalidate_catalog_operation(
+                            request, inspected, invalid_catalog_operation_attempts
+                        )
+                        if catalog_prevalidated is not None:
+                            execution_origin = "runner_prevalidation"
+                            nested = catalog_prevalidated
                     if nested is None:
                         prevalidated = prevalidate_tool_call(request, surface)
                         if prevalidated is not None:
