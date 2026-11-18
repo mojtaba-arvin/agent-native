@@ -120,3 +120,25 @@ The contrast with the 2 ms cgroup cohort is material: 2 ms had p99 252.021 ms an
 
 A second independent 0.5 ms cgroup cohort is now requested with the identical request mix, 1-CPU/1-GiB limits, FULL audit durability, 100 req/s target and executable capacity gate. Keep this as a separate raw run; do not pool or average it with the first cohort until both individual runs pass.
 
+
+## Second 0.5 ms cgroup cohort — independent repeat passed
+
+The independent repeat [workflow 44358347560](https://github.com/mojtaba-arvin/agent-native/actions/runs/44358347560) also passed all seven capacity checks under identical settings.
+
+| Metric | First 0.5 ms cohort (44357166863) | Second 0.5 ms cohort (44358347560) |
+|---|---:|---:|
+| Throughput | 100.018 req/s | 100.069 req/s |
+| Aggregate p50 / p95 / p99 | 4.484 / 15.875 / 27.465 ms | 2.582 / 4.253 / 4.571 ms |
+| Repetition p99 range | 8.671–69.714 ms | 4.449–4.649 ms |
+| CPU | 22.46% | 14.91% |
+| Peak cgroup memory | 37.30 MiB | 34.58 MiB |
+| CPU throttling | 0 | 0 |
+| Full I/O pressure | ~3.59 s | ~0.488 s |
+| Memory pressure | 0 | 0 |
+| Unexpected outcomes | 0 | 0 |
+| Capacity gate | PASS | PASS |
+
+Together, the two 0.5 ms cohorts cover **20,000 requests and 20 consecutive 10-second repetitions**; all repetition p99 values were below 70 ms. The 2 ms profile has one passing cgroup sample and one failing cgroup sample (p99 252.021 ms, 9/10 repetitions over 100 ms). The 0.5 ms profile is therefore the better-supported E-009 single-node reference setting.
+
+**Decision:** set the E-009 reference kernel's default audit collection window to **0.5 ms provisionally**, preserving SQLite WAL + synchronous=FULL and the same blocking commit contract. This is a workload-specific reference default, not a universal SQLite tuning recommendation or production-wide setting. Keep the capacity gate enabled and repeat after any storage/runtime change.
+
