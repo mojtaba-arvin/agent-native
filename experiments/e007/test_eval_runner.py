@@ -347,6 +347,62 @@ class EvalRunnerTests(unittest.TestCase):
             self.assertNotIn("agent_or_runner_failure", result["runs"][1]["failure_categories"])
 
 
+    def test_runner_process_failure_persists_stdout_stderr_and_command_context(self):
+        source_case = Path(__file__).parent / "evals" / "e009-readonly-proposal.eval.json"
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            case = json.loads(source_case.read_text(encoding="utf-8"))
+            case["repetitions"] = 1
+            case["model_settings"].update({
+                "temperature": 0.0, "top_p": 1.0, "seed": 42,
+                "num_ctx": 8192, "num_predict": 50,
+                "max_input_tokens": 100, "max_output_tokens": 50,
+                "max_tool_calls": 20, "max_wall_seconds": 10.0,
+            })
+            case["budget"].update({
+                "max_total_input_tokens": 150,
+                "max_total_output_tokens": 150,
+                "max_total_wall_seconds": 30,
+                "cost_pricing_mode": "unpriced_local",
+                "input_price_per_million_usd": None,
+                "output_price_per_million_usd": None,
+                "max_estimated_cost_usd": None,
+            })
+            case_path = root / "case.json"
+            case_path.write_text(json.dumps(case), encoding="utf-8")
+            args = Namespace(
+                case=case_path, model="qwen3:8b", arm="upfront", repetitions=1,
+                output_dir=root / "results", max_input_tokens=100, max_output_tokens=50,
+                max_tool_calls=20, max_wall_seconds=10.0, num_ctx=8192,
+                num_predict=50, temperature=0.0, top_p=1.0, seed=42,
+            )
+            stderr = "argparse: error: unrecognized arguments: --unexpected-flag\\n"
+
+            def fake_run(command, **kwargs):
+                if command[0] == "git":
+                    output = "mock-revision\\n" if command[1] == "rev-parse" else ""
+                    return subprocess.CompletedProcess(command, 0, stdout=output, stderr="")
+                return subprocess.CompletedProcess(command, 2, stdout="", stderr=stderr)
+
+            with patch("eval_runner.subprocess.run", side_effect=fake_run):
+                result = run_eval(args)
+
+            self.assertEqual(result["accepted_runs"], 0)
+            self.assertEqual(len(result["runs"]), 1)
+            run = result["runs"][0]
+            self.assertEqual(run["failure"], "runner_process_failed")
+            self.assertIn("runner_or_gateway_error", run["failure_categories"])
+            diagnostic = run["runner_process"]
+            self.assertEqual(diagnostic["return_code"], 2)
+            self.assertIn("local_agent.py", diagnostic["command"][1])
+            self.assertEqual(Path(diagnostic["stderr_path"]).read_text(encoding="utf-8"), stderr)
+            self.assertEqual(Path(diagnostic["stdout_path"]).read_text(encoding="utf-8"), "")
+            self.assertEqual(Path(diagnostic["diagnostic_path"]).stat().st_mode & 0o777, 0o600)
+            self.assertEqual(Path(diagnostic["stderr_path"]).stat().st_mode & 0o777, 0o600)
+            persisted = json.loads(Path(diagnostic["diagnostic_path"]).read_text(encoding="utf-8"))
+            self.assertEqual(persisted["stderr_excerpt"], stderr)
+            self.assertEqual(persisted["cwd"], str(Path(__file__).resolve().parents[2]))
+
     def test_unpriced_local_inference_is_unknown_not_zero(self):
         self.assertIsNone(_estimate_cost_usd(100000, 20000, {
             "cost_pricing_mode": "unpriced_local",

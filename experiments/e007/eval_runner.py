@@ -37,6 +37,7 @@ INFRA_FAILURE_PREFIXES = (
     "gateway_exit_",
     "runner_timeout",
     "runner_result_missing",
+    "runner_process_failed",
     "eval_budget_exhausted_before_repetition",
     "input_token_budget_exceeded",
     "output_token_budget_exceeded",
@@ -356,7 +357,7 @@ def _failure_categories(
     if failure in {"multiple_successful_proposals", "repeated_invalid_tool_call",
                    "proposal_repair_budget_exceeded", "PROPOSAL_REPAIR_BUDGET_EXCEEDED"}:
         categories.add("repeated_tool_or_repair")
-    if failure in {"runner_timeout", "runner_result_missing"} or failure.startswith("gateway_"):
+    if failure in {"runner_timeout", "runner_result_missing", "runner_process_failed"} or failure.startswith("gateway_"):
         categories.add("runner_or_gateway_error")
     if failure in {"runner_timeout", "wall_clock_budget_exhausted"}:
         categories.update({"timeout", "resource_budget_exceeded"})
@@ -658,6 +659,58 @@ def _write_json(path: Path, value: Any) -> None:
     path.chmod(0o600)
 
 
+def _captured_text(value: str | bytes | None) -> str:
+    if isinstance(value, bytes):
+        return value.decode("utf-8", errors="replace")
+    return value if isinstance(value, str) else ""
+
+
+def _persist_subprocess_diagnostics(
+    eval_dir: Path,
+    attempt: int,
+    command: list[str],
+    cwd: Path,
+    return_code: int | None,
+    duration_ms: float,
+    stdout: str,
+    stderr: str,
+) -> dict:
+    """Persist bounded child-process output so startup failures remain diagnosable."""
+    max_saved_chars = 64 * 1024
+    saved_stdout = stdout[-max_saved_chars:]
+    saved_stderr = stderr[-max_saved_chars:]
+    prefix = f"attempt-{attempt}-runner"
+    stdout_path = eval_dir / f"{prefix}.stdout.log"
+    stderr_path = eval_dir / f"{prefix}.stderr.log"
+    stdout_path.write_text(saved_stdout, encoding="utf-8")
+    stderr_path.write_text(saved_stderr, encoding="utf-8")
+    stdout_path.chmod(0o600)
+    stderr_path.chmod(0o600)
+    diagnostic_path = eval_dir / f"{prefix}.json"
+    diagnostic = {
+        "schema_version": 1,
+        "attempt": attempt,
+        "command": command,
+        "cwd": str(cwd),
+        "python_executable": sys.executable,
+        "python_version": sys.version,
+        "return_code": return_code,
+        "duration_ms": round(duration_ms, 3),
+        "stdout_path": str(stdout_path),
+        "stderr_path": str(stderr_path),
+        "stdout_chars": len(stdout),
+        "stderr_chars": len(stderr),
+        "stdout_truncated": len(stdout) > max_saved_chars,
+        "stderr_truncated": len(stderr) > max_saved_chars,
+        "stdout_sha256": hashlib.sha256(stdout.encode("utf-8")).hexdigest(),
+        "stderr_sha256": hashlib.sha256(stderr.encode("utf-8")).hexdigest(),
+        "stderr_excerpt": saved_stderr[-8000:],
+    }
+    _write_json(diagnostic_path, diagnostic)
+    diagnostic["diagnostic_path"] = str(diagnostic_path)
+    return diagnostic
+
+
 def run_eval(args: argparse.Namespace) -> dict:
     case_path = args.case.expanduser().resolve()
     case = _strict_json(case_path)
@@ -787,7 +840,9 @@ def run_eval(args: argparse.Namespace) -> dict:
             "--seed", str(args.seed),
         ]
         stdout = ""
+        stderr = ""
         return_code = None
+        process_started = time.monotonic()
         try:
             completed = subprocess.run(
                 command,
@@ -797,11 +852,24 @@ def run_eval(args: argparse.Namespace) -> dict:
                 timeout=args.max_wall_seconds + 45,
                 check=False,
             )
-            stdout = completed.stdout
+            stdout = _captured_text(completed.stdout)
+            stderr = _captured_text(completed.stderr)
             return_code = completed.returncode
         except subprocess.TimeoutExpired as error:
-            stdout = error.stdout.decode("utf-8", errors="replace") if isinstance(error.stdout, bytes) else (error.stdout or "")
+            stdout = _captured_text(error.stdout)
+            stderr = _captured_text(error.stderr)
             return_code = -1
+        process_duration_ms = (time.monotonic() - process_started) * 1000
+        process_diagnostic = _persist_subprocess_diagnostics(
+            eval_dir,
+            attempt,
+            command,
+            ROOT,
+            return_code,
+            process_duration_ms,
+            stdout,
+            stderr,
+        )
 
         new_dirs = [path for path in agent_root.iterdir() if path not in before and path.is_dir()]
         run_record = None
@@ -822,7 +890,11 @@ def run_eval(args: argparse.Namespace) -> dict:
                 "task_id": case["task_id"],
                 "model": args.model,
                 "status": "failed",
-                "failure": "runner_timeout" if return_code == -1 else "runner_result_missing",
+                "failure": (
+                    "runner_timeout" if return_code == -1
+                    else "runner_process_failed" if isinstance(return_code, int) and return_code != 0
+                    else "runner_result_missing"
+                ),
                 "input_tokens": 0,
                 "output_tokens": 0,
                 "tool_calls": 0,
@@ -843,6 +915,7 @@ def run_eval(args: argparse.Namespace) -> dict:
             "output_tokens": run_record.get("output_tokens"),
             "tool_calls": run_record.get("tool_calls"),
             "failure": run_record.get("failure"),
+            "runner_process": process_diagnostic,
             "usage_available": bool(
                 (agent_root / run_record["run_id"] / "provider-responses.jsonl").exists()
                 and (agent_root / run_record["run_id"] / "provider-responses.jsonl").stat().st_size
