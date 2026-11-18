@@ -13,14 +13,14 @@ The weighted score is a transparent comparison aid, not a substitute for hard co
 | p99 latency | 25 | Run-level p99 milliseconds | ≤ 50 ms |
 | Throughput | 20 | Successful requests/second | ≥ 1,000 req/s |
 | Peak process-tree RSS | 15 | MiB | ≤ 128 MiB |
-| CPU time | 10 | CPU seconds per 5,000-request measurement batch | ≤ 0.5 s |
+| CPU time | 10 | CPU seconds per 5,000-request measurement batch | Historical trivial-workload screen: ≤ 0.5 s; prospective product workload: ≤ 25 s (provisional capacity hypothesis) |
 | Ecosystem / operability | 10 | Evidence-based rubric, 0–5 | ≥ 3/5 |
 | Failure semantics | 10 | Defined fault-injection assertions | 100% pass; also a hard gate |
 | Startup time | 5 | Process start to first healthy response | ≤ 5 s |
 | Deployable artifact size | 5 | Documented comparable package size | ≤ 100 MiB |
 | **Total** | **100** | | |
 
-These are research screening ceilings/floors for the next fixed HTTP workload, not production SLOs. They are intentionally broad enough to identify pathological candidates. They must be re-registered before any future workload intended to represent a production SLO.
+Except where superseded by the dated product-scenario addendum below, these are the historical research screening ceilings/floors for the fixed trivial HTTP workload, not production SLOs. The 0.5 CPU-second gate remains attached to the completed historical cohorts only; it is not a prospective product eligibility gate. The later product-scenario capacity envelope governs the next product-representative measurement cycle.
 
 ### Ecosystem / operability rubric (0–5)
 
@@ -47,7 +47,7 @@ Measure the complete deployable unit, not compiler caches: native executable plu
 2. Zero security or data-integrity violations.
 3. 100% pass on every deadline, overload, cancellation, and fault-injection assertion included in the comparison workload.
 4. No candidate may bypass the framework-owned service contract, authorization, or effect semantics.
-5. The preregistered CPU screening limit of 0.5 seconds per 5,000-request batch. This is currently an **experimental eligibility screen only**, not a product SLO or a demonstrated capacity requirement. All four candidates missed it in both ten-run cohorts; do not relax it retrospectively. Before a new decision cycle, either derive a replacement/reaffirmed threshold from a documented product capacity/cost model and preregister it, or explicitly remove CPU as an eligibility gate with a dated rationale before collecting new data.
+5. **CPU gate is workload- and vintage-specific.** The preregistered 0.5-second/5,000-request screen applies only to the completed November 17 trivial `GET /work?ms=0` cohorts; all four candidates missed it, and those results remain unchanged. It is not a prospective product eligibility gate. For the product-representative control-plane workload, use the dated 25-second/5,000-request capacity hypothesis below as a provisional measurement bound, not as a validated SLO. Re-register it with the full workload and controlled host before collecting the next cohort.
 6. All required measurements must be present and collected under the same host/toolchain/request configuration. Missing data is **not measured**, never zero.
 
 ### Normalization and total score
@@ -67,7 +67,7 @@ The existing three-repetition matrix used 1,000 measured requests per repetition
 | Go / net/http | 3,707 | 7.984 | 14.425 | 18.689 | 0.16 | 11.90 |
 | WASI P2 / Wasmtime 50.0.1 | 3,319 | 8.919 | 16.576 | 19.880 | 0.30 | 28.02 |
 
-The smoke workload's measured p99, throughput, RSS, and CPU values fall within the provisional screening limits, but that does not mean the candidates have passed the complete gates. Startup distribution, comparable deployable artifact size, ecosystem rubric, database/authorization workloads, failure semantics, and representative application behavior are not established by this run. The sampled CPU/RSS methodology is coarse, and a shared GitHub-hosted runner is noisy.
+The smoke workload's measured p99, throughput, RSS, and CPU values fall within the historical trivial-workload screening limits, but that does not mean the candidates have passed the complete gates. Startup distribution, comparable deployable artifact size, ecosystem rubric, database/authorization workloads, failure semantics, and representative application behavior are not established by this run. The sampled CPU/RSS methodology is coarse, and a shared GitHub-hosted runner is noisy.
 
 **Current weighted scores: not calculated.** Missing criteria and the non-representative workload make a composite score misleading. No runtime is selected.
 
@@ -77,7 +77,7 @@ The first ten-run matrix is [workflow 44087449181](https://github.com/mojtaba-ar
 
 The second workflow also measured one Linux x86_64 uncompressed deployable payload per candidate: Go 10,012,310 B (9.55 MiB), Rust 4,991,320 B (4.76 MiB), WASI P2 + Wasmtime 71,947,386 B (68.61 MiB), and BEAM release + ERTS 74,856,626 B (71.39 MiB), including resolved external ELF dependencies. The method and packaging caveats are documented in the [second-pass report](results/2026-11-17-second-ten-run-artifact-diagnostic.md). These are host-specific payload estimates, not directly comparable container/package distributions.
 
-Artifact size is now **measured once per candidate** under that Linux packaging rule. Ecosystem/operability and injected failure semantics remain not measured. All candidates still miss the provisional CPU eligibility screen; the complete weighted score remains ineligible and no runtime is selected. The screen is not a product SLO and must be revisited only before a new measurement cycle. The CPU gate is not changed retrospectively.
+Artifact size is now **measured once per candidate** under that Linux packaging rule. Ecosystem/operability and injected failure semantics remain not measured. All candidates missed the historical 0.5-second CPU screen; that screen is retired prospectively for product-representative comparisons. No candidate has yet been measured against the 25-second product capacity hypothesis. The complete weighted score remains ineligible and no runtime is selected. Historical CPU results are not changed or rescored.
 
 ## Next measurement protocol
 
@@ -85,6 +85,7 @@ Artifact size is now **measured once per candidate** under that Linux packaging 
 - Run 10 randomized repetitions per candidate, 5,000 measured requests per repetition, concurrency 32, warm-up 250, same runner image and request semantics.
 - Retain request-level JSONL, per-run summaries, matrix manifest, random seed, source revision, and toolchain versions.
 - Report mean, sample standard deviation, median, min/max, and bootstrap 95% interval for run-level throughput, p99, CPU, RSS, and startup.
+- Use the revised 5 ms sampled process-tree CPU accounting method; record its method and limitations in every artifact. Do not pool these measurements with historical start/end-snapshot cohorts.
 - Label results from shared GitHub-hosted runners **diagnostic only**. A runtime decision still requires a controlled dedicated machine, representative persistence/serialization/authorization/inter-service workloads, and fault injection.
 - Do not select a runtime in this cycle.
 

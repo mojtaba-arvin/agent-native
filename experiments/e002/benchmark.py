@@ -16,6 +16,7 @@ from pathlib import Path
 
 
 BASE = "http://127.0.0.1:8080"
+PROCESS_SAMPLE_INTERVAL_SECONDS = 0.005
 
 
 def request(path: str) -> tuple[int, bytes]:
@@ -35,34 +36,90 @@ def valid_measurement_response(item: dict) -> bool:
     )
 
 
-def proc_sample(pid: int) -> tuple[float, int] | None:
-    """Aggregate CPU time and RSS for the process and its descendants."""
+def parse_proc_stat(raw: str, clock_ticks: int) -> tuple[float, int]:
+    """Return (CPU seconds, process start-time ticks) without splitting comm."""
+    close = raw.rfind(")")
+    if close < 0:
+        raise ValueError("malformed_proc_stat_comm")
+    fields = raw[close + 1 :].split()
+    # fields[0] is proc stat field 3 (state); utime/stime are 14/15,
+    # and starttime is 22. Index relative to field 3 is therefore 11/12/19.
+    if len(fields) <= 19:
+        raise ValueError("truncated_proc_stat")
+    user_ticks = int(fields[11])
+    system_ticks = int(fields[12])
+    start_time_ticks = int(fields[19])
+    return (user_ticks + system_ticks) / clock_ticks, start_time_ticks
+
+
+def proc_tree_sample(
+    pid: int,
+    *,
+    proc_root: str | Path = "/proc",
+    clock_ticks: int | None = None,
+) -> dict[tuple[int, int], tuple[float, int]]:
+    """Snapshot visible process-tree members keyed by (PID, start-time ticks).
+
+    The start-time component prevents PID reuse from merging unrelated processes.
+    Children are enumerated for every thread because any thread may fork a child.
+    """
+    root = Path(proc_root)
+    ticks_per_second = clock_ticks or os.sysconf("SC_CLK_TCK")
     pending = [pid]
-    seen: set[int] = set()
-    cpu_seconds = 0.0
-    rss_bytes = 0
-    found = False
+    seen_pids: set[int] = set()
+    snapshot: dict[tuple[int, int], tuple[float, int]] = {}
+
     while pending:
         current = pending.pop()
-        if current in seen:
+        if current in seen_pids:
             continue
-        seen.add(current)
+        seen_pids.add(current)
+        process_dir = root / str(current)
         try:
-            stat = Path(f"/proc/{current}/stat").read_text().split()
-            cpu_ticks = int(stat[13]) + int(stat[14])
+            cpu_seconds, start_ticks = parse_proc_stat(
+                (process_dir / "stat").read_text(encoding="utf-8"),
+                ticks_per_second,
+            )
             rss_kib = 0
-            for line in Path(f"/proc/{current}/status").read_text().splitlines():
+            for line in (process_dir / "status").read_text(encoding="utf-8").splitlines():
                 if line.startswith("VmRSS:"):
                     rss_kib = int(line.split()[1])
                     break
-            cpu_seconds += cpu_ticks / os.sysconf("SC_CLK_TCK")
-            rss_bytes += rss_kib * 1024
-            found = True
-            children = Path(f"/proc/{current}/task/{current}/children").read_text().split()
-            pending.extend(int(child) for child in children)
+            snapshot[(current, start_ticks)] = (cpu_seconds, rss_kib * 1024)
+
+            task_root = process_dir / "task"
+            for task in task_root.iterdir():
+                try:
+                    children = (task / "children").read_text(encoding="ascii").split()
+                except (OSError, UnicodeError):
+                    continue
+                pending.extend(int(child) for child in children)
         except (OSError, ValueError, IndexError):
+            # A process can exit between discovery and inspection. Its last
+            # successful sample remains in the accumulator.
             continue
-    return (cpu_seconds, rss_bytes) if found else None
+
+    return snapshot
+
+
+class ProcessTreeCpuTracker:
+    """Accumulate per-process CPU maxima so exited children remain accounted for."""
+
+    def __init__(self) -> None:
+        self._cpu_by_identity: dict[tuple[int, int], float] = {}
+        self.peak_tree_rss_bytes = 0
+
+    def observe(self, snapshot: dict[tuple[int, int], tuple[float, int]]) -> None:
+        current_tree_rss = 0
+        for identity, (cpu_seconds, rss_bytes) in snapshot.items():
+            previous = self._cpu_by_identity.get(identity, 0.0)
+            self._cpu_by_identity[identity] = max(previous, cpu_seconds)
+            current_tree_rss += rss_bytes
+        self.peak_tree_rss_bytes = max(self.peak_tree_rss_bytes, current_tree_rss)
+
+    @property
+    def total_cpu_seconds(self) -> float:
+        return sum(self._cpu_by_identity.values())
 
 
 def percentile(values: list[float], percentile_value: float) -> float:
@@ -104,15 +161,8 @@ def main() -> int:
     output = Path(args.output)
     output.parent.mkdir(parents=True, exist_ok=True)
     process = subprocess.Popen(args.command.split(), cwd=Path(args.cwd), start_new_session=True)
-    samples: list[tuple[float, int]] = []
+    cpu_tracker = ProcessTreeCpuTracker()
     stop_monitor = threading.Event()
-
-    def monitor() -> None:
-        while not stop_monitor.is_set():
-            sample = proc_sample(process.pid)
-            if sample is not None:
-                samples.append(sample)
-            stop_monitor.wait(0.02)
 
     try:
         startup_started = time.perf_counter()
@@ -124,7 +174,16 @@ def main() -> int:
                 raise RuntimeError("candidate failed one or more warm-up requests")
 
             raw: list[dict] = []
-            start_cpu = proc_sample(process.pid)
+            # Establish a cumulative CPU baseline after warm-up. The tracker
+            # retains the last observed CPU for children that exit during load.
+            cpu_tracker.observe(proc_tree_sample(process.pid))
+            start_cpu_seconds = cpu_tracker.total_cpu_seconds
+
+            def monitor() -> None:
+                while not stop_monitor.is_set():
+                    cpu_tracker.observe(proc_tree_sample(process.pid))
+                    stop_monitor.wait(PROCESS_SAMPLE_INTERVAL_SECONDS)
+
             monitor_thread = threading.Thread(target=monitor, daemon=True)
             monitor_thread.start()
             start = time.perf_counter()
@@ -153,7 +212,7 @@ def main() -> int:
             elapsed = time.perf_counter() - start
             stop_monitor.set()
             monitor_thread.join(timeout=2)
-            end_cpu = proc_sample(process.pid)
+            cpu_tracker.observe(proc_tree_sample(process.pid))
 
         latencies = [item["latency_ms"] for item in raw]
         status_counts: dict[str, int] = {}
@@ -161,10 +220,8 @@ def main() -> int:
             key = str(item["status"]) if item["status"] is not None else "error"
             status_counts[key] = status_counts.get(key, 0) + 1
 
-        cpu_seconds = None
-        if start_cpu and end_cpu:
-            cpu_seconds = max(0.0, end_cpu[0] - start_cpu[0])
-        peak_rss = max((sample[1] for sample in samples), default=None)
+        cpu_seconds = max(0.0, cpu_tracker.total_cpu_seconds - start_cpu_seconds)
+        peak_rss = cpu_tracker.peak_tree_rss_bytes or None
         failed_responses = sum(not valid_measurement_response(item) for item in raw)
         process_alive_after_load = process.poll() is None
         functional_success = failed_responses == 0 and process_alive_after_load
@@ -189,7 +246,23 @@ def main() -> int:
             "process_alive_after_load": process_alive_after_load,
             "failed_response_count": failed_responses,
             "functional_success": functional_success,
-            "measurement_note": "single run; not a statistically sufficient performance conclusion",
+            "measurement_note": (
+                "Process-tree CPU is accumulated from 5 ms /proc samples keyed by PID and "
+                "start-time; exited processes retain their last observed CPU. A child that "
+                "starts and exits entirely between samples can still be missed. RSS is the "
+                "peak sum of visible process-tree RSS samples. This is not cgroup accounting."
+            ),
+            "cpu_accounting": {
+                "method": "sampled_process_tree_cumulative_max",
+                "sample_interval_seconds": PROCESS_SAMPLE_INTERVAL_SECONDS,
+                "identity": "pid_plus_proc_starttime_ticks",
+                "limitations": [
+                    "short-lived descendants entirely between samples may be missed",
+                    "processes reparented before discovery may no longer be visible below the root",
+                    "shared hosted-runner noise remains",
+                    "not cgroup-level accounting",
+                ],
+            },
         }
         with output.with_suffix(".jsonl").open("w", encoding="utf-8") as handle:
             for item in raw:
