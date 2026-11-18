@@ -100,6 +100,8 @@ def main() -> None:
             max_outstanding=args.max_outstanding_jobs,
             max_concurrency=args.max_running_jobs,
             audit_sink=audit_sink,
+            max_submit_batch_size=args.audit_batch_size,
+            max_submit_batch_delay_seconds=args.audit_batch_delay_ms / 1000,
         )
     except ValueError as error:
         parser.error(str(error))
@@ -185,6 +187,10 @@ def main() -> None:
         server.server_close()
         print(
             "E009_AUDIT_METRICS=" + json.dumps(audit_sink.metrics(), sort_keys=True),
+            flush=True,
+        )
+        print(
+            "E009_WORK_METRICS=" + json.dumps(work_store.metrics(), sort_keys=True),
             flush=True,
         )
         repository.close()
