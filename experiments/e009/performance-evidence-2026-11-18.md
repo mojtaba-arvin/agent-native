@@ -120,3 +120,8 @@ The contrast with the 2 ms cgroup cohort is material: 2 ms had p99 252.021 ms an
 
 A second independent 0.5 ms cgroup cohort is now requested with the identical request mix, 1-CPU/1-GiB limits, FULL audit durability, 100 req/s target and executable capacity gate. Keep this as a separate raw run; do not pool or average it with the first cohort until both individual runs pass.
 
+
+## Default-setting verification
+
+The E-009 implementation now defaults to a 0.5 ms audit collection window in both SQLiteAuditSink and the HTTP server CLI. The next cgroup cohort omits the CLI override and exercises this default directly, retaining FULL SQLite synchronous durability and the fail-closed capacity gate.
+
