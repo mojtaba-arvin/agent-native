@@ -15,7 +15,8 @@
       ],
       "acceptance": [
         "python project_control.py validate",
-        "python project_control.py status"
+        "python project_control.py status",
+        "python project_control.py self-test"
       ],
       "expected_outputs": [
         "Cross-file schema/reference validation",
