@@ -98,3 +98,13 @@ This is an evidence plan, not manuscript prose. A claim may be promoted into the
 **Regression evidence.** [PR #24](https://github.com/mojtaba-arvin/agent-native/pull/24) merged as 40b9d9f70e32a848d54a8569888d38a332830268. [CI run 44247617828](https://github.com/mojtaba-arvin/agent-native/actions/runs/44247617828) passed. The slow-drip test sends bytes every 50 ms against a 250 ms absolute deadline and verifies interruption within one second.
 
 **Boundary.** This test establishes a hard wall deadline for the diagnostic HTTP request. It does not establish that all subprocess/Gateway IPC or cleanup paths are bounded by the same timer, and it is not a real-model lifecycle result.
+
+
+
+### 2026-11-18 — E-010 isolated apply path (in progress)
+
+**Implementation.** PR [#28](https://github.com/mojtaba-arvin/agent-native/pull/28) added an explicitly injected sandbox-apply callback. The default E-009 interface still returns `APPLY_DISABLED`; apply is enabled only when the Gateway is started with `--sandbox-apply` and a private sandbox directory. Apply rechecks the base revision, successful validation, matching plan, approval requirements, and deployment prohibition; change-set replay is idempotent.
+
+**Runtime demonstration.** The E-010 coordinator constructs a new immutable `ServiceRuntime` snapshot with one allowlisted built-in handler, publishes it only inside a temporary SQLite sandbox, executes `GET /items/by-normalized-name/BLUE-LAMP`, and retains the append-only audit database. The integrated Gateway test verifies inspect → propose → validate → plan → apply → runtime request → audit, and verifies that apply before validation/plan fails closed.
+
+**Real-agent run.** PR [#29](https://github.com/mojtaba-arvin/agent-native/pull/29) added the opt-in Qwen3 runner and a gated workflow. Workflow [44254279785](https://github.com/mojtaba-arvin/agent-native/actions/runs/44254279785) is currently executing against pinned source revision `61e848f907a597f1279df6532a6d5e58018d55ff`, with the same per-run model budget as E-007. This is a sandbox-only demonstration; it is not evidence of production deployment or production apply. Record the final trace, runtime response, and SQLite audit artifact before making a lifecycle-success claim.
