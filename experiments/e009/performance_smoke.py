@@ -122,7 +122,7 @@ def main():
                 line = process.stdout.readline()
                 if not line and process.poll() is not None:
                     raise RuntimeError("E-009 server exited before startup")
-                match = re.search(r"http://127\\.0\\.0\\.1:(\\d+)", line)
+                match = re.search(r"http://127\.0\.0\.1:(\d+)", line)
                 if match:
                     base = f"http://127.0.0.1:{match.group(1)}"
                     break
