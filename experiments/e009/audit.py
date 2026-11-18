@@ -36,6 +36,7 @@ class SQLiteAuditSink:
     performance pilot keeps FULL durability enabled throughout measurement.
     Batch counters are process-local diagnostics; they never gate or bypass commits.
     The pilot varies the collection window while retaining the same commit contract.
+    Every reported latency sample includes the durable audit decision path.
     """
 
     def __init__(
