@@ -74,25 +74,29 @@ def find_id(value):
     return None
 
 
-def cgroup_v2_limits():
+def cgroup_v2_snapshot(pid):
     root = Path("/sys/fs/cgroup")
     try:
-        controllers = (root / "cgroup.controllers").read_text(encoding="ascii").strip()
-        membership = Path("/proc/self/cgroup").read_text(encoding="ascii").splitlines()
+        membership = Path(f"/proc/{pid}/cgroup").read_text(encoding="ascii").splitlines()
         unified = next(line.split(":", 2)[2] for line in membership if line.startswith("0::"))
         directory = root / unified.lstrip("/")
         cpu_max = (directory / "cpu.max").read_text(encoding="ascii").strip()
         memory_max = (directory / "memory.max").read_text(encoding="ascii").strip()
+        cpu_stat = dict(
+            line.split() for line in (directory / "cpu.stat").read_text(encoding="ascii").splitlines()
+        )
         quota, period = cpu_max.split()
-        quota_cores = None if quota == "max" else int(quota) / int(period)
         return {
             "path": unified,
-            "controllers": controllers,
             "cpu_max": cpu_max,
-            "cpu_quota_cores": quota_cores,
+            "cpu_quota_cores": None if quota == "max" else int(quota) / int(period),
             "memory_max": memory_max,
+            "cpu_usage_usec": int(cpu_stat["usage_usec"]),
+            "memory_current_bytes": int((directory / "memory.current").read_text(encoding="ascii").strip()),
+            "memory_peak_bytes": int((directory / "memory.peak").read_text(encoding="ascii").strip()),
+            "pids_current": int((directory / "pids.current").read_text(encoding="ascii").strip()),
         }
-    except (OSError, StopIteration, ValueError, IndexError, ZeroDivisionError):
+    except (OSError, StopIteration, ValueError, IndexError, ZeroDivisionError, KeyError):
         return None
 
 
@@ -178,6 +182,8 @@ def main():
     parser.add_argument("--concurrency", type=int, default=32)
     parser.add_argument("--target-rps", type=float, default=100.0,
                         help="open-loop offered rate per repetition; 0 selects saturation mode")
+    parser.add_argument("--containerized", action="store_true",
+                        help="run the server in a one-CPU/1-GiB cgroup-limited container")
     parser.add_argument("--audit-batch-delay-ms", type=float, default=2.0)
     parser.add_argument("--job-batch-size", type=int, default=32)
     parser.add_argument("--job-batch-delay-ms", type=float, default=0.5)
@@ -201,26 +207,47 @@ def main():
     with tempfile.TemporaryDirectory(prefix="e009-perf-") as temp:
         db = Path(temp) / "kernel.sqlite3"
         server_concurrency = max(64, args.concurrency * 2)
-        server_command = [
-            sys.executable, "experiments/e009/serve.py", "--database", str(db),
-            "--port", "0", "--max-concurrency", str(server_concurrency),
-            "--audit-batch-delay-ms", str(args.audit_batch_delay_ms),
-            "--job-batch-size", str(args.job_batch_size),
-            "--job-batch-delay-ms", str(args.job_batch_delay_ms),
-        ]
+        container_name = "e009-perf-" + uuid.uuid4().hex[:12] if args.containerized else None
         server_cpu_affinity = None
-        if hasattr(os, "sched_getaffinity") and shutil.which("taskset"):
-            available_cpus = sorted(os.sched_getaffinity(0))
-            if available_cpus:
-                server_cpu_affinity = available_cpus[0]
-                server_command = ["taskset", "-c", str(server_cpu_affinity), *server_command]
+        if args.containerized:
+            server_command = [
+                "docker", "run", "--rm", "--name", container_name,
+                "--cpus=1", "--memory=1g", "--stop-signal=SIGINT",
+                "--publish", "127.0.0.1:18080:8080",
+                "--volume", f"{REPOSITORY_ROOT}:/workspace:ro",
+                "--volume", f"{temp}:/data",
+                "--workdir", "/workspace",
+                "--env", f"AGENT_NATIVE_DEMO_TOKEN={token}",
+                "--env", "AGENT_NATIVE_ALLOW_NON_LOOPBACK=1",
+                "python:3.11-slim",
+                "python", "experiments/e009/serve.py",
+                "--database", "/data/kernel.sqlite3",
+                "--host", "0.0.0.0", "--port", "8080",
+                "--max-concurrency", str(server_concurrency),
+                "--audit-batch-delay-ms", str(args.audit_batch_delay_ms),
+                "--job-batch-size", str(args.job_batch_size),
+                "--job-batch-delay-ms", str(args.job_batch_delay_ms),
+            ]
+        else:
+            server_command = [
+                sys.executable, "experiments/e009/serve.py", "--database", str(db),
+                "--port", "0", "--max-concurrency", str(server_concurrency),
+                "--audit-batch-delay-ms", str(args.audit_batch_delay_ms),
+                "--job-batch-size", str(args.job_batch_size),
+                "--job-batch-delay-ms", str(args.job_batch_delay_ms),
+            ]
+            if hasattr(os, "sched_getaffinity") and shutil.which("taskset"):
+                available_cpus = sorted(os.sched_getaffinity(0))
+                if available_cpus:
+                    server_cpu_affinity = available_cpus[0]
+                    server_command = ["taskset", "-c", str(server_cpu_affinity), *server_command]
         process = subprocess.Popen(
             server_command,
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, env=env,
             bufsize=1,
         )
         try:
-            deadline = time.monotonic() + 20
+            deadline = time.monotonic() + (90 if args.containerized else 20)
             base = None
             while time.monotonic() < deadline:
                 line = process.stdout.readline()
@@ -228,7 +255,7 @@ def main():
                     raise RuntimeError("E-009 server exited before startup")
                 match = re.search(r"http://127\.0\.0\.1:(\d+)", line)
                 if match:
-                    base = f"http://127.0.0.1:{match.group(1)}"
+                    base = "http://127.0.0.1:18080" if args.containerized else f"http://127.0.0.1:{match.group(1)}"
                     break
             if base is None:
                 raise RuntimeError("E-009 server startup deadline exceeded")
