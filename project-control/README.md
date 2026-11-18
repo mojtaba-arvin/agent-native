@@ -14,6 +14,7 @@ This directory is the versioned execution state for the Agent Native v0.1 progra
 - [PROGRESS.json](PROGRESS.json): evidence-backed milestone assessment.
 - [POLICY.json](POLICY.json): autonomy, safety, retry, and integration rules.
 - [HANDOFF.md](HANDOFF.md): deterministic resume instructions.
+- [CI_PORT_AUDIT.md](CI_PORT_AUDIT.md): reviewed risks and safe port sequence for the staging fast-CI candidate.
 
 ## Validate
 
