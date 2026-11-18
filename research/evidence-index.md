@@ -113,3 +113,6 @@ At commit 086f62c851cbfe9dcd77dad66ce32bc626b517dc, [integrated kernel workflow 
 - E-009 HTTP identity boundary: [121-test integrated run 44339021741](https://github.com/mojtaba-arvin/agent-native/actions/runs/44339021741), including forged tenant/principal/grant regression tests.
 - E-011: [13-test semantic run 44337266191](https://github.com/mojtaba-arvin/agent-native/actions/runs/44337266191).
 - E-007: [corrected one-shot Qwen3 factorial run 44337025030](https://github.com/mojtaba-arvin/agent-native/actions/runs/44337025030) is still in progress; its corrected E-007 corpus test suite passed 94 tests in [44336919390](https://github.com/mojtaba-arvin/agent-native/actions/runs/44336919390).
+
+
+- **E-002 PostgreSQL reference adapter:** [implementation](../experiments/e002/postgres_reference_adapter.py) and [conformance tests](../experiments/e002/test_postgres_reference_adapter.py). [Workflow 44341683697](https://github.com/mojtaba-arvin/agent-native/actions/runs/44341683697) passed 9 tests against PostgreSQL 16.4 with psycopg 3.2.9; SQLite's 24-test suite and all four runtime baseline jobs passed in the same run. Both adapters implement the versioned canonical hash and atomic job/outbox/idempotency/audit admission. A shared generated-trace parity runner remains the next correctness gate.
