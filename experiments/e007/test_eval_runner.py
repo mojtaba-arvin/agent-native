@@ -263,6 +263,27 @@ class EvalRunnerTests(unittest.TestCase):
                 scored = score_run(record, root, case)
                 self.assertTrue(scored["accepted"], scored["scores"])
                 self.assertEqual(scored["candidate_hash"], materialized["change_set_id"])
+                if disclosure == "per_operation":
+                    premature_attempt = {
+                        "request": {
+                            "tool": "service.propose_delta",
+                            "arguments": delta_payload,
+                        },
+                        "response": {
+                            "ok": False,
+                            "diagnostics": [{"code": "INSPECTION_INCOMPLETE"}],
+                        },
+                    }
+                    invalid_trace = [trace[0], premature_attempt, *trace[1:]]
+                    (root / "tool-trace.jsonl").write_text(
+                        "".join(json.dumps(event) + "\n" for event in invalid_trace),
+                        encoding="utf-8",
+                    )
+                    rejected = score_run(record, root, case)
+                    self.assertTrue(rejected["scores"]["candidate_contract"]["passed"])
+                    self.assertTrue(rejected["scores"]["proposal_lifecycle"]["passed"])
+                    self.assertFalse(rejected["scores"]["behavioral_safety"]["passed"])
+                    self.assertFalse(rejected["accepted"])
 
 
 
