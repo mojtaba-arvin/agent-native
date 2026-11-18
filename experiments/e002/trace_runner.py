@@ -80,17 +80,40 @@ def run_reference_trace(adapter, *, seed: int = TRACE_SEED, operations: int = TR
     )
     if len(claimed) != len(original_outcomes):
         raise AssertionError("outbox claim count differs from created job count")
-    acked = sum(
-        adapter.ack_outbox(
-            event_id=str(event["event_id"]),
+    reclaimed = adapter.claim_outbox(
+        consumer="generated-trace-relay-recovery",
+        limit=operations + 1,
+        lease_seconds=30,
+        now=5030,
+    )
+    if len(reclaimed) != len(claimed):
+        raise AssertionError("expired outbox lease was not reclaimed")
+    reclaimed_by_id = {str(event["event_id"]): event for event in reclaimed}
+    stale_ack_rejected = 0
+    acked = 0
+    for event in claimed:
+        event_id = str(event["event_id"])
+        current = reclaimed_by_id.get(event_id)
+        if current is None:
+            raise AssertionError("reclaimed outbox event identity changed")
+        if not adapter.ack_outbox(
+            event_id=event_id,
             consumer="generated-trace-relay",
             lease_token=event["lease_token"],
-            now=5001,
-        )
-        for event in claimed
-    )
+            now=5031,
+        ):
+            stale_ack_rejected += 1
+        if adapter.ack_outbox(
+            event_id=event_id,
+            consumer="generated-trace-relay-recovery",
+            lease_token=current["lease_token"],
+            now=5031,
+        ):
+            acked += 1
+    if stale_ack_rejected != len(claimed):
+        raise AssertionError("stale outbox lease acknowledgements were not all fenced")
     if acked != len(original_outcomes):
-        raise AssertionError("outbox acknowledgement count differs from claim count")
+        raise AssertionError("reclaimed outbox acknowledgement count differs from created job count")
 
     raw_counts = adapter.recover()
     counts = {key.removeprefix("e002_"): value for key, value in raw_counts.items()}
@@ -110,6 +133,7 @@ def run_reference_trace(adapter, *, seed: int = TRACE_SEED, operations: int = TR
         "status_counts": status_counts,
         "record_counts": counts,
         "outbox_claimed": len(claimed),
+        "stale_ack_rejected": stale_ack_rejected,
         "outbox_acked": acked,
     }
     canonical = json.dumps(
