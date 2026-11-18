@@ -50,7 +50,7 @@ jobs:
             const { owner, repo } = context.repo;
             const sha = context.payload.pull_request.head.sha;
             const { data } = await github.rest.repos.getCommit({ owner, repo, ref: sha });
-            const subject = data.commit.message.split('\\n', 1)[0];
+            const subject = data.commit.message.split('\n', 1)[0];
             core.setOutput('run', subject === 'perf(e009): request five-run product-path measurement' ? 'true' : 'false');
       - name: Run E-009 durable HTTP performance smoke
         if: github.event_name == 'pull_request' && steps.performance-request.outputs.run == 'true'
