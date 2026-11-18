@@ -43,20 +43,26 @@ jobs:
         run: python -m unittest discover -s experiments/e009 -v
       - name: Detect explicit E-009 performance request
         id: performance-request
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' || github.event_name == 'push'
         uses: actions/github-script@v7
         with:
           script: |
-            const { owner, repo } = context.repo;
-            const sha = context.payload.pull_request.head.sha;
-            const { data } = await github.rest.repos.getCommit({ owner, repo, ref: sha });
-            const subject = data.commit.message.split('\n', 1)[0];
+            let message;
+            if (context.eventName === 'push') {
+              message = context.payload.head_commit?.message || '';
+            } else {
+              const { owner, repo } = context.repo;
+              const sha = context.payload.pull_request.head.sha;
+              const { data } = await github.rest.repos.getCommit({ owner, repo, ref: sha });
+              message = data.commit.message;
+            }
+            const subject = message.split('\\n', 1)[0];
             core.setOutput('run', subject === 'perf(e009): request five-run product-path measurement' ? 'true' : 'false');
       - name: Run E-009 durable HTTP performance smoke
-        if: github.event_name == 'pull_request' && steps.performance-request.outputs.run == 'true'
+        if: (github.event_name == 'pull_request' || github.event_name == 'push') && steps.performance-request.outputs.run == 'true'
         run: python experiments/e009/performance_smoke.py --requests 1000 --repetitions 5 --concurrency 32 --output "$RUNNER_TEMP/e009-performance.json"
       - name: Preserve E-009 performance measurements
-        if: always() && github.event_name == 'pull_request' && steps.performance-request.outputs.run == 'true'
+        if: always() && (github.event_name == 'pull_request' || github.event_name == 'push') && steps.performance-request.outputs.run == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: e009-performance-smoke
