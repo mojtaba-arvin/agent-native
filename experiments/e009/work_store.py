@@ -282,6 +282,37 @@ class DurableWorkStore:
         _integer(lease_seconds, "lease_seconds", minimum=1)
         connection = self._connect()
         try:
+            # Most worker polls are idle. Probe with autocommit reads first so
+            # an empty queue does not acquire SQLite's single-writer lock.
+            expired_probe = connection.execute(
+                """
+                SELECT task_id FROM durable_jobs
+                WHERE state = 'queued' AND deadline_at <= ?
+                ORDER BY created_at LIMIT 1
+                """,
+                (now,),
+            ).fetchone()
+            if expired_probe is None:
+                running_probe = connection.execute(
+                    """
+                    SELECT COUNT(*) AS count FROM durable_jobs
+                    WHERE state IN ('running', 'cancellation_requested')
+                    """
+                ).fetchone()["count"]
+                if running_probe >= self.max_concurrency:
+                    return None
+                runnable_probe = connection.execute(
+                    """
+                    SELECT task_id FROM durable_jobs
+                    WHERE state = 'queued' AND available_at <= ? AND deadline_at > ?
+                      AND attempts < max_attempts
+                    ORDER BY available_at, created_at, task_id LIMIT 1
+                    """,
+                    (now, now),
+                ).fetchone()
+                if runnable_probe is None:
+                    return None
+
             connection.execute("BEGIN IMMEDIATE")
             expired = connection.execute(
                 """
