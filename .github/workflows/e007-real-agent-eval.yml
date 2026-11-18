@@ -20,6 +20,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+      - name: Validate factorial dispatch before provisioning the model
+        run: |
+          python experiments/e007/validate_factorial_dispatch.py
+          bash -n experiments/e007/run_factorial_pilot.sh
       - name: Install Ollama
         run: |
           curl --fail --silent --show-error --location https://ollama.com/install.sh | sh
@@ -40,7 +44,7 @@ jobs:
           ollama list > /tmp/ollama-models.txt
       - name: Run matched A-D pilot
         env:
-          FACTORIAL_OUTPUT_DIR: /tmp/agent-native-e007-factorial
+          FACTORIAL_OUTPUT_DIR: /tmp/agent-native-e007-factorial-${{ github.run_id }}-${{ github.run_attempt }}
           GITHUB_SHA: ${{ github.sha }}
           GITHUB_REF_NAME: ${{ github.ref_name }}
         run: bash experiments/e007/run_factorial_pilot.sh
