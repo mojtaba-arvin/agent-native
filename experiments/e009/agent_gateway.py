@@ -94,6 +94,7 @@ class AgentNativeGateway:
         arm: str,
         *,
         service_source: str | None = None,
+        apply_callback=None,
     ):
         if arm not in {"progressive", "upfront"}:
             raise AgentGatewayError("unknown_disclosure_arm")
@@ -107,7 +108,17 @@ class AgentNativeGateway:
         self.interface = AgentInterface(
             {"catalog": service_ir},
             trusted_effects=TRUSTED_EFFECTS,
+            apply_callback=apply_callback,
         )
+        if apply_callback is not None:
+            for catalog_tool in self.interface.catalog.get("tools", []):
+                if catalog_tool.get("name") == "service.apply":
+                    catalog_tool["mode"] = "sandbox_only"
+                    catalog_tool["summary"] = "Apply a validated service change set to the isolated demo runtime; never production."
+            for surface_tool in self.surface.get("tools", []):
+                if surface_tool.get("name") == "service.apply":
+                    surface_tool["mode"] = "sandbox_only"
+                    surface_tool["summary"] = "Apply a validated service change set to the isolated demo runtime; never production."
         self._required_inspection_order = [
             item["name"] for item in service_ir["operations"]
         ]
@@ -241,7 +252,7 @@ class AgentNativeGateway:
             "request_id": request_id,
             "tool": tool,
             "arguments": arguments,
-        })
+        }, context={"request_id": request_id})
         if tool == "service.inspect" and response.get("ok"):
             operation = arguments.get("operation")
             if operation is None:
@@ -279,9 +290,21 @@ class AgentNativeGateway:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--arm", choices=("progressive", "upfront"), required=True)
+    parser.add_argument("--sandbox-apply", action="store_true")
+    parser.add_argument("--sandbox-dir", type=Path)
     args = parser.parse_args()
     try:
-        gateway = AgentNativeGateway(args.arm)
+        apply_callback = None
+        if args.sandbox_apply:
+            if args.sandbox_dir is None:
+                parser.error("--sandbox-dir is required with --sandbox-apply")
+            e010_root = ROOT / "experiments" / "e010"
+            if str(e010_root) not in sys.path:
+                sys.path.insert(0, str(e010_root))
+            from demo_apply import SandboxApplyCoordinator
+            coordinator = SandboxApplyCoordinator(args.sandbox_dir)
+            apply_callback = coordinator.apply
+        gateway = AgentNativeGateway(args.arm, apply_callback=apply_callback)
     except (AgentGatewayError, SurfaceError, OSError, ValueError) as error:
         parser.error(str(error))
 

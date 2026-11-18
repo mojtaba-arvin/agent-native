@@ -4,6 +4,7 @@ import copy
 import hashlib
 import json
 from pathlib import Path
+from typing import Callable
 import sys
 
 _REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
@@ -35,10 +36,20 @@ def digest(value: object) -> str:
 
 
 class AgentInterface:
-    def __init__(self, services: dict[str, dict], *, trusted_effects: set[str]):
+    def __init__(
+        self,
+        services: dict[str, dict],
+        *,
+        trusted_effects: set[str],
+        apply_callback: Callable[[dict, dict], dict] | None = None,
+    ):
         self.services = copy.deepcopy(services)
         self.trusted_effects = frozenset(trusted_effects)
+        self.apply_callback = apply_callback
         self.proposals: dict[str, dict] = {}
+        self.validated_change_sets: set[str] = set()
+        self.planned_change_sets: set[str] = set()
+        self.applied_change_sets: dict[str, dict] = {}
         self.catalog = json.loads(
             (Path(__file__).parent / "tools.json").read_text(encoding="utf-8")
         )
@@ -247,6 +258,11 @@ class AgentInterface:
         if proposal is None:
             raise InterfaceError("CHANGE_SET_NOT_FOUND", "Unknown change_set_id.")
         diagnostics = self._validate_ir(proposal["ir"])
+        if diagnostics:
+            self.validated_change_sets.discard(change_set_id)
+            self.planned_change_sets.discard(change_set_id)
+        else:
+            self.validated_change_sets.add(change_set_id)
         return {
             "change_set_id": change_set_id,
             "valid": not diagnostics,
@@ -280,6 +296,16 @@ class AgentInterface:
             for effect in operation["effects"]
         })
         approvals = sorted(set(effects) & HIGH_IMPACT_EFFECTS)
+        sandbox_apply_ready = (
+            self.apply_callback is not None
+            and not validation_diagnostics
+            and not approvals
+            and change_set_id in self.validated_change_sets
+        )
+        if sandbox_apply_ready:
+            self.planned_change_sets.add(change_set_id)
+        else:
+            self.planned_change_sets.discard(change_set_id)
         return {
             "change_set_id": change_set_id,
             "valid": not validation_diagnostics,
@@ -287,15 +313,63 @@ class AgentInterface:
             "human_approval_required": bool(approvals),
             "approval_reasons": approvals,
             "validation_diagnostics": validation_diagnostics,
-            "will_mutate": False,
+            "will_mutate": sandbox_apply_ready,
             "will_deploy": False,
-        }, ["service.apply is disabled in this prototype"]
-
-    def _apply(self, arguments: dict, _context: dict):
-        raise InterfaceError(
-            "APPLY_DISABLED",
-            "Applying changes is disabled in this prototype; no state or production mutation is possible.",
+            "sandbox_only": self.apply_callback is not None,
+        }, (
+            ["service.apply in the isolated sandbox"]
+            if sandbox_apply_ready
+            else ["service.apply is disabled in this prototype"]
         )
+
+    def _apply(self, arguments: dict, context: dict):
+        if self.apply_callback is None:
+            raise InterfaceError(
+                "APPLY_DISABLED",
+                "Applying changes is disabled outside the isolated sandbox.",
+            )
+        change_set_id = arguments.get("change_set_id")
+        proposal = self.proposals.get(change_set_id)
+        if proposal is None:
+            raise InterfaceError("CHANGE_SET_NOT_FOUND", "Unknown change_set_id.")
+        if change_set_id in self.applied_change_sets:
+            return {
+                **copy.deepcopy(self.applied_change_sets[change_set_id]),
+                "replayed": True,
+            }, ["service.inspect to verify the applied service revision"]
+        if proposal["base_revision"] != self.revision(proposal["service_id"]):
+            raise InterfaceError("STALE_BASE_REVISION", "The service changed after this proposal was created.")
+        if change_set_id not in self.validated_change_sets or change_set_id not in self.planned_change_sets:
+            raise InterfaceError(
+                "APPLY_REQUIRES_VALIDATED_PLAN",
+                "Apply requires a successful service.validate and a matching service.plan in this session.",
+            )
+        diagnostics = self._validate_ir(proposal["ir"])
+        if diagnostics:
+            raise InterfaceError("APPLY_VALIDATION_FAILED", "The proposed service no longer passes validation.")
+        plan, _ = self._plan({"change_set_id": change_set_id}, context)
+        if (
+            not plan.get("valid")
+            or not plan.get("will_mutate")
+            or plan.get("human_approval_required")
+            or plan.get("will_deploy")
+        ):
+            raise InterfaceError("APPLY_PLAN_NOT_ALLOWED", "The current plan is not eligible for isolated sandbox apply.")
+        try:
+            applied = self.apply_callback(copy.deepcopy(proposal), dict(context or {}))
+        except Exception as error:
+            raise InterfaceError("APPLY_FAILED", "The isolated sandbox apply failed closed.") from error
+        if not isinstance(applied, dict) or applied.get("applied") is not True:
+            raise InterfaceError("APPLY_FAILED", "The isolated sandbox did not confirm the apply.")
+        self.services[proposal["service_id"]] = copy.deepcopy(proposal["ir"])
+        result = {
+            **copy.deepcopy(applied),
+            "change_set_id": change_set_id,
+            "applied": True,
+            "replayed": False,
+        }
+        self.applied_change_sets[change_set_id] = result
+        return result, ["service.inspect to verify the applied service revision"]
 
 
 class InterfaceError(Exception):
