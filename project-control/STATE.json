@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "updated_at": "2026-11-19",
+  "active_branch": "feat/project-control-plane",
+  "baseline_branch": "research/reboot-core",
+  "baseline_commit": "unresolved-by-control-plane-bootstrap",
+  "current_milestone": "C0",
+  "active_task_ids": ["CP-001"],
+  "last_completed_task_id": null,
+  "last_known_green_revision": null,
+  "wip_limit": 2,
+  "next_action": "Implement and run the control-plane validator; then verify the active CI workflow inventory on the baseline branch.",
+  "recovery": {
+    "unchanged_failure_limit": 2,
+    "no_progress_attempt_limit": 3,
+    "on_limit": "stop_repeating; record_root_cause; split_or_change_approach; update_task_contract",
+    "blocked_task_policy": "record_blocker_and_continue_with_independent_ready_work"
+  }
+}
