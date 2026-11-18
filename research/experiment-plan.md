@@ -67,7 +67,7 @@ Measure correctness under fault injection, latency, memory, and agent implementa
 
 ## Next integrated step
 
-After the E-009 real-model Agent trial is accepted, the next bounded vertical slice is [E-010 — Inter-service communication and distributed failure semantics](e010-interservice-communication-plan.md). It extends the existing contract, capability, and outbox/inbox semantics across two independent service processes; it does not preselect a transport or broker.
+After the E-007 real-agent factorial pilot is accepted and E-010 sandbox-apply evidence is reviewed, the next bounded vertical slice is [E-011 — Inter-service invocation and distributed failure semantics](e011-interservice-communication-plan.md). It extends the existing contract, capability, tenant, and outbox/inbox semantics across two independent service processes; it does not preselect a transport or broker.
 
 ## Required artifacts per experiment
 
