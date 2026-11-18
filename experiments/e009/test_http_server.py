@@ -16,7 +16,7 @@ from audit import SQLiteAuditSink
 from catalog import build_catalog_handlers
 from http_server import create_server
 from identity import MemoryIdentityProvider
-from kernel import ServiceRuntime, load_service_ir
+from kernel import RuntimeRegistry, ServiceRuntime, load_service_ir
 from repository import SQLiteCatalogRepository
 from work_store import DurableWorkStore
 from worker import CatalogWorker, OutboxRelay
@@ -146,6 +146,28 @@ class KernelHTTPServerTests(unittest.TestCase):
             self.assertEqual(server.request_queue_size, 17)
         finally:
             server.server_close()
+
+    def test_http_request_uses_one_published_runtime_revision(self):
+        registry = RuntimeRegistry(self.runtime, revision=7)
+        server = create_server(registry, self.identity, max_concurrency=8)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        previous_base = self.base_url
+        self.base_url = f"http://127.0.0.1:{server.server_port}"
+        try:
+            first_status, first_headers, _first_body = self.request("GET", "/items")
+            self.assertEqual(first_status, 200)
+            self.assertEqual(first_headers.get("X-Runtime-Revision"), "7")
+
+            registry.publish(self.runtime, revision=8)
+            second_status, second_headers, _second_body = self.request("GET", "/items")
+            self.assertEqual(second_status, 200)
+            self.assertEqual(second_headers.get("X-Runtime-Revision"), "8")
+        finally:
+            self.base_url = previous_base
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=5)
 
     def test_real_http_create_get_by_id_and_get_by_name(self):
         status, headers, created = self.request(
