@@ -35,6 +35,7 @@ class CallLifecycleTests(unittest.TestCase):
 
     def test_invalid_terminal_transition_is_rejected(self):
         call = CallLifecycle()
+        call.transition(CallState.ACCEPTED)
         call.transition(CallState.COMPLETED)
         with self.assertRaises(InvalidTransition):
             call.transition(CallState.ACCEPTED)
@@ -52,7 +53,8 @@ class CapabilityTests(unittest.TestCase):
         self.parent = Capability(
             issuer="issuer", subject="service-a", audience="service-b",
             tenant="tenant-a", operations=frozenset({"read", "write"}),
-            resources=frozenset({"item:1", "item:2"}), expires_at=1000,\n            delegable_audiences=frozenset({"service-c"}),
+            resources=frozenset({"item:1", "item:2"}), expires_at=1000,
+            delegable_audiences=frozenset({"service-c"}),
         )
 
     def test_attenuation_only_narrows_authority(self):
@@ -66,7 +68,12 @@ class CapabilityTests(unittest.TestCase):
         self.assertEqual(child.tenant, self.parent.tenant)
 
     def test_escalation_is_rejected(self):
-        with self.assertRaisesRegex(ValueError, "audience_escalation"):\n            self.parent.attenuate(\n                audience="untrusted-service", operations=frozenset({"read"}),\n                resources=frozenset({"item:1"}), expires_at=900,\n            )\n        with self.assertRaisesRegex(ValueError, "operation_escalation"):
+        with self.assertRaisesRegex(ValueError, "audience_escalation"):
+            self.parent.attenuate(
+                audience="untrusted-service", operations=frozenset({"read"}),
+                resources=frozenset({"item:1"}), expires_at=900,
+            )
+        with self.assertRaisesRegex(ValueError, "operation_escalation"):
             self.parent.attenuate(
                 audience="service-c", operations=frozenset({"admin"}),
                 resources=frozenset({"item:1"}), expires_at=900,
