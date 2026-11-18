@@ -94,7 +94,7 @@ jobs:
               '- Latency: p50 ' + l.p50.toFixed(2) + ' ms; p95 ' + l.p95.toFixed(2) + ' ms; p99 ' + l.p99.toFixed(2) + ' ms; max ' + l.max.toFixed(2) + ' ms',
               '- ' + reps,
               '- Operation latency: ' + kinds,
-              '- Audit commits: ' + audit.committed_batches + ' batches for ' + audit.committed_events + ' events; largest batch ' + audit.largest_batch,
+              '- Audit commits: ' + audit.committed_batches + ' group batches for ' + audit.committed_events + ' events; ' + audit.transactional_events + ' events shared the durable job transaction; largest batch ' + audit.largest_batch + '; batch window ' + result.workload.audit_batch_delay_ms + ' ms',
               '',
               'This is a shared-runner product-path measurement, not a controlled capacity claim. FULL audit durability remains enabled.'
             ].join('\n');
