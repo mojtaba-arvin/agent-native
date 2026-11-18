@@ -45,6 +45,7 @@ class SQLiteAuditSink:
     Job batch size and delay are independently tunable from audit batching.
     The product pilot now uses a 100 req/s open-loop offered-load profile by default.
     Open-loop reports distinguish scheduled latency from service time and client queue delay.
+    The next confirmatory pass uses ten repetitions to quantify first-repetition tail variability.
     """
 
     def __init__(
