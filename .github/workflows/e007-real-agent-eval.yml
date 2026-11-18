@@ -54,7 +54,7 @@ jobs:
         with:
           name: e007-matched-proposal-surface-factorial
           path: |
-            /tmp/agent-native-e007-factorial/
+            /tmp/agent-native-e007-factorial-${{ github.run_id }}-${{ github.run_attempt }}/
             /tmp/ollama-version.txt
             /tmp/ollama-models.txt
             /tmp/qwen3-modelfile.txt
