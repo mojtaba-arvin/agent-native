@@ -41,7 +41,7 @@ class SQLiteAuditSink:
         database: str | Path,
         *,
         max_batch_size: int = 32,
-        max_batch_delay_seconds: float = 0.002,
+        max_batch_delay_seconds: float = 0.0005,
     ):
         raw = str(database)
         if raw == ":memory:":
