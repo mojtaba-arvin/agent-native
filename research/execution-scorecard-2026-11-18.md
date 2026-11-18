@@ -44,10 +44,10 @@ The two storage engines now have executable single-node conformance and cross-en
 
 | Metric | Current evidence | Acceptance gate |
 |---|---|---|
-| Kernel tests | On `research/reboot-core`, [PR workflow 44353796608](https://github.com/mojtaba-arvin/agent-native/actions/runs/44353796608): 116 E-009 tests passed, including bounded provider HTTP error detail | Keep regression suite green |
+| Kernel tests | On `research/ci-policy-staging`, [workflow 44355460886](https://github.com/mojtaba-arvin/agent-native/actions/runs/44355460886): 129 E-009 tests passed, including three new capacity-gate tests | Keep regression suite green |
 | E-010 tests | Same run: 3 E-010 tests passed | Keep demo limitations explicit; no arbitrary callback isolation claim |
-| Client identity injection | Host fixture constructs trusted identity; production host identity adapter remains unimplemented | Client-supplied principal, tenant and grants never become authority |
-| Runtime publication | Defensive ownership implemented; concurrent publication contract remains open | No request observes mixed runtime revision |
+| Client identity injection | Six HTTP regression cases cover spoofed body claims, untrusted headers, unauthenticated requests and tenant isolation. `MemoryIdentityProvider` is explicitly a test/demo fixture, not production authentication | A production host-supplied identity provider must authenticate the bearer token and construct `RequestContext`; client principal, tenant and grants never become authority |
+| Runtime publication | `RuntimeRegistry` atomically publishes monotonic frozen `RuntimeSnapshot` records; each request captures one snapshot. HTTP tests cover publication during an in-flight request and single-revision request handling | No request observes a mixed runtime revision; reject non-monotonic revisions |
 | Product-path performance | On `research/ci-policy-staging`, [workflow 44345238807](https://github.com/mojtaba-arvin/agent-native/actions/runs/44345238807): 10×1,000 requests at 100 offered req/s, concurrency 32, server container 1 CPU / 1 GiB, FULL SQLite audit; 10,000 requests, 0 unexpected outcomes, 100.044 req/s, p50 5.094 ms, p95 5.630 ms, p99 6.536 ms, 21.66% one-core CPU, peak cgroup memory 35.18 MiB | Target met for this one-node SQLite cohort: ≥100 req/s, p99 ≤100 ms, CPU ≤50%; replicate on PostgreSQL and controlled hosts |
 | Controlled capacity / soak | Single shared GitHub host and one E-009 SQLite process; no cross-runtime or 30-minute soak | Paired randomized storage/runtime cohorts, then 30-minute soak and crash/recovery |
 
