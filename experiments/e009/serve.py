@@ -89,19 +89,20 @@ def main() -> None:
     source = (E009_ROOT / "catalog.an").read_text(encoding="utf-8")
     ir = load_service_ir(source)
     repository = SQLiteCatalogRepository(args.database)
-    try:
-        work_store = DurableWorkStore(
-            repository.database,
-            max_outstanding=args.max_outstanding_jobs,
-            max_concurrency=args.max_running_jobs,
-        )
-    except ValueError as error:
-        parser.error(str(error))
     audit_sink = SQLiteAuditSink(
         repository.database,
         max_batch_size=args.audit_batch_size,
         max_batch_delay_seconds=args.audit_batch_delay_ms / 1000,
     )
+    try:
+        work_store = DurableWorkStore(
+            repository.database,
+            max_outstanding=args.max_outstanding_jobs,
+            max_concurrency=args.max_running_jobs,
+            audit_sink=audit_sink,
+        )
+    except ValueError as error:
+        parser.error(str(error))
     runtime = ServiceRuntime(
         ir,
         handlers=build_catalog_handlers(repository, work_store),
