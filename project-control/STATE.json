@@ -11,7 +11,7 @@
   "last_completed_task_id": null,
   "last_known_green_revision": null,
   "wip_limit": 2,
-  "next_action": "Obtain a clean execution of validate/status/self-test through the PR CI; then map the remaining workflow definitions before porting the fast-CI design.",
+  "next_action": "Port the fast runner from the reviewed CI candidate onto a fresh reboot-core branch, correcting deletion handling and adding project-control path coverage plus selector tests.",
   "recovery": {
     "unchanged_failure_limit": 2,
     "no_progress_attempt_limit": 3,
