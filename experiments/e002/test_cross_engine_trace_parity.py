@@ -147,7 +147,7 @@ adapter.admit_job(
 
     def test_identical_generated_traces_have_identical_sqlite_and_postgres_outcomes(self):
         dsn = os.environ["AGENT_NATIVE_E002_POSTGRES_DSN"]
-        seeds = (20261118, 20261119, 20261120, 20261121, 20261122)
+        seeds = tuple(range(20261118, 20261143))
         digests = []
         with tempfile.TemporaryDirectory() as directory:
             postgres = PostgresReferenceAdapter(dsn)
@@ -162,9 +162,11 @@ adapter.admit_job(
                     sqlite_result["outbox_claimed"], sqlite_result["record_counts"]["jobs"]
                 )
                 self.assertEqual(sqlite_result["outbox_acked"], sqlite_result["outbox_claimed"])
+                self.assertEqual(sqlite_result["stale_ack_rejected"], sqlite_result["outbox_claimed"])
                 digests.append(sqlite_result["trace_digest"])
 
         self.assertEqual(len(set(digests)), len(seeds))
+        self.assertEqual(len(seeds) * 60, 1500)
 
 
 if __name__ == "__main__":
