@@ -199,6 +199,21 @@ def summarize(results, elapsed):
     }
 
 
+def sqlite_file_sizes(database_path):
+    database = Path(database_path)
+    sizes = {}
+    for label, path in (
+        ("database", database),
+        ("wal", Path(str(database) + "-wal")),
+        ("shm", Path(str(database) + "-shm")),
+    ):
+        try:
+            sizes[label] = path.stat().st_size
+        except FileNotFoundError:
+            sizes[label] = 0
+    return sizes
+
+
 def evaluate_capacity_gate(aggregate, resource_metrics):
     """Evaluate the preregistered single-node E-009 target using server cgroup metrics."""
     cgroup = resource_metrics.get("cgroup_v2_limits") or {}
@@ -524,6 +539,7 @@ def main():
                     "cgroup_v2_limits": cgroup_limits,
                     "cgroup_v2_start_snapshot": cgroup_start if args.containerized else None,
                     "server_containerized": args.containerized,
+                    "sqlite_file_sizes_bytes": sqlite_file_sizes(db),
                     "server_cpu_percent_of_one_core_during_load": (
                         server_cpu_seconds / total_elapsed * 100 if total_elapsed else None
                     ),
