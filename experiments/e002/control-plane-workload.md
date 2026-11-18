@@ -38,7 +38,7 @@ A deterministic seed generates the following mix over the measured cohort:
 
 An expected 4xx denial is a correctly completed request for throughput accounting, not a server failure. Transport errors, unexpected 5xx, timeouts, malformed responses, duplicate effects, and data-integrity violations are failures.
 
-The exact fixture identities, capability grants, tenant partitions, records, contract versions, and idempotency-key schedule must be committed as deterministic workload data before implementation.
+The exact fixture identities, capability grants, tenant partitions, records, contract versions, and idempotency-key schedule must be committed as deterministic workload data before implementation. Idempotency is scoped by authenticated tenant and operation: the same key plus the same canonical request hash returns the original logical outcome; the same key with a different hash returns a conflict and never creates a second effect. Attempt/request IDs remain distinct from the idempotency key.
 
 ## 3. Framework-owned request lifecycle
 
@@ -83,7 +83,7 @@ The conformance suite must cover at least:
 - process termination after commit but before response delivery;
 - duplicate submission with the same idempotency key;
 - same payload with a different idempotency key;
-- outbox publish-before-ack duplicate delivery and consumer deduplication;
+- outbox publish-before-ack duplicate delivery and consumer deduplication; a consumer applies its local effect and records the event ID atomically;
 - deadline expiry and client disconnect;
 - worker crash and lease recovery;
 - restart and recovery of committed audit/job/outbox state.
