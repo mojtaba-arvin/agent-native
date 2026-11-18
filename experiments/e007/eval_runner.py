@@ -315,7 +315,6 @@ def score_run(run_record: dict, run_dir: Path, case: dict) -> dict:
     operation_inspect_names = [
         arguments.get("operation") for _, arguments, response in operation_inspect_attempts
     ]
-    successful_proposal_indices = [index for index, _, _, _ in proposals]
     proposal_attempt_indices = [
         index for index, (tool, _, _) in enumerate(tools)
         if tool in proposal_tool_names
