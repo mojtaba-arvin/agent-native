@@ -11,7 +11,7 @@
   "last_completed_task_id": "CP-006",
   "last_known_green_revision": null,
   "wip_limit": 2,
-  "next_action": "Consolidate the 15 existing workflow responsibilities into the reviewed unified CI design, correcting push/PR duplication, scheduled benchmark cost, and CPU-only model-evaluation policy.",
+  "next_action": "Open the unified workflow as a stacked draft PR; verify responsibility coverage and wait for PR #64 to provide the base workflow for an authoritative CI run.",
   "recovery": {
     "unchanged_failure_limit": 2,
     "no_progress_attempt_limit": 3,
