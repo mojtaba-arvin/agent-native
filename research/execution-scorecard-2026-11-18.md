@@ -45,16 +45,16 @@ The existing process-tree sampler is diagnostic only. It is not a substitute for
 | E-010 tests | Same run: 3 E-010 tests passed | Keep demo limitations explicit; no arbitrary callback isolation claim |
 | Client identity injection | Trusted identity is constructed by host fixture; no production identity adapter | 100% of attempts to submit principal, tenant or grants from client input are rejected |
 | Runtime publication | Defensive ownership implemented; publication race contract not implemented | No request may observe a mixed runtime revision under concurrent publication |
-| Product-path performance | [Run 44303432415](https://github.com/mojtaba-arvin/agent-native/actions/runs/44303432415), [artifact 14425569770](https://github.com/mojtaba-arvin/agent-native/actions/runs/44303432415/artifacts/14425569770): 1,000 requests, client concurrency 32; 490.64 req/s; p50 4.71 ms, p95 331.08 ms, p99 1,231.72 ms; 12 unexpected 503s | **Failed** initial target: p99 ≤100 ms and zero unexpected statuses. Follow-up isolates server admission capacity at 64 while client concurrency remains 32; preserve audit durability |
+| Product-path performance | [Run 44303882187](https://github.com/mojtaba-arvin/agent-native/actions/runs/44303882187), [artifact 14426952929](https://github.com/mojtaba-arvin/agent-native/actions/runs/44303882187/artifacts/14426952929): 1,000 requests, client concurrency 32/server cap 64; 759.48 req/s; p50 6.10 ms, p95 132.78 ms, p99 1,068.81 ms; 0 unexpected statuses | **Harness passed; latency gate failed** (p99 target ≤100 ms). Five repetitions × 1,000 plus warm-up and slowest-operation capture are now wired for the next run; preserve SQLite FULL audit durability |
 | Controlled capacity | Not measured | Dedicated host/cgroup, warm-up, 10 repetitions, source and environment pinned |
 
-The E-009 smoke is an initial real HTTP/SQLite/worker/relay workload on a shared CI runner. The first measured sample failed the p99 and unexpected-status gates. Synchronous SQLite FULL audit writes are a plausible contributor to tail latency; durability was not weakened. This is not a controlled capacity claim, cross-runtime comparison, or isolated CPU/memory accounting.
+The E-009 smoke is a real HTTP/SQLite/worker/relay workload on a shared CI runner. The first sample had 12/1,000 503s and p99 1,231.72 ms; after separating server admission capacity from offered client concurrency, the next sample had 0/1,000 unexpected statuses but p99 remained 1,068.81 ms. Synchronous SQLite FULL audit writes are a plausible contributor to tail latency; durability was not weakened. Repeated measurements and per-operation tail attribution are next. This is not a controlled capacity claim, cross-runtime comparison, or isolated CPU/memory accounting.
 
 ## E-011 — inter-service semantics
 
 | Metric | Current evidence | Acceptance gate |
 |---|---|---|
-| Deterministic model | [Run 44299814273](https://github.com/mojtaba-arvin/agent-native/actions/runs/44299814273): 9/9 tests passed | Expand with property-based state sequences |
+| Deterministic model | [Run 44303882125](https://github.com/mojtaba-arvin/agent-native/actions/runs/44303882125): **11/11 tests passed**, including seeded 10,000-transition state-machine exercise and idempotency outcome defensive-copy regression | Continue property-based transition sequences; distributed semantics still not proved |
 | Retry and unknown outcome | Same-key reconciliation is modelled | No timeout after dispatch may be treated as proof of non-execution |
 | Idempotency | In-memory tenant/operation/key model | Across two processes and durable restart, 100 concurrent duplicate requests yield exactly one logical admission |
 | Capability attenuation | Audience, operation, resource and expiry escalation rejected by deterministic tests | Property tests find zero accepted escalation cases |
@@ -63,7 +63,7 @@ The E-009 smoke is an initial real HTTP/SQLite/worker/relay workload on a shared
 ## Repository state
 
 - Working branch: `research/reboot-core`.
-- Latest verified branch commit at scorecard publication: `50baec785894650d65083308de9cfa7b32ca6883` (scorecard/evidence-index update); one-shot dispatch marker commit: `49a178ced8751e5f9a5edbf96054603a55497532`.
+- Latest verified E-009/E-011 code commit at scorecard update: `e3d86c96ce1bdc69caed18254992c6078dc77c52`; one-shot E-007 dispatch marker commit: `49a178ced8751e5f9a5edbf96054603a55497532`.
 - `main` remains at `da3736c7ea4d239d1ea520d8b56025b4e3251b33`.
 - PR #6 remains Open/Draft; no merge is authorized.
 - The Actions connector exposes job/artifact inspection by run ID but not a list-workflow-runs or workflow-dispatch write action. Where a push-triggered run cannot be inspected through the available action surface, its status is explicitly unknown until an artifact/run reference is available.
