@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Repeatable end-to-end load smoke for the E-009 durable HTTP kernel.
+"""Repeated end-to-end load smoke for the E-009 durable HTTP kernel.
 
 This is a product-path diagnostic, not a controlled capacity benchmark:
 GitHub-hosted runners are shared and cgroup isolation is not asserted.
@@ -69,14 +69,40 @@ def percentile(values, fraction):
     return ordered[min(len(ordered) - 1, math.ceil(fraction * len(ordered)) - 1)]
 
 
+def summarize(results, elapsed):
+    latencies = [item["latency_ms"] for item in results]
+    statuses = {}
+    for item in results:
+        statuses[str(item["status"])] = statuses.get(str(item["status"]), 0) + 1
+    failures = [item for item in results if not item["ok"]]
+    return {
+        "requests": len(results),
+        "failed_expectations": len(failures),
+        "status_counts": statuses,
+        "elapsed_seconds": elapsed,
+        "throughput_requests_per_second": len(results) / elapsed if elapsed else 0,
+        "latency_ms": {
+            "p50": percentile(latencies, 0.50),
+            "p95": percentile(latencies, 0.95),
+            "p99": percentile(latencies, 0.99),
+            "max": max(latencies) if latencies else None,
+            "mean": statistics.fmean(latencies) if latencies else None,
+        },
+        "response_bytes_total": sum(item["response_bytes"] for item in results),
+    }
+
+
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--requests", type=int, default=1000)
+    parser.add_argument("--requests", type=int, default=1000, help="measured requests per repetition")
+    parser.add_argument("--repetitions", type=int, default=5)
     parser.add_argument("--concurrency", type=int, default=32)
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
-    if args.requests < 100 or args.concurrency < 1 or args.concurrency > 64:
-        parser.error("requests must be >=100 and concurrency must be 1..64")
+    if args.requests < 100 or not 1 <= args.repetitions <= 10:
+        parser.error("requests must be >=100 and repetitions must be 1..10")
+    if not 1 <= args.concurrency <= 64:
+        parser.error("concurrency must be 1..64")
 
     token = "e009-performance-smoke-token-" + uuid.uuid4().hex
     env = dict(os.environ, AGENT_NATIVE_DEMO_TOKEN=token)
@@ -96,7 +122,7 @@ def main():
                 line = process.stdout.readline()
                 if not line and process.poll() is not None:
                     raise RuntimeError("E-009 server exited before startup")
-                match = re.search(r"http://127\.0\.0\.1:(\d+)", line)
+                match = re.search(r"http://127\\.0\\.0\\.1:(\\d+)", line)
                 if match:
                     base = f"http://127.0.0.1:{match.group(1)}"
                     break
@@ -123,66 +149,77 @@ def main():
             def one(index):
                 slot = index % 10
                 if slot < 6:
-                    method, path, auth, body, key, expected = (
+                    kind = "authorized_item_read"
+                    method, target, auth, body, key, expected = (
                         "GET", f"/items/{item_id}", token, None, None, 200)
                 elif slot < 8:
-                    method, path, auth, body, key, expected = (
+                    kind = "authorized_job_read"
+                    method, target, auth, body, key, expected = (
                         "GET", f"/jobs/{job_id}", token, None, None, 200)
                 elif slot == 8:
-                    method, path, auth, body, key, expected = (
+                    kind = "durable_job_admission"
+                    method, target, auth, body, key, expected = (
                         "POST", "/items/rebuild", token, {}, f"load-{index}-{uuid.uuid4().hex}", 202)
                 else:
-                    method, path, auth, body, key, expected = (
+                    kind = "unauthenticated_read"
+                    method, target, auth, body, key, expected = (
                         "GET", f"/items/{item_id}", None, None, None, 401)
                 started = time.perf_counter()
-                status, response = request(base, method, path, auth, body=body, key=key)
+                status, response = request(base, method, target, auth, body=body, key=key)
                 elapsed_ms = (time.perf_counter() - started) * 1000
-                return {"status": status, "expected": expected, "latency_ms": elapsed_ms,
-                        "ok": status == expected, "response_bytes": len(response)}
+                return {
+                    "kind": kind, "status": status, "expected": expected,
+                    "latency_ms": elapsed_ms, "ok": status == expected,
+                    "response_bytes": len(response),
+                }
 
-            started = time.perf_counter()
             with concurrent.futures.ThreadPoolExecutor(max_workers=args.concurrency) as pool:
-                results = list(pool.map(one, range(args.requests)))
-            elapsed = time.perf_counter() - started
-            latencies = [item["latency_ms"] for item in results]
-            statuses = {}
-            for item in results:
-                statuses[str(item["status"])] = statuses.get(str(item["status"]), 0) + 1
-            failures = [item for item in results if not item["ok"]]
+                warmup = list(pool.map(one, range(-100, 0)))
+                repetitions = []
+                all_results = []
+                for repetition in range(args.repetitions):
+                    offset = repetition * args.requests
+                    started = time.perf_counter()
+                    results = list(pool.map(one, range(offset, offset + args.requests)))
+                    elapsed = time.perf_counter() - started
+                    repetitions.append({"repetition": repetition + 1, **summarize(results, elapsed)})
+                    all_results.extend(results)
+
+            total_elapsed = sum(item["elapsed_seconds"] for item in repetitions)
+            aggregate = summarize(all_results, total_elapsed)
+            failures = [item for item in all_results if not item["ok"]]
             summary = {
-                "schema_version": 1,
-                "classification": "shared_runner_product_path_smoke_not_capacity_claim",
+                "schema_version": 2,
+                "classification": "shared_runner_repeated_product_path_smoke_not_capacity_claim",
                 "workload": {
-                    "requests": args.requests, "concurrency": args.concurrency,
+                    "requests_per_repetition": args.requests,
+                    "repetitions": args.repetitions,
+                    "warmup_requests": len(warmup),
+                    "measured_requests": len(all_results),
+                    "client_concurrency": args.concurrency,
                     "mix": {"authorized_item_read": 0.6, "authorized_job_read": 0.2,
                             "durable_job_admission": 0.1, "unauthenticated_read": 0.1},
                     "database": "file-backed SQLite WAL via E-009 serve.py",
                     "server_max_concurrency": server_concurrency,
                 },
-                "result": {
-                    "completed_requests": len(results), "failed_expectations": len(failures),
-                    "status_counts": statuses, "elapsed_seconds": elapsed,
-                    "throughput_requests_per_second": len(results) / elapsed,
-                    "latency_ms": {
-                        "p50": percentile(latencies, 0.50), "p95": percentile(latencies, 0.95),
-                        "p99": percentile(latencies, 0.99), "max": max(latencies),
-                        "mean": statistics.fmean(latencies),
-                    },
-                    "response_bytes_total": sum(item["response_bytes"] for item in results),
-                },
+                "aggregate": aggregate,
+                "repetitions": repetitions,
+                "slowest_requests": sorted(
+                    all_results, key=lambda item: item["latency_ms"], reverse=True
+                )[:20],
                 "limitations": [
                     "shared GitHub-hosted runner; no isolated cgroup CPU or memory claim",
                     "single E-009 process and one SQLite database",
-                    "smoke result is not a 10-repetition controlled runtime comparison",
+                    "not a 10-repetition controlled cross-runtime capacity comparison",
                 ],
             }
             rendered = json.dumps(summary, indent=2, sort_keys=True)
             print(rendered)
             if args.output:
                 args.output.parent.mkdir(parents=True, exist_ok=True)
-                args.output.write_text(rendered + "\n", encoding="utf-8")
+                args.output.write_text(rendered + "\\n", encoding="utf-8")
             if failures:
-                raise SystemExit(f"{len(failures)} requests did not match expected status")
+                raise SystemExit(f"{len(failures)} of {len(all_results)} measured requests did not match expected status")
         finally:
             if process.poll() is None:
                 process.send_signal(signal.SIGTERM)
