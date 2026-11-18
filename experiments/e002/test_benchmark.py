@@ -89,6 +89,7 @@ class ProcessTreeAccountingTests(unittest.TestCase):
         tracker.observe({(101, 9000): (0.1, 512)})
         self.assertAlmostEqual(tracker.total_cpu_seconds, 0.9)
         self.assertEqual(tracker.peak_tree_rss_bytes, 3072)
+        self.assertEqual(tracker.observed_process_count, 3)
 
 
 if __name__ == "__main__":
