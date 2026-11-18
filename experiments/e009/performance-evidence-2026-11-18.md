@@ -30,17 +30,20 @@
 
 Across the ten individual repetitions, achieved throughput ranged from 100.042 to 100.046 req/s; p99 ranged from 6.314 to 7.420 ms. The full JSON artifact is attached to the workflow run as `e009-performance-smoke`.
 
-## Interpretation against the product workload gate
+## Interpretation and scope boundary
 
-The current preregistered control-plane target is 100 completed req/s, concurrency 32, p99 ≤100 ms and CPU ≤50% of one core, with expected denials counted as completed outcomes and durable audit enabled.
+The measured E-009 request mix is:
+- 60% authorized item reads;
+- 20% authorized job reads;
+- 10% durable job admissions;
+- 10% expected unauthenticated denials.
 
-This cohort meets those four measured gates:
-- throughput: 100.044 req/s ≥100;
-- p99: 6.536 ms ≤100 ms;
-- CPU: 21.66% ≤50%;
-- unexpected outcomes: 0.
+This is a useful **E-009 catalog vertical-slice** workload, with durable audit enabled. It is **not** the preregistered E-002 product control-plane mix in [control-plane-workload.md](../e002/control-plane-workload.md), which requires 20% validate/plan operations instead of job reads. The throughput/p99/CPU/memory thresholds are shared, but the operation mix is not equivalent.
 
-The measured p99 is approximately 15.3× below the 100 ms ceiling. The observed CPU is 28.34 percentage points below the 50% ceiling.
+Therefore:
+- These runs measure and diagnose the E-009 SQLite catalog path.
+- They do not satisfy E-002 product-workload acceptance and do not unskip the E-002 cross-runtime benchmark matrix.
+- The E-002 matrix remains skipped until all candidates implement the same authenticated read, validate/plan, durable job admission, and expected-denial lifecycle with the shared storage contract.
 
 ## What this does and does not establish
 
