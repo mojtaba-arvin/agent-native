@@ -25,8 +25,10 @@ from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parents[2]
 E009_ROOT = Path(__file__).resolve().parent
-if str(E009_ROOT) not in sys.path:
-    sys.path.insert(0, str(E009_ROOT))
+E007_ROOT = ROOT / "experiments" / "e007"
+for candidate_root in (E007_ROOT, E009_ROOT):
+    if str(candidate_root) not in sys.path:
+        sys.path.insert(0, str(candidate_root))
 from kernel import load_service_ir  # noqa: E402
 from delta_materializer import materialize_add_operation  # noqa: E402
 
