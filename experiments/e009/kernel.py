@@ -56,6 +56,28 @@ class HandlerResult:
     headers: dict[str, str] = field(default_factory=dict)
 
 
+class AuditReceipt:
+    """Request-local receipt for a deferred durable audit event."""
+
+    def __init__(self):
+        self._committed = False
+        self._fallback_recorded = False
+
+    @property
+    def committed(self) -> bool:
+        return self._committed
+
+    @property
+    def recorded(self) -> bool:
+        return self._committed or self._fallback_recorded
+
+    def mark_committed(self) -> None:
+        self._committed = True
+
+    def mark_fallback_recorded(self) -> None:
+        self._fallback_recorded = True
+
+
 @dataclass(frozen=True)
 class HandlerContext:
     operation: dict
@@ -65,6 +87,8 @@ class HandlerContext:
     repository: Any
     now: int
     request_id: str
+    audit_event: dict[str, Any] | None = None
+    audit_receipt: AuditReceipt | None = None
 
 
 @dataclass(frozen=True)
@@ -345,6 +369,8 @@ class ServiceRuntime:
         request_id: str | None = None,
     ) -> RuntimeResponse:
         request_id = request_id or str(uuid.uuid4())
+        deferred_audit_event = None
+        deferred_audit_receipt = None
         if not isinstance(request_id, str) or not request_id.strip() or len(request_id) > 128:
             request_id = str(uuid.uuid4())
         if not isinstance(method, str) or method not in {"GET", "POST", "PUT", "PATCH", "DELETE"}:
@@ -397,17 +423,27 @@ class ServiceRuntime:
                 requested_effects=effects,
                 context=trusted_identity,
             )
-            if self.audit_sink is not None:
+            audit_event = {
+                **decision.audit_event,
+                "request_id": request_id,
+                "timestamp": now,
+            }
+            defer_audit = bool(
+                self.audit_sink is not None
+                and decision.allowed
+                and "queue.submit" in effects
+                and callable(getattr(self.audit_sink, "write_in_transaction", None))
+            )
+            if self.audit_sink is not None and not defer_audit:
                 try:
-                    self.audit_sink({
-                        **decision.audit_event,
-                        "request_id": request_id,
-                        "timestamp": now,
-                    })
+                    self.audit_sink(audit_event)
                 except Exception:
                     raise RuntimeFault("AUDIT_UNAVAILABLE", 503) from None
             if not decision.allowed:
                 raise RuntimeFault("Unauthorized", 403, detail=decision.reason_code)
+            if defer_audit:
+                deferred_audit_event = audit_event
+                deferred_audit_receipt = AuditReceipt()
 
             values = self._bind_inputs(
                 operation,
@@ -424,6 +460,8 @@ class ServiceRuntime:
                 repository=self.repository,
                 now=now,
                 request_id=request_id,
+                audit_event=audit_event if defer_audit else None,
+                audit_receipt=deferred_audit_receipt,
             )
             try:
                 result = self._handlers[operation["name"]](context)
@@ -432,6 +470,8 @@ class ServiceRuntime:
                     raise RuntimeFault("HANDLER_CONTRACT_VIOLATION", 500) from None
                 raise RuntimeFault(error.code, ERROR_STATUS.get(error.code, 500), detail=error.detail) from None
 
+            if defer_audit and not deferred_audit_receipt.committed:
+                raise RuntimeFault("AUDIT_ATOMIC_COMMIT_REQUIRED", 503)
             if isinstance(result, HandlerResult):
                 data, status_code, response_headers = result.data, result.status_code, result.headers
             else:
@@ -452,14 +492,41 @@ class ServiceRuntime:
             payload = {"data": data, "request_id": request_id}
             return RuntimeResponse(status_code, payload, dict(response_headers))
         except RuntimeFault as error:
+            if deferred_audit_event is not None and not deferred_audit_receipt.recorded:
+                try:
+                    self.audit_sink(deferred_audit_event)
+                    deferred_audit_receipt.mark_fallback_recorded()
+                except Exception:
+                    return RuntimeResponse(
+                        503,
+                        {"error": {"code": "AUDIT_UNAVAILABLE"}, "request_id": request_id},
+                    )
             payload = {"error": {"code": error.code}, "request_id": request_id}
             return RuntimeResponse(error.status, payload)
         except (ValueError, TypeError, KeyError, AttributeError):
+            if deferred_audit_event is not None and not deferred_audit_receipt.recorded:
+                try:
+                    self.audit_sink(deferred_audit_event)
+                    deferred_audit_receipt.mark_fallback_recorded()
+                except Exception:
+                    return RuntimeResponse(
+                        503,
+                        {"error": {"code": "AUDIT_UNAVAILABLE"}, "request_id": request_id},
+                    )
             return RuntimeResponse(
                 500,
                 {"error": {"code": "INTERNAL_ERROR"}, "request_id": request_id},
             )
         except Exception:
+            if deferred_audit_event is not None and not deferred_audit_receipt.recorded:
+                try:
+                    self.audit_sink(deferred_audit_event)
+                    deferred_audit_receipt.mark_fallback_recorded()
+                except Exception:
+                    return RuntimeResponse(
+                        503,
+                        {"error": {"code": "AUDIT_UNAVAILABLE"}, "request_id": request_id},
+                    )
             return RuntimeResponse(
                 500,
                 {"error": {"code": "INTERNAL_ERROR"}, "request_id": request_id},
