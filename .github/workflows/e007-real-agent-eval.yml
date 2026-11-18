@@ -24,6 +24,7 @@ jobs:
         run: |
           python experiments/e007/validate_factorial_dispatch.py
           bash -n experiments/e007/run_factorial_pilot.sh
+          python -m unittest discover -s experiments/e007 -p 'test_pilot_guard.py' -v
       - name: Install Ollama
         run: |
           curl --fail --silent --show-error --location https://ollama.com/install.sh | sh
