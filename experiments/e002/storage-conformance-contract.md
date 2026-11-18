@@ -1,6 +1,6 @@
 # E-002 — Shared durable storage conformance contract v1
 
-**Status:** preregistered design; no adapter implemented or selected.  
+**Status:** preregistered contract; one SQLite reference adapter is implemented and tested; no product adapter selected and no cross-runtime parity established.  
 **Purpose:** isolate persistence guarantees from runtime/language comparisons.  
 **Normative language:** MUST / MUST NOT describe acceptance requirements for this experiment, not a production certification.
 
@@ -128,6 +128,14 @@ Prefer a dedicated cgroup v2 for whole-process-tree CPU accounting and record `c
 4. Run conformance and fault injection before performance tests.
 5. Keep no-persistence control-plane results separate from durable product-tier results.
 6. Do not choose a default storage engine until adapter parity and controlled measurements exist.
+
+## 8.1 Current executable reference adapter (2026-11-18)
+
+`experiments/e002/sqlite_reference_adapter.py` is the first executable adapter behind this contract. It uses a file-backed SQLite WAL database with `synchronous=FULL`; the job, outbox, tenant+operation-scoped idempotency result, and admission audit record commit in one transaction.
+
+The adapter currently verifies pre-commit rollback at each logical write boundary, same-key replay/conflict, tenant and operation isolation, 32-way same-key races, process termination after commit but before response, append-only audit, and fenced outbox lease/ack behavior. Its conformance tests run in the E-002 Go job because that job already executes the Python experiment suite.
+
+This is a reference semantics implementation, not a runtime winner or a production persistence selection. It does not certify power-loss behavior, replication, online migration, backup/PITR, or multi-node linearizability. No Go/Rust/WASI/BEAM adapter parity is claimed.
 
 ## 9. Explicit non-goals
 
