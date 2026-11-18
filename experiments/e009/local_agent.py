@@ -434,6 +434,8 @@ def verify_candidate(
             or apply_result["result"].get("runtime_smoke_test", {}).get("status_code") != 200
         ):
             raise AgentRunError("sandbox_apply_not_successful")
+        if apply_result["result"].get("change_set_id") != computed_id:
+            raise AgentRunError("sandbox_apply_change_set_mismatch")
     elif plan.get("will_mutate") is not False:
         raise AgentRunError("proposal_plan_not_safe")
 
