@@ -34,7 +34,7 @@ The candidate technologies solve different layers. Treating them as interchangea
 - **Service → service event:** E-008's outbox/inbox semantics are the starting reference.
 - **Discovery/resiliency/observability layer:** Dapr is a reference architecture, not a transport protocol.
 
-The A2A project itself distinguishes MCP's tool/resource integration from A2A's peer-agent collaboration. This distinction is useful, but it does not imply that either protocol should become the framework's internal service RPC.
+The A2A project itself distinguishes MCP's tool/resource integration from A2A's peer-agent collaboration. This distinction is useful, but it does not imply that either protocol should become the framework's internal service RPC. Its specification also warns that message history may not persist every message and that a disconnected stream may miss status updates; critical outputs therefore need durable task/artifact retrieval rather than reliance on transient messages alone.
 
 ### Source set
 
