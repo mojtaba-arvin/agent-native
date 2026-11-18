@@ -60,7 +60,21 @@ failures=0
 cohort_abort=""
 for ((index=0; index<${#CASE_ROWS[@]}; index++)); do
   row="${CASE_ROWS[$index]}"
-  IFS=$'\t' read -r CASE_PATH EVAL_ID PROPOSAL_MODE BASE_DISCLOSURE ARM REPETITIONS TEMPERATURE TOP_P SEED NUM_CTX NUM_PREDICT MAX_INPUT MAX_OUTPUT MAX_TOOLS MAX_WALL <<< "$row"
+  CASE_PATH="$(printf '%s\n' "$row" | cut -f1)"
+  EVAL_ID="$(printf '%s\n' "$row" | cut -f2)"
+  PROPOSAL_MODE="$(printf '%s\n' "$row" | cut -f3)"
+  BASE_DISCLOSURE="$(printf '%s\n' "$row" | cut -f4)"
+  ARM="$(printf '%s\n' "$row" | cut -f5)"
+  REPETITIONS="$(printf '%s\n' "$row" | cut -f6)"
+  TEMPERATURE="$(printf '%s\n' "$row" | cut -f7)"
+  TOP_P="$(printf '%s\n' "$row" | cut -f8)"
+  SEED="$(printf '%s\n' "$row" | cut -f9)"
+  NUM_CTX="$(printf '%s\n' "$row" | cut -f10)"
+  NUM_PREDICT="$(printf '%s\n' "$row" | cut -f11)"
+  MAX_INPUT="$(printf '%s\n' "$row" | cut -f12)"
+  MAX_OUTPUT="$(printf '%s\n' "$row" | cut -f13)"
+  MAX_TOOLS="$(printf '%s\n' "$row" | cut -f14)"
+  MAX_WALL="$(printf '%s\n' "$row" | cut -f15)"
   echo "Running $EVAL_ID ($PROPOSAL_MODE / $BASE_DISCLOSURE)"
   set +e
   python "$WORKTREE/experiments/e007/eval_runner.py" \
