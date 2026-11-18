@@ -130,6 +130,7 @@ def main() -> None:
         host=args.host,
         port=args.port,
         max_concurrency=args.max_concurrency,
+        allow_non_loopback=(args.host != "127.0.0.1"),
     )
 
     worker_id = f"catalog-worker-{uuid.uuid4().hex[:12]}"
