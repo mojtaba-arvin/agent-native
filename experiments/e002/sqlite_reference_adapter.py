@@ -242,6 +242,65 @@ class SQLiteReferenceAdapter:
         finally:
             db.close()
 
+    def claim_outbox(self, *, consumer: str, limit: int, lease_seconds: int, now: int):
+        consumer = _text(consumer, "consumer")
+        if type(limit) is not int or limit < 1:
+            raise ValueError("invalid_outbox_limit")
+        if type(lease_seconds) is not int or lease_seconds < 1:
+            raise ValueError("invalid_outbox_lease")
+        if type(now) is not int or now < 0:
+            raise ValueError("invalid_outbox_clock")
+        db = self._connect()
+        try:
+            db.execute("BEGIN IMMEDIATE")
+            rows = db.execute(
+                """SELECT event_id FROM outbox
+                   WHERE delivered_at IS NULL AND (lease_until IS NULL OR lease_until <= ?)
+                   ORDER BY created_at, event_id LIMIT ?""",
+                (now, limit),
+            ).fetchall()
+            claimed = []
+            for row in rows:
+                db.execute(
+                    """UPDATE outbox SET lease_owner=?, lease_token=lease_token+1, lease_until=?
+                       WHERE event_id=? AND delivered_at IS NULL""",
+                    (consumer, now + lease_seconds, row["event_id"]),
+                )
+                claimed.append(db.execute(
+                    "SELECT * FROM outbox WHERE event_id=?", (row["event_id"],)
+                ).fetchone())
+            db.commit()
+            return [dict(row) for row in claimed]
+        except Exception:
+            db.rollback()
+            raise
+        finally:
+            db.close()
+
+    def ack_outbox(self, *, event_id: str, consumer: str, lease_token: int, now: int) -> bool:
+        event_id = _text(event_id, "event_id")
+        consumer = _text(consumer, "consumer")
+        if type(lease_token) is not int or lease_token < 1:
+            raise ValueError("invalid_outbox_lease_token")
+        if type(now) is not int or now < 0:
+            raise ValueError("invalid_outbox_clock")
+        db = self._connect()
+        try:
+            db.execute("BEGIN IMMEDIATE")
+            cursor = db.execute(
+                """UPDATE outbox SET delivered_at=?, lease_owner=NULL, lease_until=NULL
+                   WHERE event_id=? AND lease_owner=? AND lease_token=?
+                     AND lease_until>? AND delivered_at IS NULL""",
+                (now, event_id, consumer, lease_token, now),
+            )
+            db.commit()
+            return cursor.rowcount == 1
+        except Exception:
+            db.rollback()
+            raise
+        finally:
+            db.close()
+
     def recover(self) -> dict[str, int]:
         db = self._connect()
         try:
