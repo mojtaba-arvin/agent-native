@@ -116,3 +116,6 @@ At commit 086f62c851cbfe9dcd77dad66ce32bc626b517dc, [integrated kernel workflow 
 
 
 - **E-002 PostgreSQL reference adapter:** [implementation](../experiments/e002/postgres_reference_adapter.py) and [conformance tests](../experiments/e002/test_postgres_reference_adapter.py). [Workflow 44341683697](https://github.com/mojtaba-arvin/agent-native/actions/runs/44341683697) passed 9 tests against PostgreSQL 16.4 with psycopg 3.2.9; SQLite's 24-test suite and all four runtime baseline jobs passed in the same run. Both adapters implement the versioned canonical hash and atomic job/outbox/idempotency/audit admission. A shared generated-trace parity runner remains the next correctness gate.
+
+
+- **E-002 cross-engine semantic trace:** [trace runner](../experiments/e002/trace_runner.py) and [parity test](../experiments/e002/test_cross_engine_trace_parity.py). [Workflow 44343404367](https://github.com/mojtaba-arvin/agent-native/actions/runs/44343404367) replayed the same 60-operation seeded trace against SQLite and PostgreSQL and compared normalized status sequences, idempotency/replay/conflict, durable record counts, outbox claim/ack, and canonical digest. Multi-seed/fault-trace parity remains open.
