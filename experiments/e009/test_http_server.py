@@ -12,6 +12,7 @@ import socketserver
 from unittest import mock
 from pathlib import Path
 
+from audit import SQLiteAuditSink
 from catalog import build_catalog_handlers
 from http_server import create_server
 from identity import MemoryIdentityProvider
@@ -50,13 +51,18 @@ class KernelHTTPServerTests(unittest.TestCase):
         self.repository = SQLiteCatalogRepository(
             Path(self.temporary.name) / "http.sqlite3"
         )
-        self.work_store = DurableWorkStore(self.repository.database)
+        self.audit_sink = SQLiteAuditSink(self.repository.database)
+        self.work_store = DurableWorkStore(
+            self.repository.database,
+            audit_sink=self.audit_sink,
+        )
         self.runtime = ServiceRuntime(
             load_service_ir(SOURCE),
             handlers=build_catalog_handlers(self.repository, self.work_store),
             repository=self.repository,
             trusted_effects=TRUSTED_EFFECTS,
             clock=lambda: 100,
+            audit_sink=self.audit_sink,
         )
         self.identity = MemoryIdentityProvider({
             "test-token-aaaaaaaaaaaaaaaaaaaaaaaa": make_context("user-a", "tenant-a"),
@@ -108,6 +114,22 @@ class KernelHTTPServerTests(unittest.TestCase):
         head, _, body = raw.partition(b"\r\n\r\n")
         status = int(head.split(b"\r\n", 1)[0].split()[1])
         return status, head.decode("latin-1"), body
+
+
+    def test_unauthenticated_http_request_is_audited_without_identity_claims(self):
+        status, _headers, body = self.request("GET", "/items", token=None)
+        self.assertEqual(status, 401)
+        self.assertEqual(body["error"]["code"], "UNAUTHENTICATED")
+        events = self.audit_sink.list_events()
+        self.assertEqual(len(events), 1)
+        event = events[0]
+        self.assertIsNone(event["principal_id"])
+        self.assertIsNone(event["tenant_id"])
+        self.assertEqual(event["operation"], "unauthenticated.get")
+        self.assertEqual(event["resource"], "/items")
+        self.assertEqual(event["requested_effects"], [])
+        self.assertEqual(event["decision"], "deny")
+        self.assertEqual(event["reason_code"], "UNAUTHENTICATED")
 
     def test_listen_backlog_is_set_before_socket_activation(self):
         observed_backlogs = []

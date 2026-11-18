@@ -139,6 +139,25 @@ def create_server(
 
             identity = identity_provider.authenticate(headers.get("authorization"))
             if identity is None:
+                if runtime.audit_sink is not None:
+                    try:
+                        timestamp = runtime.clock()
+                        if type(timestamp) is not int or timestamp < 0:
+                            raise ValueError("invalid_audit_clock")
+                        runtime.audit_sink({
+                            "principal_id": None,
+                            "tenant_id": None,
+                            "operation": f"unauthenticated.{method.lower()}",
+                            "resource": self.path,
+                            "requested_effects": [],
+                            "decision": "deny",
+                            "reason_code": "UNAUTHENTICATED",
+                            "request_id": request_id,
+                            "timestamp": timestamp,
+                        })
+                    except Exception:
+                        self._send(503, {"error": {"code": "AUDIT_UNAVAILABLE"}}, request_id=request_id)
+                        return
                 self._send(401, {"error": {"code": "UNAUTHENTICATED"}}, request_id=request_id)
                 return
 

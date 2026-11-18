@@ -12,16 +12,28 @@ import json
 import math
 import os
 import re
+import shutil
 import signal
 import statistics
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import urllib.error
 import urllib.request
 import uuid
 from pathlib import Path
+
+REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+if str(REPOSITORY_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPOSITORY_ROOT))
+
+from experiments.e002.benchmark import (
+    PROCESS_SAMPLE_INTERVAL_SECONDS,
+    ProcessTreeCpuTracker,
+    proc_tree_sample,
+)
 
 
 def request(base: str, method: str, path: str, token: str | None, *, body=None, key=None):
@@ -60,6 +72,28 @@ def find_id(value):
             if found:
                 return found
     return None
+
+
+def cgroup_v2_limits():
+    root = Path("/sys/fs/cgroup")
+    try:
+        controllers = (root / "cgroup.controllers").read_text(encoding="ascii").strip()
+        membership = Path("/proc/self/cgroup").read_text(encoding="ascii").splitlines()
+        unified = next(line.split(":", 2)[2] for line in membership if line.startswith("0::"))
+        directory = root / unified.lstrip("/")
+        cpu_max = (directory / "cpu.max").read_text(encoding="ascii").strip()
+        memory_max = (directory / "memory.max").read_text(encoding="ascii").strip()
+        quota, period = cpu_max.split()
+        quota_cores = None if quota == "max" else int(quota) / int(period)
+        return {
+            "path": unified,
+            "controllers": controllers,
+            "cpu_max": cpu_max,
+            "cpu_quota_cores": quota_cores,
+            "memory_max": memory_max,
+        }
+    except (OSError, StopIteration, ValueError, IndexError, ZeroDivisionError):
+        return None
 
 
 def percentile(values, fraction):
@@ -117,6 +151,8 @@ def main():
     parser.add_argument("--repetitions", type=int, default=5)
     parser.add_argument("--concurrency", type=int, default=32)
     parser.add_argument("--audit-batch-delay-ms", type=float, default=2.0)
+    parser.add_argument("--job-batch-size", type=int, default=32)
+    parser.add_argument("--job-batch-delay-ms", type=float, default=0.5)
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
     if args.requests < 100 or not 1 <= args.repetitions <= 10:
@@ -125,16 +161,31 @@ def main():
         parser.error("concurrency must be 1..64")
     if not math.isfinite(args.audit_batch_delay_ms) or not 0 <= args.audit_batch_delay_ms <= 50:
         parser.error("audit batch delay must be between 0 and 50 ms")
+    if not 1 <= args.job_batch_size <= 1024:
+        parser.error("job batch size must be between 1 and 1024")
+    if not math.isfinite(args.job_batch_delay_ms) or not 0 <= args.job_batch_delay_ms <= 50:
+        parser.error("job batch delay must be between 0 and 50 ms")
 
     token = "e009-performance-smoke-token-" + uuid.uuid4().hex
     env = dict(os.environ, AGENT_NATIVE_DEMO_TOKEN=token)
     with tempfile.TemporaryDirectory(prefix="e009-perf-") as temp:
         db = Path(temp) / "kernel.sqlite3"
         server_concurrency = max(64, args.concurrency * 2)
+        server_command = [
+            sys.executable, "experiments/e009/serve.py", "--database", str(db),
+            "--port", "0", "--max-concurrency", str(server_concurrency),
+            "--audit-batch-delay-ms", str(args.audit_batch_delay_ms),
+            "--job-batch-size", str(args.job_batch_size),
+            "--job-batch-delay-ms", str(args.job_batch_delay_ms),
+        ]
+        server_cpu_affinity = None
+        if hasattr(os, "sched_getaffinity") and shutil.which("taskset"):
+            available_cpus = sorted(os.sched_getaffinity(0))
+            if available_cpus:
+                server_cpu_affinity = available_cpus[0]
+                server_command = ["taskset", "-c", str(server_cpu_affinity), *server_command]
         process = subprocess.Popen(
-            [sys.executable, "experiments/e009/serve.py", "--database", str(db),
-             "--port", "0", "--max-concurrency", str(server_concurrency),
-             "--audit-batch-delay-ms", str(args.audit_batch_delay_ms)],
+            server_command,
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, env=env,
             bufsize=1,
         )
@@ -198,6 +249,19 @@ def main():
 
             with concurrent.futures.ThreadPoolExecutor(max_workers=args.concurrency) as pool:
                 warmup = list(pool.map(one, range(-100, 0)))
+                cpu_tracker = ProcessTreeCpuTracker()
+                cpu_tracker.observe(proc_tree_sample(process.pid))
+                start_cpu_seconds = cpu_tracker.total_cpu_seconds
+                cpu_tracker.peak_tree_rss_bytes = 0
+                stop_cpu_monitor = threading.Event()
+
+                def monitor_server_cpu():
+                    while not stop_cpu_monitor.is_set():
+                        cpu_tracker.observe(proc_tree_sample(process.pid))
+                        stop_cpu_monitor.wait(PROCESS_SAMPLE_INTERVAL_SECONDS)
+
+                cpu_monitor = threading.Thread(target=monitor_server_cpu, daemon=True)
+                cpu_monitor.start()
                 repetitions = []
                 all_results = []
                 for repetition in range(args.repetitions):
@@ -208,6 +272,12 @@ def main():
                     repetitions.append({"repetition": repetition + 1, **summarize(results, elapsed)})
                     all_results.extend(results)
 
+            stop_cpu_monitor.set()
+            cpu_monitor.join()
+            cpu_tracker.observe(proc_tree_sample(process.pid))
+            server_cpu_seconds = max(0.0, cpu_tracker.total_cpu_seconds - start_cpu_seconds)
+            server_peak_rss_bytes = cpu_tracker.peak_tree_rss_bytes or None
+            server_observed_process_count = cpu_tracker.observed_process_count
             total_elapsed = sum(item["elapsed_seconds"] for item in repetitions)
             aggregate = summarize(all_results, total_elapsed)
             by_kind = {
@@ -224,6 +294,10 @@ def main():
             if audit_match is None:
                 raise RuntimeError("server did not emit final audit commit counters")
             audit_metrics = json.loads(audit_match.group(1))
+            work_match = re.search(r"E009_WORK_METRICS=(\{[^\n]+\})", remaining_output)
+            if work_match is None:
+                raise RuntimeError("server did not emit final durable submission counters")
+            work_metrics = json.loads(work_match.group(1))
             failures = [item for item in all_results if not item["ok"]]
             summary = {
                 "schema_version": 2,
@@ -239,10 +313,27 @@ def main():
                     "database": "file-backed SQLite WAL via E-009 serve.py",
                     "server_max_concurrency": server_concurrency,
                     "audit_batch_delay_ms": args.audit_batch_delay_ms,
+                    "job_batch_size": args.job_batch_size,
+                    "job_batch_delay_ms": args.job_batch_delay_ms,
                 },
                 "aggregate": aggregate,
+                "resource_metrics": {
+                    "accounting": "5ms /proc process-tree cumulative-max; diagnostic, not cgroup v2",
+                    "server_cpu_seconds": server_cpu_seconds,
+                    "server_peak_rss_bytes": server_peak_rss_bytes,
+                    "server_observed_process_count": server_observed_process_count,
+                    "server_cpu_affinity": server_cpu_affinity,
+                    "cgroup_v2_limits": cgroup_v2_limits(),
+                    "server_cpu_percent_of_one_core_during_load": (
+                        server_cpu_seconds / total_elapsed * 100 if total_elapsed else None
+                    ),
+                    "estimated_cpu_percent_at_100_rps": (
+                        server_cpu_seconds / len(all_results) * 10000 if all_results else None
+                    ),
+                },
                 "by_operation_kind": by_kind,
                 "audit_metrics": audit_metrics,
+                "work_metrics": work_metrics,
                 "repetitions": repetitions,
                 "slowest_requests": sorted(
                     all_results, key=lambda item: item["latency_ms"], reverse=True
@@ -261,6 +352,10 @@ def main():
             if failures:
                 raise SystemExit(f"{len(failures)} of {len(all_results)} measured requests did not match expected status")
         finally:
+            if "stop_cpu_monitor" in locals():
+                stop_cpu_monitor.set()
+            if "cpu_monitor" in locals():
+                cpu_monitor.join()
             if process.poll() is None:
                 process.send_signal(signal.SIGINT)
                 try:
