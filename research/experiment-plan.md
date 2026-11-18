@@ -101,3 +101,11 @@ After the E-007 real-agent factorial pilot is accepted and E-010 sandbox-apply e
 - analysis script;
 - failure corpus;
 - decision record with confidence and limitations.
+
+
+## 18 November 2026 — Four-track continuation
+
+- E-007: [manual pilot operator runbook](../experiments/e007/manual-pilot-operator-runbook.md) records exact dispatch preflight and artifact acceptance audit. Workflow remains manual-only; this session cannot dispatch it.
+- E-002: [product benchmark gap analysis](../experiments/e002/product-benchmark-gap-analysis.md) formally rejects runtime ranking from the toy HTTP workload and short sampler smokes. Next product milestone is lifecycle parity plus storage conformance, then controlled cgroup-v2 measurements.
+- E-009/E-010: [security review](../experiments/e009/security-review-2026-11-18.md) records five trust-boundary findings from static code inspection. This closes documentation/review of E-010, not the implementation gaps.
+- E-011: [transport-neutral semantic envelope v1](e011-semantic-envelope-v1.md) defines identity, capability attenuation, deadline, cancellation, retry, unknown-outcome, and streaming semantics without selecting a transport. Two-process implementation remains gated on E-007 acceptance.
