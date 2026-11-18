@@ -1,41 +1,67 @@
 # E-002 CPU gate provenance and interpretation
 
-**Snapshot:** 17 November 2026  
+**Historical evidence snapshot:** 17 November 2026  
+**Product-scenario decision addendum:** 18 November 2026  
 **Evidence:** [first ten-repetition diagnostic](./results/2026-11-17-ten-run-diagnostic.md), workflow [44087449181](https://github.com/mojtaba-arvin/agent-native/actions/runs/44087449181); [second cohort and payload measurement](./results/2026-11-17-second-ten-run-artifact-diagnostic.md), workflow [44124537511](https://github.com/mojtaba-arvin/agent-native/actions/runs/44124537511)  
-**Decision:** no runtime selected; do not change the registered threshold retrospectively.
+**Runtime decision:** none selected.
 
-## What the registered threshold means
+## Historical registered threshold (17 November)
 
 The decision matrix registered a screening threshold of **0.5 CPU seconds per 5,000 measured requests** before the ten-run matrix was executed. This translates to:
 
 - at most 0.1 milliseconds of CPU time per request;
 - at least 10,000 requests per CPU-second on the measured process tree.
 
-The repository's decision matrix explicitly labels its limits as research screening thresholds, not production SLOs. The available rationale does **not** tie 0.5 seconds to a product requirement, target requests per vCPU, tenant density, deployment cost, instance budget, or a measured production workload. The value is therefore traceable as a pre-registered experimental screen, but **not as a validated service requirement**. The commit and report trail does not establish a stronger origin.
+The value was a pre-registered research screen, not a product requirement. Its original rationale did **not** tie it to target requests per vCPU, tenant density, deployment cost, instance budget, or a measured production workload. It must remain unchanged when interpreting the historical cohorts.
 
-## Observed data
+## Historical observed data
 
-| Candidate | Mean CPU s / 5,000 | CPU ms / request | Requests / CPU-second | Gate result |
-|---|---:|---:|---:|---|
-| Rust / Tokio + Hyper | 0.687 | 0.1374 | 7,278 | Fail |
-| Go / net/http | 1.092 | 0.2184 | 4,579 | Fail |
-| Elixir / BEAM | 1.917 | 0.3834 | 2,608 | Fail |
-| WASI P2 / Wasmtime 50.0.1 | 1.949 | 0.3898 | 2,565 | Fail |
+| Candidate | First cohort mean CPU s / 5,000 | Second cohort mean CPU s / 5,000 | Historical 0.5 s screen |
+|---|---:|---:|---|
+| Rust / Tokio + Hyper | 0.687 | 0.704 | Fail |
+| Go / net/http | 1.092 | 1.126 | Fail |
+| Elixir / BEAM | 1.917 | 1.957 | Fail |
+| WASI P2 / Wasmtime 50.0.1 | 1.949 | 1.977 | Fail |
 
-These are means across ten randomized repetitions on one GitHub-hosted shared runner using the trivial in-memory `GET /work?ms=0` path. The 0.5-second threshold is stricter than each observed mean; Rust is closest, at 1.374 times the threshold, while WASI is 3.898 times it. This is descriptive workload-specific evidence, not proof that a language/runtime is intrinsically inefficient.
-
-A second ten-repetition cohort on the same class of shared hosted runner independently reproduced the ordering and gate outcome: Rust 0.704 s/5k, Go 1.126 s/5k, BEAM 1.957 s/5k, and WASI 1.977 s/5k. These are separate run-level means, not a pooled estimate; the second report retains its own bootstrap intervals and raw artifact. Relative to the registered 0.5 s screen, the second-cohort means are 1.408×, 2.252×, 3.914×, and 3.954× respectively. Repetition across two hosted cohorts makes the observation less likely to be a one-off sampling accident, but the shared host class, simple endpoint, and CPU-accounting method remain common confounders. It still does not establish product unsuitability or an optimization mandate.
+Both cohorts used ten randomized repetitions on the same class of GitHub-hosted shared runner and the trivial in-memory `GET /work?ms=0` path. The ordering was reproduced, but this is workload-specific diagnostic evidence, not proof that a language/runtime is intrinsically inefficient or unsuitable for the product.
 
 ## Measurement limitations
 
-`benchmark.py` records process-tree CPU by reading `/proc` at the beginning and end of the measured batch and subtracting the two snapshots. The 20 ms monitor samples are used to estimate peak RSS; CPU is not integrated from those periodic samples. A short-lived descendant that exists and exits between the two CPU snapshots could be absent from both snapshots. The current reports do not demonstrate that this occurred, but the method leaves it as a measurement risk. The shared hosted runner and the trivial endpoint also limit external validity.
+`benchmark.py` records process-tree CPU by reading `/proc` at the beginning and end of the measured batch and subtracting the two snapshots. The 20 ms monitor samples estimate peak RSS; CPU is not integrated from those periodic samples. A short-lived descendant that exists and exits between the two CPU snapshots could be absent from both snapshots. The current reports do not demonstrate that this occurred, but the method leaves it as a measurement risk. The shared hosted runner and trivial endpoint also limit external validity.
 
-## Interpretation and next decision
+## Product-scenario addendum — 18 November 2026
 
-1. **Do not declare the 0.5-second limit a product hard requirement.** No production capacity or cost envelope currently supports that interpretation.
-2. **Do not relax it after seeing these results.** That would be a post-hoc change and would make this registered comparison invalid.
-3. **Do not start optimizing all four implementations against it yet.** First establish the product-side requirement: expected request mix, target throughput per vCPU, acceptable CPU utilization/headroom, deployment shape, and cost/replica budget.
-4. Before a new comparison, register a replacement or reaffirmed gate from that capacity model, then repeat the same workload on a controlled host. Improve CPU accounting by sampling cumulative process-tree CPU frequently and accounting for child-process exit/reparenting, or use a suitable OS accounting interface. Preserve per-run raw values.
-5. Keep ecosystem/operability, injected failure semantics, and comparable deployable artifact size as **not measured** until evidence exists. The current matrix remains diagnostic and cannot yield a final weighted score.
+The product-side scenario has now been made explicit in [the E-002 decision matrix](./decision-matrix.md): an **agent/tool-execution control plane**, comprising authenticated HTTP requests, Gateway dispatch, schema/contract checks, authorization, durable audit persistence, and bounded work submission. Model inference and external provider latency are excluded from the runtime request path.
 
-**Current decision:** the four candidates passed the shared functional checks and the measured latency, throughput, RSS, and startup screens, but all failed the provisional CPU screen. No runtime is selected, eliminated, or assigned an optimization mandate from this result alone.
+The provisional capacity envelope is a hypothesis, not a measured SLO:
+
+- one replica with 1 vCPU;
+- 100 successful control-plane requests/second sustained at concurrency 32;
+- p99 at or below 100 ms, excluding inference and external provider calls;
+- sustained CPU at or below 50% of one vCPU, leaving headroom;
+- zero authorization, tenant-isolation, audit-ordering, and data-integrity violations, plus complete pass of registered deadline, overload, cancellation, retry, and idempotency assertions.
+
+The CPU bound follows directly from this envelope:
+
+`0.5 CPU-seconds/second ÷ 100 requests/second = 0.005 CPU-seconds/request`.
+
+For a 5,000-request batch, that is **25 CPU-seconds**, not 0.5 seconds.
+
+### Gate treatment
+
+- The old **0.5 CPU-seconds/5,000** threshold remains the historical, pre-registered screen for the old trivial workload. Historical results are not rewritten or rescored.
+- The old threshold is **retired as a hard eligibility gate for future product-representative comparisons** because it has no product-capacity provenance. This is a dated prospective decision, not a post-hoc relaxation of the completed historical cohorts.
+- The derived **25 CPU-seconds/5,000** value is the provisional product-capacity bound for the next measurement cycle. It is not yet a production SLO and must not be treated as validated until measured on the actual control-plane request mix and a controlled host.
+- The existing trivial-endpoint cohorts cannot establish whether any candidate meets the new product envelope. Do not apply the new bound retroactively to them or infer a winner from them.
+
+## Next decision-grade measurement
+
+1. Implement an equivalent authenticated control-plane workload for all four candidates: request parsing/serialization, contract validation, authorization, durable audit, bounded job admission, and the relevant storage/outbox path.
+2. Preserve identical externally observable semantics and black-box conformance assertions. Model inference remains outside the measured runtime.
+3. Run on a controlled, documented host before making a capacity claim; hosted-runner results remain diagnostic.
+4. Improve process-tree CPU accounting so short-lived child processes are not silently missed. Prefer a reliable cumulative accounting interface or frequent sampling with explicit child-exit/reparenting handling; preserve raw per-run measurements.
+5. Measure p50/p95/p99, successful throughput, CPU, peak RSS, startup, artifact size, and behavior under deadline, cancellation, overload, retry, worker-crash, and duplicate-delivery injection.
+6. Complete the evidence-based ecosystem/operability rubric and comparable failure-semantics suite. Missing evidence remains **not measured**, never zero.
+7. Re-register the complete workload, host, thresholds, weights, and analysis before collecting the new cohort. Report raw values and uncertainty; do not calculate a weighted winner while hard gates or required dimensions are missing.
+
+**Current decision:** no runtime is selected, eliminated, or given an optimization mandate. The historical cohorts are diagnostic only. The next valid comparison must use the product-representative control-plane workload and the prospective capacity envelope above.
