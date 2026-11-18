@@ -55,6 +55,10 @@ Not established:
 - No PostgreSQL-backed E-009 kernel, Go/Rust/WASI/BEAM runtime, multi-process, multi-node, sustained soak, crash-under-load, or production deployment was included.
 - This does not rank runtimes or databases and must not be used as a production capacity guarantee.
 
+## CI acceptance gate
+
+The harness now has an opt-in fail-closed capacity gate. The confirmatory workflow enables it and fails unless throughput is at least 100 req/s, aggregate p99 is at most 100 ms, CPU is at most 50% of one core, peak cgroup memory is at most 1 GiB, the server cgroup is exactly one CPU / 1 GiB, and unexpected outcomes are zero. Unit tests cover pass, p99 regression, and missing/unlimited cgroup accounting.
+
 ## Next measurement gates
 
 1. Repeat the same workload against PostgreSQL-backed admission with the same cgroup limits and identical request mix.
