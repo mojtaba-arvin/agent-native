@@ -136,3 +136,18 @@ This addendum supersedes conflicting older snapshots in the supplemental section
 - **E-009 repeatability correction:** the enforced [run 44355728291](https://github.com/mojtaba-arvin/agent-native/actions/runs/44355728291) completed 10,000 requests at 100.002 req/s with zero unexpected outcomes, but aggregate p99 was 252.021 ms; 9/10 repetition p99 values exceeded 100 ms. The capacity gate failed on p99 only. This supersedes any interpretation that the first cgroup cohort alone established repeatable target compliance. Cgroup CPU/I/O pressure telemetry has been added for the next diagnosis.
 
 - **E-009 0.5 ms cgroup result:** [run 44357166863](https://github.com/mojtaba-arvin/agent-native/actions/runs/44357166863) passed all seven capacity checks: 10,000 requests, 100.018 req/s, p99 27.465 ms, every repetition p99 8.671–69.714 ms, 22.46% one-core CPU, 37.30 MiB peak memory, zero unexpected outcomes. Cgroup telemetry recorded zero CPU throttling, ~3.59 s full I/O pressure and zero memory pressure over ~100 seconds. Repeat this exact profile before changing the default or claiming stable SLO compliance.
+
+
+## Integrated primary-branch verification — 18 November 2026
+
+The reviewed E-002/E-009/E-011 files were selectively ported from the divergent staging branch onto the PR branch, preserving the newer E-007 and provider-diagnostic commits. Integration commit: 84da4f9430b34fa3b5fbddfdbdc99f989e7d6b2a.
+
+All three integrated workflow suites passed on that commit:
+- [E-002 run 44357946246](https://github.com/mojtaba-arvin/agent-native/actions/runs/44357946246): Go, Rust, WASI P2, BEAM and PostgreSQL jobs passed; 9 PostgreSQL conformance tests and 3 parity tests passed, with 25 seeds × 60 operations (1,500 operations per engine).
+- [E-009 run 44357946247](https://github.com/mojtaba-arvin/agent-native/actions/runs/44357946247): 130 E-009 tests and 3 E-010 tests passed, including identity spoofing, runtime publication and capacity-gate regressions.
+- [E-011 run 44357946328](https://github.com/mojtaba-arvin/agent-native/actions/runs/44357946328): 13 deterministic semantics tests passed.
+
+The E-009 0.5 ms cgroup capacity cohort [44357166863](https://github.com/mojtaba-arvin/agent-native/actions/runs/44357166863) also passed on the verified source before selective port; an independent repeat [44358347560](https://github.com/mojtaba-arvin/agent-native/actions/runs/44358347560) is in progress. The E-007 single-cell provider reproduction [44354856148](https://github.com/mojtaba-arvin/agent-native/actions/runs/44354856148) is also in progress; it has not produced acceptance evidence yet.
+
+main remains unchanged at da3736c7ea4d239d1ea520d8b56025b4e3251b33. PR #6 remains Open/Draft. No merge or apply was performed.
+
