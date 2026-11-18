@@ -118,7 +118,7 @@ class FactorialDispatchTests(unittest.TestCase):
         self.assertEqual(completed.returncode, 0, completed.stderr)
         rows = completed.stdout.splitlines()
         self.assertEqual(len(rows), 4)
-        fields = rows[0].split("\\t")
+        fields = rows[0].split("\t")
         self.assertEqual(len(fields), 15)
         self.assertTrue(fields[0].startswith("experiments/e009/"))
         self.assertIn(fields[2], {"snapshot", "delta"})
@@ -126,34 +126,8 @@ class FactorialDispatchTests(unittest.TestCase):
         self.assertEqual(fields[4], "upfront")
         self.assertEqual(fields[5], "1")
         script = (Path(__file__).parent / "run_factorial_pilot.sh").read_text(encoding="utf-8")
-        self.assertIn(r"IFS=        script = Path(__file__).parent / "run_factorial_pilot.sh"
-        completed = subprocess.run(
-            ["bash", "-n", str(script)],
-            text=True, capture_output=True, check=False,
-        )
-        self.assertEqual(completed.returncode, 0, completed.stderr)
-
-    def test_pilot_aborts_only_on_invalid_shared_infrastructure_evidence(self):
-        script = (Path(__file__).parent / "run_factorial_pilot.sh").read_text(encoding="utf-8")
-        self.assertIn("pilot_guard.py", script)
-        self.assertIn("not_started_infrastructure_abort", script)
-        self.assertIn("Stopping matched cohort before further model calls", script)
-        self.assertIn("all matched cells remain comparable", (Path(__file__).parent / "README.md").read_text(encoding="utf-8"))
-
-    def test_dispatch_cannot_enable_apply_or_unapproved_status(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            root, manifest_path = self._copy_fixture(temporary)
-            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-            manifest["no_apply"] = False
-            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
-            with self.assertRaisesRegex(DispatchValidationError, "no_apply_policy"):
-                validate_dispatch(root, manifest_path)
-
-
-if __name__ == "__main__":
-    unittest.main()
-\\t' read -r CASE_PATH", script)
-        self.assertIn(r"printf '%s\\t%s\\t%s\\t%s\\t%s\\n'", script)
+        self.assertIn(r"IFS=$'\t' read -r CASE_PATH", script)
+        self.assertIn(r"printf '%s\t%s\t%s\t%s\t%s\n'", script)
 
     def test_pilot_shell_entrypoint_passes_bash_syntax_check(self):
         script = Path(__file__).parent / "run_factorial_pilot.sh"
