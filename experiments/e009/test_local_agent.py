@@ -21,6 +21,7 @@ import local_agent
 from kernel import load_service_ir
 from local_agent import (
     AgentRunError,
+    provider_chat,
     EXPECTED_OPERATION,
     SERVICE_ID,
     TASK_ID,
@@ -331,7 +332,7 @@ class LocalAgentRunnerTests(unittest.TestCase):
                     json.loads(line)
                     for line in (run_dir / "prompt-states.jsonl").read_text(encoding="utf-8").splitlines()
                 ]
-                self.assertEqual(len(prompt_states), len(responses))
+                self.assertEqual(len(prompt_states), Handler.index)
                 self.assertEqual(prompt_states[0]["kind"], "initial_session_surface")
                 self.assertEqual(prompt_states[1]["kind"], "gateway_state_ledger")
                 self.assertTrue(all(item["state_sha256"] == digest(item["state"]) for item in prompt_states))
