@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import shutil
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -69,6 +70,15 @@ class FactorialDispatchTests(unittest.TestCase):
             manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
             with self.assertRaisesRegex(DispatchValidationError, "model_or_budget_changed"):
                 validate_dispatch(root, manifest_path)
+
+
+    def test_pilot_shell_entrypoint_passes_bash_syntax_check(self):
+        script = Path(__file__).parent / "run_factorial_pilot.sh"
+        completed = subprocess.run(
+            ["bash", "-n", str(script)],
+            text=True, capture_output=True, check=False,
+        )
+        self.assertEqual(completed.returncode, 0, completed.stderr)
 
     def test_dispatch_cannot_enable_apply_or_unapproved_status(self):
         with tempfile.TemporaryDirectory() as temporary:
