@@ -44,5 +44,11 @@
     }
   ],
   "no_apply": true,
-  "purpose": "One matched no-apply feasibility pilot across the corrected 2x2 factorial. All four cells use the same task, Qwen3 model, upfront tool-schema arm, temperature=0, top_p=1, seed=42, context=16384, num_predict=2048, and unchanged per-run ceilings of 120000 input tokens, 6000 output tokens, 20 tool calls, and 3000 seconds. Minimal-disclosure E is excluded and remains a separate exploratory treatment. This manifest is prepared for manual dispatch only; it has not been run."
+  "purpose": "One matched no-apply feasibility pilot across the corrected 2x2 factorial. All four cells use the same task, Qwen3 model, upfront tool-schema arm, temperature=0, top_p=1, seed=42, context=16384, num_predict=2048, and unchanged per-run ceilings of 120000 input tokens, 6000 output tokens, 20 tool calls, and 3000 seconds. Minimal-disclosure E is excluded and remains a separate exploratory treatment. This manifest is prepared for manual dispatch only; it has not been run. The pre-registered execution order is C, A, D, B to avoid simply running the four factorial cells in label order; the order is fixed before any model response and will not be adapted based on interim outcomes.",
+  "execution_order": [
+    "C",
+    "A",
+    "D",
+    "B"
+  ]
 }
