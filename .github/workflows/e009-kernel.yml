@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - "experiments/e009/**"
+      - "experiments/e010/**"
       - "experiments/e001/prototype/**"
       - "experiments/e004/**"
       - ".github/workflows/e009-kernel.yml"
@@ -34,3 +35,5 @@ jobs:
         run: python -m unittest discover -s experiments/e004 -v
       - name: Validate integrated E-009 kernel
         run: python -m unittest discover -s experiments/e009 -v
+      - name: Validate E-010 isolated apply demo
+        run: python -m unittest discover -s experiments/e010 -v
