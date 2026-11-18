@@ -7,6 +7,7 @@ attest that an evidence URL or a human review is truthful.
 from __future__ import annotations
 
 import argparse
+import copy
 import json
 import sys
 from pathlib import Path
@@ -223,11 +224,51 @@ def command_status() -> int:
     return 1 if errors else 0
 
 
+def command_self_test() -> int:
+    """Exercise representative negative cases without modifying repository files."""
+    try:
+        docs, ledger = load_documents()
+    except ControlPlaneError as exc:
+        print(f"SELF-TEST BLOCKED: {exc}", file=sys.stderr)
+        return 1
+    baseline = validate_documents(docs, ledger)
+    if baseline:
+        print("SELF-TEST BLOCKED: baseline state is invalid")
+        for error in baseline:
+            print(f"- {error}")
+        return 1
+
+    cases = []
+    bad = copy.deepcopy(docs)
+    bad["tasks"]["tasks"][0]["depends_on"] = ["TASK-DOES-NOT-EXIST"]
+    cases.append(("unknown dependency", bad, ledger, "unknown task dependency"))
+    bad = copy.deepcopy(docs)
+    bad["tasks"]["tasks"][0]["status"] = "almost_done"
+    cases.append(("invalid task status", bad, ledger, "invalid status"))
+    bad = copy.deepcopy(docs)
+    bad["tasks"]["tasks"][0]["depends_on"] = ["CP-002"]
+    cases.append(("dependency cycle", bad, ledger, "dependency cycle"))
+    cases.append(("malformed ledger event", docs, '{"event_id": "bad"}', "missing fields"))
+
+    for name, candidate, candidate_ledger, expected in cases:
+        found = validate_documents(candidate, candidate_ledger)
+        if not any(expected in error for error in found):
+            print(f"SELF-TEST FAIL: {name} was not rejected")
+            return 1
+        print(f"PASS: rejects {name}")
+    print(f"SELF-TEST PASS: {len(cases)} negative cases")
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("command", choices=("validate", "status"))
+    parser.add_argument("command", choices=("validate", "status", "self-test"))
     args = parser.parse_args()
-    return command_validate() if args.command == "validate" else command_status()
+    if args.command == "validate":
+        return command_validate()
+    if args.command == "status":
+        return command_status()
+    return command_self_test()
 
 
 if __name__ == "__main__":
