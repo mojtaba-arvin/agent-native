@@ -132,5 +132,32 @@
       "no controlled performance comparison"
     ],
     "product_storage_selection": null
+  },
+  "cross_engine_trace_parity": {
+    "status": "passed",
+    "workflow_run_id": 44343404367,
+    "runner": "experiments/e002/trace_runner.py",
+    "seed": 20261118,
+    "operations": 60,
+    "engines": [
+      "sqlite-wal-full-reference",
+      "postgresql-wal-full-reference"
+    ],
+    "compared": [
+      "status sequence",
+      "tenant+operation idempotency behavior",
+      "replay outcome stability",
+      "payload conflict behavior",
+      "durable job and outbox visibility",
+      "outbox claim and fenced acknowledgement",
+      "normalized record counts",
+      "canonical trace digest"
+    ],
+    "limitations": [
+      "one deterministic seed only",
+      "no generated fault-injection trace parity yet",
+      "no power-loss or replicated durability claim",
+      "no runtime-candidate adapter parity"
+    ]
   }
 }
