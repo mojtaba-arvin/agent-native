@@ -219,3 +219,5 @@ jobs:
         run: python -m pip install "psycopg[binary]==3.2.9"
       - name: Run PostgreSQL storage conformance suite
         run: python -m unittest discover -s experiments/e002 -p "test_postgres_reference_adapter.py" -v
+      - name: Replay identical generated trace against SQLite and PostgreSQL
+        run: python -m unittest discover -s experiments/e002 -p "test_cross_engine_trace_parity.py" -v
