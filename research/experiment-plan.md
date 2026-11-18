@@ -109,3 +109,6 @@ After the E-007 real-agent factorial pilot is accepted and E-010 sandbox-apply e
 - E-002: [product benchmark gap analysis](../experiments/e002/product-benchmark-gap-analysis.md) formally rejects runtime ranking from the toy HTTP workload and short sampler smokes. Next product milestone is lifecycle parity plus storage conformance, then controlled cgroup-v2 measurements.
 - E-009/E-010: [security review](../experiments/e009/security-review-2026-11-18.md) records five trust-boundary findings from static code inspection. This closes documentation/review of E-010, not the implementation gaps.
 - E-011: [transport-neutral semantic envelope v1](e011-semantic-envelope-v1.md) defines identity, capability attenuation, deadline, cancellation, retry, unknown-outcome, and streaming semantics without selecting a transport. Two-process implementation remains gated on E-007 acceptance.
+
+
+E-009 defensive ownership follow-up: the runtime now owns a deep-copied IR and operation set, returns defensive copies for inspection, exposes a read-only handler mapping, and passes operation copies into handlers. The E-009/E-010 integrated CI run 44299480091 passed (110 E-009 tests; 3 E-010 tests). Trusted host identity construction and concurrent publication semantics remain open.
