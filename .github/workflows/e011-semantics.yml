@@ -1,0 +1,30 @@
+name: E-011 transport-neutral semantics model
+
+on:
+  push:
+    branches: [main, research/reboot-core]
+    paths:
+      - "experiments/e011/**"
+      - ".github/workflows/e011-semantics.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "experiments/e011/**"
+      - ".github/workflows/e011-semantics.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  semantics-model:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Compile E-011 semantic model
+        run: python -m py_compile experiments/e011/semantics.py experiments/e011/test_semantics.py
+      - name: Run deterministic E-011 semantic tests
+        working-directory: experiments/e011
+        run: python -m unittest -v
