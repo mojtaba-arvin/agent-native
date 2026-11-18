@@ -137,7 +137,7 @@ The delta implementation must have deterministic tests proving rejection of:
 - validation or planning against a hash other than the immutable materialized result;
 - repeated proposal, stale proposal, or proposal replay that could bypass current-base checks.
 
-Property-based tests should generate valid base services and deltas, asserting that the only difference in the materialized IR is the explicitly added operation and that the base declarations remain byte-for-byte/canonical-JSON equivalent. Mutation testing should demonstrate that removing each guard causes at least one test to fail.
+A seeded generated-base test now constructs 12 valid service variants, shuffles their existing operation order, and asserts that materialization preserves every existing declaration, appends only the requested operation, and produces deterministic hashes. This is bounded generative coverage, not a claim of exhaustive property-based verification. Formal mutation testing is a precondition before generalizing the change language or enabling any apply path; it is deferred for this single-operation, read-only, no-apply feasibility pilot.
 
 ## 8. Decision rule
 
