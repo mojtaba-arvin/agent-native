@@ -43,3 +43,9 @@ The CI-specific candidate consists primarily of:
 ## Evidence boundary
 
 This is a static review of the candidate files and a compare of branch refs. The staging branch's reported 12/12 fast suites in 4.96 seconds are not evidence that the candidate runs unchanged on reboot-core. No performance claim is transferred to reboot-core until the port is executed on the target base.
+
+## Target-branch runner port checkpoint
+
+The fast runner, wrapper, and selector regression tests have now been added to the project-control PR. The runner includes the 12 deterministic suites from the staging candidate plus dedicated project-control and CI-selector suites (14 total), includes deleted paths in its diff filter, and disables rename collapsing so both sides of a move can select their suites.
+
+The first two target-branch workflow attempts (runs 962 and 963) failed **before any suite executed**. The job log showed that checkout used the default shallow depth of one commit, so the PR base SHA was unavailable to `git diff`. This is a CI checkout/configuration failure, not a test failure. The workflow now sets `fetch-depth: 0`; the corrected run is still pending and must be inspected before CP-006 is complete.
