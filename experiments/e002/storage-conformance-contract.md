@@ -141,7 +141,7 @@ Coverage includes pre-commit rollback at each logical write boundary, same-key r
 
 It covers atomic admission, rollback at every pre-commit write boundary, same-key replay/conflict, tenant+operation isolation, 32-way same-hash and different-hash races, process crash after commit/before response, audit outage fail-closed, append-only audit, and fenced outbox lease/ack.
 
-These two adapters establish useful single-node reference evidence, not a product database choice. They do not certify power-loss behavior, replication, online migration, backup/PITR, or multi-node linearizability. No Go/Rust/WASI/BEAM runtime adapter parity is claimed. The next correctness gate is a shared generated-trace runner that executes identical traces against both adapters and compares outcomes before performance ranking.
+These two adapters establish useful single-node reference evidence, not a product database choice. They do not certify power-loss behavior, replication, online migration, backup/PITR, or multi-node linearizability. No Go/Rust/WASI/BEAM runtime adapter parity is claimed. The first shared generated-trace gate now passes: a deterministic 60-operation trace (seed 20261118) runs against both adapters and compares status sequence, replay/conflict outcomes, record counts, outbox claim/ack behavior and a canonical digest in [workflow 44343404367](https://github.com/mojtaba-arvin/agent-native/actions/runs/44343404367). Next correctness work is multi-seed property traces and fault-injection trace parity before performance ranking.
 
 ## 9. Explicit non-goals
 
