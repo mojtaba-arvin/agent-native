@@ -24,7 +24,7 @@ The case pins per-run input/output/token/tool/wall ceilings and an aggregate tok
 
 ## Proposal-representation factorial — implementation complete, not dispatched
 
-The corrected E-007 factorial is now implemented end-to-end:
+The manual pilot validates the complete cohort before model provisioning. During execution it continues after an agent/task failure so all matched cells remain comparable, but aborts before the next cell on shared provider/transport/adapter/runner failures or missing/unreadable result evidence. This prevents spending the remaining three cell budgets on a cohort already invalidated by infrastructure. The policy is covered by `test_pilot_guard.py`; per-cell ceilings and Qwen3 settings are unchanged. Resource-ceiling failures are retained as treatment outcomes rather than automatically classified as infrastructure aborts.\n\nThe corrected E-007 factorial is now implemented end-to-end:
 
 - **A:** snapshot + per-operation contract inspection.
 - **B:** delta + per-operation contract inspection.

@@ -109,6 +109,13 @@ class FactorialDispatchTests(unittest.TestCase):
         )
         self.assertEqual(completed.returncode, 0, completed.stderr)
 
+    def test_pilot_aborts_only_on_invalid_shared_infrastructure_evidence(self):
+        script = (Path(__file__).parent / "run_factorial_pilot.sh").read_text(encoding="utf-8")
+        self.assertIn("pilot_guard.py", script)
+        self.assertIn("not_started_infrastructure_abort", script)
+        self.assertIn("Stopping matched cohort before further model calls", script)
+        self.assertIn("all matched cells remain comparable", (Path(__file__).parent / "README.md").read_text(encoding="utf-8"))
+
     def test_dispatch_cannot_enable_apply_or_unapproved_status(self):
         with tempfile.TemporaryDirectory() as temporary:
             root, manifest_path = self._copy_fixture(temporary)
