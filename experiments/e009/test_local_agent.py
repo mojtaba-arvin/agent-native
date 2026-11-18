@@ -807,6 +807,35 @@ class LocalAgentRunnerTests(unittest.TestCase):
         self.assertEqual(first["tool_sequence"], tool_sequence)
         self.assertEqual(first["recent_tool_outcomes"], outcomes)
 
+    def test_provider_http_error_preserves_bounded_server_diagnostic(self):
+        class ErrorHandler(BaseHTTPRequestHandler):
+            def do_POST(self):
+                length = int(self.headers["Content-Length"])
+                self.rfile.read(length)
+                body = json.dumps({"error": "runner process terminated unexpectedly"}).encode()
+                self.send_response(500)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def log_message(self, *_args):
+                return
+
+        server = HTTPServer(("127.0.0.1", 0), ErrorHandler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            with self.assertRaisesRegex(
+                AgentRunError,
+                r"provider_http_500:runner process terminated unexpectedly",
+            ):
+                provider_chat(("127.0.0.1", server.server_port), {}, timeout=2)
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=5)
+
     def test_provider_chat_enforces_absolute_deadline_during_slow_drip_response(self):
         class SlowDripHandler(BaseHTTPRequestHandler):
             def do_POST(self):
