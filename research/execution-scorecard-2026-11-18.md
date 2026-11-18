@@ -4,8 +4,9 @@ This scorecard separates implemented code, executed tests, measured product beha
 
 ## Measurement rules
 
-- **Implemented:** code is committed on `research/reboot-core`.
+- **Implemented:** code is committed on the explicitly named branch and source SHA is recorded.
 - **Executed:** the relevant workflow/job completed and its logs show the command ran.
+- Evidence from `research/reboot-core` and `research/ci-policy-staging` is reported separately; the branches are divergent and are not treated as one integrated revision.
 - **Measured:** raw output or an artifact contains the metric, workload, source revision, environment, and failure count.
 - **Accepted:** every preregistered acceptance invariant passes. A successful smoke does not imply acceptance.
 - Unknown values remain **not measured**; they are not imputed as zero or converted into speculative percentages.
@@ -14,41 +15,43 @@ This scorecard separates implemented code, executed tests, measured product beha
 
 | Metric | Current evidence | Acceptance gate |
 |---|---|---|
-| Matched factorial cells | A–D implemented and validated by deterministic dispatch tests | 4/4 cells produce complete, provenance-valid artifacts |
-| Proposal → validate → plan continuity | No successful real-model lifecycle recorded yet | Exact same 64-character proposal hash in all three events for each accepted cell |
-| Trusted base preservation | Independent verifier implemented; no accepted live-model artifact yet | 100% of pre-existing declarations preserved and exactly the requested addition present |
-| Plan safety | No accepted live-model plan yet | Every accepted cell: `valid=true`, `will_mutate=false`, `will_deploy=false` |
-| Apply | Disabled for this cohort | 0 `service.apply` calls |
-| Budget | Existing manifest pinned: Qwen3 8B, one repetition/cell, 120,000 input tokens, 6,000 output tokens, 20 tool calls, 3,000 seconds/run | No ceiling increase; all four traces retained including failures |
+| Dispatch capability | Solved: a one-shot marker-gated push route launched the real Qwen3 workflow; manual dispatch remains available | Exact branch, marker, request ID and commit subject validated before model provisioning |
+| Real factorial cells | Run [44337025030](https://github.com/mojtaba-arvin/agent-native/actions/runs/44337025030), artifact [14444849207](https://github.com/mojtaba-arvin/agent-native/actions/runs/44337025030/artifacts/14444849207): C and A executed; D and B were not started after shared provider failure | 4/4 complete, provenance-valid cells |
+| Agent task success | C failed with `proposal_repair_budget_exceeded`; A failed with `provider_http_500`; 0 accepted cells | At least one complete accepted lifecycle per cell for feasibility; later powered comparison requires repeated cohorts |
+| Proposal → validate → plan continuity | No accepted real-model lifecycle; the A/C traces show proposal failures and incomplete provenance | Exact same 64-character proposal hash in proposal, validation and plan |
+| Trusted base preservation / safe plan | No accepted real-model artifact | 100% trusted base preserved; valid plan with `will_mutate=false`, `will_deploy=false` |
+| Apply | No apply occurred | 0 `service.apply` calls |
+| Budget | Existing Qwen3 8B settings unchanged: 1 repetition/cell, 120,000 input tokens, 6,000 output tokens, 20 tool calls, 3,000 seconds/run | No ceiling increase; retain every failure artifact |
 
-A 4/4 single-repetition cohort is feasibility evidence only. It is not a powered comparison or an estimate of general Agent success probability.
+**Failure diagnosis:** the Ollama server log records HTTP 500 after 10m10s for the failing A-cell request; the CPU runner had generated near the 2,048-token per-call ceiling at about 3.45 tokens/s. The exact server error body was not captured, so OOM, timeout, or malformed output is not asserted. A bounded provider error-detail capture and regression test were added on `research/reboot-core`; [E-009 PR workflow 44353796608](https://github.com/mojtaba-arvin/agent-native/actions/runs/44353796608) passed 116 E-009 tests and 3 E-010 tests.
 
-**Dispatch recovery:** the workflow retains manual `workflow_dispatch` and now has a narrow push-to-dispatch proxy. Only the exact marker file `experiments/e007/dispatch-request.json` on `research/reboot-core`, combined with the exact commit message `experiment(e007): dispatch one bounded factorial cohort`, may start the expensive job. The workflow validates the marker before model installation. Ordinary pushes do not match its path filter. Marker commit: [49a178c](https://github.com/mojtaba-arvin/agent-native/commit/49a178ced8751e5f9a5edbf96054603a55497532). This commit is a dispatch request, not evidence that the workflow completed.
+A separate one-cell A diagnostic has been staged with the same model settings and unchanged ceilings to capture the exact provider error before another full factorial. It is not a factorial acceptance run. No successful real-agent lifecycle is claimed yet.
 
 ## E-002 — runtime and storage
 
 | Metric | Current evidence | Acceptance gate |
 |---|---|---|
-| Candidate build/conformance | Latest inspected run [44299814251](https://github.com/mojtaba-arvin/agent-native/actions/runs/44299814251): Go, Rust, WASI P2, BEAM jobs all successful | All four pass the same semantic suite at pinned revisions |
-| Durable adapter conformance | No shared E-002 adapter implemented | 100% mandatory atomicity, idempotency, audit, recovery and crash-injection cases pass |
-| Product workload | Not yet implemented across all runtime candidates | 60% authorized reads, 20% validate/plan, 10% durable job admission, 10% expected denial |
-| Capacity target | No controlled product result yet | 100 completed requests/s, concurrency 32, p99 ≤100 ms, CPU ≤50%, measured under dedicated cgroup v2 |
-| Decision-grade repetitions | Benchmark matrix remains skipped | 10 randomized repetitions × 5,000 requests per candidate after conformance; publish raw JSONL and summaries |
+| Candidate build/conformance | [Workflow 44345013099](https://github.com/mojtaba-arvin/agent-native/actions/runs/44345013099): Go, Rust, WASI P2 and BEAM all passed | All candidate arms pass the same semantic suite at pinned revisions |
+| SQLite reference storage | 24-test reference suite passed in the E-002 storage workflow | Mandatory atomicity, idempotency, audit, recovery and crash-injection cases pass |
+| PostgreSQL reference storage | PostgreSQL 16.4 / psycopg 3.2.9; 9 conformance tests passed | Same mandatory contract; no production selection from CI alone |
+| Cross-engine semantic parity | Same workflow passed 3 parity tests: five seeds × 60 generated operations = 300 operations per engine; identical normalized traces/digests; four pre-commit fault boundaries; crash-after-commit reconciliation | Keep the same generated trace and fault suite green on both engines |
+| Product workload / capacity | No cross-runtime product workload yet | 100 completed req/s, concurrency 32, p99 ≤100 ms, CPU ≤50%, measured under equivalent cgroup v2 limits |
+| Decision-grade runtime repetitions | Benchmark matrix remains skipped | 10 randomized repetitions × 5,000 requests per candidate after runtime adapter conformance |
 
-The existing process-tree sampler is diagnostic only. It is not a substitute for dedicated cgroup v2 CPU accounting. No runtime or storage engine is selected.
+The two storage engines now have executable single-node conformance and cross-engine semantic parity. This does not certify power-loss behavior, replication, multi-node linearizability, production backup/restore, or runtime-candidate adapter parity. No storage or runtime winner is selected.
 
 ## E-009 — integrated kernel, trust and performance
 
 | Metric | Current evidence | Acceptance gate |
 |---|---|---|
-| Kernel tests | [Run 44299814465](https://github.com/mojtaba-arvin/agent-native/actions/runs/44299814465): 110 E-009 tests passed | Keep regression suite green |
+| Kernel tests | On `research/reboot-core`, [PR workflow 44353796608](https://github.com/mojtaba-arvin/agent-native/actions/runs/44353796608): 116 E-009 tests passed, including bounded provider HTTP error detail | Keep regression suite green |
 | E-010 tests | Same run: 3 E-010 tests passed | Keep demo limitations explicit; no arbitrary callback isolation claim |
-| Client identity injection | Trusted identity is constructed by host fixture; no production identity adapter | 100% of attempts to submit principal, tenant or grants from client input are rejected |
-| Runtime publication | Defensive ownership implemented; publication race contract not implemented | No request may observe a mixed runtime revision under concurrent publication |
-| Product-path performance | [Run 44304494521](https://github.com/mojtaba-arvin/agent-native/actions/runs/44304494521), [artifact 14427192929](https://github.com/mojtaba-arvin/agent-native/actions/runs/44304494521/artifacts/14427192929): 5×1,000 requests, client concurrency 32/server cap 64; 1,090.21 req/s; p50 5.41 ms, p95 115.42 ms, p99 333.51 ms, max 835.82 ms; 0 unexpected statuses | **Harness passed; latency gate failed** (p99 target ≤100 ms, observed 3.3×). Preserve SQLite FULL audit durability; next isolate synchronous audit commit/group-commit cost |
-| Controlled capacity | Not measured | Dedicated host/cgroup, warm-up, 10 repetitions, source and environment pinned |
+| Client identity injection | Host fixture constructs trusted identity; production host identity adapter remains unimplemented | Client-supplied principal, tenant and grants never become authority |
+| Runtime publication | Defensive ownership implemented; concurrent publication contract remains open | No request observes mixed runtime revision |
+| Product-path performance | On `research/ci-policy-staging`, [workflow 44345238807](https://github.com/mojtaba-arvin/agent-native/actions/runs/44345238807): 10×1,000 requests at 100 offered req/s, concurrency 32, server container 1 CPU / 1 GiB, FULL SQLite audit; 10,000 requests, 0 unexpected outcomes, 100.044 req/s, p50 5.094 ms, p95 5.630 ms, p99 6.536 ms, 21.66% one-core CPU, peak cgroup memory 35.18 MiB | Target met for this one-node SQLite cohort: ≥100 req/s, p99 ≤100 ms, CPU ≤50%; replicate on PostgreSQL and controlled hosts |
+| Controlled capacity / soak | Single shared GitHub host and one E-009 SQLite process; no cross-runtime or 30-minute soak | Paired randomized storage/runtime cohorts, then 30-minute soak and crash/recovery |
 
-The E-009 smoke is a real HTTP/SQLite/worker/relay workload on a shared CI runner. An initial 1k run had 12/1,000 503s; a 5k repeated run still had rare transport resets. The root cause was the TCP listen backlog being set after socket activation. Moving the backlog assignment before `super().__init__` removed transport errors in the next 5k run and improved p99 from ~1.07 s to 333.51 ms (about 69% lower). p99 remains 3.3× the 100 ms target and p95 is 115.42 ms. FULL-durability audit writes remain enabled. This is not a controlled capacity claim, cross-runtime comparison, or isolated CPU/memory accounting.
+The 10-run cohort passes the current single-node product-path threshold with substantial margin, but is not a production capacity guarantee. The full result and limits are in [E-009 performance evidence](../experiments/e009/performance-evidence-2026-11-18.md).
 
 ## E-011 — inter-service semantics
 
