@@ -42,6 +42,15 @@ class FactorialDispatchTests(unittest.TestCase):
                 ("delta", "upfront_full"),
             },
         )
+        self.assertEqual(
+            [(row["proposal_mode"], row["base_disclosure"]) for row in rows],
+            [
+                ("snapshot", "upfront_full"),
+                ("snapshot", "per_operation"),
+                ("delta", "upfront_full"),
+                ("delta", "per_operation"),
+            ],
+        )
 
     def test_case_eval_id_must_match_manifest_identity(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -60,6 +69,16 @@ class FactorialDispatchTests(unittest.TestCase):
             manifest["cases"][1]["base_disclosure"] = manifest["cases"][0]["base_disclosure"]
             manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
             with self.assertRaisesRegex(DispatchValidationError, "duplicate"):
+                validate_dispatch(root, manifest_path)
+
+
+    def test_execution_order_must_be_a_complete_pre_registered_permutation(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root, manifest_path = self._copy_fixture(temporary)
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["execution_order"] = ["A", "A", "C", "D"]
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+            with self.assertRaisesRegex(DispatchValidationError, "execution_order_invalid"):
                 validate_dispatch(root, manifest_path)
 
     def test_model_budget_change_is_rejected(self):
