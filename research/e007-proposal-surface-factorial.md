@@ -2,7 +2,7 @@
 
 **Status:** research protocol with an isolated deterministic materializer prototype merged; not integrated into the Agent Gateway, not dispatched to a model, and not evidence of an architecture decision.  
 **Parent evidence:** E-009 full-snapshot proposal task; E-007 real-agent traces through 2026-11-18.  
-**Decision question:** Is the current agent failure dominated by the amount of base contract the agent must reproduce, by the full-snapshot proposal representation, or by their interaction?
+**Decision question:** Separately estimate the effect of proposal representation and the delivery sequence of the same complete base contract. Treat reduced-information/minimal disclosure as a separate exploratory treatment, not as a cell in the factorial.
 
 ## 1. Why this experiment is necessary
 
@@ -13,7 +13,7 @@ The real-model history has exposed several distinct failure modes:
 - Earlier deterministic trials omitted required top-level IR fields and existing operations.
 - A stochastic trial produced a full-shaped IR but rewrote five existing operations.
 - A later deterministic trial reached a Gateway-accepted, exact-preserving proposal after two rejected attempts, but exhausted its wall budget before validation and planning.
-- The latest retry is testing whether the corrected task-path runner and unchanged bounded model settings can complete the existing full-snapshot flow.
+- The 18 November Second Light retry completed but remained ineligible: it inspected four of six operations, issued seven proposals, and did not reach validation or plan. Its trace exposed a non-terminal repair-budget response and a post-run telemetry clock bug; both runner fixes are merged and covered by passing CI.
 
 These observations establish that the current task is difficult for the tested Qwen3 configuration. They do **not** establish why. In particular, they do not prove that full snapshots are inherently inferior, that the model is incapable, or that a delta interface is safer. The next experiment should distinguish these explanations rather than immediately changing the core contract.
 
@@ -27,20 +27,27 @@ These observations establish that the current task is difficult for the tested Q
 
 All remain open.
 
-## 3. Experimental design: 2 × 2 factorial
+## 3. Experimental design: corrected 2 × 2 factorial
 
-Use the same service state, requested operation, model/runtime, task semantics, validator, planner, effect policy, and no-apply rule. Vary two factors only.
+The initial draft mixed two different meanings of "base disclosure": full contracts delivered one operation at a time, full contracts delivered in one service-level response, and minimal summaries. That was not a clean two-level factor. The corrected factorial keeps the *total information identical* in all four cells and varies only its delivery sequence.
 
-| Arm | Proposal representation | Base material exposed to the agent |
+- **Factor 1 — proposal representation:** complete canonical snapshot vs constrained typed delta.
+- **Factor 2 — inspection delivery:** full contracts delivered operation-by-operation vs the same complete base IR delivered upfront in one read-only inspection result.
+
+| Arm | Proposal representation | Inspection delivery |
 |---|---|---|
-| A — current baseline | Complete canonical IR snapshot | Full contracts; operation-by-operation inspection required |
-| B | Constrained typed delta | Full contracts; operation-by-operation inspection required |
-| C | Complete canonical IR snapshot | Full canonical base IR supplied in the initial read-only inspection result; no redundant per-operation calls |
-| D | Constrained typed delta | Minimal service revision and operation summaries; full unchanged contracts remain server-side |
+| A — current baseline | Complete canonical IR snapshot | Full contracts; operation-by-operation |
+| B | Constrained typed delta | Full contracts; operation-by-operation |
+| C | Complete canonical IR snapshot | Complete canonical base IR supplied upfront |
+| D | Constrained typed delta | Complete canonical base IR supplied upfront |
 
-This design distinguishes representation effects from base-inspection/material-exposure effects and reveals whether they interact. Arm C is important: it tests whether the current inspection sequence itself is expensive even when all data is available up front. Arm B tests the representation without removing the existing inspection requirement. Arm D tests the full proposed simplification.
+All four arms receive the same service identity, types, and complete existing operation contracts. In A/B, full operation contracts arrive through individual inspection calls and proposal is blocked until all required inspections are complete. In C/D, the service-level inspection returns the complete canonical base IR and no per-operation calls are needed. The validator, planner, effect policy, task, model/runtime, and no-apply rule remain identical.
 
-Do not compare only A with D and attribute the entire difference to the delta format.
+This is a genuine factorial: the A↔B contrast estimates representation under per-operation delivery; C↔D estimates representation under upfront delivery; A↔C and B↔D estimate delivery-sequence effects for each representation. The interaction term tests whether the benefit of delta depends on how the base is disclosed.
+
+**Separate exploratory treatment E — minimal disclosure:** delta proposal with only service revision, type names, and operation summaries; full unchanged contracts stay server-side. E is not part of the 2×2 because a complete-snapshot authoring surface cannot fairly operate without the full base. Compare E only after the four-cell factorial, and label it exploratory rather than folding it into the factorial estimate.
+
+Do not compare only A with E and attribute the entire difference to proposal representation.
 
 ## 4. Candidate delta contract (hypothesis, not a committed API)
 
@@ -147,14 +154,15 @@ If the delta improves authoring cost but complicates the trusted runtime substan
 
 ## 9. Execution sequence
 
-1. Finish and inspect the currently running deterministic E-007 retry. Preserve its artifact and classify its result before changing the task or interface.
+1. Preserve and inspect the completed Second Light artifact; its trace analysis is recorded. Do not rerun the unchanged full-snapshot task.
 2. **Prototype component complete:** `experiments/e007/delta_materializer.py` implements strict one-operation add materialization against a trusted current base. It is not wired into the Gateway or agent surface.
-3. Next, integrate it behind an explicit experimental feature flag on a research branch, without altering default snapshot behavior; add the four arm manifests and trusted evaluator assertions. Extend adversarial/property tests to the integrated proposal/validate/plan lifecycle.
-4. Run protocol and kernel CI first. Do not spend model tokens until all local tests pass.
-5. Calibrate a single small matched pilot. If resource reservations do not fit, do not dispatch.
-6. Run paired arms and inspect raw traces before updating the evidence index or making a design recommendation.
-7. Expand to additional tasks only after the pilot establishes that the instrumentation, scoring, and safety boundaries are sound.
+3. An opt-in Gateway delta mode is under review; it currently represents the separate minimal-disclosure exploratory treatment E, not a completed factorial cell.
+4. Implement the independent inspection-delivery factor (per-operation vs full-upfront) for both snapshot and delta modes, then add the four arm manifests and trusted evaluator assertions.
+5. Run protocol and kernel CI first. Do not spend model tokens until all four cells pass deterministic and adversarial tests.
+6. Calibrate a single small matched pilot. If resource reservations do not fit, do not dispatch.
+7. Run paired arms and inspect raw traces before updating the evidence index or making a design recommendation.
+8. Expand to additional tasks only after the pilot establishes that the instrumentation, scoring, and safety boundaries are sound.
 
 ## 10. Claim boundary
 
-This document is a proposed experiment, not a selected architecture. An isolated trusted materializer prototype and deterministic adversarial unit tests exist, but no delta proposal API is exposed by the Agent Gateway, no factorial agent run has occurred, and no independent oracle service or statistical result exists. The full-snapshot proposal remains the only active/default interface. No language, syntax, runtime, transport, or persistence technology is selected by this proposal.
+This document is a proposed experiment, not a selected architecture. An isolated trusted materializer prototype and deterministic adversarial unit tests exist. An opt-in minimal-disclosure delta Gateway mode is under review, but it is not the factorial treatment E's complete implementation and is not wired into the E-007 local agent. The four-cell corrected factorial has not been run; no independent oracle service or statistical result exists. The full-snapshot proposal remains the only active/default interface. No language, syntax, runtime, transport, or persistence technology is selected by this proposal.
