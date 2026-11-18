@@ -20,6 +20,8 @@ on:
       - "experiments/e001/prototype/**"
       - "experiments/e004/**"
       - ".github/workflows/e009-kernel.yml"
+      - "project-control/**"
+      - "project_control.py"
 
 permissions:
   contents: read
