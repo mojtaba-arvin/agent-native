@@ -133,7 +133,9 @@ class FactorialDispatchTests(unittest.TestCase):
         for line in command_lines[:-1]:
             self.assertTrue(line.endswith("\\"), f"missing shell continuation: {line!r}")
             self.assertFalse(line.endswith("\\\\"), f"escaped continuation does not join next line: {line!r}")
-        self.assertIn(r"IFS=        self.assertIn(r"printf '%s\t%s\t%s\t%s\t%s\n'", script)
+        self.assertIn('CASE_PATH="$(printf \'%s\\n\' "$row" | cut -f1)"', script)
+        self.assertIn('MAX_WALL="$(printf \'%s\\n\' "$row" | cut -f15)"', script)
+        self.assertIn(r"printf '%s\t%s\t%s\t%s\t%s\n'", script)
 
     def test_pilot_shell_entrypoint_passes_bash_syntax_check(self):
         script = Path(__file__).parent / "run_factorial_pilot.sh"
