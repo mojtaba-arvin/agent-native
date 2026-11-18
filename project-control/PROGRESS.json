@@ -14,8 +14,11 @@
       "total_exit_criteria": 4
     },
     "C1": {
-      "status": "pending",
-      "verified_exit_criteria": [],
+      "status": "in_progress",
+      "verified_exit_criteria": [
+        "Run ledger records successful and cancelled CI runs with immutable run IDs",
+        "CI executes validator negative self-tests and rejects malformed control-plane data"
+      ],
       "total_exit_criteria": 4
     },
     "C2": {
