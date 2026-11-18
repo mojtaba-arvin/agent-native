@@ -40,6 +40,10 @@ def request(base: str, method: str, path: str, token: str | None, *, body=None, 
             return response.status, response.read()
     except urllib.error.HTTPError as error:
         return error.code, error.read()
+    except (OSError, TimeoutError, urllib.error.URLError) as error:
+        # Preserve transport failures as observations; never let one request
+        # abort the pool and tear down the server while other requests remain.
+        return 0, f"{type(error).__name__}:{error}".encode("utf-8", errors="replace")
 
 
 def find_id(value):
