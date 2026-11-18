@@ -29,7 +29,7 @@ EXPECTED_CELLS = {
 }
 MANIFEST_FIELDS = {
     "schema_version", "dispatch_id", "status", "model_id", "repetitions",
-    "arm", "model_settings", "cases", "no_apply", "purpose",
+    "arm", "model_settings", "cases", "execution_order", "no_apply", "purpose",
 }
 CASE_ENTRY_FIELDS = {"case_path", "eval_id", "proposal_mode", "base_disclosure"}
 
@@ -87,9 +87,18 @@ def validate_dispatch(root: Path, manifest_path: Path) -> tuple[dict, list[dict]
     if not isinstance(cases, list) or len(cases) != 4:
         raise DispatchValidationError("dispatch_must_contain_exactly_four_factorial_cells")
 
+    execution_order = manifest.get("execution_order")
+    if not isinstance(execution_order, list) or len(execution_order) != 4 or set(execution_order) != {"A", "B", "C", "D"}:
+        raise DispatchValidationError("dispatch_execution_order_invalid")
+    labels = {
+        ("snapshot", "per_operation"): "A",
+        ("delta", "per_operation"): "B",
+        ("snapshot", "upfront_full"): "C",
+        ("delta", "upfront_full"): "D",
+    }
     seen: set[tuple[str, str]] = set()
     shared_identity = None
-    rows = []
+    rows_by_label = {}
     for item in cases:
         if not isinstance(item, dict) or set(item) != CASE_ENTRY_FIELDS:
             raise DispatchValidationError("dispatch_case_entry_invalid")
@@ -135,18 +144,18 @@ def validate_dispatch(root: Path, manifest_path: Path) -> tuple[dict, list[dict]
             or budget.get("max_total_wall_seconds") != EXPECTED_SETTINGS["max_wall_seconds"]
         ):
             raise DispatchValidationError("factorial_case_budget_mismatch")
-        rows.append({
+        rows_by_label[labels[cell]] = {
             "case_path": item["case_path"],
             "eval_id": item["eval_id"],
             "proposal_mode": item["proposal_mode"],
             "base_disclosure": item["base_disclosure"],
             "settings": EXPECTED_SETTINGS,
             "repetitions": manifest["repetitions"],
-        })
+        }
 
     if seen != EXPECTED_CELLS:
         raise DispatchValidationError("factorial_cells_incomplete")
-    return manifest, rows
+    return manifest, [rows_by_label[label] for label in execution_order]
 
 
 def main() -> None:
