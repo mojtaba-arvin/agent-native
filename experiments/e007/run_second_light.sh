@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-PINNED_REV="f4c1be0839003b059912f315192101c959ff3ce0"
+PINNED_REV="a078f9d1bd2f4c972c14c818a962405627c519b2"
 ROOT="$(git rev-parse --show-toplevel)"
 WORKTREE="$(mktemp -d "${TMPDIR:-/tmp}/agent-native-second-light.XXXXXX")"
 rmdir "$WORKTREE"
@@ -35,6 +35,13 @@ fi
 if ! grep -q 'def _persist_subprocess_diagnostics' "$WORKTREE/experiments/e007/eval_runner.py" ||
    ! grep -q 'runner_process_failed' "$WORKTREE/experiments/e007/eval_runner.py"; then
   echo "Refusing Second Light: pinned revision $PINNED_REV does not preserve child-process stdout/stderr and startup failure classification." >&2
+  exit 78
+fi
+
+if ! grep -q 'def _resolve_task_path' "$WORKTREE/experiments/e009/local_agent.py" ||
+   ! grep -q 'task_path = _resolve_task_path(getattr(args, "task_path", None))' "$WORKTREE/experiments/e009/local_agent.py" ||
+   [[ ! -f "$WORKTREE/experiments/e009/AGENT_TASK.md" ]]; then
+  echo "Refusing Second Light: pinned revision $PINNED_REV does not contain the tested None-safe task-path resolver and default task file." >&2
   exit 78
 fi
 
