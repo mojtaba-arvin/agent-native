@@ -1,6 +1,6 @@
 # E-007 follow-up — proposal representation and base-disclosure factorial experiment
 
-**Status:** research protocol with an isolated deterministic materializer prototype merged; not integrated into the Agent Gateway, not dispatched to a model, and not evidence of an architecture decision.  
+**Status:** corrected research protocol with an isolated materializer and opt-in Gateway delta mode merged; not wired into the E-007 local-agent runner, not dispatched to a model, and not evidence of an architecture decision.  
 **Parent evidence:** E-009 full-snapshot proposal task; E-007 real-agent traces through 2026-11-18.  
 **Decision question:** Separately estimate the effect of proposal representation and the delivery sequence of the same complete base contract. Treat reduced-information/minimal disclosure as a separate exploratory treatment, not as a cell in the factorial.
 
@@ -156,7 +156,7 @@ If the delta improves authoring cost but complicates the trusted runtime substan
 
 1. Preserve and inspect the completed Second Light artifact; its trace analysis is recorded. Do not rerun the unchanged full-snapshot task.
 2. **Prototype component complete:** `experiments/e007/delta_materializer.py` implements strict one-operation add materialization against a trusted current base. It is not wired into the Gateway or agent surface.
-3. An opt-in Gateway delta mode is under review; it currently represents the separate minimal-disclosure exploratory treatment E, not a completed factorial cell.
+3. **Gateway component complete:** PR #48 adds opt-in `proposal_mode=delta` with trusted materialization, stale-base checks, strict read-only operation policy, and no apply callback. It implements the separate minimal-disclosure exploratory treatment E, not one of the four factorial cells. It is not wired into the E-007 local-agent runner.
 4. Implement the independent inspection-delivery factor (per-operation vs full-upfront) for both snapshot and delta modes, then add the four arm manifests and trusted evaluator assertions.
 5. Run protocol and kernel CI first. Do not spend model tokens until all four cells pass deterministic and adversarial tests.
 6. Calibrate a single small matched pilot. If resource reservations do not fit, do not dispatch.
@@ -165,4 +165,4 @@ If the delta improves authoring cost but complicates the trusted runtime substan
 
 ## 10. Claim boundary
 
-This document is a proposed experiment, not a selected architecture. An isolated trusted materializer prototype and deterministic adversarial unit tests exist. An opt-in minimal-disclosure delta Gateway mode is under review, but it is not the factorial treatment E's complete implementation and is not wired into the E-007 local agent. The four-cell corrected factorial has not been run; no independent oracle service or statistical result exists. The full-snapshot proposal remains the only active/default interface. No language, syntax, runtime, transport, or persistence technology is selected by this proposal.
+This document is a proposed experiment, not a selected architecture. An isolated trusted materializer prototype and an opt-in minimal-disclosure delta Gateway mode exist, with deterministic Gateway lifecycle and adversarial tests. The delta mode is not wired into the E-007 local-agent runner. The four-cell corrected factorial has not been implemented or run; no independent oracle service or statistical result exists. The full-snapshot proposal remains the only active/default interface. No language, syntax, runtime, transport, or persistence technology is selected by this proposal.
