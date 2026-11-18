@@ -11,7 +11,7 @@
   "last_completed_task_id": "CP-006",
   "last_known_green_revision": null,
   "wip_limit": 2,
-  "next_action": "Verify the corrected E-007 manifest in Layer 0 and confirm that a new run no longer cancels the in-flight Layer 1 job; then complete unified workflow migration review.",
+  "next_action": "Run the final unified workflow after the E-007 source-manifest fix and no-concurrency policy; require both Layer 0 and Layer 1 success in the same run before closing CP-007.",
   "recovery": {
     "unchanged_failure_limit": 2,
     "no_progress_attempt_limit": 3,
