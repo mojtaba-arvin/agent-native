@@ -80,6 +80,8 @@ jobs:
             const result = JSON.parse(fs.readFileSync(path, 'utf8'));
             const a = result.aggregate;
             const l = a.latency_ms;
+            const service = a.service_latency_ms;
+            const queue = a.client_queue_delay_ms;
             const reps = result.repetitions.map(r => 'rep ' + r.repetition + ': p95=' + r.latency_ms.p95.toFixed(2) + 'ms, p99=' + r.latency_ms.p99.toFixed(2) + 'ms').join('; ');
             const kinds = Object.entries(result.by_operation_kind).map(([name, value]) => name + ': n=' + value.requests + ', p95=' + value.latency_ms.p95.toFixed(2) + 'ms, p99=' + value.latency_ms.p99.toFixed(2) + 'ms').join('; ');
             const audit = result.audit_metrics;
@@ -93,8 +95,10 @@ jobs:
               'Commit: `' + context.sha + '`',
               '',
               '- Requests: ' + a.requests + '; unexpected outcomes: ' + a.failed_expectations,
+              '- Arrival: ' + result.workload.arrival_mode + (result.workload.target_rps ? ' at ' + result.workload.target_rps + ' offered req/s' : ''),
               '- Throughput: ' + a.throughput_requests_per_second.toFixed(2) + ' req/s',
               '- Latency: p50 ' + l.p50.toFixed(2) + ' ms; p95 ' + l.p95.toFixed(2) + ' ms; p99 ' + l.p99.toFixed(2) + ' ms; max ' + l.max.toFixed(2) + ' ms',
+              '- Service-only latency p99: ' + service.p99.toFixed(2) + ' ms; client scheduling queue p99: ' + queue.p99.toFixed(2) + ' ms; queue max: ' + queue.max.toFixed(2) + ' ms',
               '- ' + reps,
               '- Operation latency: ' + kinds,
               '- Audit commits: ' + audit.committed_batches + ' group batches for ' + audit.committed_events + ' events; ' + audit.transactional_events + ' events shared the durable job transaction; largest batch ' + audit.largest_batch + '; batch window ' + result.workload.audit_batch_delay_ms + ' ms',
