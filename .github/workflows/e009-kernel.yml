@@ -85,6 +85,7 @@ jobs:
             const audit = result.audit_metrics;
             const work = result.work_metrics;
             const resource = result.resource_metrics;
+            const cgroup = resource.cgroup_v2_limits;
             const body = [
               '## Automated E-009 performance evidence',
               '',
@@ -100,6 +101,7 @@ jobs:
               '- Durable job submissions: ' + work.committed_submissions + ' submissions across ' + work.submit_batches + ' transactions; largest batch ' + work.largest_submit_batch + '; job batch window ' + result.workload.job_batch_delay_ms + ' ms',
               '- Server resources: ' + resource.server_cpu_seconds.toFixed(3) + ' CPU-s; ' + resource.server_cpu_percent_of_one_core_during_load.toFixed(1) + '% of one core during load; linear estimate at 100 req/s ' + resource.estimated_cpu_percent_at_100_rps.toFixed(1) + '%; peak RSS ' + resource.server_peak_rss_bytes + ' bytes; affinity CPU ' + resource.server_cpu_affinity,
               '- Resource accounting: ' + resource.accounting,
+              '- cgroup v2 limits: ' + (cgroup ? 'cpu.max=' + cgroup.cpu_max + '; memory.max=' + cgroup.memory_max + '; path=' + cgroup.path : 'unavailable'),
               '',
               'This is a shared-runner product-path measurement, not a controlled capacity claim. FULL audit durability remains enabled.'
             ].join('\n');
