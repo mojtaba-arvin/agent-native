@@ -52,9 +52,15 @@ class AgentRunError(RuntimeError):
     pass
 
 
-def _resolve_task_path(task_path: Path | str | None) -> Path:
-    """Resolve the default task when argparse explicitly supplies None."""
-    selected = E009_ROOT / "AGENT_TASK.md" if task_path is None else task_path
+def _resolve_task_path(
+    task_path: Path | str | None, proposal_mode: str = "snapshot"
+) -> Path:
+    """Resolve the mode-specific default task when argparse supplies None."""
+    if task_path is None:
+        filename = "AGENT_TASK_DELTA.md" if proposal_mode == "delta" else "AGENT_TASK.md"
+        selected = E009_ROOT / filename
+    else:
+        selected = task_path
     return Path(selected).expanduser().resolve()
 
 
@@ -478,15 +484,16 @@ def verify_candidate(
         plan = plan_result.get("result") or {}
         if not plan.get("valid") or plan.get("will_mutate") is not False or plan.get("will_deploy") is not False:
             raise AgentRunError("proposal_plan_not_safe")
-        if base_disclosure == "per_operation" and set(inspected_operations) != {
-            item["name"] for item in inspected["operations"]
-        }:
+        expected_names = {item["name"] for item in inspected["operations"]}
+        if base_disclosure == "per_operation" and set(inspected_operations) != expected_names:
             raise AgentRunError("inspect_all_existing_operations_before_proposal")
+        if base_disclosure == "upfront_full" and set(inspected_operations) != expected_names:
+            raise AgentRunError("upfront_full_contracts_missing")
         proposal_indices = [i for i, name in enumerate(tool_sequence) if name == "service.propose_delta"]
         validation_indices = [i for i, name in enumerate(tool_sequence) if name == "service.validate"]
         plan_indices = [i for i, name in enumerate(tool_sequence) if name == "service.plan"]
         if (
-            len(proposal_indices) != 1 or not validation_indices or not plan_indices
+            not proposal_indices or len(proposal_indices) > 3 or not validation_indices or not plan_indices
             or "service.inspect" not in tool_sequence
             or proposal_indices[-1] <= tool_sequence.index("service.inspect")
             or validation_indices[-1] <= proposal_indices[-1]
@@ -764,7 +771,11 @@ def run(args: argparse.Namespace) -> dict:
     endpoint = validate_ollama_endpoint(args.ollama_url)
     task_id = getattr(args, "task_id", TASK_ID)
     allow_sandbox_apply = bool(getattr(args, "allow_sandbox_apply", False))
-    task_path = _resolve_task_path(getattr(args, "task_path", None))
+    proposal_mode = getattr(args, "proposal_mode", "snapshot")
+    base_disclosure = getattr(args, "base_disclosure", None) or (
+        "per_operation" if proposal_mode == "snapshot" else "minimal"
+    )
+    task_path = _resolve_task_path(getattr(args, "task_path", None), proposal_mode)
     results_root = args.results_dir.expanduser().resolve()
     try:
         results_root.relative_to(ROOT.resolve())
@@ -850,10 +861,6 @@ def run(args: argparse.Namespace) -> dict:
             if args.arm == "upfront"
             else
             "This run uses the progressive tool-schema arm. Before each tool whose detailed schema has not yet been retrieved, call interface.describe with its exact name and use that returned schema. Retrieve the service.inspect schema first. "
-        )
-        proposal_mode = getattr(args, "proposal_mode", "snapshot")
-        base_disclosure = getattr(args, "base_disclosure", None) or (
-            "per_operation" if proposal_mode == "snapshot" else "minimal"
         )
         if proposal_mode == "snapshot":
             base_instruction = (
