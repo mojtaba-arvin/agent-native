@@ -84,6 +84,35 @@ class KernelTests(unittest.TestCase):
         self.assertEqual(by_name.status_code, 200)
         self.assertEqual(fetched.body["data"], by_name.body["data"])
 
+    def test_runtime_owns_defensive_contract_and_handler_copies(self):
+        source_ir = load_service_ir(SOURCE)
+        handlers = build_catalog_handlers(self.repository, self.work_store)
+        runtime = ServiceRuntime(
+            source_ir,
+            handlers=handlers,
+            repository=self.repository,
+            trusted_effects=TRUSTED_EFFECTS,
+            clock=lambda: 100,
+        )
+
+        # Mutating constructor inputs must not alter the active runtime.
+        source_ir["operations"][0]["path"] = "/attacker-controlled"
+        handlers.clear()
+
+        # Public inspection values are defensive copies too.
+        exposed_ir = runtime.ir
+        exposed_ir["operations"][0]["path"] = "/also-attacker-controlled"
+        exposed_operations = runtime.operations
+        exposed_operations[0]["path"] = "/mutated-copy"
+
+        result = runtime.dispatch(
+            "GET", "/items/by-name/missing", {}, context()
+        )
+        self.assertEqual(result.status_code, 404)
+        self.assertEqual(result.body["error"]["code"], "NotFound")
+        with self.assertRaises(TypeError):
+            runtime.handlers["get_item"] = lambda _context: {}
+
     def test_idempotent_create_replays_exact_result_and_conflicting_payload_fails(self):
         first = self.dispatch(
             "POST", "/items", {"name": "Desk lamp"},
