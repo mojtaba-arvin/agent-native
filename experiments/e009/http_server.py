@@ -49,6 +49,9 @@ class BoundedThreadingHTTPServer(ThreadingHTTPServer):
         if type(max_concurrency) is not int or max_concurrency < 1:
             raise ValueError("max_concurrency_must_be_positive_integer")
         self.max_concurrency = max_concurrency
+        # TCPServer calls listen(request_queue_size) inside super().__init__;
+        # set the backlog before socket activation, not after construction.
+        self.request_queue_size = max_concurrency
         self._admission = threading.BoundedSemaphore(max_concurrency)
         super().__init__(server_address, request_handler)
 
@@ -218,5 +221,4 @@ def create_server(
         Handler,
         max_concurrency=max_concurrency,
     )
-    server.request_queue_size = max_concurrency
     return server
