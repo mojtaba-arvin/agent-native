@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Repeated end-to-end load smoke for the E-009 durable HTTP kernel.
+"""Repeated end-to-end load experiment for the E-009 durable HTTP kernel.
 
-This is a product-path diagnostic, not a controlled capacity benchmark:
-GitHub-hosted runners are shared and cgroup isolation is not asserted.
+The optional containerized mode enforces server CPU/memory limits and reads
+resource counters from that server's cgroup v2. GitHub-hosted runner contention
+remains uncontrolled, so this is not a cross-runtime capacity certification.
 """
 from __future__ import annotations
 
