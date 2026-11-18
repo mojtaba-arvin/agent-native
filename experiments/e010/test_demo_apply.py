@@ -14,6 +14,7 @@ sys.path.insert(0, str(ROOT / "experiments" / "e010"))
 
 from agent_gateway import AgentNativeGateway
 from demo_apply import NEW_OPERATION, SandboxApplyCoordinator
+from local_agent import verify_candidate
 
 
 class SandboxApplyEndToEndTests(unittest.TestCase):
@@ -72,6 +73,42 @@ class SandboxApplyEndToEndTests(unittest.TestCase):
             self.assertEqual(applied["result"]["runtime_smoke_test"]["status_code"], 200)
             self.assertEqual(applied["result"]["runtime_smoke_test"]["body"]["data"]["name"], "blue-lamp")
             self.assertEqual(coordinator.applied_revision, gateway.interface.revision("catalog"))
+            inspected_result = inspected["result"]
+            inspected_operations = {
+                item["name"]: copy.deepcopy(item)
+                for item in coordinator.initial_ir["operations"]
+            }
+            candidate = {
+                "schema_version": 1,
+                "task_id": "e010-sandbox-apply-lifecycle",
+                "service_id": "catalog",
+                "base_revision": inspected_result["revision"],
+                "change_set_id": change_set_id,
+                "ir": ir,
+            }
+            verification = verify_candidate(
+                candidate,
+                inspected=inspected_result,
+                inspected_operations=inspected_operations,
+                successful_proposal={
+                    "arguments": {"base_revision": inspected_result["revision"], "ir": ir},
+                    "result": proposal["result"],
+                },
+                validation_result=validation,
+                plan_result=plan,
+                tool_sequence=(
+                    ["service.inspect"]
+                    + ["service.inspect"] * len(inspected_result["operations"])
+                    + ["service.propose", "service.validate", "service.plan", "service.apply"]
+                ),
+                validation_change_set_id=change_set_id,
+                plan_change_set_id=change_set_id,
+                expected_task_id="e010-sandbox-apply-lifecycle",
+                allow_sandbox_apply=True,
+                apply_result=applied,
+            )
+            self.assertEqual(verification["plan"], "valid_sandbox_apply_no_deployment")
+            self.assertTrue(verification["applied"])
             events = coordinator.audit_sink.list_events()
             self.assertTrue(any(event["operation"] == "service.apply" for event in events))
             self.assertTrue(any(

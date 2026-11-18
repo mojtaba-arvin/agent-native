@@ -1013,6 +1013,7 @@ def run(args: argparse.Namespace) -> dict:
                         if not allow_sandbox_apply:
                             raise AgentRunError("agent_attempted_apply")
                         apply_result = nested
+                        record["apply_result"] = apply_result
                     messages.append({
                         "role": "tool",
                         "tool_name": "agent.invoke",
