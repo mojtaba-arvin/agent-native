@@ -38,6 +38,25 @@ jobs:
       - run: go build -o /tmp/e002-go .
         working-directory: experiments/e002/go
       - run: python experiments/e002/conformance.py --command /tmp/e002-go --cwd experiments/e002/go
+      - name: Smoke-test sampled process-tree CPU accounting
+        run: |
+          python experiments/e002/benchmark.py \
+            --command /tmp/e002-go \
+            --cwd experiments/e002/go \
+            --requests 100 --concurrency 8 --warmup 10 \
+            --label cpu-sampler-smoke --output /tmp/e002-cpu-sampler-smoke
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          summary = json.loads(Path("/tmp/e002-cpu-sampler-smoke.json").read_text())
+          assert summary["functional_success"] is True
+          assert summary["cpu_accounting"]["method"] == "sampled_process_tree_cumulative_max"
+          assert summary["cpu_accounting"]["sample_interval_seconds"] == 0.005
+          assert summary["cpu_seconds"] >= 0
+          assert summary["peak_rss_bytes"] > 0
+          print("E-002 sampled CPU accounting smoke: PASS")
+          PY
 
   rust:
     runs-on: ubuntu-latest
