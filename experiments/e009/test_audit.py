@@ -153,6 +153,75 @@ class SQLiteAuditSinkTests(unittest.TestCase):
         self.assertEqual(len(events), 24)
         self.assertEqual(len({event["request_id"] for event in events}), 24)
 
+
+    def test_concurrent_callers_share_durable_group_commit(self):
+        barrier = threading.Barrier(8)
+        sink = SQLiteAuditSink(
+            self.repository.database,
+            max_batch_size=8,
+            max_batch_delay_seconds=0.020,
+        )
+
+        def write(index):
+            event = {
+                "principal_id": "user-a",
+                "tenant_id": "tenant-a",
+                "operation": "get_item",
+                "resource": f"/items/group-{index}",
+                "requested_effects": ["repository.read"],
+                "decision": "allow",
+                "reason_code": "ALLOW",
+                "request_id": f"group-commit-{index}",
+                "timestamp": 200 + index,
+            }
+            barrier.wait(timeout=5)
+            sink(event)
+            self.assertEqual(len(sink.list_events(request_id=event["request_id"])), 1)
+
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            list(pool.map(write, range(8)))
+
+        metrics = sink.metrics()
+        self.assertEqual(metrics["committed_events"], 8)
+        self.assertLess(metrics["committed_batches"], 8)
+        self.assertGreater(metrics["largest_batch"], 1)
+        self.assertEqual(len(sink.list_events()), 8)
+
+    def test_group_commit_failure_fails_every_waiting_caller_closed(self):
+        barrier = threading.Barrier(8)
+        sink = SQLiteAuditSink(
+            self.repository.database,
+            max_batch_size=8,
+            max_batch_delay_seconds=0.020,
+        )
+
+        def fail_batch(_batch):
+            raise OSError("simulated durable commit failure")
+
+        sink._write_batch = fail_batch
+
+        def write(index):
+            event = {
+                "principal_id": "user-a",
+                "tenant_id": "tenant-a",
+                "operation": "get_item",
+                "resource": f"/items/fail-{index}",
+                "requested_effects": ["repository.read"],
+                "decision": "allow",
+                "reason_code": "ALLOW",
+                "request_id": f"group-failure-{index}",
+                "timestamp": 300 + index,
+            }
+            barrier.wait(timeout=5)
+            with self.assertRaisesRegex(OSError, "audit_batch_commit_failed"):
+                sink(event)
+
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            list(pool.map(write, range(8)))
+
+        self.assertEqual(sink.list_events(), [])
+        self.assertEqual(sink.metrics()["committed_events"], 0)
+
     def test_audit_rows_reject_update_and_delete(self):
         self.sink({
             "principal_id": "user-a",
