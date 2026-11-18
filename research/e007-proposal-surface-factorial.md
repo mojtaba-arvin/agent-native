@@ -1,6 +1,6 @@
 # E-007 follow-up — proposal representation and base-disclosure factorial experiment
 
-**Status:** research protocol proposal; not implemented, not dispatched, and not evidence of an architecture decision.  
+**Status:** research protocol with an isolated deterministic materializer prototype merged; not integrated into the Agent Gateway, not dispatched to a model, and not evidence of an architecture decision.  
 **Parent evidence:** E-009 full-snapshot proposal task; E-007 real-agent traces through 2026-11-18.  
 **Decision question:** Is the current agent failure dominated by the amount of base contract the agent must reproduce, by the full-snapshot proposal representation, or by their interaction?
 
@@ -148,8 +148,8 @@ If the delta improves authoring cost but complicates the trusted runtime substan
 ## 9. Execution sequence
 
 1. Finish and inspect the currently running deterministic E-007 retry. Preserve its artifact and classify its result before changing the task or interface.
-2. Implement the delta arm behind an explicit experimental feature flag on a research branch; do not alter the default snapshot behavior.
-3. Add the four arm manifests, trusted evaluator assertions, and deterministic/adversarial tests.
+2. **Prototype component complete:** `experiments/e007/delta_materializer.py` implements strict one-operation add materialization against a trusted current base. It is not wired into the Gateway or agent surface.
+3. Next, integrate it behind an explicit experimental feature flag on a research branch, without altering default snapshot behavior; add the four arm manifests and trusted evaluator assertions. Extend adversarial/property tests to the integrated proposal/validate/plan lifecycle.
 4. Run protocol and kernel CI first. Do not spend model tokens until all local tests pass.
 5. Calibrate a single small matched pilot. If resource reservations do not fit, do not dispatch.
 6. Run paired arms and inspect raw traces before updating the evidence index or making a design recommendation.
@@ -157,4 +157,4 @@ If the delta improves authoring cost but complicates the trusted runtime substan
 
 ## 10. Claim boundary
 
-This document is a proposed experiment, not an implemented capability. No delta proposal API, factorial agent run, independent oracle service, or statistical result exists yet. The current E-007 full-snapshot task remains the active baseline until the running retry is evaluated. No language, syntax, runtime, transport, or persistence technology is selected by this proposal.
+This document is a proposed experiment, not a selected architecture. An isolated trusted materializer prototype and deterministic adversarial unit tests exist, but no delta proposal API is exposed by the Agent Gateway, no factorial agent run has occurred, and no independent oracle service or statistical result exists. The full-snapshot proposal remains the only active/default interface. No language, syntax, runtime, transport, or persistence technology is selected by this proposal.
