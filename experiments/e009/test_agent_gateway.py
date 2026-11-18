@@ -339,6 +339,10 @@ class AgentGatewayTests(unittest.TestCase):
         self.assertIn("input_schema", described["result"])
         self.assertEqual(described["result"]["input_schema"]["properties"]["changes"]["maxItems"], 1)
 
+    def test_delta_mode_cannot_enable_even_sandbox_apply(self):
+        with self.assertRaisesRegex(ValueError, "delta_mode_apply_disabled"):
+            AgentNativeGateway("upfront", proposal_mode="delta", apply_callback=lambda *_: {})
+
     def test_delta_mode_rejects_snapshot_tool_and_default_mode_rejects_delta_tool(self):
         delta_gateway = AgentNativeGateway("upfront", proposal_mode="delta")
         snapshot_gateway = AgentNativeGateway("upfront")
