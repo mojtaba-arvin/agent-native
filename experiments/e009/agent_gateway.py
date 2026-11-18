@@ -128,6 +128,7 @@ class AgentNativeGateway:
         self._inspected_operation_contracts: dict[str, dict] = {}
         self._inspected_service: dict | None = None
         self._inspected_types: list | None = None
+        self._service_inspection_repeat_attempts: set[tuple[str, ...]] = set()
 
     def session_message(self) -> dict:
         return {
@@ -263,6 +264,19 @@ class AgentNativeGateway:
                         if name not in self._inspected_operations
                     ]
                     if missing:
+                        repair_key = tuple(missing)
+                        if repair_key in self._service_inspection_repeat_attempts:
+                            return self._error(
+                                request_id,
+                                "INSPECTION_PROGRESS_REPAIR_EXHAUSTED",
+                                "The same incomplete service-level inspection was repeated after an actionable correction. Stop repeating it and inspect the first remaining operation from the previous next_actions.",
+                                next_actions=["Stop: inspect an existing operation using its exact operation name."],
+                                fix_hint=(
+                                    'Use service.inspect arguments {"service_id":"catalog","operation":"<exact remaining operation name>"}. '
+                                    "A repeated service-level inspection with no operation will not be retried."
+                                ),
+                            )
+                        self._service_inspection_repeat_attempts.add(repair_key)
                         return self._error(
                             request_id,
                             "INSPECTION_OPERATION_REQUIRED",
@@ -283,6 +297,7 @@ class AgentNativeGateway:
                     self._inspected_revision = revision
                     self._inspected_service = copy.deepcopy(response["result"]["service"])
                     self._inspected_types = copy.deepcopy(response["result"]["types"])
+                    self._service_inspection_repeat_attempts.clear()
                     self._inspected_operations.clear()
                     self._inspected_operation_contracts.clear()
                     self._required_inspection_order = [

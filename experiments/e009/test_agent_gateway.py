@@ -200,6 +200,14 @@ class AgentGatewayTests(unittest.TestCase):
             repeated_again["next_actions"],
             [f"service.inspect with operation={name}" for name in operation_names[1:]],
         )
+        repeated_without_progress = self.call(
+            self.upfront, "repeat-without-progress", "service.inspect", {"service_id": "catalog"}
+        )
+        self.assertFalse(repeated_without_progress["ok"])
+        self.assertEqual(
+            repeated_without_progress["diagnostics"][0]["code"],
+            "INSPECTION_PROGRESS_REPAIR_EXHAUSTED",
+        )
 
         for name in operation_names[1:]:
             result = self.call(

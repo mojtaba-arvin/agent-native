@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-PINNED_REV="b85fda8a7a96f0a09ab80607f73e1829177a1213"
+PINNED_REV="a972418e5795a863a1435bf69cc6592e782c6abd"
 ROOT="$(git rev-parse --show-toplevel)"
 WORKTREE="$(mktemp -d "${TMPDIR:-/tmp}/agent-native-e010-demo.XXXXXX")"
 rmdir "$WORKTREE"
@@ -32,6 +32,9 @@ grep -q 'sandbox-apply' "$GATEWAY"
 grep -q 'if self.apply_callback is None' "$INTERFACE"
 grep -q 'APPLY_DISABLED' "$INTERFACE"
 grep -q 'class SandboxApplyCoordinator' "$DEMO"
+grep -q 'sandbox_apply_contract_not_preserved' "$DEMO"
+grep -q 'sandbox_apply_change_set_mismatch' "$LOCAL_AGENT"
+grep -q 'INSPECTION_PROGRESS_REPAIR_EXHAUSTED' "$GATEWAY"
 
 OUTPUT_DIR="${E010_OUTPUT_DIR:-/tmp/agent-native-e010-runs}"
 echo "E-010 pinned source revision: $ACTUAL_REV"
