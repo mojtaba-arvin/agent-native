@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-PINNED_REV="b85fda8a7a96f0a09ab80607f73e1829177a1213"
+PINNED_REV="f4c1be0839003b059912f315192101c959ff3ce0"
 ROOT="$(git rev-parse --show-toplevel)"
 WORKTREE="$(mktemp -d "${TMPDIR:-/tmp}/agent-native-second-light.XXXXXX")"
 rmdir "$WORKTREE"
@@ -29,6 +29,12 @@ if ! grep -q 'payload_sha256' "$WORKTREE/experiments/e009/local_agent.py" ||
    ! grep -q 'def prevalidate_catalog_operation' "$WORKTREE/experiments/e009/local_agent.py" ||
    ! grep -q 'exhausted = bool(repair_attempts)' "$WORKTREE/experiments/e009/local_agent.py"; then
   echo "Refusing Second Light: pinned revision $PINNED_REV is missing First Light prompt-state, compaction, payload, or operation-guard instrumentation." >&2
+  exit 78
+fi
+
+if ! grep -q 'def _persist_subprocess_diagnostics' "$WORKTREE/experiments/e007/eval_runner.py" ||
+   ! grep -q 'runner_process_failed' "$WORKTREE/experiments/e007/eval_runner.py"; then
+  echo "Refusing Second Light: pinned revision $PINNED_REV does not preserve child-process stdout/stderr and startup failure classification." >&2
   exit 78
 fi
 
