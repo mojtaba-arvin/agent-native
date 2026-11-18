@@ -22,6 +22,12 @@ It is deliberately implemented with the Python standard library as a semantic re
 - **Audit:** every capability decision is sent to an injected trusted audit sink before application code is called. Audit-sink failure is fail-closed.
 - **Durable audit:** the runnable `serve.py` path wires `SQLiteAuditSink` to the shared file-backed database. Allow and deny decisions are committed before handlers, survive database reopen, and fail closed on storage errors. Application-level triggers reject updates/deletes, but this is not cryptographic tamper evidence or remote audit replication.
 
+## Measured single-node reference configuration
+
+The E-009 SQLite audit sink uses a **0.5 ms synchronous group-commit collection window** by default, with SQLite WAL and `synchronous=FULL` unchanged. This provisional setting was selected after two independent 1-CPU/1-GiB cgroup cohorts, each running 10,000 requests at 100 req/s; both passed the fail-closed throughput, p99, CPU, memory and correctness gate. The 2 ms comparison had one cohort fail p99 substantially.
+
+See [the performance evidence and repeatability analysis](performance-evidence-2026-11-18.md). This is a measured reference configuration for this prototype only—not a universal SQLite recommendation, production SLO, or runtime/database selection. The capacity gate remains enabled for future confirmatory runs.
+
 ## Run tests
 
 From the repository root:
