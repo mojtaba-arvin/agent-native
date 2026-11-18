@@ -61,7 +61,7 @@ jobs:
             core.setOutput('run', subject === 'perf(e009): request five-run product-path measurement' ? 'true' : 'false');
       - name: Run E-009 durable HTTP performance smoke
         if: (github.event_name == 'pull_request' || github.event_name == 'push') && steps.performance-request.outputs.run == 'true'
-        run: python experiments/e009/performance_smoke.py --requests 1000 --repetitions 5 --concurrency 32 --output "$RUNNER_TEMP/e009-performance.json"
+        run: python experiments/e009/performance_smoke.py --requests 1000 --repetitions 5 --concurrency 32 --audit-batch-delay-ms 0.5 --output "$RUNNER_TEMP/e009-performance.json"
       - name: Preserve E-009 performance measurements
         if: always() && (github.event_name == 'pull_request' || github.event_name == 'push') && steps.performance-request.outputs.run == 'true'
         uses: actions/upload-artifact@v4
@@ -80,6 +80,8 @@ jobs:
             const a = result.aggregate;
             const l = a.latency_ms;
             const reps = result.repetitions.map(r => 'rep ' + r.repetition + ': p95=' + r.latency_ms.p95.toFixed(2) + 'ms, p99=' + r.latency_ms.p99.toFixed(2) + 'ms').join('; ');
+            const kinds = Object.entries(result.by_operation_kind).map(([name, value]) => name + ': n=' + value.requests + ', p95=' + value.latency_ms.p95.toFixed(2) + 'ms, p99=' + value.latency_ms.p99.toFixed(2) + 'ms').join('; ');
+            const audit = result.audit_metrics;
             const body = [
               '## Automated E-009 performance evidence',
               '',
@@ -90,6 +92,8 @@ jobs:
               '- Throughput: ' + a.throughput_requests_per_second.toFixed(2) + ' req/s',
               '- Latency: p50 ' + l.p50.toFixed(2) + ' ms; p95 ' + l.p95.toFixed(2) + ' ms; p99 ' + l.p99.toFixed(2) + ' ms; max ' + l.max.toFixed(2) + ' ms',
               '- ' + reps,
+              '- Operation latency: ' + kinds,
+              '- Audit commits: ' + audit.committed_batches + ' batches for ' + audit.committed_events + ' events; largest batch ' + audit.largest_batch,
               '',
               'This is a shared-runner product-path measurement, not a controlled capacity claim. FULL audit durability remains enabled.'
             ].join('\n');
