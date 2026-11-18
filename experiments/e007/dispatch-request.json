@@ -1,6 +1,6 @@
 {
     "schema_version": 1,
-    "request_id": "e007-matched-factorial-qwen3-20261118-one-shot",
+    "request_id": "e007-matched-factorial-qwen3-20261118-retry1",
     "branch": "research/reboot-core",
     "workflow": "e007-real-agent-eval.yml",
     "model": "qwen3:8b",
