@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import os
 import sqlite3
+import subprocess
+import sys
 import tempfile
 import unittest
 from concurrent.futures import ThreadPoolExecutor
@@ -63,21 +66,62 @@ class SQLiteReferenceAdapterTests(unittest.TestCase):
                     "jobs": 0, "outbox": 0, "idempotency_records": 0, "audit": 0,
                 })
 
-    def test_commit_then_lost_response_reconciles_original_outcome(self):
-        def lose_response(stage):
-            if stage == "after_commit":
-                raise RuntimeError("response lost after durable commit")
+    def test_process_crash_after_commit_before_response_reconciles_original_outcome(self):
+        child = """
+import os, sys
+from sqlite_reference_adapter import SQLiteReferenceAdapter
 
-        interrupted = SQLiteReferenceAdapter(self.database, _fault_hook=lose_response)
-        with self.assertRaisesRegex(RuntimeError, "response lost"):
-            self.admit(adapter=interrupted, request_id="lost-response")
+def terminate_after_commit(stage):
+    if stage == "after_commit":
+        os._exit(77)
+
+adapter = SQLiteReferenceAdapter(sys.argv[1], _fault_hook=terminate_after_commit)
+adapter.admit_job(
+    tenant_id="tenant-a", operation_id="jobs.create", idempotency_key="key-1",
+    payload={"name": "lamp"}, outbox_payload={"topic": "job.created"},
+    audit_event={"request_id": "crash-after-commit", "operation_id": "jobs.create", "created_at": 100},
+)
+"""
+        env = dict(os.environ)
+        env["PYTHONPATH"] = str(Path(__file__).parent)
+        crashed = subprocess.run(
+            [sys.executable, "-c", child, str(self.database)],
+            env=env, check=False, timeout=10,
+        )
+        self.assertEqual(crashed.returncode, 77)
         reopened = SQLiteReferenceAdapter(self.database)
-        status, outcome = self.admit(adapter=reopened, request_id="retry-after-lost-response")
+        status, outcome = self.admit(adapter=reopened, request_id="retry-after-process-crash")
         self.assertEqual(status, "replayed")
         self.assertEqual(reopened.recover(), {
             "jobs": 1, "outbox": 1, "idempotency_records": 1, "audit": 2,
         })
         self.assertEqual(outcome["state"], "queued")
+
+    def test_outbox_lease_expiry_and_fencing_reject_stale_ack(self):
+        _, outcome = self.admit()
+        first = self.adapter.claim_outbox(
+            consumer="relay-a", limit=1, lease_seconds=5, now=100
+        )
+        self.assertEqual(len(first), 1)
+        self.assertEqual(self.adapter.claim_outbox(
+            consumer="relay-b", limit=1, lease_seconds=5, now=104
+        ), [])
+        second = self.adapter.claim_outbox(
+            consumer="relay-b", limit=1, lease_seconds=5, now=106
+        )
+        self.assertEqual(len(second), 1)
+        self.assertEqual(second[0]["lease_token"], first[0]["lease_token"] + 1)
+        self.assertFalse(self.adapter.ack_outbox(
+            event_id=first[0]["event_id"], consumer="relay-a",
+            lease_token=first[0]["lease_token"], now=107,
+        ))
+        self.assertTrue(self.adapter.ack_outbox(
+            event_id=second[0]["event_id"], consumer="relay-b",
+            lease_token=second[0]["lease_token"], now=107,
+        ))
+        self.assertEqual(self.adapter.claim_outbox(
+            consumer="relay-c", limit=1, lease_seconds=5, now=108
+        ), [])
 
     def test_same_key_same_hash_replays_and_different_hash_conflicts(self):
         first_status, first = self.admit()
