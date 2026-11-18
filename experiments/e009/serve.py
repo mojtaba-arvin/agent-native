@@ -37,6 +37,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--database", type=Path, default=Path("./agent-native-e009.sqlite3"))
     parser.add_argument("--port", type=int, default=8080)
+    parser.add_argument("--host", choices=("127.0.0.1", "0.0.0.0"), default="127.0.0.1")
     parser.add_argument("--max-concurrency", type=int, default=64)
     parser.add_argument("--worker-poll-seconds", type=float, default=0.25)
     parser.add_argument("--relay-poll-seconds", type=float, default=0.25)
@@ -49,6 +50,8 @@ def main() -> None:
     parser.add_argument("--job-batch-size", type=int, default=32)
     parser.add_argument("--job-batch-delay-ms", type=float, default=0.5)
     args = parser.parse_args()
+    if args.host != "127.0.0.1" and os.environ.get("AGENT_NATIVE_ALLOW_NON_LOOPBACK") != "1":
+        parser.error("non-loopback binding requires AGENT_NATIVE_ALLOW_NON_LOOPBACK=1")
     if not 1 <= args.job_batch_size <= 1024:
         parser.error("--job-batch-size must be between 1 and 1024")
     if (
@@ -124,7 +127,7 @@ def main() -> None:
     server = create_server(
         runtime,
         identity,
-        host="127.0.0.1",
+        host=args.host,
         port=args.port,
         max_concurrency=args.max_concurrency,
     )
