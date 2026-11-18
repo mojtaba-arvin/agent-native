@@ -8,7 +8,7 @@ from repository import (
     ItemConflict,
     SQLiteCatalogRepository,
 )
-from work_store import JobBackpressure, JobConflict, DurableWorkStore
+from work_store import AuditCommitError, JobBackpressure, JobConflict, DurableWorkStore
 
 
 def build_catalog_handlers(
@@ -65,7 +65,11 @@ def build_catalog_handlers(
                 now=context.now,
                 deadline_at=context.now + 3600,
                 max_attempts=3,
+                audit_event=context.audit_event,
+                audit_receipt=context.audit_receipt,
             )
+        except AuditCommitError as error:
+            raise DomainFault("ServiceUnavailable", "atomic_audit_commit_failed") from error
         except JobConflict as error:
             raise DomainFault("Conflict", str(error)) from error
         except JobBackpressure as error:
