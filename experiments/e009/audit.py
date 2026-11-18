@@ -40,6 +40,7 @@ class SQLiteAuditSink:
     The durable job path shares its commit with the audit row and outbox event.
     Idle worker and relay polls are read-only until actual work is available.
     Durable job admission uses bounded synchronous commit batching.
+    The product pilot varies the job batch window independently from audit batching.
     """
 
     def __init__(
