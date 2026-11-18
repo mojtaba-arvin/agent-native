@@ -783,6 +783,26 @@ class DurableWorkStore:
         _integer(lease_seconds, "lease_seconds", minimum=1)
         connection = self._connect()
         try:
+            # Avoid BEGIN IMMEDIATE when the relay has nothing to lease or
+            # recover; idle polling must not contend with job admissions.
+            expired_probe = connection.execute(
+                """
+                SELECT event_id FROM durable_outbox
+                WHERE status = 'leased' AND lease_until <= ? LIMIT 1
+                """,
+                (now,),
+            ).fetchone()
+            pending_probe = connection.execute(
+                """
+                SELECT event_id FROM durable_outbox
+                WHERE status = 'pending' AND available_at <= ?
+                  AND attempts < max_attempts LIMIT 1
+                """,
+                (now,),
+            ).fetchone()
+            if expired_probe is None and pending_probe is None:
+                return None
+
             connection.execute("BEGIN IMMEDIATE")
             expired = connection.execute(
                 """
