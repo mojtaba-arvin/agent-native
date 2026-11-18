@@ -465,6 +465,128 @@ class LocalAgentRunnerTests(unittest.TestCase):
             server.server_close()
             thread.join(timeout=5)
 
+
+    def _run_catalog_guard_provider_double(self, operation_names):
+        calls = [{
+            "request_id": "service-inspect",
+            "tool": "service.inspect",
+            "arguments": {"service_id": "catalog"},
+        }]
+        calls.extend({
+            "request_id": f"operation-inspect-{index}",
+            "tool": "service.inspect",
+            "arguments": {"service_id": "catalog", "operation": name},
+        } for index, name in enumerate(operation_names, 1))
+        responses = [{
+            "message": {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [{
+                    "function": {"name": "agent.invoke", "arguments": call}
+                }],
+            },
+            "prompt_eval_count": 30 + index,
+            "eval_count": 12,
+        } for index, call in enumerate(calls)]
+        responses.append({
+            "message": {"role": "assistant", "content": "{}", "tool_calls": []},
+            "prompt_eval_count": 40,
+            "eval_count": 2,
+        })
+
+        class Handler(BaseHTTPRequestHandler):
+            index = 0
+            response_values = responses
+
+            def do_POST(self):
+                length = int(self.headers["Content-Length"])
+                self.rfile.read(length)
+                value = type(self).response_values[type(self).index]
+                type(self).index += 1
+                raw = json.dumps(value, separators=(",", ":")).encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(raw)))
+                self.end_headers()
+                self.wfile.write(raw)
+
+            def log_message(self, *_args):
+                return
+
+        server = HTTPServer(("127.0.0.1", 0), Handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        gateway_calls = []
+
+        def fake_gateway(_process, request):
+            gateway_calls.append(copy.deepcopy(request))
+            arguments = request["arguments"]
+            if "operation" not in arguments:
+                result = copy.deepcopy(self.inspected)
+            else:
+                result = {"operation": copy.deepcopy(self.inspected_operations[arguments["operation"]])}
+            return {
+                "type": "tool_result",
+                "request_id": request["request_id"],
+                "response": {"protocol_version": "0.1", "request_id": request["request_id"],
+                             "ok": True, "result": result, "diagnostics": [], "next_actions": []},
+            }
+
+        try:
+            with tempfile.TemporaryDirectory(prefix="agent-native-e009-", dir="/tmp") as temp:
+                args = SimpleNamespace(
+                    model="deterministic-test-double",
+                    ollama_url=f"http://127.0.0.1:{server.server_port}",
+                    arm="upfront",
+                    results_dir=Path(temp) / "results",
+                    max_input_tokens=2000,
+                    max_output_tokens=1000,
+                    max_tool_calls=20,
+                    max_wall_seconds=30.0,
+                    num_ctx=4096,
+                    num_predict=256,
+                    temperature=0.0,
+                    top_p=1.0,
+                    seed=7,
+                    think=False,
+                )
+                with patch.object(local_agent, "gateway_exchange", side_effect=fake_gateway):
+                    result = run(args)
+                run_dir = next((Path(temp) / "results").iterdir())
+                events = [json.loads(line) for line in (run_dir / "tool-trace.jsonl").read_text(encoding="utf-8").splitlines()]
+                return result, gateway_calls, events, Handler.index
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=5)
+
+    def test_provider_double_repairs_unknown_operation_without_sending_it_to_gateway(self):
+        result, gateway_calls, events, provider_calls = self._run_catalog_guard_provider_double([
+            "get_item_by_normalized_name", "get_item"
+        ])
+        self.assertEqual(result["failure"], "AgentRunError:proposal_not_successfully_created")
+        self.assertEqual(provider_calls, 4)
+        self.assertEqual([call["arguments"].get("operation") for call in gateway_calls],
+                         [None, "get_item"])
+        self.assertEqual(events[1]["execution_origin"], "runner_prevalidation")
+        self.assertEqual(events[1]["response"]["diagnostics"][0]["code"], "OPERATION_NOT_IN_CATALOG")
+        self.assertEqual(events[2]["execution_origin"], "gateway")
+        self.assertEqual(events[2]["response"]["ok"], True)
+
+    def test_provider_double_stops_after_second_unknown_operation_name(self):
+        result, gateway_calls, events, provider_calls = self._run_catalog_guard_provider_double([
+            "get_item_by_normalized_name", "another_unknown_operation"
+        ])
+        self.assertEqual(result["failure"], "AgentRunError:operation_not_in_catalog")
+        self.assertEqual(provider_calls, 3)
+        self.assertEqual(len(gateway_calls), 1)
+        self.assertNotIn("operation", gateway_calls[0]["arguments"])
+        self.assertEqual(len(events), 3)
+        self.assertEqual(events[1]["response"]["diagnostics"][0]["code"], "OPERATION_NOT_IN_CATALOG")
+        self.assertEqual(events[2]["response"]["diagnostics"][0]["code"], "OPERATION_NOT_IN_CATALOG")
+        self.assertTrue(all(event["execution_origin"] == "runner_prevalidation" for event in events[1:]))
+
+
     def test_compacted_conversation_preserves_exact_gateway_state_and_latest_diagnostics(self):
         base = [
             {"role": "system", "content": "system"},
