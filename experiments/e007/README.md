@@ -22,6 +22,24 @@ Provider adapters must preserve raw traces and must not invent missing token or 
 
 The case pins per-run input/output/token/tool/wall ceilings and an aggregate token/time budget. Before starting each repetition, the runner reserves the configured worst-case allowance. If the next run cannot fit, it records the remaining repetitions as `not_started`, marks them ineligible, and classifies them as `resource_budget_exceeded`, not an agent failure. Unknown provider usage fails closed before another repetition. Monetary cost is estimated only when explicit token tariffs are configured. Local Ollama is marked `unpriced_local`; currency cost is unknown, not zero. A mock integration test exercises the over-budget path.
 
+## Proposal-representation factorial — implementation complete, not dispatched
+
+The corrected E-007 factorial is now implemented end-to-end:
+
+- **A:** snapshot + per-operation contract inspection.
+- **B:** delta + per-operation contract inspection.
+- **C:** snapshot + complete contracts in one service-level inspection.
+- **D:** delta + complete contracts in one service-level inspection.
+- **E (exploratory only):** delta + minimal disclosure. E is not part of the 2×2 factorial.
+
+The five case manifests are under `evals/e007-factorial-*.eval.json`. The Gateway, local-agent adapter, and independent evaluator consume the same pinned `proposal_mode` and `base_disclosure` values. The evaluator independently rebuilds delta proposals from the trusted `catalog.an` base, verifies the materialized change-set hash, and requires the exact same hash for successful validation and safe planning. The agent never receives the evaluator's trusted base as a hidden oracle in minimal mode. Seeded generated-base tests cover 12 valid base-service variants and verify exact preservation under shuffled operation order; formal mutation testing remains a gate before broadening the change language or enabling apply.
+
+Deterministic implementation checks passed:
+- E-009 integrated Gateway/local-agent suite: [workflow 44282349404](https://github.com/mojtaba-arvin/agent-native/actions/runs/44280943921).
+- E-007 scorer and factorial tests: [workflow 44282651696](https://github.com/mojtaba-arvin/agent-native/actions/runs/44281034211).
+
+These are protocol and evaluator tests only. **No real-model factorial run has been dispatched.** The dispatch/case identity mismatch is resolved by a version-2 manifest that separates dispatch_id from case eval_id and binds exact case paths. A fail-closed validator checks the complete A–D cohort, equal model settings/budgets, no-apply policy, and seeded execution order C-A-D-B before any model request. The real-agent workflow is manual-dispatch-only; ordinary research-branch pushes cannot launch Qwen3. Existing Qwen3 settings and ceilings remain unchanged.
+
 ## First three-run Qwen3 result — not accepted
 
 The corrected real-model workflow [44087982547](https://github.com/mojtaba-arvin/agent-native/actions/runs/44087982547), artifact [14332334550](https://github.com/mojtaba-arvin/agent-native/actions/runs/44087982547/artifacts/14332334550), ran `qwen3:8b` via Ollama three times. All three attempts failed at `service.validate` with `AN021`:

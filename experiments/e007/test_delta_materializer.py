@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import random
 import sys
 import unittest
 from copy import deepcopy
@@ -144,6 +145,48 @@ class DeltaMaterializerTests(unittest.TestCase):
         operation["method"] = "NOT-A-METHOD"
         request = self.request(changes=[{"kind": "add_operation", "operation": operation}])
         self.assert_code("materialized_ir_invalid", request)
+
+
+    def test_generated_valid_base_services_preserve_every_existing_contract(self):
+        rng = random.Random(20261118)
+        for base_size in range(1, 13):
+            with self.subTest(base_size=base_size):
+                generated_base = deepcopy(self.base)
+                for index in range(base_size):
+                    existing = deepcopy(self.operation)
+                    existing["name"] = f"generated_existing_{index}"
+                    existing["path"] = f"/generated/{index}/{{name}}"
+                    generated_base["operations"].append(existing)
+                rng.shuffle(generated_base["operations"])
+                new_operation = deepcopy(self.operation)
+                new_operation["name"] = "generated_delta_operation"
+                new_operation["path"] = f"/generated/new/{base_size}/{{name}}"
+                revision = digest(generated_base)
+                request = {
+                    "service_id": "catalog",
+                    "base_revision": revision,
+                    "changes": [{"kind": "add_operation", "operation": new_operation}],
+                }
+                raw = json.dumps(request, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+                first = materialize_add_operation(
+                    raw, service_id="catalog", current_service=generated_base,
+                    trusted_effects=self.trusted_effects,
+                    trusted_capabilities=self.trusted_capabilities,
+                )
+                second = materialize_add_operation(
+                    raw, service_id="catalog", current_service=generated_base,
+                    trusted_effects=self.trusted_effects,
+                    trusted_capabilities=self.trusted_capabilities,
+                )
+                self.assertEqual(first["ir"]["operations"][:-1], generated_base["operations"])
+                self.assertEqual(first["ir"]["operations"][-1], new_operation)
+                self.assertEqual(first["ir"]["service"], generated_base["service"])
+                self.assertEqual(first["ir"]["types"], generated_base["types"])
+                self.assertEqual(first["change_set_id"], second["change_set_id"])
+                self.assertEqual(first["intent_digest"], second["intent_digest"])
+                self.assertEqual(first["change_set_id"], digest({
+                    "service_id": "catalog", "base_revision": revision, "ir": first["ir"],
+                }))
 
     def test_duplicate_keys_non_finite_values_invalid_utf8_and_size_are_rejected(self):
         with self.assertRaisesRegex(DeltaMaterializationError, "duplicate_json_key"):
