@@ -309,12 +309,10 @@ class AgentGatewayTests(unittest.TestCase):
         self.assertEqual(len(proposed["result"]["intent_digest"]), 64)
         stored = gateway.interface.proposals[change_set_id]
         self.assertEqual(stored["ir"]["operations"][:-1], load_service_ir(SOURCE)["operations"])
-        self.assertEqual(stored["normalized_intent"], delta | {
-            "changes": [{
-                "kind": "add_operation",
-                "operation": delta["changes"][0]["operation"],
-            }],
-        } if False else stored["normalized_intent"])
+        self.assertEqual(stored["normalized_intent"]["service_id"], "catalog")
+        self.assertEqual(stored["normalized_intent"]["base_revision"], base_revision)
+        self.assertEqual(stored["normalized_intent"]["changes"][0]["kind"], "add_operation")
+        self.assertEqual(stored["normalized_intent"]["changes"][0]["operation"], delta["changes"][0]["operation"])
 
         validated = self.call(
             gateway, "delta-validate", "service.validate", {"change_set_id": change_set_id}
