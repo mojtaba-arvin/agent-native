@@ -167,6 +167,63 @@ class AgentGatewayTests(unittest.TestCase):
             len(load_service_ir(SOURCE)["operations"]),
         )
 
+    def test_repeated_service_inspection_redirects_to_uninspected_operation_without_resetting_progress(self):
+        first = self.call(
+            self.upfront, "inspect-service", "service.inspect", {"service_id": "catalog"}
+        )
+        self.assertTrue(first["ok"])
+        operation_names = [item["name"] for item in first["result"]["operations"]]
+        expected_actions = [
+            f"service.inspect with operation={name}" for name in operation_names
+        ]
+        self.assertEqual(first["next_actions"], expected_actions)
+
+        repeated = self.call(
+            self.upfront, "repeat-service-inspect", "service.inspect", {"service_id": "catalog"}
+        )
+        self.assertFalse(repeated["ok"])
+        self.assertEqual(repeated["diagnostics"][0]["code"], "INSPECTION_OPERATION_REQUIRED")
+        self.assertEqual(repeated["next_actions"], expected_actions)
+
+        first_operation = self.call(
+            self.upfront,
+            "inspect-first-operation",
+            "service.inspect",
+            {"service_id": "catalog", "operation": operation_names[0]},
+        )
+        self.assertTrue(first_operation["ok"])
+        repeated_again = self.call(
+            self.upfront, "repeat-after-one-operation", "service.inspect", {"service_id": "catalog"}
+        )
+        self.assertFalse(repeated_again["ok"])
+        self.assertEqual(
+            repeated_again["next_actions"],
+            [f"service.inspect with operation={name}" for name in operation_names[1:]],
+        )
+
+        for name in operation_names[1:]:
+            result = self.call(
+                self.upfront,
+                f"inspect-{name}",
+                "service.inspect",
+                {"service_id": "catalog", "operation": name},
+            )
+            self.assertTrue(result["ok"])
+
+        complete = self.call(
+            self.upfront, "repeat-after-complete-inspection", "service.inspect",
+            {"service_id": "catalog"},
+        )
+        self.assertTrue(complete["ok"])
+        self.assertEqual(
+            complete["next_actions"],
+            ["service.propose with the inspected base_revision and complete canonical IR snapshot"],
+        )
+        self.assertEqual(
+            self.upfront._inspected_operations,
+            set(operation_names),
+        )
+
     def test_stale_revision_and_unknown_tools_are_rejected(self):
         inspected = self.call(
             self.progressive, "inspect-002", "service.inspect", {"service_id": "catalog"}

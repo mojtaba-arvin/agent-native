@@ -34,6 +34,8 @@ from local_agent import (
     _proposal_budget_response,
     _proposal_attempt_gate,
     prevalidate_catalog_operation,
+    prevalidate_tool_call,
+    prevalidation_repair_key,
     _compact_conversation,
     _build_compaction_ledger,
 )
@@ -355,6 +357,48 @@ class LocalAgentRunnerTests(unittest.TestCase):
             server.shutdown()
             server.server_close()
             thread.join(timeout=5)
+
+    def test_propose_prevalidation_allows_distinct_repairs_but_stops_on_repeat(self):
+        surface = {
+            "tools": [{
+                "name": "service.propose",
+                "input_schema": {
+                    "type": "object",
+                    "required": ["service_id", "base_revision", "ir"],
+                },
+            }],
+        }
+        missing_service = prevalidate_tool_call(
+            {
+                "request_id": "propose-missing-service",
+                "tool": "service.propose",
+                "arguments": {"base_revision": "revision", "ir": {}},
+            },
+            surface,
+        )
+        missing_snapshot = prevalidate_tool_call(
+            {
+                "request_id": "propose-missing-snapshot",
+                "tool": "service.propose",
+                "arguments": {"service_id": "catalog", "operation": "get_item_by_normalized_name"},
+            },
+            surface,
+        )
+        self.assertIsNotNone(missing_service)
+        self.assertIsNotNone(missing_snapshot)
+        self.assertIn("service_id", missing_service["diagnostics"][0]["message"])
+        self.assertIn("complete canonical service snapshot", missing_snapshot["diagnostics"][0]["fix_hint"])
+
+        first_key = prevalidation_repair_key("service.propose", missing_service["diagnostics"][0])
+        second_key = prevalidation_repair_key("service.propose", missing_snapshot["diagnostics"][0])
+        self.assertNotEqual(first_key, second_key)
+        repaired = {first_key}
+        self.assertNotIn(second_key, repaired)
+        repaired.add(second_key)
+        self.assertIn(
+            second_key,
+            {prevalidation_repair_key("service.propose", missing_snapshot["diagnostics"][0])},
+        )
 
     def test_runner_stops_after_repeating_an_identical_invalid_tool_call(self):
         invalid_call = {
