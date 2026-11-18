@@ -33,6 +33,7 @@ from local_agent import (
     _persist_candidate_response,
     _proposal_budget_response,
     _proposal_attempt_gate,
+    _is_proposal_budget_exhausted,
     prevalidate_catalog_operation,
     prevalidate_tool_call,
     prevalidation_repair_key,
@@ -909,6 +910,16 @@ class LocalAgentRunnerTests(unittest.TestCase):
         self.assertEqual(attempts, 4)
         self.assertFalse(response["ok"])
         self.assertEqual(response["diagnostics"][0]["code"], "PROPOSAL_REPAIR_BUDGET_EXCEEDED")
+
+    def test_exhausted_proposal_budget_is_a_terminal_runner_condition(self):
+        response = _proposal_budget_response({"request_id": "fourth-proposal"})
+        self.assertTrue(_is_proposal_budget_exhausted(response))
+        self.assertFalse(_is_proposal_budget_exhausted({
+            "ok": False,
+            "diagnostics": [{"code": "INSPECTION_INCOMPLETE"}],
+        }))
+        self.assertFalse(_is_proposal_budget_exhausted({"ok": True, "diagnostics": []}))
+
 
     def test_proposal_repair_budget_response_is_explicit_and_fail_closed(self):
         response = _proposal_budget_response({"request_id": "fourth-proposal"})
