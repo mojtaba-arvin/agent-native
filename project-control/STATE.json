@@ -11,7 +11,7 @@
   "last_completed_task_id": "CP-006",
   "last_known_green_revision": null,
   "wip_limit": 2,
-  "next_action": "Open the unified workflow as a stacked draft PR; verify responsibility coverage and wait for PR #64 to provide the base workflow for an authoritative CI run.",
+  "next_action": "Verify the corrected E-007 manifest in Layer 0 and confirm that a new run no longer cancels the in-flight Layer 1 job; then complete unified workflow migration review.",
   "recovery": {
     "unchanged_failure_limit": 2,
     "no_progress_attempt_limit": 3,
