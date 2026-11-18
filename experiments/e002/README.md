@@ -144,3 +144,8 @@ The current benchmark harness uses 5 ms `/proc` process-tree samples for CPU acc
 The summary records the method, interval, and limitations. This is an improvement over the historical start/end process-tree snapshots, but it is **not cgroup accounting**: a descendant that starts and exits entirely between samples, or is reparented before discovery, may still be missed. Peak RSS remains the maximum sum of visible process-tree RSS samples and can double-count shared pages. The method is suitable for a better diagnostic, not a controlled-host capacity claim.
 
 Historical November 2026 cohorts were collected with the earlier start/end CPU snapshot method. Keep those results unchanged and do not pool them with results from this revised sampler. The new method must be recorded in every future matrix artifact.
+
+
+## Product-representative workload design
+
+The next E-002 phase is specified in [control-plane-workload.md](control-plane-workload.md). It defines the authenticated Agent/tool-execution request lifecycle, deterministic operation mix, durable audit and idempotent job/outbox semantics, fault injection, and controlled-host measurement requirements. This is a design proposal only: the current four HTTP probes do not implement that workload, and no runtime or persistence substrate is selected. The 25 CPU-seconds/5,000-request capacity bound remains a hypothesis until the same semantics are implemented and measured on a controlled one-vCPU host.
