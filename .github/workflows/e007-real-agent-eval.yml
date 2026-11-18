@@ -13,7 +13,7 @@ permissions:
 
 concurrency:
   group: e007-real-agent-eval-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   qwen3-deterministic-postfix-expanded-budget:
