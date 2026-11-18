@@ -15,7 +15,7 @@ The weighted score is a transparent comparison aid, not a substitute for hard co
 | Peak process-tree RSS | 15 | MiB | ≤ 128 MiB | Not set |
 | CPU time | 10 | CPU seconds per 5,000-request batch | ≤ 0.5 s (historical only) | ≤ 25 s (provisional) |
 | Ecosystem / operability | 10 | Evidence-based rubric, 0–5 | ≥ 3/5 | Not measured |
-| Failure semantics | 10 | Defined fault-injection assertions | 100% pass; also a hard gate | 100% pass; also a hard gate |
+| Failure semantics | 10 | Defined fault-injection assertions | Not measured | 100% pass; also a hard gate |
 | Startup time | 5 | Process start to first healthy response | ≤ 5 s | Not set |
 | Deployable artifact size | 5 | Documented comparable package size | ≤ 100 MiB | Not set |
 | **Total** | **100** | | | |
