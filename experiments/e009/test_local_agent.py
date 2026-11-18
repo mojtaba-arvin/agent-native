@@ -6,8 +6,8 @@ import os
 import stat
 import sys
 import tempfile
-import threading
 import time
+import threading
 import unittest
 from unittest.mock import patch
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -34,6 +34,8 @@ from local_agent import (
     _proposal_budget_response,
     _proposal_attempt_gate,
     prevalidate_catalog_operation,
+    _compact_conversation,
+    _build_compaction_ledger,
 )
 
 
@@ -326,6 +328,26 @@ class LocalAgentRunnerTests(unittest.TestCase):
                 )
                 run_dir = Path(result["candidate_path"]).parent
                 self.assertTrue((run_dir / "tool-trace.jsonl").is_file())
+                prompt_states = [
+                    json.loads(line)
+                    for line in (run_dir / "prompt-states.jsonl").read_text(encoding="utf-8").splitlines()
+                ]
+                self.assertEqual(len(prompt_states), Handler.index)
+                self.assertEqual(prompt_states[0]["kind"], "initial_session_surface")
+                self.assertEqual(prompt_states[1]["kind"], "gateway_state_ledger")
+                self.assertTrue(all(item["state_sha256"] == digest(item["state"]) for item in prompt_states))
+                provider_rows = [
+                    json.loads(line)
+                    for line in (run_dir / "provider-responses.jsonl").read_text(encoding="utf-8").splitlines()
+                ]
+                self.assertEqual(
+                    [item["prompt_state_sha256"] for item in provider_rows],
+                    [item["state_sha256"] for item in prompt_states],
+                )
+                self.assertTrue(all(len(item["payload_sha256"]) == 64 for item in provider_rows))
+                self.assertEqual([item["payload_metadata"]["turn"] for item in provider_rows],
+                                 list(range(1, len(provider_rows) + 1)))
+                self.assertTrue(all(item["payload_metadata"]["keep_alive"] == "10m" for item in provider_rows))
                 self.assertEqual(stat.S_IMODE((run_dir / "candidate.json").stat().st_mode), 0o600)
                 self.assertEqual(stat.S_IMODE(run_dir.stat().st_mode), 0o700)
                 self.assertEqual(Handler.index, len(responses))
@@ -341,7 +363,7 @@ class LocalAgentRunnerTests(unittest.TestCase):
                 "arguments": {
                     "request_id": "same-invalid-request",
                     "tool": "service.inspect",
-                    "arguments": {"name": "Catalog"},
+                    "arguments": {},
                 },
             },
         }
@@ -418,8 +440,25 @@ class LocalAgentRunnerTests(unittest.TestCase):
                 run_dirs = list((Path(temp) / "results").iterdir())
                 self.assertEqual(len(run_dirs), 1)
                 trace = run_dirs[0] / "tool-trace.jsonl"
-                events = [json.loads(line) for line in trace.read_text(encoding="utf-8").splitlines()]
+                events = [
+                    json.loads(line)
+                    for line in trace.read_text(encoding="utf-8").splitlines()
+                ]
+                prompt_states = [
+                    json.loads(line)
+                    for line in (run_dirs[0] / "prompt-states.jsonl").read_text(encoding="utf-8").splitlines()
+                ]
+                self.assertEqual(len(prompt_states), 2)
+                self.assertEqual(prompt_states[1]["state"]["tool_sequence"], ["service.inspect"])
+                self.assertEqual(
+                    prompt_states[1]["state"]["recent_tool_outcomes"][-1]["diagnostics"][0]["code"],
+                    "ARGUMENTS_REQUIRED",
+                )
                 self.assertEqual(len(events), 2)
+                self.assertEqual(
+                    [event["response"]["diagnostics"][0]["code"] for event in events],
+                    ["ARGUMENTS_REQUIRED", "ARGUMENTS_REQUIRED"],
+                )
                 self.assertTrue(all(event["execution_origin"] == "runner_prevalidation" for event in events))
                 self.assertIn('service_id: "catalog"', events[0]["response"]["diagnostics"][0]["message"])
                 self.assertEqual(Handler.index, 2)
@@ -427,6 +466,194 @@ class LocalAgentRunnerTests(unittest.TestCase):
             server.shutdown()
             server.server_close()
             thread.join(timeout=5)
+
+
+    def _run_catalog_guard_provider_double(self, operation_names):
+        calls = [{
+            "request_id": "service-inspect",
+            "tool": "service.inspect",
+            "arguments": {"service_id": "catalog"},
+        }]
+        calls.extend({
+            "request_id": f"operation-inspect-{index}",
+            "tool": "service.inspect",
+            "arguments": {"service_id": "catalog", "operation": name},
+        } for index, name in enumerate(operation_names, 1))
+        responses = [{
+            "message": {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [{
+                    "function": {"name": "agent.invoke", "arguments": call}
+                }],
+            },
+            "prompt_eval_count": 30 + index,
+            "eval_count": 12,
+        } for index, call in enumerate(calls)]
+        responses.append({
+            "message": {"role": "assistant", "content": "{}", "tool_calls": []},
+            "prompt_eval_count": 40,
+            "eval_count": 2,
+        })
+
+        class Handler(BaseHTTPRequestHandler):
+            index = 0
+            response_values = responses
+
+            def do_POST(self):
+                length = int(self.headers["Content-Length"])
+                self.rfile.read(length)
+                value = type(self).response_values[type(self).index]
+                type(self).index += 1
+                raw = json.dumps(value, separators=(",", ":")).encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(raw)))
+                self.end_headers()
+                self.wfile.write(raw)
+
+            def log_message(self, *_args):
+                return
+
+        server = HTTPServer(("127.0.0.1", 0), Handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        gateway_calls = []
+
+        def fake_gateway(_process, request):
+            gateway_calls.append(copy.deepcopy(request))
+            arguments = request["arguments"]
+            if "operation" not in arguments:
+                result = copy.deepcopy(self.inspected)
+            else:
+                result = {"operation": copy.deepcopy(self.inspected_operations[arguments["operation"]])}
+            return {
+                "type": "tool_result",
+                "request_id": request["request_id"],
+                "response": {"protocol_version": "0.1", "request_id": request["request_id"],
+                             "ok": True, "result": result, "diagnostics": [], "next_actions": []},
+            }
+
+        try:
+            with tempfile.TemporaryDirectory(prefix="agent-native-e009-", dir="/tmp") as temp:
+                args = SimpleNamespace(
+                    model="deterministic-test-double",
+                    ollama_url=f"http://127.0.0.1:{server.server_port}",
+                    arm="upfront",
+                    results_dir=Path(temp) / "results",
+                    max_input_tokens=2000,
+                    max_output_tokens=1000,
+                    max_tool_calls=20,
+                    max_wall_seconds=30.0,
+                    num_ctx=4096,
+                    num_predict=256,
+                    temperature=0.0,
+                    top_p=1.0,
+                    seed=7,
+                    think=False,
+                )
+                with patch.object(local_agent, "gateway_exchange", side_effect=fake_gateway):
+                    result = run(args)
+                run_dir = next((Path(temp) / "results").iterdir())
+                events = [json.loads(line) for line in (run_dir / "tool-trace.jsonl").read_text(encoding="utf-8").splitlines()]
+                prompt_states = [json.loads(line) for line in (run_dir / "prompt-states.jsonl").read_text(encoding="utf-8").splitlines()]
+                self.assertEqual(len(prompt_states), Handler.index)
+                self.assertTrue(all(item["state_sha256"] == digest(item["state"]) for item in prompt_states))
+                return result, gateway_calls, events, Handler.index
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=5)
+
+    def test_provider_double_repairs_unknown_operation_without_sending_it_to_gateway(self):
+        result, gateway_calls, events, provider_calls = self._run_catalog_guard_provider_double([
+            "get_item_by_normalized_name", "get_item"
+        ])
+        self.assertEqual(result["failure"], "AgentRunError:proposal_not_successfully_created")
+        self.assertEqual(provider_calls, 4)
+        self.assertEqual([call["arguments"].get("operation") for call in gateway_calls],
+                         [None, "get_item"])
+        self.assertEqual(events[1]["execution_origin"], "runner_prevalidation")
+        self.assertEqual(events[1]["response"]["diagnostics"][0]["code"], "OPERATION_NOT_IN_CATALOG")
+        self.assertEqual(events[2]["execution_origin"], "gateway")
+        self.assertEqual(events[2]["response"]["ok"], True)
+
+    def test_provider_double_stops_after_second_unknown_operation_name(self):
+        result, gateway_calls, events, provider_calls = self._run_catalog_guard_provider_double([
+            "get_item_by_normalized_name", "another_unknown_operation"
+        ])
+        self.assertEqual(result["failure"], "AgentRunError:operation_not_in_catalog")
+        self.assertEqual(provider_calls, 3)
+        self.assertEqual(len(gateway_calls), 1)
+        self.assertNotIn("operation", gateway_calls[0]["arguments"])
+        self.assertEqual(len(events), 3)
+        self.assertEqual(events[1]["response"]["diagnostics"][0]["code"], "OPERATION_NOT_IN_CATALOG")
+        self.assertEqual(events[2]["response"]["diagnostics"][0]["code"], "OPERATION_NOT_IN_CATALOG")
+        self.assertTrue(all(event["execution_origin"] == "runner_prevalidation" for event in events[1:]))
+
+
+    def test_compacted_conversation_preserves_exact_gateway_state_and_latest_diagnostics(self):
+        base = [
+            {"role": "system", "content": "system"},
+            {"role": "user", "content": "task"},
+            {"role": "user", "content": "tool schemas"},
+        ]
+        operation = copy.deepcopy(self.inspected_operations["get_item_by_name"])
+        ordered_operations = {
+            "get_job": copy.deepcopy(self.inspected_operations["get_job"]),
+            "get_item_by_name": operation,
+        }
+        diagnostics = [{
+            "code": "IR_PRESERVATION_MISMATCH",
+            "message": "changed existing operation",
+            "fix_hint": "Copy the exact inspected declaration",
+        }]
+        compacted = _compact_conversation(
+            base,
+            self.inspected,
+            ordered_operations,
+            ["service.inspect", "service.propose"],
+            [
+                {"tool": "service.inspect", "ok": True},
+                {
+                    "tool": "service.propose",
+                    "ok": False,
+                    "diagnostics": diagnostics,
+                    "next_actions": ["Correct the complete IR"],
+                },
+            ],
+        )
+        self.assertEqual(compacted[:3], base)
+        self.assertEqual(len(compacted), 4)
+        self.assertEqual([item["role"] for item in compacted], ["system", "user", "user", "user"])
+        ledger = json.loads(compacted[3]["content"].split("\n", 1)[1])
+        self.assertEqual(ledger["service_inspection"], self.inspected)
+        self.assertEqual(
+            ledger["operation_inspections"]["get_item_by_name"],
+            operation,
+        )
+        self.assertEqual(list(ledger["operation_inspections"]), ["get_job", "get_item_by_name"])
+        self.assertEqual(ledger["tool_sequence"], ["service.inspect", "service.propose"])
+        self.assertEqual(ledger["recent_tool_outcomes"][-1]["diagnostics"], diagnostics)
+        self.assertEqual(ledger["recent_tool_outcomes"][-1]["next_actions"], ["Correct the complete IR"])
+        self.assertNotIn("assistant", [item["role"] for item in compacted])
+        self.assertNotIn("tool_calls", compacted[3]["content"])
+
+    def test_compaction_ledger_is_deterministic_and_traceable(self):
+        tool_sequence = ["service.inspect", "service.propose"]
+        outcomes = [{"tool": "service.inspect", "ok": True}]
+        first = _build_compaction_ledger(
+            self.inspected, self.inspected_operations, tool_sequence, outcomes
+        )
+        second = _build_compaction_ledger(
+            self.inspected, self.inspected_operations, tool_sequence, outcomes
+        )
+        self.assertEqual(first, second)
+        self.assertEqual(digest(first), digest(second))
+        self.assertEqual(first["service_inspection"], self.inspected)
+        self.assertEqual(first["operation_inspections"], self.inspected_operations)
+        self.assertEqual(first["tool_sequence"], tool_sequence)
+        self.assertEqual(first["recent_tool_outcomes"], outcomes)
 
     def test_provider_chat_enforces_absolute_deadline_during_slow_drip_response(self):
         class SlowDripHandler(BaseHTTPRequestHandler):
@@ -462,6 +689,7 @@ class LocalAgentRunnerTests(unittest.TestCase):
             server.shutdown()
             server.server_close()
             thread.join(timeout=5)
+
 
     def test_ollama_endpoint_is_strictly_loopback_ip(self):
         self.assertEqual(validate_ollama_endpoint("http://127.0.0.1:11434"), ("127.0.0.1", 11434))
@@ -543,30 +771,27 @@ class LocalAgentRunnerTests(unittest.TestCase):
         self.assertEqual(response["diagnostics"][0]["code"], "PROPOSAL_REPAIR_BUDGET_EXCEEDED")
 
 
-    def test_unknown_catalog_operation_gets_one_repair_then_stops(self):
+    def test_catalog_operation_guard_allows_one_repair_and_stops_on_any_second_unknown_name(self):
         inspected = {"operations": [{"name": name} for name in (
             "cancel_job", "create_item", "get_item", "get_item_by_name", "get_job", "submit_rebuild"
         )]}
-        request = {"request_id": "bad-op", "tool": "service.inspect",
-                   "arguments": {"service_id": "catalog", "operation": "get_item_by_normalized_name"}}
         attempts = set()
-        response = prevalidate_catalog_operation(request, inspected, attempts)
+        first = {"request_id": "bad-op-1", "tool": "service.inspect",
+                 "arguments": {"service_id": "catalog", "operation": "get_item_by_normalized_name"}}
+        response, exhausted = prevalidate_catalog_operation(first, inspected, attempts)
+        self.assertFalse(exhausted)
         self.assertEqual(response["diagnostics"][0]["code"], "OPERATION_NOT_IN_CATALOG")
         self.assertEqual(response["diagnostics"][0]["message"],
             "Operation 'get_item_by_normalized_name' not found. Available operations: "
             "[cancel_job, create_item, get_item, get_item_by_name, get_job, submit_rebuild]. "
             "If you want to create it, use service.propose instead.")
-        with self.assertRaisesRegex(AgentRunError, "operation_not_in_catalog"):
-            prevalidate_catalog_operation(request, inspected, attempts)
-
-    def test_known_catalog_operation_is_forwarded_and_new_operation_uses_propose(self):
-        inspected = {"operations": [{"name": "get_item"}, {"name": "get_item_by_name"}]}
-        attempts = set()
         known = {"tool": "service.inspect", "arguments": {"operation": "get_item"}}
-        unknown = {"tool": "service.inspect", "arguments": {"operation": "new_operation"}}
-        self.assertIsNone(prevalidate_catalog_operation(known, inspected, attempts))
-        response = prevalidate_catalog_operation(unknown, inspected, attempts)
-        self.assertIn("service.propose", response["diagnostics"][0]["message"])
+        self.assertEqual(prevalidate_catalog_operation(known, inspected, attempts), (None, False))
+        second = {"request_id": "bad-op-2", "tool": "service.inspect",
+                  "arguments": {"service_id": "catalog", "operation": "another_unknown_name"}}
+        response, exhausted = prevalidate_catalog_operation(second, inspected, attempts)
+        self.assertTrue(exhausted)
+        self.assertEqual(response["diagnostics"][0]["code"], "OPERATION_NOT_IN_CATALOG")
 
 
 if __name__ == "__main__":
