@@ -122,6 +122,7 @@ def score_run(run_record: dict, run_dir: Path, case: dict) -> dict:
     expected_operation = case["expected_operation"]
     trusted_base = load_service_ir((E009_ROOT / "catalog.an").read_text(encoding="utf-8"))
     trusted_names = [item["name"] for item in trusted_base["operations"]]
+    trusted_revision = _canonical_hash(trusted_base)
     trusted_summaries = [
         {"name": item["name"], "method": item["method"], "path": item["path"]}
         for item in trusted_base["operations"]
@@ -170,11 +171,21 @@ def score_run(run_record: dict, run_dir: Path, case: dict) -> dict:
             contract_changes = candidate.get("changes")
             contract_intent_digest = candidate.get("intent_digest")
             contract_materialized_ir_digest = candidate.get("materialized_ir_digest")
+        expected_candidate_fields = (
+            {
+                "schema_version", "task_id", "service_id", "base_revision",
+                "change_set_id", "proposal_mode", "intent_digest",
+                "materialized_ir_digest", "changes",
+            }
+            if proposal_mode == "delta" else
+            {"schema_version", "task_id", "service_id", "base_revision", "change_set_id", "ir"}
+        )
         contract_wrapper_ok = (
-            run_record.get("status") == "candidate_verified_locally"
+            set(candidate) == expected_candidate_fields
+            and run_record.get("status") == "candidate_verified_locally"
             and candidate.get("schema_version") == 1
             and candidate.get("task_id") == case["task_id"]
-            and (candidate.get("proposal_mode") == "delta" if proposal_mode == "delta" else "proposal_mode" not in candidate)
+            and (candidate.get("proposal_mode") == "delta" if proposal_mode == "delta" else True)
         )
     elif proposals:
         _, _, proposal_arguments, proposal_result = proposals[-1]
@@ -203,7 +214,10 @@ def score_run(run_record: dict, run_dir: Path, case: dict) -> dict:
             candidate_hash = computed_hash
             candidate_ok = bool(
                 identity_ok
-                and contract_base_revision == inspected.get("revision")
+                and contract_base_revision == trusted_revision
+                and inspected.get("revision") == trusted_revision
+                and inspected.get("service") == trusted_base.get("service")
+                and inspected.get("types") == trusted_base.get("types")
                 and contract_change_set_id == computed_hash
                 and contract_ir.get("ir_version") == 1
                 and contract_ir.get("service") == trusted_base.get("service")
@@ -231,7 +245,10 @@ def score_run(run_record: dict, run_dir: Path, case: dict) -> dict:
                 expected_changes = [{"kind": "add_operation", "operation": expected_operation}]
                 candidate_ok = bool(
                     identity_ok
-                    and contract_base_revision == inspected.get("revision")
+                    and contract_base_revision == trusted_revision
+                    and inspected.get("revision") == trusted_revision
+                    and inspected.get("service") == trusted_base.get("service")
+                    and inspected.get("types") == trusted_base.get("types")
                     and contract_changes == expected_changes
                     and contract_change_set_id == materialized["change_set_id"]
                     and contract_intent_digest == materialized["intent_digest"]
@@ -309,6 +326,7 @@ def score_run(run_record: dict, run_dir: Path, case: dict) -> dict:
             inspection_order_ok = bool(
                 initial_inspection and not operation_inspect_indices
                 and observed_names == expected_names
+                and operation_contracts == {item["name"]: item for item in trusted_base["operations"]}
                 and inspected.get("operations") == trusted_base.get("operations")
             )
         elif base_disclosure == "minimal":
@@ -316,6 +334,9 @@ def score_run(run_record: dict, run_dir: Path, case: dict) -> dict:
             inspection_order_ok = bool(
                 proposal_mode == "delta" and initial_inspection
                 and not operation_inspect_indices
+                and inspected.get("service") == trusted_base.get("service")
+                and inspected.get("types") == trusted_base.get("types")
+                and inspected.get("revision") == trusted_revision
                 and inspected.get("operations") == trusted_summaries
             )
 
