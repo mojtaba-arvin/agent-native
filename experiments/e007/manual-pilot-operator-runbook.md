@@ -1,6 +1,6 @@
 # E-007 — Manual factorial pilot operator runbook
 
-**Status:** ready for an authorized GitHub Actions operator; not dispatched by this document.  
+**Status:** one-shot marker-gated push dispatch is implemented; manual workflow_dispatch remains available.  
 **Workflow:** [E-007 matched proposal-surface factorial pilot](../../.github/workflows/e007-real-agent-eval.yml)  
 **Branch gate:** research/reboot-core only.
 
@@ -11,7 +11,7 @@ The workflow provisions Ollama, pulls qwen3:8b, and may run for hours. It is del
 ## Pre-dispatch checklist
 
 1. Confirm the target branch is exactly research/reboot-core.
-2. Confirm the workflow YAML still has only workflow_dispatch; no push, pull_request, schedule, or reusable automatic trigger.
+2. Confirm the workflow accepts only manual workflow_dispatch or the exact one-shot marker commit on research/reboot-core; no pull_request, schedule, or ordinary push trigger.
 3. Confirm the dispatch manifest validates all four matched cells A–D and their exact case paths/IDs.
 4. Confirm the current pinned revision contains:
    - terminal stop on exhausted proposal-repair budget;
@@ -26,9 +26,9 @@ The workflow provisions Ollama, pulls qwen3:8b, and may run for hours. It is del
 
 ## Dispatch
 
-Open the [GitHub Actions workflow](https://github.com/mojtaba-arvin/agent-native/actions/workflows/e007-real-agent-eval.yml), choose **Run workflow**, select research/reboot-core, and start one cohort. Do not start overlapping cohorts.
+Preferred route: use the [GitHub Actions workflow](https://github.com/mojtaba-arvin/agent-native/actions/workflows/e007-real-agent-eval.yml), choose **Run workflow**, select research/reboot-core, and start one cohort.
 
-The GitHub connector available to this execution session can inspect runs and artifacts but does not expose a workflow-dispatch write action. Therefore the workflow has not been launched from this session.
+If the execution environment cannot call workflow_dispatch, the repository provides a one-shot push proxy. It requires the exact validated manifest at `experiments/e007/dispatch-request.json` and the exact commit subject `experiment(e007): dispatch one bounded factorial cohort`. The workflow rejects any other branch, commit subject, marker content, model, repetition count, or apply setting. Never replay the marker after the one-shot request has been consumed.
 
 ## Post-run acceptance audit
 
