@@ -483,6 +483,23 @@ def _compact_conversation(
     ]
 
 
+def _maybe_compact_conversation(
+    args: argparse.Namespace,
+    messages: list[dict],
+    base_messages: list[dict],
+    inspected: dict | None,
+    inspected_operations: dict[str, dict],
+    tool_sequence: list[str],
+    tool_outcomes: list[dict],
+) -> list[dict]:
+    """Compact only when explicitly enabled; otherwise preserve raw history."""
+    if not getattr(args, "enable_compaction", False):
+        return messages
+    return _compact_conversation(
+        base_messages, inspected, inspected_operations, tool_sequence, tool_outcomes
+    )
+
+
 def _plan_gate_response(
     request: dict,
     successful_proposal: dict | None,
@@ -555,6 +572,7 @@ def run(args: argparse.Namespace) -> dict:
         "task_id": TASK_ID,
         "model": args.model,
         "arm": args.arm,
+        "compaction_enabled": bool(getattr(args, "enable_compaction", False)),
         "status": "running",
         "started_at_monotonic_ns": started,
         "finished_at_monotonic_ns": None,
@@ -882,7 +900,9 @@ def run(args: argparse.Namespace) -> dict:
                         "tool_name": "agent.invoke",
                         "content": json.dumps(nested, ensure_ascii=False, sort_keys=True, separators=(",", ":")),
                     })
-                messages = _compact_conversation(
+                messages = _maybe_compact_conversation(
+                    args,
+                    messages,
                     base_messages,
                     inspected,
                     inspected_operations,
@@ -956,6 +976,7 @@ def main() -> None:
     parser.add_argument("--top-p", type=float, default=1.0)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--think", action="store_true")
+    parser.add_argument("--enable-compaction", action="store_true", default=False)
     args = parser.parse_args()
     for name in ("max_input_tokens", "max_output_tokens", "max_tool_calls", "max_wall_seconds", "num_ctx", "num_predict"):
         value = getattr(args, name)

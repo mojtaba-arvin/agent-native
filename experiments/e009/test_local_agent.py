@@ -32,6 +32,7 @@ from local_agent import (
     _proposal_budget_response,
     _proposal_attempt_gate,
     _compact_conversation,
+    _maybe_compact_conversation,
     _build_compaction_ledger,
 )
 
@@ -510,6 +511,32 @@ class LocalAgentRunnerTests(unittest.TestCase):
         self.assertEqual(ledger["recent_tool_outcomes"][-1]["next_actions"], ["Correct the complete IR"])
         self.assertNotIn("assistant", [item["role"] for item in compacted])
         self.assertNotIn("tool_calls", compacted[3]["content"])
+
+    def test_compaction_is_opt_in_and_defaults_off(self):
+        base = [
+            {"role": "system", "content": "system"},
+            {"role": "user", "content": "task"},
+            {"role": "user", "content": "session surface"},
+        ]
+        raw_history = base + [
+            {"role": "assistant", "content": "", "tool_calls": [{"id": "call-1"}]},
+            {"role": "tool", "tool_name": "agent.invoke", "content": '{"ok":true}'},
+        ]
+        default_args = SimpleNamespace()
+        unchanged = _maybe_compact_conversation(
+            default_args, raw_history, base, {"service": {"name": "Catalog"}},
+            {"get_item": {"name": "get_item"}}, ["service.inspect"], [{"ok": True}],
+        )
+        self.assertIs(unchanged, raw_history)
+        self.assertEqual(unchanged, raw_history)
+
+        enabled_args = SimpleNamespace(enable_compaction=True)
+        compacted = _maybe_compact_conversation(
+            enabled_args, raw_history, base, {"service": {"name": "Catalog"}},
+            {"get_item": {"name": "get_item"}}, ["service.inspect"], [{"ok": True}],
+        )
+        self.assertEqual([item["role"] for item in compacted], ["system", "user", "user", "user"])
+        self.assertNotIn("tool_calls", compacted[-1]["content"])
 
     def test_compaction_ledger_is_deterministic_and_traceable(self):
         tool_sequence = ["service.inspect", "service.propose"]
