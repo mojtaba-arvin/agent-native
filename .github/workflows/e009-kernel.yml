@@ -43,6 +43,8 @@ jobs:
           python-version: "3.11.18"
       - name: Validate project execution control plane
         run: python project_control.py validate
+      - name: Display project execution status
+        run: python project_control.py status
       - name: Run project control-plane negative self-tests
         run: python project_control.py self-test
       - name: Validate E-001 parser and IR
