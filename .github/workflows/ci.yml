@@ -1,0 +1,221 @@
+name: Agent Native CI
+
+on:
+  push:
+  pull_request:
+    types: [opened, reopened, ready_for_review, synchronize]
+  merge_group:
+    types: [checks_requested]
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+    inputs:
+      model_suite:
+        description: Optional Layer 2 model evaluation
+        required: false
+        type: choice
+        default: none
+        options: [none, e007, e009, e010]
+
+permissions:
+  contents: read
+
+jobs:
+  fast:
+    name: Layer 0 · deterministic fast checks
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    concurrency:
+      group: layer-0-${{ github.event.pull_request.head.ref || github.ref }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11.18"
+      - name: Resolve comparison base
+        id: paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
+            echo "base=${{ github.event.pull_request.base.sha }}" >> "$GITHUB_OUTPUT"
+          elif [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
+            before="${{ github.event.before }}"
+            if [[ "$before" =~ ^0+$ ]]; then
+              echo "base=" >> "$GITHUB_OUTPUT"
+            else
+              echo "base=$before" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "base=" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Run affected suites in parallel
+        run: |
+          if [[ -n "${{ steps.paths.outputs.base }}" ]]; then
+            bash scripts/fast.sh --base "${{ steps.paths.outputs.base }}"
+          else
+            bash scripts/fast.sh
+          fi
+
+  extended:
+    name: Layer 1 · native, container, and database validation
+    if: github.event_name == 'merge_group' || github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    services:
+      postgres:
+        image: postgres:16.4
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: agent_native
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d agent_native"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      AGENT_NATIVE_E002_POSTGRES_DSN: postgresql://postgres:postgres@localhost:5432/agent_native
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11.18"
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23.12"
+      - uses: dtolnay/rust-toolchain@1.100.0
+        with:
+          targets: wasm32-wasip2
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: "29.1.2"
+          elixir-version: "1.20.5"
+      - name: E-001 Go and Rust baselines
+        run: go test ./...
+        working-directory: experiments/e001/baselines/go
+      - name: E-001 Rust baseline
+        run: cargo test --locked
+        working-directory: experiments/e001/baselines/rust
+      - name: E-002 Go runtime
+        run: |
+          go test ./...
+          go build -o "$RUNNER_TEMP/e002-go" .
+          python ../conformance.py --command "$RUNNER_TEMP/e002-go" --cwd .
+        working-directory: experiments/e002/go
+      - name: E-002 Rust runtime
+        run: |
+          cargo test --locked
+          cargo build --locked --release
+          python ../conformance.py --command ./target/release/agent-native-e002-rust --cwd .
+        working-directory: experiments/e002/rust
+      - name: E-002 WASI Preview 2 runtime
+        run: |
+          cargo build --locked --release --target wasm32-wasip2
+          curl -fsSL https://github.com/bytecodealliance/wasmtime/releases/download/v50.0.1/wasmtime-v50.0.1-x86_64-linux.tar.xz -o "$RUNNER_TEMP/wasmtime.tar.xz"
+          tar -xJf "$RUNNER_TEMP/wasmtime.tar.xz" -C "$RUNNER_TEMP"
+          WASMTIME_BIN="$(find "$RUNNER_TEMP" -type f -name wasmtime -perm -111 | head -n 1)"
+          test -n "$WASMTIME_BIN"
+          "$WASMTIME_BIN" --version
+          python ../conformance.py --command "$WASMTIME_BIN serve --addr=127.0.0.1:8080 -S cli=y -S http=y target/wasm32-wasip2/release/agent_native_e002_wasi_p2.wasm" --cwd .
+        working-directory: experiments/e002/wasi-p2
+      - name: E-002 BEAM runtime
+        run: |
+          mix test
+          python ../conformance.py --command "mix run -e AgentNativeE002Beam.Server.main()" --cwd .
+        working-directory: experiments/e002/beam
+      - name: E-002 PostgreSQL storage and cross-engine parity
+        run: |
+          python -m pip install "psycopg[binary]==3.2.9"
+          python -m unittest discover -s experiments/e002 -p "test_postgres_reference_adapter.py" -v
+          python -m unittest discover -s experiments/e002 -p "test_cross_engine_trace_parity.py" -v
+      - name: E-009 cgroup-v2 capacity smoke
+        run: |
+          python experiments/e009/performance_smoke.py \
+            --requests 1000 --repetitions 2 --concurrency 32 --target-rps 100 \
+            --containerized --enforce-capacity-gate --output "$RUNNER_TEMP/e009-cgroup-smoke.json"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: layer-1-native-and-cgroup-evidence
+          path: ${{ runner.temp }}/*.json
+          if-no-files-found: ignore
+          retention-days: 14
+
+  models:
+    name: Layer 2 · explicit model evaluations
+    if: github.event_name == 'workflow_dispatch' && inputs.model_suite != 'none'
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11.18"
+      - name: Install Ollama
+        run: |
+          curl --fail --silent --show-error --location https://ollama.com/install.sh | sh
+          ollama --version | tee "$RUNNER_TEMP/ollama-version.txt"
+      - name: Start Ollama and pull Qwen3
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo systemctl stop ollama.service 2>/dev/null || true
+          OLLAMA_GO_TEMPLATE=false OLLAMA_HOST=127.0.0.1:11434 ollama serve > "$RUNNER_TEMP/ollama-serve.log" 2>&1 &
+          for attempt in $(seq 1 60); do
+            if ollama list >/dev/null 2>&1; then break; fi
+            sleep 2
+          done
+          ollama list
+          ollama pull qwen3:8b
+          ollama show qwen3:8b --modelfile > "$RUNNER_TEMP/qwen3-modelfile.txt"
+          ollama list > "$RUNNER_TEMP/ollama-models.txt"
+      - name: Run E-007 matched factorial pilot
+        if: inputs.model_suite == 'e007'
+        env:
+          FACTORIAL_OUTPUT_DIR: ${{ runner.temp }}/agent-native-e007-factorial-${{ github.run_id }}
+          E007_PINNED_REV: ${{ github.sha }}
+          E007_REF_NAME: ${{ github.ref_name }}
+        run: |
+          python experiments/e007/validate_factorial_dispatch.py
+          bash -n experiments/e007/run_factorial_pilot.sh
+          python -m unittest discover -s experiments/e007 -p 'test_*.py' -v
+          bash experiments/e007/run_factorial_pilot.sh
+      - name: Run E-009 bounded real-agent trial
+        if: inputs.model_suite == 'e009'
+        run: |
+          python experiments/e009/local_agent.py \
+            --model qwen3:8b --arm upfront \
+            --results-dir "$RUNNER_TEMP/agent-native-e009-runs" \
+            --max-input-tokens 48000 --max-output-tokens 6000 \
+            --max-tool-calls 20 --max-wall-seconds 900 \
+            --num-ctx 8192 --num-predict 2048 \
+            --temperature 0 --top-p 1 --seed 42
+      - name: Run E-010 isolated sandbox apply demo
+        if: inputs.model_suite == 'e010'
+        run: bash experiments/e010/run_demo.sh
+      - name: Upload model-evaluation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: layer-2-model-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/agent-native-e007-factorial-*/
+            ${{ runner.temp }}/agent-native-e009-runs/
+            /tmp/agent-native-e010-runs/
+            ${{ runner.temp }}/ollama-version.txt
+            ${{ runner.temp }}/ollama-models.txt
+            ${{ runner.temp }}/qwen3-modelfile.txt
+            ${{ runner.temp }}/ollama-serve.log
+          if-no-files-found: warn
+          retention-days: 30

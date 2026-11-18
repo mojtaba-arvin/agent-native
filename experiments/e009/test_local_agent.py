@@ -317,7 +317,7 @@ class LocalAgentRunnerTests(unittest.TestCase):
                 return
 
         server = HTTPServer(("127.0.0.1", 0), Handler)
-        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread = threading.Thread(target=server.serve_forever, kwargs={"poll_interval": 0.01}, daemon=True)
         thread.start()
         try:
             with tempfile.TemporaryDirectory(prefix="agent-native-e009-", dir="/tmp") as temp:
@@ -464,7 +464,7 @@ class LocalAgentRunnerTests(unittest.TestCase):
                 return
 
         server = HTTPServer(("127.0.0.1", 0), Handler)
-        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread = threading.Thread(target=server.serve_forever, kwargs={"poll_interval": 0.01}, daemon=True)
         thread.start()
         try:
             with tempfile.TemporaryDirectory(prefix="agent-native-e009-", dir="/tmp") as temp:
@@ -563,7 +563,7 @@ class LocalAgentRunnerTests(unittest.TestCase):
                 return
 
         server = HTTPServer(("127.0.0.1", 0), Handler)
-        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread = threading.Thread(target=server.serve_forever, kwargs={"poll_interval": 0.01}, daemon=True)
         thread.start()
         try:
             with tempfile.TemporaryDirectory(prefix="agent-native-e009-", dir="/tmp") as temp:
@@ -668,7 +668,7 @@ class LocalAgentRunnerTests(unittest.TestCase):
                 return
 
         server = HTTPServer(("127.0.0.1", 0), Handler)
-        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread = threading.Thread(target=server.serve_forever, kwargs={"poll_interval": 0.01}, daemon=True)
         thread.start()
         gateway_calls = []
 
@@ -830,7 +830,7 @@ class LocalAgentRunnerTests(unittest.TestCase):
                 return
 
         server = HTTPServer(("127.0.0.1", 0), SlowDripHandler)
-        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread = threading.Thread(target=server.serve_forever, kwargs={"poll_interval": 0.01}, daemon=True)
         thread.start()
         started = time.monotonic()
         try:

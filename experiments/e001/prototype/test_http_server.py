@@ -39,7 +39,7 @@ class ReferenceHTTPServerTests(unittest.TestCase):
             runtime,
             StaticIdentityProvider({"test-token": context, "limited-token": limited_context}),
         )
-        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+        self.thread = threading.Thread(target=self.server.serve_forever, kwargs={"poll_interval": 0.01}, daemon=True)
         self.thread.start()
         self.base_url = f"http://127.0.0.1:{self.server.server_port}"
 
