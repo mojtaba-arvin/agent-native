@@ -63,20 +63,20 @@ for ((index=0; index<${#CASE_ROWS[@]}; index++)); do
   IFS=$'\t' read -r CASE_PATH EVAL_ID PROPOSAL_MODE BASE_DISCLOSURE ARM REPETITIONS TEMPERATURE TOP_P SEED NUM_CTX NUM_PREDICT MAX_INPUT MAX_OUTPUT MAX_TOOLS MAX_WALL <<< "$row"
   echo "Running $EVAL_ID ($PROPOSAL_MODE / $BASE_DISCLOSURE)"
   set +e
-  python "$WORKTREE/experiments/e007/eval_runner.py" \\
-    --case "$WORKTREE/$CASE_PATH" \\
-    --model qwen3:8b \\
-    --arm "$ARM" \\
-    --repetitions "$REPETITIONS" \\
-    --max-input-tokens "$MAX_INPUT" \\
-    --max-output-tokens "$MAX_OUTPUT" \\
-    --max-tool-calls "$MAX_TOOLS" \\
-    --max-wall-seconds "$MAX_WALL" \\
-    --num-ctx "$NUM_CTX" \\
-    --num-predict "$NUM_PREDICT" \\
-    --temperature "$TEMPERATURE" \\
-    --top-p "$TOP_P" \\
-    --seed "$SEED" \\
+  python "$WORKTREE/experiments/e007/eval_runner.py" \
+    --case "$WORKTREE/$CASE_PATH" \
+    --model qwen3:8b \
+    --arm "$ARM" \
+    --repetitions "$REPETITIONS" \
+    --max-input-tokens "$MAX_INPUT" \
+    --max-output-tokens "$MAX_OUTPUT" \
+    --max-tool-calls "$MAX_TOOLS" \
+    --max-wall-seconds "$MAX_WALL" \
+    --num-ctx "$NUM_CTX" \
+    --num-predict "$NUM_PREDICT" \
+    --temperature "$TEMPERATURE" \
+    --top-p "$TOP_P" \
+    --seed "$SEED" \
     --output-dir "$OUTPUT_ROOT/$EVAL_ID"
   EXIT_CODE=$?
   set -e
