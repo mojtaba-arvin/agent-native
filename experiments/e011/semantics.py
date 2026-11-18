@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
+import copy
 import hashlib
 import json
 from typing import Any
@@ -169,8 +170,9 @@ class IdempotencyLedger:
         digest = canonical_request_hash(payload)
         existing = self._entries.get(scope)
         if existing is None:
-            self._entries[scope] = (digest, outcome)
-            return "created", outcome
+            stored_outcome = copy.deepcopy(outcome)
+            self._entries[scope] = (digest, stored_outcome)
+            return "created", copy.deepcopy(stored_outcome)
         if existing[0] != digest:
             return "conflict", None
-        return "replayed", existing[1]
+        return "replayed", copy.deepcopy(existing[1])
