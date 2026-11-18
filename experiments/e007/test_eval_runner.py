@@ -8,10 +8,49 @@ from argparse import Namespace
 from pathlib import Path
 from unittest.mock import patch
 
-from eval_runner import (score_run, _wilson, _eligible, _failure_categories, _budget_can_start_next, _estimate_cost_usd, run_eval)
+from eval_runner import (score_run, _wilson, _eligible, _failure_categories, _budget_can_start_next, _estimate_cost_usd, run_eval, _e007_events)
+from metrics import summarize
 
 
 class EvalRunnerTests(unittest.TestCase):
+    def test_e007_events_preserve_actual_run_monotonic_timestamps(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "tool-trace.jsonl").write_text(json.dumps({
+                "sequence": 1,
+                "timestamp_ns": 2_000_000_000,
+                "request": {"tool": "service.inspect", "arguments": {"service_id": "catalog"}},
+                "response": {"ok": True, "result": {}},
+            }) + "\n", encoding="utf-8")
+            (root / "provider-responses.jsonl").write_text(json.dumps({
+                "prompt_eval_count": 10, "eval_count": 5,
+            }) + "\n", encoding="utf-8")
+            record = {
+                "run_id": "clock-run",
+                "model": "qwen3:8b",
+                "started_at_monotonic_ns": 1_000_000_000,
+                "finished_at_monotonic_ns": 4_000_000_000,
+                "input_tokens": 10,
+                "output_tokens": 5,
+                "failure": "AgentRunError:agent_task_failed",
+            }
+            events = _e007_events(
+                record, root,
+                {"candidate_id": "candidate-a"},
+                1,
+                {"accepted": False},
+                {"cost_pricing_mode": "unpriced_local"},
+            )
+            self.assertEqual(events[0]["timestamp_ns"], 1_000_000_000)
+            tool_event = next(event for event in events if event["event_type"] == "tool_call")
+            self.assertEqual(tool_event["timestamp_ns"], 2_000_000_000)
+            self.assertEqual(
+                [event["timestamp_ns"] for event in events if event["event_type"] == "task_finished"],
+                [4_000_000_000],
+            )
+            result = summarize(events)
+            self.assertEqual(result["tasks"][0]["wall_clock_seconds"], 3.0)
+
     def test_wilson_interval_is_bounded_and_defined_for_empty_sample(self):
         self.assertEqual(_wilson(0, 0), {"lower": None, "upper": None})
         interval = _wilson(3, 3)
@@ -376,11 +415,11 @@ class EvalRunnerTests(unittest.TestCase):
                 max_tool_calls=20, max_wall_seconds=10.0, num_ctx=8192,
                 num_predict=50, temperature=0.0, top_p=1.0, seed=42,
             )
-            stderr = "argparse: error: unrecognized arguments: --unexpected-flag\\n"
+            stderr = "argparse: error: unrecognized arguments: --unexpected-flag\n"
 
             def fake_run(command, **kwargs):
                 if command[0] == "git":
-                    output = "mock-revision\\n" if command[1] == "rev-parse" else ""
+                    output = "mock-revision\n" if command[1] == "rev-parse" else ""
                     return subprocess.CompletedProcess(command, 0, stdout=output, stderr="")
                 return subprocess.CompletedProcess(command, 2, stdout="", stderr=stderr)
 

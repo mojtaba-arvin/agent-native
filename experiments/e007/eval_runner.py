@@ -516,6 +516,7 @@ def _event(
     attempt: int,
     sequence: int,
     event_type: str,
+    timestamp_ns: int | None = None,
     **fields,
 ) -> dict:
     return {
@@ -525,7 +526,7 @@ def _event(
         "model_id": model_id,
         "task_id": "e009-add-readonly-operation",
         "attempt": attempt,
-        "timestamp_ns": time.monotonic_ns(),
+        "timestamp_ns": time.monotonic_ns() if timestamp_ns is None else timestamp_ns,
         "event_type": event_type,
         **fields,
     }
@@ -536,6 +537,7 @@ def _e007_events(run_record: dict, run_dir: Path, case: dict, attempt: int, scor
     model_id = run_record["model"]
     events = [_event(
         run_id, case["candidate_id"], model_id, attempt, 1, "task_started",
+        timestamp_ns=run_record.get("started_at_monotonic_ns"),
     )]
     trace = _read_trace(run_dir)
     for index, event in enumerate(trace, start=2):
@@ -569,7 +571,8 @@ def _e007_events(run_record: dict, run_dir: Path, case: dict, attempt: int, scor
             failure = diagnostics[0].get("code") if diagnostics and isinstance(diagnostics[0], dict) else "TOOL_ERROR"
             fields["failure_class"] = str(failure)
         events.append(_event(
-            run_id, case["candidate_id"], model_id, attempt, index, "tool_call", **fields,
+            run_id, case["candidate_id"], model_id, attempt, index, "tool_call",
+            timestamp_ns=event.get("timestamp_ns"), **fields,
         ))
 
     provider_path = run_dir / "provider-responses.jsonl"
@@ -595,6 +598,7 @@ def _e007_events(run_record: dict, run_dir: Path, case: dict, attempt: int, scor
             attempt,
             len(events) + 1,
             "model_usage",
+            timestamp_ns=run_record.get("finished_at_monotonic_ns"),
             input_tokens=run_record.get("input_tokens", 0),
             output_tokens=run_record.get("output_tokens", 0),
             **({
@@ -610,6 +614,7 @@ def _e007_events(run_record: dict, run_dir: Path, case: dict, attempt: int, scor
         attempt,
         len(events) + 1,
         "task_finished",
+        timestamp_ns=run_record.get("finished_at_monotonic_ns"),
         accepted=score["accepted"],
         **({"eligible_for_acceptance": False} if not _eligible(run_record) else {}),
         **({"failure_class": _failure_class(run_record) or "EVAL_SCORER_FAILED"} if not score["accepted"] else {}),
