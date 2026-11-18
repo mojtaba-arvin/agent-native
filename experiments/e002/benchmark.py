@@ -211,7 +211,7 @@ def main() -> int:
             raw = list(pool.map(one, range(args.requests)))
             elapsed = time.perf_counter() - start
             stop_monitor.set()
-            monitor_thread.join(timeout=2)
+            monitor_thread.join()
             cpu_tracker.observe(proc_tree_sample(process.pid))
 
         latencies = [item["latency_ms"] for item in raw]
