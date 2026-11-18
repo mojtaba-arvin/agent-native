@@ -102,6 +102,25 @@ jobs:
         working-directory: experiments/e002/beam
       - run: python -m py_compile experiments/e002/conformance.py experiments/e002/benchmark.py experiments/e002/run_matrix.py
       - run: python experiments/e002/conformance.py --command "mix run -e AgentNativeE002Beam.Server.main()" --cwd experiments/e002/beam
+      - name: Smoke-test descendant CPU accounting with BEAM
+        run: |
+          python experiments/e002/benchmark.py \
+            --command "mix run -e AgentNativeE002Beam.Server.main()" \
+            --cwd experiments/e002/beam \
+            --requests 100 --concurrency 8 --warmup 10 \
+            --label beam-cpu-sampler-smoke --output /tmp/e002-beam-cpu-sampler-smoke
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          summary = json.loads(Path("/tmp/e002-beam-cpu-sampler-smoke.json").read_text())
+          assert summary["functional_success"] is True
+          assert summary["cpu_accounting"]["method"] == "sampled_process_tree_cumulative_max"
+          assert summary["cpu_accounting"]["observed_process_count"] >= 1
+          assert summary["cpu_seconds"] >= 0
+          assert summary["peak_rss_bytes"] > 0
+          print("E-002 BEAM descendant CPU accounting smoke: PASS")
+          PY
 
   benchmark-matrix:
     if: (github.event_name == 'workflow_dispatch' && inputs.run_benchmark_matrix) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[benchmark]'))
