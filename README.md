@@ -24,7 +24,7 @@ The project may create a purpose-built language, DSL, compiler, virtual machine,
 
 ## Current status
 
-Active first-principles research across E-001 through E-010. The experiments are evidence instruments, not a preselected implementation stack.
+Active first-principles experiments E-001 through E-010, plus an E-011 inter-service research plan. The experiments are evidence instruments, not a preselected implementation stack.
 
 - **E-001–E-004:** executable contract/IR prototypes, runtime-substrate baselines, task execution semantics, and a default-deny capability reference model.
 - **E-005–E-006:** agent-facing inspect/propose/validate/plan interface and durable execution semantics, including idempotency, leases, fencing, and cancellation boundaries.
@@ -32,6 +32,7 @@ Active first-principles research across E-001 through E-010. The experiments are
 - **E-008:** transactional outbox/inbox reference model demonstrating at-least-once delivery with idempotent consumer processing; no arbitrary external API exactly-once guarantee.
 - **E-009:** integrated framework-kernel vertical slice composing the service IR/parser, capability checks, tenant-scoped storage, bounded HTTP host, durable jobs, outbox/inbox delivery, audit, and Agent Gateway. The default Gateway supports inspect/propose/validate/plan and keeps apply disabled.
 - **E-010:** isolated sandbox-apply demonstration using a private temporary SQLite store and an explicitly injected coordinator. It is not a production mutation or deployment path.
+- **E-011:** research plan for inter-service invocation and distributed failure semantics. It distinguishes service RPC, agent-tool protocols, agent-to-agent collaboration, event delivery, and orchestration layers. It is gated on E-007 real-agent acceptance and E-010 sandbox-apply review; no transport is selected.
 
 The historical E-002 Go/Rust/WASI/BEAM probes remain diagnostic; no runtime has been selected. No product language, syntax, runtime, service protocol, or persistence substrate has been selected. The next E-007 step is a manually dispatched, no-apply matched pilot using unchanged Qwen3 settings; branch pushes cannot start that model workflow.
 
