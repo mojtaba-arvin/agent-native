@@ -39,6 +39,7 @@ class SQLiteAuditSink:
     Every reported latency sample includes the durable audit decision path.
     The durable job path shares its commit with the audit row and outbox event.
     Idle worker and relay polls are read-only until actual work is available.
+    Durable job admission uses bounded synchronous commit batching.
     """
 
     def __init__(
