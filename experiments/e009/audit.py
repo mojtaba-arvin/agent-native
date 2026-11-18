@@ -46,6 +46,7 @@ class SQLiteAuditSink:
     The product pilot now uses a 100 req/s open-loop offered-load profile by default.
     Open-loop reports distinguish scheduled latency from service time and client queue delay.
     The next confirmatory pass uses ten repetitions to quantify first-repetition tail variability.
+    The latest HTTP trust-boundary suite passes before the confirmatory performance cohort.
     """
 
     def __init__(
