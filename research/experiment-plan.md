@@ -120,3 +120,6 @@ E-009 trusted host identity and atomic runtime publication remain open; the curr
 - E-009 HTTP trust-boundary suite rejects client-forged principal, tenant, and grants; [run 44339021741](https://github.com/mojtaba-arvin/agent-native/actions/runs/44339021741) passed 121 E-009 tests.
 - CI policy: E-002 and E-009 no longer cancel in-flight conformance/performance runs when a later commit arrives. This prevents wasted work and protects long-running measurements; latest pending runs may still replace earlier pending runs.
 - E-007 retry-1 [run 44337025030](https://github.com/mojtaba-arvin/agent-native/actions/runs/44337025030) has passed marker/preflight/Ollama/model provisioning and is still executing the matched A-D cohort. The corrected runner's 94-test suite passed. Acceptance remains pending artifact inspection.
+
+
+- E-002 now has two independently implemented single-node storage adapters: SQLite (24 passing tests) and PostgreSQL 16.4 (9 passing tests) in [workflow 44341683697](https://github.com/mojtaba-arvin/agent-native/actions/runs/44341683697). The next correctness step is to replay identical generated operation/fault traces against both and compare canonical outcomes; only after that should their performance be compared.
