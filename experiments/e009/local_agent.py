@@ -523,6 +523,15 @@ def _proposal_attempt_gate(request: dict, attempts: int) -> tuple[int, dict | No
     return next_attempt, None
 
 
+def _is_proposal_budget_exhausted(response: dict) -> bool:
+    """Treat the exhausted proposal-repair budget as a terminal run condition."""
+    diagnostics = response.get("diagnostics")
+    return isinstance(diagnostics, list) and any(
+        isinstance(item, dict) and item.get("code") == "PROPOSAL_REPAIR_BUDGET_EXCEEDED"
+        for item in diagnostics
+    )
+
+
 def _proposal_budget_response(request: dict) -> dict:
     return {
         "protocol_version": "0.1",
@@ -999,6 +1008,8 @@ def run(args: argparse.Namespace) -> dict:
                     record["tool_calls"] = call_number
                     tool_sequence.append(tool_name if isinstance(tool_name, str) else "<invalid>")
                     tool_outcomes.append(_compact_tool_outcome(tool_name, arguments, nested))
+                    if _is_proposal_budget_exhausted(nested):
+                        raise AgentRunError("proposal_repair_budget_exceeded")
                     if prevalidation_repair_exhausted:
                         raise AgentRunError("prevalidation_repair_failed")
                     if catalog_guard_exhausted:
