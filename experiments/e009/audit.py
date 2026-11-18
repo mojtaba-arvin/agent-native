@@ -43,6 +43,7 @@ class SQLiteAuditSink:
     The product pilot varies the job batch window independently from audit batching.
     Server resource usage is sampled separately from host-wide cgroup limits.
     Job batch size and delay are independently tunable from audit batching.
+    The product pilot now uses a 100 req/s open-loop offered-load profile by default.
     """
 
     def __init__(
