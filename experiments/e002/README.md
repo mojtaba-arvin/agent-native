@@ -149,3 +149,8 @@ Historical November 2026 cohorts were collected with the earlier start/end CPU s
 ## Product-representative workload design
 
 The next E-002 phase is specified in [control-plane-workload.md](control-plane-workload.md). It defines the authenticated Agent/tool-execution request lifecycle, deterministic operation mix, durable audit and idempotent job/outbox semantics, fault injection, and controlled-host measurement requirements. This is a design proposal only: the current four HTTP probes do not implement that workload, and no runtime or persistence substrate is selected. The 25 CPU-seconds/5,000-request capacity bound remains a hypothesis until the same semantics are implemented and measured on a controlled one-vCPU host.
+
+
+## Process-tree CPU sampler integration smoke
+
+The Go candidate's sampler smoke step passed in [E-002 workflow 44294049076](https://github.com/mojtaba-arvin/agent-native/actions/runs/44294049076): 100 measured requests, concurrency 8, warm-up 10; all 100 responses were HTTP 200. The revised sampler emitted the expected method metadata and reported 0.01 CPU seconds and 8,286,208 bytes peak summed RSS; observed p99 was 4.70 ms in this single short shared-runner smoke. This validates that the measurement path executes and emits plausible structured output. It is **not** a performance comparison, cgroup measurement, or product-capacity evidence.
