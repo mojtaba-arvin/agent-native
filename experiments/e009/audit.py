@@ -32,7 +32,8 @@ class SQLiteAuditSink:
     Callers do not return until their event's transaction has committed under
     SQLite synchronous=FULL. Concurrent callers may share one WAL commit;
     an event is never acknowledged merely because it entered the in-memory
-    batch. A failed transaction fails every caller in that batch closed.
+    batch. A failed transaction fails every caller in that batch closed. The
+    performance pilot keeps FULL durability enabled throughout measurement.
     """
 
     def __init__(
