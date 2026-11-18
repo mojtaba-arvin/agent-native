@@ -80,8 +80,8 @@
     "id": "sqlite-wal-full-reference",
     "implementation": "experiments/e002/sqlite_reference_adapter.py",
     "status": "single-adapter-conformance-passed",
-    "workflow_run_id": 44338644380,
-    "tests": 22,
+    "workflow_run_id": 44339334484,
+    "tests": 24,
     "durability_profile": "SQLite WAL, synchronous=FULL; metadata reports engine/version, WAL mode, synchronous, foreign keys, busy timeout, and canonicalization version",
     "guarantees_tested": [
       "atomic job+outbox+idempotency+audit admission",
@@ -90,7 +90,9 @@
       "32-way same-key linearization",
       "process crash after commit and before response reconciliation",
       "append-only audit",
-      "outbox lease fencing and stale-ack rejection"
+      "outbox lease fencing and stale-ack rejection",
+      "32 concurrent same-key/different-hash requests yield one winner and 31 conflicts",
+      "audit insert outage fails closed with zero partial admission records"
     ],
     "limitations": [
       "no cross-runtime adapter parity",
