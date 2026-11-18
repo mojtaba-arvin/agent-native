@@ -119,6 +119,17 @@ def summarize_kind(results):
             "max": max(latencies) if latencies else None,
             "mean": statistics.fmean(latencies) if latencies else None,
         },
+        "service_latency_ms": {
+            "p50": percentile(service_latencies, 0.50),
+            "p95": percentile(service_latencies, 0.95),
+            "p99": percentile(service_latencies, 0.99),
+        },
+        "client_queue_delay_ms": {
+            "p50": percentile(queue_delays, 0.50),
+            "p95": percentile(queue_delays, 0.95),
+            "p99": percentile(queue_delays, 0.99),
+            "max": max(queue_delays) if queue_delays else None,
+        },
     }
 
 
@@ -128,6 +139,8 @@ def summarize(results, elapsed):
     for item in results:
         statuses[str(item["status"])] = statuses.get(str(item["status"]), 0) + 1
     failures = [item for item in results if not item["ok"]]
+    service_latencies = [item.get("service_latency_ms", item["latency_ms"]) for item in results]
+    queue_delays = [item.get("client_queue_delay_ms", 0.0) for item in results]
     return {
         "requests": len(results),
         "failed_expectations": len(failures),
