@@ -14,7 +14,8 @@ sys.path.insert(0, str(ROOT / "experiments" / "e010"))
 
 from agent_gateway import AgentNativeGateway
 from demo_apply import NEW_OPERATION, SandboxApplyCoordinator
-from local_agent import verify_candidate
+from interface import digest
+from local_agent import AgentRunError, verify_candidate
 
 
 class SandboxApplyEndToEndTests(unittest.TestCase):
@@ -109,6 +110,31 @@ class SandboxApplyEndToEndTests(unittest.TestCase):
             )
             self.assertEqual(verification["plan"], "valid_sandbox_apply_no_deployment")
             self.assertTrue(verification["applied"])
+
+            mismatched_apply = copy.deepcopy(applied)
+            mismatched_apply["result"]["change_set_id"] = "f" * 64
+            with self.assertRaisesRegex(AgentRunError, "sandbox_apply_change_set_mismatch"):
+                verify_candidate(
+                    candidate,
+                    inspected=inspected_result,
+                    inspected_operations=inspected_operations,
+                    successful_proposal={
+                        "arguments": {"base_revision": inspected_result["revision"], "ir": ir},
+                        "result": proposal["result"],
+                    },
+                    validation_result=validation,
+                    plan_result=plan,
+                    tool_sequence=(
+                        ["service.inspect"]
+                        + ["service.inspect"] * len(inspected_result["operations"])
+                        + ["service.propose", "service.validate", "service.plan", "service.apply"]
+                    ),
+                    validation_change_set_id=change_set_id,
+                    plan_change_set_id=change_set_id,
+                    expected_task_id="e010-sandbox-apply-lifecycle",
+                    allow_sandbox_apply=True,
+                    apply_result=mismatched_apply,
+                )
             events = coordinator.audit_sink.list_events()
             self.assertTrue(any(event["operation"] == "service.apply" for event in events))
             self.assertTrue(any(
@@ -121,6 +147,28 @@ class SandboxApplyEndToEndTests(unittest.TestCase):
             self.assertTrue(replay["result"]["replayed"])
             self.assertEqual(len([event for event in coordinator.audit_sink.list_events()
                                   if event["operation"] == "service.apply"]), 1)
+
+    def test_sandbox_apply_rejects_modified_baseline_contract(self):
+        with tempfile.TemporaryDirectory(prefix="agent-native-e010-") as temporary:
+            coordinator = SandboxApplyCoordinator(Path(temporary) / "sandbox")
+            mutations = {
+                "service": lambda ir: ir["service"].update({"name": "Tampered"}),
+                "types": lambda ir: ir["types"].append({"name": "Unexpected", "fields": []}),
+                "existing_operation": lambda ir: ir["operations"][0].update({"path": "/tampered"}),
+            }
+            for label, mutate in mutations.items():
+                with self.subTest(contract_component=label):
+                    ir = copy.deepcopy(coordinator.initial_ir)
+                    ir["operations"].append(copy.deepcopy(NEW_OPERATION))
+                    mutate(ir)
+                    proposal = {
+                        "service_id": "catalog",
+                        "base_revision": digest(coordinator.initial_ir),
+                        "ir": ir,
+                    }
+                    with self.assertRaisesRegex(ValueError, "sandbox_apply_contract_not_preserved"):
+                        coordinator.apply(proposal, {"request_id": f"tampered-{label}"})
+            self.assertEqual(coordinator.audit_sink.list_events(), [])
 
     def test_apply_without_validation_and_plan_is_rejected(self):
         with tempfile.TemporaryDirectory(prefix="agent-native-e010-") as temporary:
