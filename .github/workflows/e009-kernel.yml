@@ -62,7 +62,7 @@ jobs:
             core.setOutput('run', subject === 'perf(e009): request ten-run audit-window confirmation' ? 'true' : 'false');
       - name: Run E-009 durable HTTP performance smoke
         if: (github.event_name == 'pull_request' || github.event_name == 'push') && steps.performance-request.outputs.run == 'true'
-        run: python experiments/e009/performance_smoke.py --requests 1000 --repetitions 10 --concurrency 32 --target-rps 100 --audit-batch-delay-ms 2.0 --job-batch-size 32 --job-batch-delay-ms 2.0 --output "$RUNNER_TEMP/e009-performance.json"
+        run: python experiments/e009/performance_smoke.py --requests 1000 --repetitions 10 --concurrency 32 --target-rps 100 --containerized --audit-batch-delay-ms 2.0 --job-batch-size 32 --job-batch-delay-ms 2.0 --output "$RUNNER_TEMP/e009-performance.json"
       - name: Preserve E-009 performance measurements
         if: always() && (github.event_name == 'pull_request' || github.event_name == 'push') && steps.performance-request.outputs.run == 'true'
         uses: actions/upload-artifact@v4
@@ -103,7 +103,7 @@ jobs:
               '- Operation latency: ' + kinds,
               '- Audit commits: ' + audit.committed_batches + ' group batches for ' + audit.committed_events + ' events; ' + audit.transactional_events + ' events shared the durable job transaction; largest batch ' + audit.largest_batch + '; batch window ' + result.workload.audit_batch_delay_ms + ' ms',
               '- Durable job submissions: ' + work.committed_submissions + ' submissions across ' + work.submit_batches + ' transactions; largest batch ' + work.largest_submit_batch + '; configured batch size ' + result.workload.job_batch_size + '; job batch window ' + result.workload.job_batch_delay_ms + ' ms',
-              '- Server resources: ' + resource.server_cpu_seconds.toFixed(3) + ' CPU-s; ' + resource.server_cpu_percent_of_one_core_during_load.toFixed(1) + '% of one core during load; linear estimate at 100 req/s ' + resource.estimated_cpu_percent_at_100_rps.toFixed(1) + '%; peak RSS ' + resource.server_peak_rss_bytes + ' bytes; affinity CPU ' + resource.server_cpu_affinity,
+              '- Server resources: ' + resource.server_cpu_seconds.toFixed(3) + ' CPU-s; ' + resource.server_cpu_percent_of_one_core_during_load.toFixed(1) + '% of one core during load; linear estimate at 100 req/s ' + resource.estimated_cpu_percent_at_100_rps.toFixed(1) + '%; peak RSS ' + resource.server_peak_rss_bytes + ' bytes; CPU quota ' + resource.server_cpu_quota_cores + ' cores; affinity CPU ' + resource.server_cpu_affinity,
               '- Resource accounting: ' + resource.accounting,
               '- cgroup v2 limits: ' + (cgroup ? 'cpu.max=' + cgroup.cpu_max + '; memory.max=' + cgroup.memory_max + '; path=' + cgroup.path : 'unavailable'),
               '',
