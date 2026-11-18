@@ -11,6 +11,8 @@ from __future__ import annotations
 import hashlib
 import json
 import sqlite3
+import threading
+import time
 import uuid
 from pathlib import Path
 from typing import Any
@@ -85,6 +87,8 @@ class DurableWorkStore:
         max_outstanding: int = 1000,
         max_concurrency: int = 16,
         audit_sink: Any | None = None,
+        max_submit_batch_size: int = 32,
+        max_submit_batch_delay_seconds: float = 0.0005,
     ):
         raw = str(database)
         if raw == ":memory:":
@@ -95,12 +99,180 @@ class DurableWorkStore:
             raise ValueError("max_concurrency_must_be_positive_integer")
         if max_concurrency > max_outstanding:
             raise ValueError("max_concurrency_cannot_exceed_max_outstanding")
+        if type(max_submit_batch_size) is not int or not 1 <= max_submit_batch_size <= 1024:
+            raise ValueError("invalid_submit_batch_size")
+        if (
+            isinstance(max_submit_batch_delay_seconds, bool)
+            or not isinstance(max_submit_batch_delay_seconds, (int, float))
+            or not 0 <= max_submit_batch_delay_seconds <= 0.050
+        ):
+            raise ValueError("invalid_submit_batch_delay")
         self.database = str(Path(raw).expanduser().resolve())
         self.max_outstanding = max_outstanding
         self.max_concurrency = max_concurrency
         self.audit_sink = audit_sink
         if audit_sink is not None and getattr(audit_sink, "database", None) != self.database:
             raise ValueError("audit_sink_must_share_work_store_database")
+        self.max_submit_batch_size = max_submit_batch_size
+        self.max_submit_batch_delay_seconds = float(max_submit_batch_delay_seconds)
+        self._submit_condition = threading.Condition()
+        self._submit_pending: list[dict[str, Any]] = []
+        self._submit_flushing = False
+        self._submit_stats_lock = threading.Lock()
+        self._submit_batches = 0
+        self._committed_submissions = 0
+        self._largest_submit_batch = 0
+
+    def _enqueue_job_submission(self, item: dict[str, Any]) -> tuple[dict, bool]:
+        with self._submit_condition:
+            while len(self._submit_pending) >= self.max_submit_batch_size * 128:
+                self._submit_condition.wait()
+            self._submit_pending.append(item)
+            leader = not self._submit_flushing
+            if leader:
+                self._submit_flushing = True
+            self._submit_condition.notify_all()
+
+        if leader:
+            self._flush_job_submission_batches()
+        else:
+            item["done"].wait()
+
+        if item["error"] is not None:
+            raise item["error"]
+        return item["result"]
+
+    def _flush_job_submission_batches(self) -> None:
+        while True:
+            with self._submit_condition:
+                deadline = time.monotonic() + self.max_submit_batch_delay_seconds
+                while (
+                    len(self._submit_pending) < self.max_submit_batch_size
+                    and self.max_submit_batch_delay_seconds > 0
+                ):
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0:
+                        break
+                    self._submit_condition.wait(remaining)
+                batch = self._submit_pending[: self.max_submit_batch_size]
+                del self._submit_pending[: len(batch)]
+                self._submit_condition.notify_all()
+
+            if batch:
+                try:
+                    self._commit_job_submission_batch(batch)
+                except Exception:
+                    for item in batch:
+                        if item["error"] is None:
+                            item["error"] = AuditCommitError("atomic_job_batch_commit_failed")
+                for item in batch:
+                    item["done"].set()
+
+            with self._submit_condition:
+                if not self._submit_pending:
+                    self._submit_flushing = False
+                    self._submit_condition.notify_all()
+                    return
+
+    def _commit_job_submission_batch(self, batch: list[dict[str, Any]]) -> None:
+        connection = self._connect()
+        successful: list[dict[str, Any]] = []
+        try:
+            connection.execute("BEGIN IMMEDIATE")
+            for index, item in enumerate(batch):
+                savepoint = f"job_submission_{index}"
+                connection.execute(f"SAVEPOINT {savepoint}")
+                try:
+                    previous = connection.execute(
+                        """
+                        SELECT * FROM durable_jobs
+                        WHERE tenant_id = ? AND idempotency_key = ?
+                        """,
+                        (item["tenant_id"], item["idempotency_key"]),
+                    ).fetchone()
+                    if previous is not None:
+                        if previous["request_sha256"] != item["request_digest"]:
+                            raise JobConflict("job_idempotency_key_reused_with_different_request")
+                        row = previous
+                        replayed = True
+                    else:
+                        active = connection.execute(
+                            """
+                            SELECT COUNT(*) AS count FROM durable_jobs
+                            WHERE state IN ('queued', 'running', 'cancellation_requested')
+                            """
+                        ).fetchone()["count"]
+                        if active >= self.max_outstanding:
+                            raise JobBackpressure("durable_work_queue_at_capacity")
+
+                        task_id = str(uuid.uuid4())
+                        row = connection.execute(
+                            """
+                            INSERT INTO durable_jobs(
+                                task_id, tenant_id, task_type, payload_json, idempotency_key,
+                                request_sha256, state, available_at, deadline_at, attempts,
+                                max_attempts, lease_token, created_at, updated_at
+                            ) VALUES (?, ?, ?, ?, ?, ?, 'queued', ?, ?, 0, ?, 0, ?, ?)
+                            RETURNING *
+                            """,
+                            (
+                                task_id, item["tenant_id"], item["task_type"],
+                                item["payload_json"], item["idempotency_key"],
+                                item["request_digest"], item["now"], item["deadline_at"],
+                                item["max_attempts"], item["now"], item["now"],
+                            ),
+                        ).fetchone()
+                        self._insert_event(
+                            connection,
+                            tenant_id=item["tenant_id"],
+                            topic="work.submitted",
+                            payload={
+                                "payload": {"task_id": task_id, "task_type": item["task_type"]},
+                                "state_key": "work.submitted",
+                                "amount": 1,
+                            },
+                            now=item["now"],
+                        )
+                        replayed = False
+
+                    try:
+                        self.audit_sink.write_in_transaction(connection, item["audit_event"])
+                    except Exception as error:
+                        raise AuditCommitError("atomic_audit_insert_failed") from error
+
+                    item["result"] = (self._job(row), replayed)
+                    connection.execute(f"RELEASE SAVEPOINT {savepoint}")
+                    successful.append(item)
+                except (JobConflict, JobBackpressure, AuditCommitError) as error:
+                    connection.execute(f"ROLLBACK TO SAVEPOINT {savepoint}")
+                    connection.execute(f"RELEASE SAVEPOINT {savepoint}")
+                    item["error"] = error
+
+            connection.commit()
+            for item in successful:
+                self.audit_sink.note_transactional_commit()
+                item["audit_receipt"].mark_committed()
+            with self._submit_stats_lock:
+                if successful:
+                    self._submit_batches += 1
+                    self._committed_submissions += len(successful)
+                    self._largest_submit_batch = max(
+                        self._largest_submit_batch, len(successful)
+                    )
+        except Exception:
+            connection.rollback()
+            raise
+        finally:
+            connection.close()
+
+    def metrics(self) -> dict[str, int]:
+        """Return process-local submission batch counters for diagnostics."""
+        with self._submit_stats_lock:
+            return {
+                "submit_batches": self._submit_batches,
+                "committed_submissions": self._committed_submissions,
+                "largest_submit_batch": self._largest_submit_batch,
+            }
 
     def _connect(self) -> sqlite3.Connection:
         connection = sqlite3.connect(
@@ -180,6 +352,24 @@ class DurableWorkStore:
             raise AuditCommitError("atomic_audit_sink_and_receipt_required")
         payload_json = _json(payload)
         request_digest = _digest({"task_type": task_type, "payload": payload})
+
+        if audit_event is not None:
+            item = {
+                "tenant_id": tenant_id,
+                "task_type": task_type,
+                "payload_json": payload_json,
+                "idempotency_key": idempotency_key,
+                "request_digest": request_digest,
+                "now": now,
+                "deadline_at": deadline_at,
+                "max_attempts": max_attempts,
+                "audit_event": dict(audit_event),
+                "audit_receipt": audit_receipt,
+                "done": threading.Event(),
+                "result": None,
+                "error": None,
+            }
+            return self._enqueue_job_submission(item)
 
         connection = self._connect()
         try:
