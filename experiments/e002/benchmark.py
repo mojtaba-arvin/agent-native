@@ -60,7 +60,7 @@ def proc_tree_sample(
 ) -> dict[tuple[int, int], tuple[float, int]]:
     """Snapshot visible process-tree members keyed by (PID, start-time ticks).
 
-    The start-time component prevents PID reuse from merging unrelated processes.
+    The start-time component distinguishes ordinary PID reuse. Its clock-tick resolution is finite, so it is a practical guard rather than a mathematically unique process identifier.
     Children are enumerated for every thread because any thread may fork a child.
     """
     root = Path(proc_root)
