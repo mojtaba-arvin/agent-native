@@ -64,19 +64,45 @@ def selected_suites(paths: list[str] | None) -> list[Suite]:
                 selected.update(dependents)
     return [suite for suite in SUITES if suite.name in selected]
 
+PRECHECKS = {
+    "e002-python": ((sys.executable, "-m", "py_compile",
+        "experiments/e002/conformance.py", "experiments/e002/benchmark.py",
+        "experiments/e002/run_matrix.py", "experiments/e002/measure_artifacts.py"),),
+    "e009-kernel": ((sys.executable, "-m", "py_compile",
+        "experiments/e009/serve.py", "experiments/e009/performance_smoke.py"),),
+    "e011-semantics": ((sys.executable, "-m", "py_compile",
+        "experiments/e011/semantics.py", "experiments/e011/test_semantics.py"),),
+}
+
 def run_suite(suite: Suite) -> tuple[str, int, float, str]:
     started = time.monotonic()
+    output = []
+    commands = (*PRECHECKS.get(suite.name, ()), suite.command)
     try:
-        result = subprocess.run(
-            suite.command, cwd=ROOT, text=True, stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT, timeout=45, check=False,
-        )
-        return suite.name, result.returncode, time.monotonic() - started, result.stdout
+        for command in commands:
+            result = subprocess.run(
+                command, cwd=ROOT, text=True, stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT, timeout=45, check=False,
+            )
+            output.append(result.stdout)
+            if result.returncode:
+                return suite.name, result.returncode, time.monotonic() - started, "\n".join(output)
+        if suite.name == "e001-prototype":
+            command = (sys.executable, "experiments/e001/prototype/agent_native.py",
+                       "experiments/e001/examples/catalog.an")
+            first = subprocess.run(command, cwd=ROOT, capture_output=True, check=True, timeout=45)
+            second = subprocess.run(command, cwd=ROOT, capture_output=True, check=True, timeout=45)
+            if first.stdout != second.stdout:
+                return suite.name, 1, time.monotonic() - started, "E-001 CLI output is not deterministic\n"
+            output.append("E-001 CLI output determinism: PASS\n")
+        return suite.name, 0, time.monotonic() - started, "\n".join(output)
     except subprocess.TimeoutExpired as exc:
-        output = exc.stdout or ""
-        if isinstance(output, bytes):
-            output = output.decode(errors="replace")
-        return suite.name, 124, time.monotonic() - started, output + "\nTIMEOUT: suite exceeded 45 seconds\n"
+        detail = exc.stdout or ""
+        if isinstance(detail, bytes):
+            detail = detail.decode(errors="replace")
+        return suite.name, 124, time.monotonic() - started, "\n".join(output) + detail + "\nTIMEOUT: command exceeded 45 seconds\n"
+    except subprocess.CalledProcessError as exc:
+        return suite.name, exc.returncode, time.monotonic() - started, "\n".join(output) + (exc.stderr or "")
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
