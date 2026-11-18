@@ -83,6 +83,7 @@ jobs:
             const reps = result.repetitions.map(r => 'rep ' + r.repetition + ': p95=' + r.latency_ms.p95.toFixed(2) + 'ms, p99=' + r.latency_ms.p99.toFixed(2) + 'ms').join('; ');
             const kinds = Object.entries(result.by_operation_kind).map(([name, value]) => name + ': n=' + value.requests + ', p95=' + value.latency_ms.p95.toFixed(2) + 'ms, p99=' + value.latency_ms.p99.toFixed(2) + 'ms').join('; ');
             const audit = result.audit_metrics;
+            const work = result.work_metrics;
             const body = [
               '## Automated E-009 performance evidence',
               '',
@@ -95,6 +96,7 @@ jobs:
               '- ' + reps,
               '- Operation latency: ' + kinds,
               '- Audit commits: ' + audit.committed_batches + ' group batches for ' + audit.committed_events + ' events; ' + audit.transactional_events + ' events shared the durable job transaction; largest batch ' + audit.largest_batch + '; batch window ' + result.workload.audit_batch_delay_ms + ' ms',
+              '- Durable job submissions: ' + work.committed_submissions + ' submissions across ' + work.submit_batches + ' transactions; largest batch ' + work.largest_submit_batch,
               '',
               'This is a shared-runner product-path measurement, not a controlled capacity claim. FULL audit durability remains enabled.'
             ].join('\n');
