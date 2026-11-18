@@ -80,9 +80,9 @@
     "id": "sqlite-wal-full-reference",
     "implementation": "experiments/e002/sqlite_reference_adapter.py",
     "status": "single-adapter-conformance-passed",
-    "workflow_run_id": 44337986951,
-    "tests": 21,
-    "durability_profile": "SQLite WAL, synchronous=FULL; process-crash-after-commit-before-response tested",
+    "workflow_run_id": 44338644380,
+    "tests": 22,
+    "durability_profile": "SQLite WAL, synchronous=FULL; metadata reports engine/version, WAL mode, synchronous, foreign keys, busy timeout, and canonicalization version",
     "guarantees_tested": [
       "atomic job+outbox+idempotency+audit admission",
       "rollback at each pre-commit logical write boundary",
@@ -98,6 +98,7 @@
       "no replication or multi-node linearizability",
       "no controlled performance result"
     ],
-    "product_storage_selection": null
+    "product_storage_selection": null,
+    "canonicalization_version": "json-sort-keys-compact-utf8-v1"
   }
 }
