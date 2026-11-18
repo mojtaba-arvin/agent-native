@@ -55,9 +55,13 @@ Do not select a service language based on one workload. A candidate advances onl
 
 Compare native Rust runtime, native Go runtime, Wasmtime/WASI Component Model, and BEAM runtime (Gleam or Erlang-targeted workload).
 
-Use equivalent HTTP, concurrency, timeout, cancellation, and streaming workloads. Add database and durable messaging after a transport-only baseline.
+The existing four arms are trivial HTTP/runtime probes only; they do not yet implement the product control plane. The product-representative workload is specified in [E-002 control-plane workload v1](../experiments/e002/control-plane-workload.md), merged through PR #57. It defines authentication, tenant resolution, contract validation, capability authorization, durable audit, idempotent job/outbox admission, expected denials, and fault injection. Its 60/20/10/10 operation mix and 1-vCPU / 100-completed-requests-per-second / 50%-CPU envelope are registered as a hypothesis, not a validated SLO.
 
-Record p50/p95/p99 latency, throughput, CPU, peak RSS, startup time, artifact size, isolation overhead, and tail behavior under injected dependency failures.
+Keep the no-persistence control-plane tier separate from the durable product tier. Do not select a storage substrate or treat candidate-specific persistence guarantees as equivalent without a shared conformance suite. WASI must be evaluated as component plus explicit host adapter, with guest and host costs reported separately.
+
+The historical 0.5 CPU-seconds/5,000 trivial-workload gate is retained only for its original cohorts. The prospective product envelope implies 25 CPU-seconds/5,000, but that bound has not been validated. PR #55 improved diagnostic process-tree sampling; a controlled capacity claim should use a dedicated cgroup v2 and record cpu.stat where the host permits it.
+
+Record p50/p95/p99 latency, offered/admitted/completed throughput, expected-denial rate, CPU, throttling, peak memory, startup time, artifact size, storage/audit latency, host-adapter overhead, and tail behavior under injected dependency failures.
 
 ## E-003 — Concurrency and failure semantics
 
