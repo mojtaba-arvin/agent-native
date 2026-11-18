@@ -40,6 +40,11 @@ class JobBackpressure(WorkStoreError):
     pass
 
 
+class AuditCommitError(WorkStoreError):
+    """Atomic audit insertion failed; the job transaction must roll back."""
+    pass
+
+
 class InboxConflict(WorkStoreError):
     pass
 
