@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import copy
 import subprocess
 import sys
 import unittest
@@ -527,6 +528,163 @@ class AgentGatewayTests(unittest.TestCase):
         self.assertFalse(response["ok"])
         self.assertEqual(response["diagnostics"][0]["code"], "IR_PRESERVATION_MISMATCH")
         self.assertIn("service", response["diagnostics"][0]["message"])
+
+
+
+    def _readonly_delta(self, revision, name="get_item_by_normalized_name"):
+        return {
+            "service_id": "catalog",
+            "base_revision": revision,
+            "changes": [{
+                "kind": "add_operation",
+                "operation": {
+                    "name": name,
+                    "method": "GET",
+                    "path": "/items/by-normalized-name/{name}",
+                    "input": [{"name": "name", "source": "path", "type": "String"}],
+                    "output": "Item",
+                    "errors": ["InvalidInput", "NotFound", "Unauthorized"],
+                    "validation": ["name.non_empty"],
+                    "effects": ["repository.read"],
+                    "capability": "items.read",
+                },
+            }],
+        }
+
+    def test_base_disclosure_configuration_is_orthogonal_and_fail_closed(self):
+        snapshot = AgentNativeGateway("progressive", proposal_mode="snapshot")
+        delta = AgentNativeGateway("progressive", proposal_mode="delta")
+        self.assertEqual(snapshot.base_disclosure, "per_operation")
+        self.assertEqual(delta.base_disclosure, "minimal")
+        self.assertEqual(
+            snapshot.session_message()["surface"]["base_disclosure"], "per_operation"
+        )
+        self.assertEqual(
+            delta.session_message()["surface"]["base_disclosure"], "minimal"
+        )
+        with self.assertRaisesRegex(ValueError, "unknown_base_disclosure"):
+            AgentNativeGateway("upfront", base_disclosure="summary_only")
+        with self.assertRaisesRegex(ValueError, "snapshot_requires_complete_base_disclosure"):
+            AgentNativeGateway("upfront", proposal_mode="snapshot", base_disclosure="minimal")
+
+    def test_upfront_full_snapshot_discloses_and_verifies_complete_base(self):
+        gateway = AgentNativeGateway(
+            "upfront", proposal_mode="snapshot", base_disclosure="upfront_full"
+        )
+        inspected = self.call(
+            gateway, "full-snapshot-inspect", "service.inspect", {"service_id": "catalog"}
+        )
+        self.assertTrue(inspected["ok"])
+        expected = load_service_ir(SOURCE)
+        self.assertEqual(inspected["result"]["operations"], expected["operations"])
+        self.assertEqual(gateway._inspected_operations, set(
+            item["name"] for item in expected["operations"]
+        ))
+        forbidden = self.call(
+            gateway, "full-snapshot-single-op", "service.inspect",
+            {"service_id": "catalog", "operation": expected["operations"][0]["name"]},
+        )
+        self.assertFalse(forbidden["ok"])
+        self.assertEqual(
+            forbidden["diagnostics"][0]["code"], "INSPECTION_MODE_VIOLATION"
+        )
+        candidate = copy.deepcopy(expected)
+        candidate["operations"].append({
+            "name": "get_item_by_normalized_name",
+            "method": "GET",
+            "path": "/items/by-normalized-name/{name}",
+            "input": [{"name": "name", "type": "String", "source": "path"}],
+            "output": "Item",
+            "errors": ["InvalidInput", "NotFound", "Unauthorized"],
+            "validation": ["name.non_empty"],
+            "effects": ["repository.read"],
+            "capability": "items.read",
+        })
+        proposed = self.call(
+            gateway, "full-snapshot-propose", "service.propose",
+            {"service_id": "catalog", "base_revision": inspected["result"]["revision"], "ir": candidate},
+        )
+        self.assertTrue(proposed["ok"], proposed)
+
+    def test_per_operation_delta_requires_every_contract_before_proposal(self):
+        gateway = AgentNativeGateway(
+            "upfront", proposal_mode="delta", base_disclosure="per_operation"
+        )
+        inspected = self.call(
+            gateway, "per-op-delta-inspect", "service.inspect", {"service_id": "catalog"}
+        )
+        revision = inspected["result"]["revision"]
+        blocked = self.call(
+            gateway, "per-op-delta-early", "service.propose_delta",
+            self._readonly_delta(revision),
+        )
+        self.assertFalse(blocked["ok"])
+        self.assertEqual(blocked["diagnostics"][0]["code"], "INSPECTION_INCOMPLETE")
+        for operation in inspected["result"]["operations"]:
+            result = self.call(
+                gateway, "per-op-delta-" + operation["name"], "service.inspect",
+                {"service_id": "catalog", "operation": operation["name"]},
+            )
+            self.assertTrue(result["ok"])
+        proposed = self.call(
+            gateway, "per-op-delta-final", "service.propose_delta",
+            self._readonly_delta(revision),
+        )
+        self.assertTrue(proposed["ok"], proposed)
+
+    def test_upfront_full_delta_exposes_complete_contract_once(self):
+        gateway = AgentNativeGateway(
+            "progressive", proposal_mode="delta", base_disclosure="upfront_full"
+        )
+        inspected = self.call(
+            gateway, "full-delta-inspect", "service.inspect", {"service_id": "catalog"}
+        )
+        self.assertTrue(inspected["ok"])
+        self.assertEqual(
+            inspected["result"]["operations"], load_service_ir(SOURCE)["operations"]
+        )
+        self.assertEqual(
+            gateway._inspected_operations, gateway._required_inspection_operations
+        )
+        forbidden = self.call(
+            gateway, "full-delta-single-op", "service.inspect",
+            {"service_id": "catalog", "operation": "get_item"},
+        )
+        self.assertFalse(forbidden["ok"])
+        self.assertEqual(
+            forbidden["diagnostics"][0]["code"], "INSPECTION_MODE_VIOLATION"
+        )
+        proposed = self.call(
+            gateway, "full-delta-propose", "service.propose_delta",
+            self._readonly_delta(inspected["result"]["revision"]),
+        )
+        self.assertTrue(proposed["ok"], proposed)
+
+    def test_minimal_delta_disclosure_does_not_leak_or_accept_operation_inspection(self):
+        gateway = AgentNativeGateway(
+            "progressive", proposal_mode="delta", base_disclosure="minimal"
+        )
+        inspected = self.call(
+            gateway, "minimal-delta-inspect", "service.inspect", {"service_id": "catalog"}
+        )
+        self.assertTrue(inspected["ok"])
+        operations = inspected["result"]["operations"]
+        self.assertTrue(operations)
+        self.assertTrue(all(set(item) == {"name", "method", "path"} for item in operations))
+        forbidden = self.call(
+            gateway, "minimal-delta-single-op", "service.inspect",
+            {"service_id": "catalog", "operation": "get_item"},
+        )
+        self.assertFalse(forbidden["ok"])
+        self.assertEqual(
+            forbidden["diagnostics"][0]["code"], "INSPECTION_MODE_VIOLATION"
+        )
+        proposed = self.call(
+            gateway, "minimal-delta-propose", "service.propose_delta",
+            self._readonly_delta(inspected["result"]["revision"]),
+        )
+        self.assertTrue(proposed["ok"], proposed)
+
 
 if __name__ == "__main__":
     unittest.main()
