@@ -2,6 +2,13 @@ name: E-007 matched proposal-surface factorial pilot
 
 on:
   workflow_dispatch:
+  # Explicit one-shot dispatch proxy: only a dedicated marker commit on the
+  # research branch can start the expensive cohort; ordinary pushes cannot.
+  push:
+    branches:
+      - research/reboot-core
+    paths:
+      - "experiments/e007/dispatch-request.json"
 
 permissions:
   contents: read
@@ -12,7 +19,10 @@ concurrency:
 
 jobs:
   matched-qwen3-factorial:
-    if: github.ref_name == 'research/reboot-core'
+    if: >-
+      github.ref_name == 'research/reboot-core' &&
+      (github.event_name == 'workflow_dispatch' ||
+       github.event.head_commit.message == 'experiment(e007): dispatch one bounded factorial cohort')
     runs-on: ubuntu-latest
     timeout-minutes: 360
     steps:
@@ -20,6 +30,34 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+      - name: Validate explicit one-shot dispatch marker
+        if: github.event_name == 'push'
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+        run: |
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          expected = {
+              "schema_version": 1,
+              "request_id": "e007-matched-factorial-qwen3-20261118-one-shot",
+              "branch": "research/reboot-core",
+              "workflow": "e007-real-agent-eval.yml",
+              "model": "qwen3:8b",
+              "repetitions": 1,
+              "factorial_cells": ["A", "B", "C", "D"],
+              "no_apply": True,
+              "budgets_unchanged": True,
+          }
+          actual = json.loads(Path("experiments/e007/dispatch-request.json").read_text())
+          assert actual == expected, "dispatch marker mismatch"
+          assert os.environ["EVENT_NAME"] == "push"
+          assert os.environ["REF_NAME"] == expected["branch"]
+          assert os.environ["COMMIT_MESSAGE"] == "experiment(e007): dispatch one bounded factorial cohort"
+          print("Explicit one-shot E-007 dispatch marker validated; original budgets remain pinned.")
+          PY
       - name: Validate factorial dispatch before provisioning the model
         run: |
           python experiments/e007/validate_factorial_dispatch.py
