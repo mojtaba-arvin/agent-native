@@ -235,6 +235,9 @@ class AgentNativeGateway:
         }
 
     def _handle_delta_proposal(self, request_id: str, arguments: dict) -> dict:
+        def delta_error(*args, **kwargs):
+            return self._error(*args, **kwargs)["response"]
+
         if self.proposal_mode != "delta":
             return self._error(request_id, "UNKNOWN_TOOL", "Delta proposals are not enabled in this Gateway instance.")
         if self._inspected_revision is None:
