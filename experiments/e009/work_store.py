@@ -186,8 +186,7 @@ class DurableWorkStore:
             connection.execute("BEGIN IMMEDIATE")
             previous = connection.execute(
                 """
-                SELECT task_id, request_sha256
-                FROM durable_jobs
+                SELECT * FROM durable_jobs
                 WHERE tenant_id = ? AND idempotency_key = ?
                 """,
                 (tenant_id, idempotency_key),
@@ -195,10 +194,7 @@ class DurableWorkStore:
             if previous is not None:
                 if previous["request_sha256"] != request_digest:
                     raise JobConflict("job_idempotency_key_reused_with_different_request")
-                row = connection.execute(
-                    "SELECT * FROM durable_jobs WHERE task_id = ?",
-                    (previous["task_id"],),
-                ).fetchone()
+                row = previous
                 if audit_event is not None:
                     try:
                         self.audit_sink.write_in_transaction(connection, audit_event)
@@ -220,19 +216,20 @@ class DurableWorkStore:
                 raise JobBackpressure("durable_work_queue_at_capacity")
 
             task_id = str(uuid.uuid4())
-            connection.execute(
+            row = connection.execute(
                 """
                 INSERT INTO durable_jobs(
                     task_id, tenant_id, task_type, payload_json, idempotency_key,
                     request_sha256, state, available_at, deadline_at, attempts,
                     max_attempts, lease_token, created_at, updated_at
                 ) VALUES (?, ?, ?, ?, ?, ?, 'queued', ?, ?, 0, ?, 0, ?, ?)
+                RETURNING *
                 """,
                 (
                     task_id, tenant_id, task_type, payload_json, idempotency_key,
                     request_digest, now, deadline_at, max_attempts, now, now,
                 ),
-            )
+            ).fetchone()
             self._insert_event(
                 connection,
                 tenant_id=tenant_id,
@@ -249,10 +246,6 @@ class DurableWorkStore:
                     self.audit_sink.write_in_transaction(connection, audit_event)
                 except Exception as error:
                     raise AuditCommitError("atomic_audit_insert_failed") from error
-            row = connection.execute(
-                "SELECT * FROM durable_jobs WHERE task_id = ?",
-                (task_id,),
-            ).fetchone()
             connection.commit()
             if audit_event is not None:
                 self.audit_sink.note_transactional_commit()
