@@ -69,6 +69,25 @@ def percentile(values, fraction):
     return ordered[min(len(ordered) - 1, math.ceil(fraction * len(ordered)) - 1)]
 
 
+def summarize_kind(results):
+    latencies = [item["latency_ms"] for item in results]
+    statuses = {}
+    for item in results:
+        statuses[str(item["status"])] = statuses.get(str(item["status"]), 0) + 1
+    return {
+        "requests": len(results),
+        "failed_expectations": sum(not item["ok"] for item in results),
+        "status_counts": statuses,
+        "latency_ms": {
+            "p50": percentile(latencies, 0.50),
+            "p95": percentile(latencies, 0.95),
+            "p99": percentile(latencies, 0.99),
+            "max": max(latencies) if latencies else None,
+            "mean": statistics.fmean(latencies) if latencies else None,
+        },
+    }
+
+
 def summarize(results, elapsed):
     latencies = [item["latency_ms"] for item in results]
     statuses = {}
@@ -97,12 +116,15 @@ def main():
     parser.add_argument("--requests", type=int, default=1000, help="measured requests per repetition")
     parser.add_argument("--repetitions", type=int, default=5)
     parser.add_argument("--concurrency", type=int, default=32)
+    parser.add_argument("--audit-batch-delay-ms", type=float, default=2.0)
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
     if args.requests < 100 or not 1 <= args.repetitions <= 10:
         parser.error("requests must be >=100 and repetitions must be 1..10")
     if not 1 <= args.concurrency <= 64:
         parser.error("concurrency must be 1..64")
+    if not math.isfinite(args.audit_batch_delay_ms) or not 0 <= args.audit_batch_delay_ms <= 50:
+        parser.error("audit batch delay must be between 0 and 50 ms")
 
     token = "e009-performance-smoke-token-" + uuid.uuid4().hex
     env = dict(os.environ, AGENT_NATIVE_DEMO_TOKEN=token)
@@ -111,7 +133,8 @@ def main():
         server_concurrency = max(64, args.concurrency * 2)
         process = subprocess.Popen(
             [sys.executable, "experiments/e009/serve.py", "--database", str(db),
-             "--port", "0", "--max-concurrency", str(server_concurrency)],
+             "--port", "0", "--max-concurrency", str(server_concurrency),
+             "--audit-batch-delay-ms", str(args.audit_batch_delay_ms)],
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, env=env,
             bufsize=1,
         )
@@ -187,6 +210,20 @@ def main():
 
             total_elapsed = sum(item["elapsed_seconds"] for item in repetitions)
             aggregate = summarize(all_results, total_elapsed)
+            by_kind = {
+                kind: summarize_kind([item for item in all_results if item["kind"] == kind])
+                for kind in sorted({item["kind"] for item in all_results})
+            }
+
+            # Stop gracefully so serve.py can report the counters collected by
+            # the same FULL-synchronous audit sink used for the measured calls.
+            process.send_signal(signal.SIGINT)
+            process.wait(timeout=15)
+            remaining_output = process.stdout.read() if process.stdout else ""
+            audit_match = re.search(r"E009_AUDIT_METRICS=(\\{[^\\n]+\\})", remaining_output)
+            if audit_match is None:
+                raise RuntimeError("server did not emit final audit commit counters")
+            audit_metrics = json.loads(audit_match.group(1))
             failures = [item for item in all_results if not item["ok"]]
             summary = {
                 "schema_version": 2,
@@ -201,8 +238,11 @@ def main():
                             "durable_job_admission": 0.1, "unauthenticated_read": 0.1},
                     "database": "file-backed SQLite WAL via E-009 serve.py",
                     "server_max_concurrency": server_concurrency,
+                    "audit_batch_delay_ms": args.audit_batch_delay_ms,
                 },
                 "aggregate": aggregate,
+                "by_operation_kind": by_kind,
+                "audit_metrics": audit_metrics,
                 "repetitions": repetitions,
                 "slowest_requests": sorted(
                     all_results, key=lambda item: item["latency_ms"], reverse=True
@@ -222,7 +262,7 @@ def main():
                 raise SystemExit(f"{len(failures)} of {len(all_results)} measured requests did not match expected status")
         finally:
             if process.poll() is None:
-                process.send_signal(signal.SIGTERM)
+                process.send_signal(signal.SIGINT)
                 try:
                     process.wait(timeout=10)
                 except subprocess.TimeoutExpired:
