@@ -114,10 +114,17 @@ def provider_chat(
     host, port = endpoint
     connection = HTTPConnection(host, port, timeout=timeout)
     deadline_expired = threading.Event()
+    response = None
 
     def interrupt_socket() -> None:
         deadline_expired.set()
         active_socket = connection.sock
+        if response is not None:
+            response_file = getattr(response, "fp", None)
+            raw_stream = getattr(response_file, "raw", None)
+            response_socket = getattr(raw_stream, "_sock", None)
+            if response_socket is not None:
+                active_socket = response_socket
         if active_socket is not None:
             try:
                 active_socket.shutdown(socket.SHUT_RDWR)
