@@ -74,3 +74,43 @@ The E-009 smoke is a real HTTP/SQLite/worker/relay workload on a shared CI runne
 A bounded synchronous group-commit path has been implemented in `experiments/e009/audit.py`. Concurrent callers may share one SQLite WAL transaction, but each caller waits for the FULL-synchronous commit before dispatch can reach its application handler. The batch is bounded to 32 events and a 2 ms collection window by default. Commit failure is propagated to every caller in the batch; no caller is acknowledged on queue insertion alone.
 
 New deterministic concurrency tests cover shared commits, read-after-return visibility, and fail-closed behavior when the batch commit fails. This is an implementation under test, not yet a measured performance improvement. The next five-repetition HTTP run will determine whether audit commit amortization materially reduces p95/p99 while preserving zero unexpected outcomes. If it does not, revert or redesign rather than relaxing durability.
+
+
+## Supplemental execution evidence — 18 November 2026
+
+This section supersedes older status snapshots above where they conflict. New work is split across two research branches; do not assume it is already included in PR #6.
+
+### E-007 — live matched Agent execution
+
+- Corrected run_factorial_pilot.sh: all 14 malformed doubled command-continuation backslashes were repaired; TSV parsing now uses positional cut -f1..15 so empty columns cannot shift fields.
+- Added regression checks for exact one-backslash continuations and all 15 TSV columns. The corrected E-007 corpus workflow [44336919390](https://github.com/mojtaba-arvin/agent-native/actions/runs/44336919390) passed **94 tests**.
+- One-shot retry-1 workflow [44337025030](https://github.com/mojtaba-arvin/agent-native/actions/runs/44337025030), pinned to corrected commit  b05ee81c6e995b9b58160bfc5ea140c3a39163e5, passed marker validation, factorial preflight, Ollama installation and Qwen3 model pull. The matched A-D model step was still running at the latest inspection. **No model acceptance is claimed until all four artifacts are inspected.**
+- The run's pinned workflow revision did not yet include actions:read for the final run/artifact publication API. That permission was added on the branch after dispatch; if publication fails, inspect the uploaded artifact directly and correct the workflow before the next run.
+- Current research/reboot-core head: ffede9c75014d10809986f110539ff88e70a6c9e. The in-flight run remains pinned to its recorded commit; do not silently substitute a newer branch head.
+
+### E-002 — executable storage conformance
+
+- Added SQLite reference adapter using a file-backed WAL database with synchronous=FULL, a versioned canonical request hash, and one transaction for job + outbox + idempotency + audit.
+- The suite now includes pre-commit fault injection at every logical write boundary, audit-outage fail-closed behavior, same-key replay/conflict, tenant+operation scope, 32-way same-hash and different-hash races, process termination after commit/before response, append-only audit, and outbox lease fencing/stale-ack rejection.
+- [E-002 workflow 44339334484](https://github.com/mojtaba-arvin/agent-native/actions/runs/44339334484): 24 Python conformance tests passed; Go, Rust, WASI P2 and BEAM jobs all passed their existing build/test/HTTP conformance and CPU sampler checks. The ten-repetition cross-runtime benchmark matrix remained skipped.
+- Status: one reference adapter passes its current suite. There is still no second-engine parity, no adapter parity across runtime candidates, no power-loss certification and no storage winner.
+
+### E-009 — product-path load and trust boundary
+
+- [Five-repetition open-loop run 44338389527](https://github.com/mojtaba-arvin/agent-native/actions/runs/44338389527): 5,000 requests at 100 offered req/s; achieved 100.05 req/s; aggregate p99 11.13 ms; zero unexpected outcomes; server CPU 18.6% of one pinned core; FULL audit durability retained.
+- [Ten-repetition open-loop run 44339252987](https://github.com/mojtaba-arvin/agent-native/actions/runs/44339252987): 10,000 requests; achieved 100.06 req/s; aggregate p99 73.82 ms; CPU 16.1%; zero unexpected outcomes. However, 2/10 repetitions had p99 above 100 ms (187.41 and 147.41 ms), and max latency was 275.56 ms. Aggregate target passes; repeatability gate does not.
+- Both runs used a shared GitHub runner, one-core CPU affinity, and 5 ms /proc process-tree sampling. cgroup cpu.max was unlimited; neither is a controlled production-capacity certification.
+- The next isolated tuning variable is audit group-commit window: 0.5 ms baseline versus 2 ms, holding offered rate, concurrency, job batch size and job window constant. Ten-repetition comparison is [workflow 44339771024](https://github.com/mojtaba-arvin/agent-native/actions/runs/44339771024), currently running.
+- Client identity spoofing tests now reject body-supplied principal/tenant/grants and ignore identity headers when a valid authenticated token is present. [E-009 workflow 44339021741](https://github.com/mojtaba-arvin/agent-native/actions/runs/44339021741) passed **121 E-009 tests**, plus 39 E-001, 21 E-004 and 3 E-010 tests.
+
+### E-011 — semantics hardening
+
+- Capability envelope construction now rejects empty identity fields, non-frozenset or malformed authority collections, and non-integer/negative expiry; attenuation validates inputs before subset checks.
+- [E-011 workflow 44337266191](https://github.com/mojtaba-arvin/agent-native/actions/runs/44337266191) passed compilation and **13 deterministic tests**. The workflow branch filter now includes all research branches.
+- Still not implemented: persistent idempotency, cryptographic capabilities, cross-process cancellation, a real transport, or two-process crash/recovery evidence. E-007 acceptance remains the gate for the two-process slice.
+
+### Branch and integration policy
+
+- main remains unchanged at da3736c7ea4d239d1ea520d8b56025b4e3251b33.
+- PR #6 remains Open/Draft with base main and head research/reboot-core; no merge was performed.
+- Parallel implementation and measurements are on research/ci-policy-staging (latest at the time of this update: fba992195d2166c667c74f9051dcab33b31a7641). This branch is diverged from research/reboot-core (75 commits ahead, 8 behind). Do not merge it wholesale: it contains stale E-007 file versions. Reconcile only reviewed E-002/E-009/E-011 changes into the primary research branch after the in-flight experiments finish.
