@@ -105,6 +105,8 @@ def percentile(values, fraction):
 
 def summarize_kind(results):
     latencies = [item["latency_ms"] for item in results]
+    service_latencies = [item.get("service_latency_ms", item["latency_ms"]) for item in results]
+    queue_delays = [item.get("client_queue_delay_ms", 0.0) for item in results]
     statuses = {}
     for item in results:
         statuses[str(item["status"])] = statuses.get(str(item["status"]), 0) + 1
@@ -153,6 +155,17 @@ def summarize(results, elapsed):
             "p99": percentile(latencies, 0.99),
             "max": max(latencies) if latencies else None,
             "mean": statistics.fmean(latencies) if latencies else None,
+        },
+        "service_latency_ms": {
+            "p50": percentile(service_latencies, 0.50),
+            "p95": percentile(service_latencies, 0.95),
+            "p99": percentile(service_latencies, 0.99),
+        },
+        "client_queue_delay_ms": {
+            "p50": percentile(queue_delays, 0.50),
+            "p95": percentile(queue_delays, 0.95),
+            "p99": percentile(queue_delays, 0.99),
+            "max": max(queue_delays) if queue_delays else None,
         },
         "response_bytes_total": sum(item["response_bytes"] for item in results),
     }
