@@ -38,6 +38,28 @@ class DurableWorkStoreTests(unittest.TestCase):
             max_attempts=attempts,
         )
 
+
+    def test_idle_worker_and_relay_polls_do_not_acquire_write_lock(self):
+        statements = []
+        original_connect = self.store._connect
+
+        def traced_connect():
+            connection = original_connect()
+            connection.set_trace_callback(statements.append)
+            return connection
+
+        self.store._connect = traced_connect
+        self.assertIsNone(
+            self.store.claim_job(worker_id="idle-worker", now=1, lease_seconds=30)
+        )
+        self.assertIsNone(
+            self.store.claim_outbox(relay_id="idle-relay", now=1, lease_seconds=30)
+        )
+        self.assertFalse(
+            any(statement.strip().upper().startswith("BEGIN IMMEDIATE") for statement in statements),
+            statements,
+        )
+
     def test_job_submission_is_idempotent_and_tenant_scoped(self):
         first, replayed = self.submit()
         replay, replayed_again = self.submit(now=1)

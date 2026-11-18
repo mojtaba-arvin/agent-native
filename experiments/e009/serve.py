@@ -37,6 +37,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--database", type=Path, default=Path("./agent-native-e009.sqlite3"))
     parser.add_argument("--port", type=int, default=8080)
+    parser.add_argument("--host", choices=("127.0.0.1", "0.0.0.0"), default="127.0.0.1")
     parser.add_argument("--max-concurrency", type=int, default=64)
     parser.add_argument("--worker-poll-seconds", type=float, default=0.25)
     parser.add_argument("--relay-poll-seconds", type=float, default=0.25)
@@ -46,7 +47,18 @@ def main() -> None:
     parser.add_argument("--max-running-jobs", type=int, default=16)
     parser.add_argument("--audit-batch-size", type=int, default=32)
     parser.add_argument("--audit-batch-delay-ms", type=float, default=2.0)
+    parser.add_argument("--job-batch-size", type=int, default=32)
+    parser.add_argument("--job-batch-delay-ms", type=float, default=0.5)
     args = parser.parse_args()
+    if args.host != "127.0.0.1" and os.environ.get("AGENT_NATIVE_ALLOW_NON_LOOPBACK") != "1":
+        parser.error("non-loopback binding requires AGENT_NATIVE_ALLOW_NON_LOOPBACK=1")
+    if not 1 <= args.job_batch_size <= 1024:
+        parser.error("--job-batch-size must be between 1 and 1024")
+    if (
+        not math.isfinite(args.job_batch_delay_ms)
+        or not 0 <= args.job_batch_delay_ms <= 50
+    ):
+        parser.error("job batch delay must be between 0 and 50 ms")
     for name, value in (
         ("worker-poll-seconds", args.worker_poll_seconds),
         ("relay-poll-seconds", args.relay_poll_seconds),
@@ -100,6 +112,8 @@ def main() -> None:
             max_outstanding=args.max_outstanding_jobs,
             max_concurrency=args.max_running_jobs,
             audit_sink=audit_sink,
+            max_submit_batch_size=args.job_batch_size,
+            max_submit_batch_delay_seconds=args.job_batch_delay_ms / 1000,
         )
     except ValueError as error:
         parser.error(str(error))
@@ -113,9 +127,10 @@ def main() -> None:
     server = create_server(
         runtime,
         identity,
-        host="127.0.0.1",
+        host=args.host,
         port=args.port,
         max_concurrency=args.max_concurrency,
+        allow_non_loopback=(args.host != "127.0.0.1"),
     )
 
     worker_id = f"catalog-worker-{uuid.uuid4().hex[:12]}"
@@ -185,6 +200,10 @@ def main() -> None:
         server.server_close()
         print(
             "E009_AUDIT_METRICS=" + json.dumps(audit_sink.metrics(), sort_keys=True),
+            flush=True,
+        )
+        print(
+            "E009_WORK_METRICS=" + json.dumps(work_store.metrics(), sort_keys=True),
             flush=True,
         )
         repository.close()

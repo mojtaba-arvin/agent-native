@@ -117,6 +117,20 @@ class Capability:
     expires_at: int
     delegable_audiences: frozenset[str] = frozenset()
 
+    def __post_init__(self) -> None:
+        for name in ("issuer", "subject", "audience", "tenant"):
+            value = getattr(self, name)
+            if not isinstance(value, str) or not value.strip():
+                raise ValueError(f"invalid_capability_{name}")
+        for name in ("operations", "resources", "delegable_audiences"):
+            value = getattr(self, name)
+            if not isinstance(value, frozenset) or any(
+                not isinstance(item, str) or not item.strip() for item in value
+            ):
+                raise ValueError(f"invalid_capability_{name}")
+        if type(self.expires_at) is not int or self.expires_at < 0:
+            raise ValueError("invalid_capability_expiry")
+
     def attenuate(
         self,
         *,
@@ -125,8 +139,16 @@ class Capability:
         resources: frozenset[str],
         expires_at: int,
     ) -> "Capability":
-        if audience == "":
+        if not isinstance(audience, str) or not audience.strip():
             raise ValueError("empty_audience")
+        if not isinstance(operations, frozenset) or any(
+            not isinstance(item, str) or not item.strip() for item in operations
+        ):
+            raise ValueError("invalid_capability_operations")
+        if not isinstance(resources, frozenset) or any(
+            not isinstance(item, str) or not item.strip() for item in resources
+        ):
+            raise ValueError("invalid_capability_resources")
         if audience not in self.delegable_audiences:
             raise ValueError("capability_audience_escalation")
         if not operations.issubset(self.operations):

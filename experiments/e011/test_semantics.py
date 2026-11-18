@@ -108,6 +108,38 @@ class CapabilityTests(unittest.TestCase):
         self.assertLessEqual(child.expires_at, self.parent.expires_at)
         self.assertEqual(child.tenant, self.parent.tenant)
 
+    def test_invalid_parent_capability_is_rejected_at_construction(self):
+        with self.assertRaisesRegex(ValueError, "capability_issuer"):
+            Capability(
+                issuer="", subject="service-a", audience="service-b",
+                tenant="tenant-a", operations=frozenset({"read"}),
+                resources=frozenset({"item:1"}), expires_at=1000,
+            )
+        with self.assertRaisesRegex(ValueError, "capability_operations"):
+            Capability(
+                issuer="issuer", subject="service-a", audience="service-b",
+                tenant="tenant-a", operations={"read"},
+                resources=frozenset({"item:1"}), expires_at=1000,
+            )
+        with self.assertRaisesRegex(ValueError, "capability_expiry"):
+            Capability(
+                issuer="issuer", subject="service-a", audience="service-b",
+                tenant="tenant-a", operations=frozenset({"read"}),
+                resources=frozenset({"item:1"}), expires_at=True,
+            )
+
+    def test_attenuation_rejects_malformed_authority_sets(self):
+        with self.assertRaisesRegex(ValueError, "invalid_capability_operations"):
+            self.parent.attenuate(
+                audience="service-c", operations={"read"},
+                resources=frozenset({"item:1"}), expires_at=900,
+            )
+        with self.assertRaisesRegex(ValueError, "invalid_capability_resources"):
+            self.parent.attenuate(
+                audience="service-c", operations=frozenset({"read"}),
+                resources=frozenset({""}), expires_at=900,
+            )
+
     def test_escalation_is_rejected(self):
         with self.assertRaisesRegex(ValueError, "audience_escalation"):
             self.parent.attenuate(

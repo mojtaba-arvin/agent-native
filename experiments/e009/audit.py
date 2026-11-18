@@ -37,6 +37,24 @@ class SQLiteAuditSink:
     Batch counters are process-local diagnostics; they never gate or bypass commits.
     The pilot varies the collection window while retaining the same commit contract.
     Every reported latency sample includes the durable audit decision path.
+    The durable job path shares its commit with the audit row and outbox event.
+    Idle worker and relay polls are read-only until actual work is available.
+    Durable job admission uses bounded synchronous commit batching.
+    The product pilot varies the job batch window independently from audit batching.
+    Server resource usage is sampled separately from host-wide cgroup limits.
+    Job batch size and delay are independently tunable from audit batching.
+    The product pilot now uses a 100 req/s open-loop offered-load profile by default.
+    Open-loop reports distinguish scheduled latency from service time and client queue delay.
+    The next confirmatory pass uses ten repetitions to quantify first-repetition tail variability.
+    The latest HTTP trust-boundary suite passes before the confirmatory performance cohort.
+    Audit-window comparison holds all other open-loop workload parameters fixed at 100 req/s and ten repetitions.
+    The 2 ms trial lowered tail latency but did not reduce commit count; the 0.5 ms baseline is being replicated before changing defaults.
+    A second 2 ms cohort tests whether the lower p99 is repeatable despite higher CPU and unchanged commit count.
+    Atomic runtime publication tests are green before this confirmatory 2 ms cohort.
+    The confirmatory cohort runs the server in a Docker cgroup capped at one CPU and 1 GiB; CPU/memory are read from that server cgroup.
+    Container startup failures now retain the Docker stdout/stderr tail so the cgroup launch path can be debugged from CI evidence.
+    The container benchmark opts into non-loopback binding through both the serve CLI environment guard and create_server allow_non_loopback flag; default hosts remain loopback-only.
+    The 0.5 ms cgroup cohort showed severe tail variance; repeat the 2.0 ms cgroup profile before selecting a provisional audit window.
     """
 
     def __init__(

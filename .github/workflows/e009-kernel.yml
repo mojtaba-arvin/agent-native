@@ -2,6 +2,7 @@ name: E-009 integrated framework-kernel checks
 
 on:
   pull_request:
+    types: [opened, reopened, ready_for_review, synchronize]
     paths:
       - "experiments/e009/**"
       - "experiments/e010/**"
@@ -25,8 +26,8 @@ permissions:
 # New branch revisions supersede stale CI runs; the model pilot keeps its own
 # non-cancelling policy because each factorial artifact is independently useful.
 concurrency:
-  group: e009-kernel-${{ github.event.pull_request.head.ref || github.ref_name }}
-  cancel-in-progress: true
+  group: e009-kernel-${{ github.event_name }}-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: false
 
 jobs:
   integrated-kernel:
@@ -40,6 +41,8 @@ jobs:
         run: python -m unittest discover -s experiments/e001/prototype -v
       - name: Validate E-004 capability model
         run: python -m unittest discover -s experiments/e004 -v
+      - name: Compile E-009 server and performance harness
+        run: python -m py_compile experiments/e009/serve.py experiments/e009/performance_smoke.py
       - name: Validate integrated E-009 kernel
         run: python -m unittest discover -s experiments/e009 -v
       - name: Detect explicit E-009 performance request
@@ -58,10 +61,10 @@ jobs:
               message = data.commit.message;
             }
             const subject = message.split('\n', 1)[0];
-            core.setOutput('run', subject === 'perf(e009): request five-run product-path measurement' ? 'true' : 'false');
+            core.setOutput('run', subject === 'perf(e009): request ten-run cgroup audit confirmation' ? 'true' : 'false');
       - name: Run E-009 durable HTTP performance smoke
         if: (github.event_name == 'pull_request' || github.event_name == 'push') && steps.performance-request.outputs.run == 'true'
-        run: python experiments/e009/performance_smoke.py --requests 1000 --repetitions 5 --concurrency 32 --audit-batch-delay-ms 0.5 --output "$RUNNER_TEMP/e009-performance.json"
+        run: python experiments/e009/performance_smoke.py --requests 1000 --repetitions 10 --concurrency 32 --target-rps 100 --containerized --enforce-capacity-gate --audit-batch-delay-ms 0.5 --job-batch-size 32 --job-batch-delay-ms 2.0 --output "$RUNNER_TEMP/e009-performance.json"
       - name: Preserve E-009 performance measurements
         if: always() && (github.event_name == 'pull_request' || github.event_name == 'push') && steps.performance-request.outputs.run == 'true'
         uses: actions/upload-artifact@v4
@@ -79,9 +82,14 @@ jobs:
             const result = JSON.parse(fs.readFileSync(path, 'utf8'));
             const a = result.aggregate;
             const l = a.latency_ms;
+            const service = a.service_latency_ms;
+            const queue = a.client_queue_delay_ms;
             const reps = result.repetitions.map(r => 'rep ' + r.repetition + ': p95=' + r.latency_ms.p95.toFixed(2) + 'ms, p99=' + r.latency_ms.p99.toFixed(2) + 'ms').join('; ');
             const kinds = Object.entries(result.by_operation_kind).map(([name, value]) => name + ': n=' + value.requests + ', p95=' + value.latency_ms.p95.toFixed(2) + 'ms, p99=' + value.latency_ms.p99.toFixed(2) + 'ms').join('; ');
             const audit = result.audit_metrics;
+            const work = result.work_metrics;
+            const resource = result.resource_metrics;
+            const cgroup = resource.cgroup_v2_limits;
             const body = [
               '## Automated E-009 performance evidence',
               '',
@@ -89,11 +97,18 @@ jobs:
               'Commit: `' + context.sha + '`',
               '',
               '- Requests: ' + a.requests + '; unexpected outcomes: ' + a.failed_expectations,
+              '- Arrival: ' + result.workload.arrival_mode + (result.workload.target_rps ? ' at ' + result.workload.target_rps + ' offered req/s' : ''),
               '- Throughput: ' + a.throughput_requests_per_second.toFixed(2) + ' req/s',
               '- Latency: p50 ' + l.p50.toFixed(2) + ' ms; p95 ' + l.p95.toFixed(2) + ' ms; p99 ' + l.p99.toFixed(2) + ' ms; max ' + l.max.toFixed(2) + ' ms',
+              '- Service-only latency p99: ' + service.p99.toFixed(2) + ' ms; client scheduling queue p99: ' + queue.p99.toFixed(2) + ' ms; queue max: ' + queue.max.toFixed(2) + ' ms',
               '- ' + reps,
               '- Operation latency: ' + kinds,
-              '- Audit commits: ' + audit.committed_batches + ' batches for ' + audit.committed_events + ' events; largest batch ' + audit.largest_batch,
+              '- Audit commits: ' + audit.committed_batches + ' group batches for ' + audit.committed_events + ' events; ' + audit.transactional_events + ' events shared the durable job transaction; largest batch ' + audit.largest_batch + '; batch window ' + result.workload.audit_batch_delay_ms + ' ms',
+              '- Durable job submissions: ' + work.committed_submissions + ' submissions across ' + work.submit_batches + ' transactions; largest batch ' + work.largest_submit_batch + '; configured batch size ' + result.workload.job_batch_size + '; job batch window ' + result.workload.job_batch_delay_ms + ' ms',
+              '- Server resources: ' + resource.server_cpu_seconds.toFixed(3) + ' CPU-s; ' + resource.server_cpu_percent_of_one_core_during_load.toFixed(1) + '% of one core during load; linear estimate at 100 req/s ' + resource.estimated_cpu_percent_at_100_rps.toFixed(1) + '%; peak cgroup memory/RSS ' + (resource.server_peak_cgroup_memory_bytes || resource.server_peak_rss_bytes) + ' bytes; CPU quota ' + resource.server_cpu_quota_cores + ' cores; cgroup pids ' + resource.server_cgroup_pids_current,
+              '- Resource accounting: ' + resource.accounting,
+              '- cgroup v2 limits: ' + (cgroup ? 'cpu.max=' + cgroup.cpu_max + '; memory.max=' + cgroup.memory_max + '; path=' + cgroup.path : 'unavailable'),
+              '- Capacity gate: ' + (result.capacity_gate ? (result.capacity_gate.passed ? 'PASS' : 'FAIL') + ' — ' + Object.entries(result.capacity_gate.checks).map(([name, passed]) => name + '=' + passed).join(', ') : 'not enforced'),
               '',
               'This is a shared-runner product-path measurement, not a controlled capacity claim. FULL audit durability remains enabled.'
             ].join('\n');

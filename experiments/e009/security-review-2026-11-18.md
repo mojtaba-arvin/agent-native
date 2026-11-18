@@ -62,18 +62,18 @@ E-010's sandbox_only label is descriptive metadata. The Gateway invokes a host-i
 
 **Required:** keep the demo callback allowlisted and test-only. A future untrusted extension/apply path needs an OS/container/VM isolation boundary with explicit filesystem, network, CPU, memory, process, and secret controls plus adversarial escape tests. Do not generalize the current proof.
 
-### F-05 — Hostile concurrency and parser/resource tests remain incomplete
+### F-05 — Hostile input and resource tests remain incomplete; publication race is covered
 
 **Severity:** Medium.
 
 Static tests exercise many malformed-input and tenant/capability cases, but the review does not establish exhaustive request-size, path-depth, regex/route explosion, concurrent dispatch/hot reload, repository lock contention, or denial-of-service resistance.
 
-**Required:** add property/fuzz tests for strict JSON, path/query decoding and IR validation; bounded request/response sizes and per-tenant concurrency; race tests for dispatch versus runtime publication.
+**Required:** add property/fuzz tests for strict JSON, path/query decoding and IR validation; bounded request/response sizes and per-tenant concurrency. Runtime publication races are now covered by a registry/snapshot test, but broader repository lock contention and denial-of-service resistance remain open.
 
 ## Architecture decisions
 
 1. Keep authentication, tenant authority, and RequestContext construction in a clearly identified trusted host adapter; never accept client-supplied grants as identity.
-2. Do not expose mutable IR/handlers to untrusted code. Deep immutability is a prerequisite for concurrent runtime publication, not a claim of the current implementation.
+2. Do not expose mutable IR/handlers to untrusted code. The runtime owns defensive IR copies and a read-only handler mapping; RuntimeRegistry publishes a monotonic immutable revision/runtime pair and each HTTP request pins one snapshot. This is in-process publication evidence, not a proof of arbitrary deep immutability. Published runtime instances must be treated as immutable.
 3. Separate audit event classes: attempted/authorized/denied request audit versus committed business outcome audit. Define which are transactional with state.
 4. Treat E-010 as a narrowly scoped demo coordinator only. It is not a general-purpose sandbox or production deployment path.
 5. Prioritize E-002 atomic durable storage semantics before claiming reliable distributed job admission.
@@ -82,3 +82,15 @@ Static tests exercise many malformed-input and tenant/capability cases, but the 
 ## Review limitation
 
 This was a source-level review of the referenced prototype, not dynamic exploit testing, dependency audit, formal verification, or external penetration testing. Findings are actionable risk statements, not claims that an exploit has been reproduced.
+
+
+## Publication follow-up — 18 November 2026
+
+The in-process publication gap identified in F-05 now has an executable implementation and regression evidence:
+
+- RuntimeSnapshot is a frozen revision/runtime pair; RuntimeRegistry uses a lock to atomically publish strictly increasing revisions.
+- HTTP dispatch resolves exactly one snapshot before authentication/dispatch and emits X-Runtime-Revision for traceability.
+- Tests cover stale revision rejection, frozen snapshots, eight concurrent readers racing publication, and HTTP requests before/after publication.
+- [E-009 workflow 44341003787](https://github.com/mojtaba-arvin/agent-native/actions/runs/44341003787) passed 124 E-009 tests, plus E-001/E-004/E-010 suites.
+
+Still unproven: hot-reload rollback, cross-process publication, multi-node consistency, runtime-object mutation after publication, and resource-exhaustion resistance.

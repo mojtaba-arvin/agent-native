@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "snapshot": "2026-11-16",
+  "snapshot": "2026-11-18",
   "candidates": [
     {
       "id": "go-net-http",
@@ -75,5 +75,123 @@
       "status": "retired_as_hard_gate",
       "reason": "No product-capacity provenance; historical results remain unchanged and are not rescored."
     }
+  },
+  "reference_storage_adapter": {
+    "id": "sqlite-wal-full-reference",
+    "implementation": "experiments/e002/sqlite_reference_adapter.py",
+    "status": "single-adapter-conformance-passed",
+    "workflow_run_id": 44339334484,
+    "tests": 24,
+    "durability_profile": "SQLite WAL, synchronous=FULL; metadata reports engine/version, WAL mode, synchronous, foreign keys, busy timeout, and canonicalization version",
+    "guarantees_tested": [
+      "atomic job+outbox+idempotency+audit admission",
+      "rollback at each pre-commit logical write boundary",
+      "tenant+operation-scoped idempotency",
+      "32-way same-key linearization",
+      "process crash after commit and before response reconciliation",
+      "append-only audit",
+      "outbox lease fencing and stale-ack rejection",
+      "32 concurrent same-key/different-hash requests yield one winner and 31 conflicts",
+      "audit insert outage fails closed with zero partial admission records"
+    ],
+    "limitations": [
+      "no cross-runtime adapter parity",
+      "no power-loss certification",
+      "no replication or multi-node linearizability",
+      "no controlled performance result"
+    ],
+    "product_storage_selection": null,
+    "canonicalization_version": "json-sort-keys-compact-utf8-v1"
+  },
+  "postgres_reference_adapter": {
+    "id": "postgresql-wal-full-reference",
+    "implementation": "experiments/e002/postgres_reference_adapter.py",
+    "tests": "experiments/e002/test_postgres_reference_adapter.py",
+    "status": "single-adapter-conformance-passed",
+    "workflow_run_id": 44345013099,
+    "tests_passed": 9,
+    "engine_version": "PostgreSQL 16.4 service image",
+    "driver_version": "psycopg 3.2.9",
+    "durability_profile": "fsync=on; synchronous_commit=on",
+    "canonicalization_version": "json-sort-keys-compact-utf8-v1",
+    "guarantees_tested": [
+      "atomic job+outbox+idempotency+audit admission",
+      "rollback at each pre-commit logical write boundary",
+      "tenant+operation-scoped idempotency using transaction advisory lock",
+      "32-way same-hash and different-hash races",
+      "process crash after commit and before response reconciliation",
+      "audit outage fails closed",
+      "append-only audit",
+      "outbox lease expiry and stale-ack fencing"
+    ],
+    "limitations": [
+      "disposable single-node CI service only",
+      "no replication or synchronous standby durability",
+      "no power-loss certification",
+      "no cross-runtime storage adapter parity",
+      "no controlled performance comparison"
+    ],
+    "product_storage_selection": null
+  },
+  "cross_engine_trace_parity": {
+    "status": "passed",
+    "workflow_run_id": 44356165574,
+    "runner": "experiments/e002/trace_runner.py",
+    "seed": 20261118,
+    "operations": 60,
+    "engines": [
+      "sqlite-wal-full-reference",
+      "postgresql-wal-full-reference"
+    ],
+    "compared": [
+      "identical status sequence and created/replayed/conflict classification",
+      "tenant+operation-scoped idempotency and stable replay outcome",
+      "canonical payload hash and trace digest equality",
+      "durable job/outbox visibility and record counts",
+      "outbox claim and lease-fenced acknowledgement",
+      "four identical pre-commit rollback fault boundaries",
+      "post-commit process termination and same-key reconciliation after reopen",
+      "lease expiry reclaim and stale-owner acknowledgement fencing"
+    ],
+    "limitations": [
+      "25 deterministic seeds, not exhaustive property-based search",
+      "four pre-commit fault boundaries plus post-commit process crash; no power-loss or replicated durability claim",
+      "no runtime-candidate adapter parity"
+    ],
+    "seeds": [
+      20261118,
+      20261119,
+      20261120,
+      20261121,
+      20261122,
+      20261123,
+      20261124,
+      20261125,
+      20261126,
+      20261127,
+      20261128,
+      20261129,
+      20261130,
+      20261131,
+      20261132,
+      20261133,
+      20261134,
+      20261135,
+      20261136,
+      20261137,
+      20261138,
+      20261139,
+      20261140,
+      20261141,
+      20261142
+    ],
+    "operations_per_seed": 60,
+    "total_operations": 1500,
+    "fault_stages": [
+      "after_job",
+      "after_outbox",
+      "after_idempotency",
+      "after_audit"
+    ]
   }
 }

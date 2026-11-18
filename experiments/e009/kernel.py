@@ -12,6 +12,7 @@ import copy
 import math
 import re
 import sys
+import threading
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -531,3 +532,43 @@ class ServiceRuntime:
                 500,
                 {"error": {"code": "INTERNAL_ERROR"}, "request_id": request_id},
             )
+
+
+@dataclass(frozen=True)
+class RuntimeSnapshot:
+    """One immutable publication record captured once per request."""
+
+    revision: int
+    runtime: ServiceRuntime
+
+
+class RuntimeRegistry:
+    """Atomically publish fully constructed runtime snapshots.
+
+    A request obtains one snapshot and uses that runtime for its complete
+    lifecycle. Publication never mutates a live runtime in place.
+    """
+
+    def __init__(self, runtime: ServiceRuntime, *, revision: int = 1):
+        if not isinstance(runtime, ServiceRuntime):
+            raise ConfigurationError("runtime_snapshot_requires_service_runtime")
+        if type(revision) is not int or revision < 1:
+            raise ConfigurationError("runtime_revision_must_be_positive_integer")
+        self._lock = threading.Lock()
+        self._snapshot = RuntimeSnapshot(revision=revision, runtime=runtime)
+
+    def snapshot(self) -> RuntimeSnapshot:
+        with self._lock:
+            return self._snapshot
+
+    def publish(self, runtime: ServiceRuntime, *, revision: int) -> RuntimeSnapshot:
+        if not isinstance(runtime, ServiceRuntime):
+            raise ConfigurationError("runtime_snapshot_requires_service_runtime")
+        if type(revision) is not int or revision < 1:
+            raise ConfigurationError("runtime_revision_must_be_positive_integer")
+        with self._lock:
+            if revision <= self._snapshot.revision:
+                raise ConfigurationError("runtime_revision_must_increase")
+            snapshot = RuntimeSnapshot(revision=revision, runtime=runtime)
+            self._snapshot = snapshot
+            return snapshot

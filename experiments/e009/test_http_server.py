@@ -12,10 +12,11 @@ import socketserver
 from unittest import mock
 from pathlib import Path
 
+from audit import SQLiteAuditSink
 from catalog import build_catalog_handlers
 from http_server import create_server
 from identity import MemoryIdentityProvider
-from kernel import ServiceRuntime, load_service_ir
+from kernel import RuntimeRegistry, ServiceRuntime, load_service_ir
 from repository import SQLiteCatalogRepository
 from work_store import DurableWorkStore
 from worker import CatalogWorker, OutboxRelay
@@ -50,13 +51,18 @@ class KernelHTTPServerTests(unittest.TestCase):
         self.repository = SQLiteCatalogRepository(
             Path(self.temporary.name) / "http.sqlite3"
         )
-        self.work_store = DurableWorkStore(self.repository.database)
+        self.audit_sink = SQLiteAuditSink(self.repository.database)
+        self.work_store = DurableWorkStore(
+            self.repository.database,
+            audit_sink=self.audit_sink,
+        )
         self.runtime = ServiceRuntime(
             load_service_ir(SOURCE),
             handlers=build_catalog_handlers(self.repository, self.work_store),
             repository=self.repository,
             trusted_effects=TRUSTED_EFFECTS,
             clock=lambda: 100,
+            audit_sink=self.audit_sink,
         )
         self.identity = MemoryIdentityProvider({
             "test-token-aaaaaaaaaaaaaaaaaaaaaaaa": make_context("user-a", "tenant-a"),
@@ -109,6 +115,22 @@ class KernelHTTPServerTests(unittest.TestCase):
         status = int(head.split(b"\r\n", 1)[0].split()[1])
         return status, head.decode("latin-1"), body
 
+
+    def test_unauthenticated_http_request_is_audited_without_identity_claims(self):
+        status, _headers, body = self.request("GET", "/items", token=None)
+        self.assertEqual(status, 401)
+        self.assertEqual(body["error"]["code"], "UNAUTHENTICATED")
+        events = self.audit_sink.list_events()
+        self.assertEqual(len(events), 1)
+        event = events[0]
+        self.assertIsNone(event["principal_id"])
+        self.assertIsNone(event["tenant_id"])
+        self.assertEqual(event["operation"], "unauthenticated.get")
+        self.assertEqual(event["resource"], "/items")
+        self.assertEqual(event["requested_effects"], [])
+        self.assertEqual(event["decision"], "deny")
+        self.assertEqual(event["reason_code"], "UNAUTHENTICATED")
+
     def test_listen_backlog_is_set_before_socket_activation(self):
         observed_backlogs = []
         original_activate = socketserver.TCPServer.server_activate
@@ -124,6 +146,91 @@ class KernelHTTPServerTests(unittest.TestCase):
             self.assertEqual(server.request_queue_size, 17)
         finally:
             server.server_close()
+
+    def test_inflight_http_request_keeps_its_snapshot_during_publication(self):
+        entered = threading.Event()
+        release = threading.Event()
+        provider_lock = threading.Lock()
+        first_call = {"value": True}
+
+        class BlockingProvider:
+            def authenticate(_self, headers):
+                with provider_lock:
+                    should_block = first_call["value"]
+                    first_call["value"] = False
+                if should_block:
+                    entered.set()
+                    if not release.wait(timeout=5):
+                        raise TimeoutError("test did not release blocked authentication")
+                return self.identity.authenticate(headers)
+
+        registry = RuntimeRegistry(self.runtime, revision=7)
+        server = create_server(registry, BlockingProvider(), max_concurrency=8)
+        server_thread = threading.Thread(target=server.serve_forever, daemon=True)
+        server_thread.start()
+        previous_base = self.base_url
+        self.base_url = f"http://127.0.0.1:{server.server_port}"
+        result = {}
+
+        def send_first_request():
+            result["first"] = self.request("GET", "/items/by-name/not-found")
+
+        request_thread = threading.Thread(target=send_first_request, daemon=True)
+        try:
+            request_thread.start()
+            self.assertTrue(entered.wait(timeout=3))
+            registry.publish(self.runtime, revision=8)
+            release.set()
+            request_thread.join(timeout=5)
+            self.assertFalse(request_thread.is_alive())
+            first_status, first_headers, _first_body = result["first"]
+            self.assertEqual(first_status, 404)
+            self.assertEqual(first_headers.get("X-Runtime-Revision"), "7")
+
+            second_status, second_headers, _second_body = self.request(
+                "GET", "/items/by-name/not-found"
+            )
+            self.assertEqual(second_status, 404)
+            self.assertEqual(second_headers.get("X-Runtime-Revision"), "8")
+        finally:
+            release.set()
+            self.base_url = previous_base
+            server.shutdown()
+            server.server_close()
+            server_thread.join(timeout=5)
+
+    def test_non_loopback_binding_requires_explicit_host_opt_in(self):
+        with self.assertRaisesRegex(ValueError, "must_be_loopback"):
+            create_server(self.runtime, self.identity, host="0.0.0.0")
+        server = create_server(
+            self.runtime, self.identity, host="0.0.0.0", allow_non_loopback=True
+        )
+        try:
+            self.assertEqual(server.server_address[0], "0.0.0.0")
+        finally:
+            server.server_close()
+
+    def test_http_request_uses_one_published_runtime_revision(self):
+        registry = RuntimeRegistry(self.runtime, revision=7)
+        server = create_server(registry, self.identity, max_concurrency=8)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        previous_base = self.base_url
+        self.base_url = f"http://127.0.0.1:{server.server_port}"
+        try:
+            first_status, first_headers, _first_body = self.request("GET", "/items/by-name/not-found")
+            self.assertEqual(first_status, 404)
+            self.assertEqual(first_headers.get("X-Runtime-Revision"), "7")
+
+            registry.publish(self.runtime, revision=8)
+            second_status, second_headers, _second_body = self.request("GET", "/items/by-name/not-found")
+            self.assertEqual(second_status, 404)
+            self.assertEqual(second_headers.get("X-Runtime-Revision"), "8")
+        finally:
+            self.base_url = previous_base
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=5)
 
     def test_real_http_create_get_by_id_and_get_by_name(self):
         status, headers, created = self.request(
@@ -145,6 +252,52 @@ class KernelHTTPServerTests(unittest.TestCase):
         self.assertEqual(by_name_status, 200)
         self.assertEqual(fetched["data"], created["data"])
         self.assertEqual(by_name["data"], created["data"])
+
+    def test_client_supplied_identity_claims_never_override_authenticated_context(self):
+        status, _headers, body = self.request(
+            "POST",
+            "/items",
+            body={
+                "name": "Forged tenant item",
+                "tenant_id": "tenant-b",
+                "principal_id": "attacker",
+                "grants": ["items.create", "admin"],
+            },
+            headers={
+                "X-Tenant-ID": "tenant-b",
+                "X-Principal-ID": "attacker",
+                "X-Capabilities": "admin",
+                "Idempotency-Key": "forged-identity-001",
+            },
+        )
+        self.assertEqual(status, 400)
+        self.assertEqual(body["error"]["code"], "InvalidInput")
+        self.assertIsNone(self.repository.get_item_by_name(
+            tenant_id="tenant-a", name="Forged tenant item"
+        ))
+        self.assertIsNone(self.repository.get_item_by_name(
+            tenant_id="tenant-b", name="Forged tenant item"
+        ))
+
+    def test_untrusted_identity_headers_are_ignored_when_body_is_valid(self):
+        status, _headers, body = self.request(
+            "POST",
+            "/items",
+            body={"name": "Authenticated tenant item"},
+            headers={
+                "X-Tenant-ID": "tenant-b",
+                "X-Principal-ID": "attacker",
+                "X-Capabilities": "admin",
+                "Idempotency-Key": "identity-header-ignored-001",
+            },
+        )
+        self.assertEqual(status, 201)
+        self.assertIsNotNone(self.repository.get_item_by_name(
+            tenant_id="tenant-a", name="Authenticated tenant item"
+        ))
+        self.assertIsNone(self.repository.get_item_by_name(
+            tenant_id="tenant-b", name="Authenticated tenant item"
+        ))
 
     def test_http_submission_creates_durable_job_and_is_idempotent(self):
         first = self.request(

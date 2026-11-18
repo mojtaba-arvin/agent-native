@@ -103,12 +103,35 @@ After the E-007 real-agent factorial pilot is accepted and E-010 sandbox-apply e
 - decision record with confidence and limitations.
 
 
-## 18 November 2026 — Four-track continuation
+## 18 November 2026 — four-track execution update
 
-- E-007: [manual pilot operator runbook](../experiments/e007/manual-pilot-operator-runbook.md) records exact dispatch preflight and artifact acceptance audit. Workflow remains manual-only; this session cannot dispatch it.
-- E-002: [product benchmark gap analysis](../experiments/e002/product-benchmark-gap-analysis.md) formally rejects runtime ranking from the toy HTTP workload and short sampler smokes. Next product milestone is lifecycle parity plus storage conformance, then controlled cgroup-v2 measurements.
-- E-009/E-010: [security review](../experiments/e009/security-review-2026-11-18.md) records five trust-boundary findings from static code inspection. This closes documentation/review of E-010, not the implementation gaps.
-- E-011: [transport-neutral semantic envelope v1](e011-semantic-envelope-v1.md) defines identity, capability attenuation, deadline, cancellation, retry, unknown-outcome, and streaming semantics without selecting a transport. Two-process implementation remains gated on E-007 acceptance.
+- **E-007:** the manual-only blocker was bypassed with a narrow, marker-gated one-shot push path that does not alter Qwen3 budgets or enable apply. The first run failed before model calls due a real shell continuation defect; this was corrected, TSV parsing made lossless, and the 94-test corpus workflow passed. Retry-1 [run 44337025030](https://github.com/mojtaba-arvin/agent-native/actions/runs/44337025030) is running against the corrected pinned revision. No acceptance claim until artifact review confirms A-D and same-hash propose → validate → safe plan.
+- **E-002:** [product benchmark gap analysis](../experiments/e002/product-benchmark-gap-analysis.md) still prohibits ranking the toy HTTP candidates. A first [SQLite reference adapter](../experiments/e002/sqlite_reference_adapter.py) and 21-test conformance suite now pass in [workflow 44337986951](https://github.com/mojtaba-arvin/agent-native/actions/runs/44337986951), including 32-way idempotency races, process crash after commit/before response, and outbox fencing. This is not cross-runtime parity or storage selection.
+- **E-009/E-010:** [security review](../experiments/e009/security-review-2026-11-18.md) records trust-boundary findings. Defensive IR/handler ownership remains tested. Five-run saturated product-path diagnostics reached 1,541 req/s on a shared runner with FULL audit durability. A 100 req/s open-loop profile is now implemented; its first execution found and exposed a reporting bug, which was fixed. A fresh run is required before claiming open-loop evidence.
+- **E-011:** the transport-neutral model now validates malformed capability envelopes and passes 13 deterministic tests in [workflow 44337266191](https://github.com/mojtaba-arvin/agent-native/actions/runs/44337266191). Two-process implementation remains gated on E-007 acceptance.
+
+E-009 trusted host identity and atomic runtime publication remain open; the current loopback MemoryIdentityProvider is a demo fixture, not a production adapter. E-002 performance matrix remains skipped until storage correctness and workload parity are proven. No runtime, database, or transport is selected.
 
 
-E-009 defensive ownership follow-up: the runtime now owns a deep-copied IR and operation set, returns defensive copies for inspection, exposes a read-only handler mapping, and passes operation copies into handlers. The E-009/E-010 integrated CI run 44299480091 passed (110 E-009 tests; 3 E-010 tests). Trusted host identity construction and concurrent publication semantics remain open.
+## 18 November 2026 — follow-up after first product-path measurements
+
+- E-002 SQLite reference adapter now has 24 passing conformance tests, including audit outage, same-key/different-hash concurrency, process-crash-after-commit recovery, and fenced outbox acknowledgement. [Run 44339334484](https://github.com/mojtaba-arvin/agent-native/actions/runs/44339334484) passed Go/Rust/WASI P2/BEAM baselines; the benchmark matrix remains skipped.
+- E-009 100 req/s open-loop load achieved 100.06 req/s across 10,000 requests with zero unexpected outcomes. Aggregate p99 was 73.82 ms, but 2/10 repetitions exceeded 100 ms, so repeatability is not accepted. A 2 ms audit-window comparison then showed p99 7.85 ms in all ten repetitions, but increased CPU and did not reduce audit commit count; no default change is justified. A 0.5 ms baseline replication is running in [44340325781](https://github.com/mojtaba-arvin/agent-native/actions/runs/44340325781).
+- E-009 HTTP trust-boundary suite rejects client-forged principal, tenant, and grants; [run 44339021741](https://github.com/mojtaba-arvin/agent-native/actions/runs/44339021741) passed 121 E-009 tests.
+- CI policy: E-002 and E-009 no longer cancel in-flight conformance/performance runs when a later commit arrives. This prevents wasted work and protects long-running measurements; latest pending runs may still replace earlier pending runs.
+- E-007 retry-1 [run 44337025030](https://github.com/mojtaba-arvin/agent-native/actions/runs/44337025030) has passed marker/preflight/Ollama/model provisioning and is still executing the matched A-D cohort. The corrected runner's 94-test suite passed. Acceptance remains pending artifact inspection.
+
+
+- E-002 now has two independently implemented single-node storage adapters: SQLite (24 passing tests) and PostgreSQL 16.4 (9 passing tests) in [workflow 44341683697](https://github.com/mojtaba-arvin/agent-native/actions/runs/44341683697). Five shared 60-operation traces (300 operations total), four matching pre-commit fault traces, and process-crash-after-commit reconciliation now pass against both engines in [workflow 44344568192](https://github.com/mojtaba-arvin/agent-native/actions/runs/44344568192). Next: broaden property-based generation, lease-expiry fault parity and power-loss/replication evidence, then compare performance.
+
+
+## Executed evidence update — 18 November 2026
+
+The next-stage work has produced the following executed evidence; it does not change the no-winner decision:
+
+- E-002: SQLite and PostgreSQL reference adapters now pass independent suites and a shared five-seed × 60-operation trace parity suite. [Workflow 44345013099](https://github.com/mojtaba-arvin/agent-native/actions/runs/44345013099) also passed the Go, Rust, WASI P2 and BEAM baseline jobs. The 10×5,000 cross-runtime performance matrix remains skipped until product-lifecycle and adapter conformance are implemented for each runtime.
+- E-009: [Workflow 44345238807](https://github.com/mojtaba-arvin/agent-native/actions/runs/44345238807) measured 10,000 requests at 100.044 req/s, p99 6.536 ms, 21.66% of one CPU and 35.18 MiB peak cgroup memory, under a 1-CPU/1-GiB server limit with FULL SQLite audit durability. This passes the current single-node target. PostgreSQL-backed E-009, paired randomized storage cohorts, and soak/crash tests remain next.
+- E-007: the marker-gated route launched the Qwen3 factorial, but [run 44337025030](https://github.com/mojtaba-arvin/agent-native/actions/runs/44337025030) aborted after cell C's repair-budget failure and cell A's provider HTTP 500. No cell was accepted. Provider error-body capture is now tested; a single-cell reproduction is queued before another full factorial.
+- E-011: [workflow 44337266191](https://github.com/mojtaba-arvin/agent-native/actions/runs/44337266191) passed 13 deterministic semantic tests. Two-process persistence and transport remain gated.
+
+The E-002/E-009 measurements live on `research/ci-policy-staging`; E-007 provider diagnostics and the provider error-detail fix live on `research/reboot-core`. These branches are divergent and must be reconciled by reviewed changes, not merged wholesale. `main` remains untouched and PR #6 remains Draft.
