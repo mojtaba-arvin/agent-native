@@ -36,6 +36,7 @@ from local_agent import (
     prevalidate_catalog_operation,
     prevalidate_tool_call,
     prevalidation_repair_key,
+    _resolve_task_path,
     _compact_conversation,
     _build_compaction_ledger,
 )
@@ -118,6 +119,16 @@ class LocalAgentRunnerTests(unittest.TestCase):
             validation_change_set_id=(proposal["result"]["change_set_id"] if validation_id is None else validation_id),
             plan_change_set_id=(proposal["result"]["change_set_id"] if plan_id is None else plan_id),
         )
+
+    def test_task_path_none_resolves_to_default_agent_task(self):
+        expected = (Path(__file__).parent / "AGENT_TASK.md").resolve()
+        self.assertEqual(_resolve_task_path(None), expected)
+
+    def test_explicit_task_path_is_preserved(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            explicit = Path(temporary) / "custom-task.md"
+            explicit.write_text("test task", encoding="utf-8")
+            self.assertEqual(_resolve_task_path(explicit), explicit.resolve())
 
     def test_accepts_exact_readonly_proposal_with_full_inspection(self):
         values = self.fixture()

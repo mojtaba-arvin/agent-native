@@ -47,6 +47,12 @@ class AgentRunError(RuntimeError):
     pass
 
 
+def _resolve_task_path(task_path: Path | str | None) -> Path:
+    """Resolve the default task when argparse explicitly supplies None."""
+    selected = E009_ROOT / "AGENT_TASK.md" if task_path is None else task_path
+    return Path(selected).expanduser().resolve()
+
+
 def _reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict:
     result = {}
     for key, value in pairs:
@@ -652,7 +658,7 @@ def run(args: argparse.Namespace) -> dict:
     endpoint = validate_ollama_endpoint(args.ollama_url)
     task_id = getattr(args, "task_id", TASK_ID)
     allow_sandbox_apply = bool(getattr(args, "allow_sandbox_apply", False))
-    task_path = Path(getattr(args, "task_path", E009_ROOT / "AGENT_TASK.md")).expanduser().resolve()
+    task_path = _resolve_task_path(getattr(args, "task_path", None))
     results_root = args.results_dir.expanduser().resolve()
     try:
         results_root.relative_to(ROOT.resolve())
