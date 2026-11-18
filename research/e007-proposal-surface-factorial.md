@@ -38,8 +38,8 @@ The initial draft mixed two different meanings of "base disclosure": full contra
 |---|---|---|
 | A — current baseline | Complete canonical IR snapshot | Full contracts; operation-by-operation |
 | B | Constrained typed delta | Full contracts; operation-by-operation |
-| C | Complete canonical IR snapshot | Complete canonical base IR supplied upfront |
-| D | Constrained typed delta | Complete canonical base IR supplied upfront |
+| C | Complete canonical IR snapshot | Complete service/type/operation contract in one service-level inspection |
+| D | Constrained typed delta | Complete service/type/operation contract in one service-level inspection |
 
 All four arms receive the same service identity, types, and complete existing operation contracts. In A/B, full operation contracts arrive through individual inspection calls and proposal is blocked until all required inspections are complete. In C/D, the service-level inspection returns the complete service object, types, and full operation contracts in one response; no per-operation calls are needed. The `ir_version=1` envelope constant is part of the task/schema contract in both snapshot cells. The validator, planner, effect policy, task, model/runtime, and no-apply rule remain identical.
 
@@ -161,8 +161,8 @@ If the delta improves authoring cost but complicates the trusted runtime substan
 5. **Independent evaluator complete:** `eval_runner.py` reconstructs the trusted base outside the agent-visible context, recomputes the delta materialization and change-set hash, checks exact candidate schema, verifies the proposal/validation/plan hash chain, and enforces disclosure-specific inspection behavior.
 6. **Pinned cases created:** A–D are the corrected 2×2 factorial cells under `experiments/e007/evals/e007-factorial-*.eval.json`; E is the separate minimal-disclosure exploratory case. All cells use the same task and fixed Qwen3 settings/budgets from the already-tested expanded-budget case; no model budget was increased.
 7. **Deterministic CI passed:** the E-009 integrated runner/Gateway suite and E-007 evaluator suite pass, including delta candidate verification and all three disclosure modes. These tests are implementation evidence, not real-agent outcomes.
-8. **Before any model dispatch:** fix the Second Light dispatch/case identity mismatch, make the dispatch manifest select and validate an exact case path and eval ID, pin the integrated runner revision, and run the full protocol/kernel CI on that exact revision.
-9. Only then manually run one matched, no-apply pilot for A–D with identical model/runtime settings and inspect raw traces. Run E separately and label it exploratory. Do not increase Qwen3 budgets or run the model before all preflight checks pass.
+8. **Dispatch integrity complete:** the version-2 manifest separates dispatch_id from each case eval_id and binds exact case paths. The guarded script validates all four cells, equal settings/budgets, no-apply policy, and seeded execution order C-A-D-B before the first model request. The workflow is manual-dispatch-only; research-branch pushes cannot launch a model run. Pin the exact workflow commit and pass full protocol/kernel CI before manual dispatch.
+9. Only after the preceding checks pass, manually run one matched, no-apply pilot for A–D with identical model/runtime settings and inspect raw traces. Run E separately and label it exploratory. Do not increase Qwen3 budgets or run the model before all preflight checks pass.
 10. Expand to additional tasks only after the pilot establishes that instrumentation, scoring, and safety boundaries are sound.
 
 ## 10. Claim boundary
