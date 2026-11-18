@@ -168,6 +168,7 @@ adapter.admit_job(
         with self.adapter._connect() as db:
             with self.assertRaisesRegex(psycopg.Error, "audit_append_only"):
                 db.execute("UPDATE e002_audit SET reason_code='tampered'")
+            db.rollback()
             with self.assertRaisesRegex(psycopg.Error, "audit_append_only"):
                 db.execute("DELETE FROM e002_audit")
 
