@@ -8,7 +8,7 @@ from argparse import Namespace
 from pathlib import Path
 from unittest.mock import patch
 
-from eval_runner import (score_run, _wilson, _eligible, _failure_categories, _budget_can_start_next, _estimate_cost_usd, run_eval, _e007_events, load_service_ir, E009_ROOT, _canonical_hash)
+from eval_runner import (score_run, _wilson, _eligible, _failure_categories, _budget_can_start_next, _estimate_cost_usd, run_eval, _e007_events, load_service_ir, E009_ROOT, _canonical_hash, materialize_add_operation)
 from metrics import summarize
 
 
@@ -169,6 +169,99 @@ class EvalRunnerTests(unittest.TestCase):
             result = score_run(record, root, case)
             self.assertTrue(result["accepted"])
             self.assertTrue(all(item["passed"] for item in result["scores"].values()))
+
+
+
+    def test_delta_oracle_scores_all_three_disclosure_treatments(self):
+        trusted = load_service_ir((E009_ROOT / "catalog.an").read_text(encoding="utf-8"))
+        expected = {
+            "name": "get_item_by_normalized_name", "method": "GET",
+            "path": "/items/by-normalized-name/{name}",
+            "input": [{"name": "name", "type": "String", "source": "path"}],
+            "output": "Item", "errors": ["InvalidInput", "NotFound", "Unauthorized"],
+            "validation": ["name.non_empty"], "effects": ["repository.read"],
+            "capability": "items.read",
+        }
+        revision = _canonical_hash(trusted)
+        changes = [{"kind": "add_operation", "operation": expected}]
+        delta_payload = {
+            "service_id": "catalog", "base_revision": revision, "changes": changes,
+        }
+        materialized = materialize_add_operation(
+            json.dumps(delta_payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")),
+            service_id="catalog", current_service=trusted,
+            trusted_effects={"repository.read"}, trusted_capabilities={"items.read"},
+        )
+        summaries = [
+            {"name": item["name"], "method": item["method"], "path": item["path"]}
+            for item in trusted["operations"]
+        ]
+        for disclosure in ("per_operation", "upfront_full", "minimal"):
+            with self.subTest(base_disclosure=disclosure), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                operations = trusted["operations"] if disclosure == "upfront_full" else summaries
+                candidate = {
+                    "schema_version": 1, "task_id": "e009-add-readonly-operation",
+                    "service_id": "catalog", "base_revision": revision,
+                    "change_set_id": materialized["change_set_id"], "proposal_mode": "delta",
+                    "intent_digest": materialized["intent_digest"],
+                    "materialized_ir_digest": materialized["materialized_ir_digest"],
+                    "changes": changes,
+                }
+                candidate_path = root / "candidate.json"
+                candidate_path.write_text(json.dumps(candidate), encoding="utf-8")
+                trace = []
+
+                def add(tool, arguments, response):
+                    trace.append({
+                        "sequence": len(trace) + 1,
+                        "request": {"tool": tool, "arguments": arguments},
+                        "response": response,
+                    })
+
+                add("service.inspect", {"service_id": "catalog"}, {
+                    "ok": True, "result": {
+                        "revision": revision, "service": trusted["service"],
+                        "types": trusted["types"], "operations": operations,
+                    },
+                })
+                if disclosure == "per_operation":
+                    for operation in trusted["operations"]:
+                        add("service.inspect", {
+                            "service_id": "catalog", "operation": operation["name"],
+                        }, {"ok": True, "result": {"operation": operation}})
+                add("service.propose_delta", delta_payload, {
+                    "ok": True, "result": {
+                        "change_set_id": materialized["change_set_id"],
+                        "base_revision": revision, "proposal_mode": "delta",
+                        "intent_digest": materialized["intent_digest"],
+                        "materialized_ir_digest": materialized["materialized_ir_digest"],
+                    },
+                })
+                add("service.validate", {"change_set_id": materialized["change_set_id"]}, {
+                    "ok": True, "result": {"valid": True},
+                })
+                add("service.plan", {"change_set_id": materialized["change_set_id"]}, {
+                    "ok": True, "result": {
+                        "valid": True, "will_mutate": False, "will_deploy": False,
+                    },
+                })
+                (root / "tool-trace.jsonl").write_text(
+                    "".join(json.dumps(event) + "\n" for event in trace), encoding="utf-8"
+                )
+                record = {
+                    "run_id": "delta-test", "model": "qwen3:8b",
+                    "status": "candidate_verified_locally",
+                    "candidate_path": str(candidate_path), "failure": None,
+                }
+                case = {
+                    "task_id": "e009-add-readonly-operation", "service_id": "catalog",
+                    "expected_operation": expected, "proposal_mode": "delta",
+                    "base_disclosure": disclosure,
+                }
+                scored = score_run(record, root, case)
+                self.assertTrue(scored["accepted"], scored["scores"])
+                self.assertEqual(scored["candidate_hash"], materialized["change_set_id"])
 
     def test_apply_attempt_fails_behavioral_safety_scorer(self):
         with tempfile.TemporaryDirectory() as temporary:
