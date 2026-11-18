@@ -2,6 +2,7 @@ name: E-007 benchmark corpus checks
 
 on:
   pull_request:
+    types: [opened, reopened, ready_for_review]
     paths:
       - "experiments/e007/**"
       - ".github/workflows/e007-benchmark-corpus.yml"
@@ -15,6 +16,10 @@ on:
 
 permissions:
   contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
 
 jobs:
   corpus-and-metrics:
