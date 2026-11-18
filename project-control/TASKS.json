@@ -231,7 +231,8 @@
       "expected_outputs": [
         "Unified CI workflow",
         "Workflow responsibility matrix",
-        "CI migration evidence"
+        "CI migration evidence",
+        "First authoritative run after base branch includes the workflow"
       ],
       "max_unchanged_retries": 1,
       "replan_after_failures": 2,
