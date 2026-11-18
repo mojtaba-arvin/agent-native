@@ -44,9 +44,8 @@ TRUSTED_EFFECTS = {
     "queue.cancel",
 }
 
-TRUSTED_CAPABILITIES = {
-    "items.read", "items.create", "items.rebuild", "jobs.read", "jobs.cancel",
-}
+DELTA_ALLOWED_EFFECTS = {"repository.read"}
+DELTA_ALLOWED_CAPABILITIES = {"items.read"}
 DELTA_PROPOSAL_TOOL = {
     "name": "service.propose_delta",
     "summary": "Propose exactly one append-only operation change against the trusted current service revision; the Gateway materializes the complete canonical IR.",
@@ -85,8 +84,8 @@ DELTA_PROPOSAL_TOOL = {
                                 "output": {"type": "string"},
                                 "errors": {"type": "array", "items": {"type": "string"}},
                                 "validation": {"type": "array", "items": {"type": "string"}},
-                                "effects": {"type": "array", "items": {"type": "string", "enum": sorted(TRUSTED_EFFECTS)}},
-                                "capability": {"type": "string", "enum": sorted(TRUSTED_CAPABILITIES)},
+                                "effects": {"type": "array", "items": {"type": "string", "enum": sorted(DELTA_ALLOWED_EFFECTS)}},
+                                "capability": {"type": "string", "enum": sorted(DELTA_ALLOWED_CAPABILITIES)},
                             },
                             "additionalProperties": False,
                         },
@@ -256,8 +255,8 @@ class AgentNativeGateway:
                 _encode(arguments),
                 service_id="catalog",
                 current_service=current_service,
-                trusted_effects=TRUSTED_EFFECTS,
-                trusted_capabilities=TRUSTED_CAPABILITIES,
+                trusted_effects=DELTA_ALLOWED_EFFECTS,
+                trusted_capabilities=DELTA_ALLOWED_CAPABILITIES,
             )
         except DeltaMaterializationError as error:
             code = "DELTA_" + error.code.upper()
