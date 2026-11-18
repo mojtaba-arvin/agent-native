@@ -12,6 +12,7 @@ import copy
 import math
 import re
 import sys
+import threading
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -553,7 +554,7 @@ class RuntimeRegistry:
             raise ConfigurationError("runtime_snapshot_requires_service_runtime")
         if type(revision) is not int or revision < 1:
             raise ConfigurationError("runtime_revision_must_be_positive_integer")
-        self._lock = __import__("threading").Lock()
+        self._lock = threading.Lock()
         self._snapshot = RuntimeSnapshot(revision=revision, runtime=runtime)
 
     def snapshot(self) -> RuntimeSnapshot:
