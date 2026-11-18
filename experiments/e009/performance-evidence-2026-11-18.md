@@ -125,3 +125,20 @@ A second independent 0.5 ms cgroup cohort is now requested with the identical re
 
 The E-009 implementation now defaults to a 0.5 ms audit collection window in both SQLiteAuditSink and the HTTP server CLI. The next cgroup cohort omits the CLI override and exercises this default directly, retaining FULL SQLite synchronous durability and the fail-closed capacity gate.
 
+
+## Third 0.5 ms cohort — default verified, p99 gate failed under I/O pressure
+
+The third cohort [workflow 44359451102](https://github.com/mojtaba-arvin/agent-native/actions/runs/44359451102) omitted the audit-delay CLI override and therefore exercised the new 0.5 ms application defaults directly. It completed 10,000 requests at 100.043 req/s with zero unexpected outcomes, but **failed the p99 gate**:
+
+- Aggregate p50/p95/p99: 5.263 / 36.862 / 144.727 ms
+- Service-only p99: 144.621 ms; client queue p99: 0.192 ms
+- 3/10 repetition p99 values exceeded 100 ms; range 16.780–313.948 ms
+- CPU: 20.37% of one core; peak cgroup memory: 41.82 MiB
+- CPU throttling: 0 periods / 0 microseconds; memory pressure: 0
+- I/O pressure: 4.12 s "some", 4.08 s "full" over ~100 seconds
+- All capacity checks except aggregate p99 passed
+
+This confirms the default is 0.5 ms, but it does **not** establish repeatable p99 compliance. Across three 0.5 ms cgroup cohorts, two passed and one failed; the failed cohort coincided with materially higher I/O pressure, no CPU throttling, and negligible client queue delay. That is consistent with server-side storage/host-I/O stalls, but does not prove causality. The median aggregate p99 across the three cohorts is 27.465 ms; the tail gate still fails in one of three runs.
+
+**Decision:** retain 0.5 ms only as a provisional E-009 reference default because its median tail is better than the small 2 ms sample. Keep the fail-closed p99 gate. Do not claim a stable SLO or production capacity until repeated runs on a controlled I/O environment pass. The next experiment should compare the same FULL-durability workload on a dedicated runner or storage volume with observable fsync latency; do not weaken durability or hide I/O stalls by moving the database to tmpfs.
+
