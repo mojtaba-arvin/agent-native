@@ -55,10 +55,17 @@ class SQLiteAuditSinkTests(unittest.TestCase):
         self.repository.close()
         self.temporary.cleanup()
 
-    def runtime(self, *, sink=None, handlers=None):
+    def runtime(self, *, sink=None, handlers=None, work_store=None):
+        selected_handlers = handlers
+        if selected_handlers is None:
+            selected_handlers = (
+                build_catalog_handlers(self.repository, work_store)
+                if work_store is not None
+                else self.handlers
+            )
         return ServiceRuntime(
             self.ir,
-            handlers=self.handlers if handlers is None else handlers,
+            handlers=selected_handlers,
             repository=self.repository,
             trusted_effects=TRUSTED_EFFECTS,
             clock=lambda: 100,
@@ -226,6 +233,94 @@ class SQLiteAuditSinkTests(unittest.TestCase):
         self.assertEqual(sink.list_events(), [])
         self.assertEqual(sink.metrics()["committed_events"], 0)
 
+
+
+    def test_concurrent_durable_job_admissions_share_full_commit_batches(self):
+        batched_store = DurableWorkStore(
+            self.repository.database,
+            audit_sink=self.sink,
+            max_submit_batch_size=8,
+            max_submit_batch_delay_seconds=0.05,
+        )
+        runtime = self.runtime(work_store=batched_store)
+        barrier = threading.Barrier(8)
+
+        def submit(index):
+            barrier.wait()
+            return runtime.dispatch(
+                "POST",
+                "/items/rebuild",
+                {},
+                identity(),
+                headers={"idempotency-key": f"batch-job-{index}"},
+                request_id=f"batch-job-{index}",
+            )
+
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            responses = list(pool.map(submit, range(8)))
+
+        self.assertTrue(all(response.status_code == 202 for response in responses))
+        metrics = batched_store.metrics()
+        self.assertEqual(metrics["committed_submissions"], 8)
+        self.assertLess(metrics["submit_batches"], 8)
+        self.assertGreater(metrics["largest_submit_batch"], 1)
+        self.assertEqual(self.sink.metrics()["transactional_events"], 8)
+        connection = sqlite3.connect(self.repository.database)
+        try:
+            self.assertEqual(connection.execute("SELECT COUNT(*) FROM durable_jobs").fetchone()[0], 8)
+            self.assertEqual(connection.execute("SELECT COUNT(*) FROM durable_outbox").fetchone()[0], 8)
+        finally:
+            connection.close()
+        for index in range(8):
+            self.assertEqual(len(self.sink.list_events(request_id=f"batch-job-{index}")), 1)
+
+    def test_audit_failure_in_one_batched_submission_does_not_rollback_its_peers(self):
+        batched_store = DurableWorkStore(
+            self.repository.database,
+            audit_sink=self.sink,
+            max_submit_batch_size=2,
+            max_submit_batch_delay_seconds=0.05,
+        )
+        runtime = self.runtime(work_store=batched_store)
+        original_write = self.sink.write_in_transaction
+
+        def fail_one(connection, event):
+            if event["request_id"] == "batch-job-fail":
+                raise OSError("simulated per-item audit failure")
+            return original_write(connection, event)
+
+        self.sink.write_in_transaction = fail_one
+        barrier = threading.Barrier(2)
+
+        def submit(request_id):
+            barrier.wait()
+            return runtime.dispatch(
+                "POST",
+                "/items/rebuild",
+                {},
+                identity(),
+                headers={"idempotency-key": request_id},
+                request_id=request_id,
+            )
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            failed_future = pool.submit(submit, "batch-job-fail")
+            successful_future = pool.submit(submit, "batch-job-success")
+            failed = failed_future.result()
+            successful = successful_future.result()
+
+        self.assertEqual(failed.status_code, 503)
+        self.assertEqual(successful.status_code, 202)
+        connection = sqlite3.connect(self.repository.database)
+        try:
+            self.assertEqual(connection.execute("SELECT COUNT(*) FROM durable_jobs").fetchone()[0], 1)
+            self.assertEqual(connection.execute("SELECT COUNT(*) FROM durable_outbox").fetchone()[0], 1)
+        finally:
+            connection.close()
+        self.assertEqual(len(self.sink.list_events(request_id="batch-job-fail")), 1)
+        self.assertEqual(len(self.sink.list_events(request_id="batch-job-success")), 1)
+        self.assertEqual(self.sink.metrics()["transactional_events"], 1)
+        self.assertEqual(batched_store.metrics()["committed_submissions"], 1)
 
     def test_job_outbox_idempotency_and_audit_share_one_durable_transaction(self):
         runtime = self.runtime()
