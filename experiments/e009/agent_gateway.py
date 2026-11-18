@@ -150,6 +150,7 @@ class AgentNativeGateway:
         arm: str,
         *,
         proposal_mode: str = "snapshot",
+        base_disclosure: str | None = None,
         service_source: str | None = None,
         apply_callback=None,
     ):
@@ -157,6 +158,12 @@ class AgentNativeGateway:
             raise AgentGatewayError("unknown_disclosure_arm")
         if proposal_mode not in {"snapshot", "delta"}:
             raise AgentGatewayError("unknown_proposal_mode")
+        if base_disclosure is None:
+            base_disclosure = "per_operation" if proposal_mode == "snapshot" else "minimal"
+        if base_disclosure not in {"per_operation", "upfront_full", "minimal"}:
+            raise AgentGatewayError("unknown_base_disclosure")
+        if proposal_mode == "snapshot" and base_disclosure == "minimal":
+            raise AgentGatewayError("snapshot_requires_complete_base_disclosure")
         if proposal_mode == "delta" and apply_callback is not None:
             raise AgentGatewayError("delta_mode_apply_disabled")
         source = service_source
@@ -164,6 +171,7 @@ class AgentNativeGateway:
             source = (E009_ROOT / "catalog.an").read_text(encoding="utf-8")
         service_ir = load_service_ir(source)
         self.proposal_mode = proposal_mode
+        self.base_disclosure = base_disclosure
         self.catalog = load_catalog()
         if proposal_mode == "delta":
             self.catalog = copy.deepcopy(self.catalog)
@@ -172,6 +180,7 @@ class AgentNativeGateway:
             ] + [copy.deepcopy(DELTA_PROPOSAL_TOOL)]
         self.surface = build_surface(arm, catalog=self.catalog)
         self.surface["proposal_mode"] = proposal_mode
+        self.surface["base_disclosure"] = base_disclosure
         self.allowed_tools = {item["name"] for item in self.catalog["tools"]}
         self.interface = AgentInterface(
             {"catalog": service_ir},
@@ -252,6 +261,14 @@ class AgentNativeGateway:
                 request_id, "STALE_BASE_REVISION", "The delta base must match the exact inspected service revision.",
                 next_actions=["service.inspect with service_id=catalog"],
             )
+        if self.base_disclosure == "per_operation":
+            missing = sorted(self._required_inspection_operations - self._inspected_operations)
+            if missing:
+                return delta_error(
+                    request_id, "INSPECTION_INCOMPLETE",
+                    "Inspect every existing operation before proposing a delta. Missing: " + ", ".join(missing),
+                    next_actions=[f"service.inspect with operation={name}" for name in missing],
+                )
         current_service = self.interface.services.get(arguments.get("service_id"))
         if current_service is None:
             return delta_error(request_id, "SERVICE_NOT_FOUND", "Unknown service for delta proposal.")
@@ -328,6 +345,17 @@ class AgentNativeGateway:
             return self._error(request_id, "UNKNOWN_TOOL", f"Tool {tool!r} is not exposed.")
         if not isinstance(arguments, dict):
             return self._error(request_id, "ARGUMENT_SHAPE", "arguments must be a JSON object.")
+
+        if tool == "service.inspect" and "operation" in arguments and self.base_disclosure != "per_operation":
+            return self._error(
+                request_id, "INSPECTION_MODE_VIOLATION",
+                "Individual operation inspection is not part of this base-disclosure treatment.",
+                next_actions=(
+                    ["Use the complete service-level inspection already returned."]
+                    if self.base_disclosure == "upfront_full" else
+                    ["Use only the service revision and operation summaries disclosed in minimal mode."]
+                ),
+            )
 
         if tool == "service.propose_delta":
             response = self._handle_delta_proposal(request_id, arguments)
@@ -459,14 +487,26 @@ class AgentNativeGateway:
                         item["name"] for item in response["result"]["operations"]
                     ]
                     self._required_inspection_operations = set(self._required_inspection_order)
-                    response["next_actions"] = (
-                        ["service.propose_delta with the inspected base_revision and exactly one add_operation change"]
-                        if self.proposal_mode == "delta" else
-                        [
+                    if self.base_disclosure == "upfront_full":
+                        complete_operations = copy.deepcopy(
+                            self.interface.services["catalog"]["operations"]
+                        )
+                        response["result"]["operations"] = complete_operations
+                        self._inspected_operations = set(self._required_inspection_order)
+                        self._inspected_operation_contracts = {
+                            item["name"]: copy.deepcopy(item) for item in complete_operations
+                        }
+                    if self.base_disclosure == "per_operation":
+                        response["next_actions"] = [
                             f"service.inspect with operation={name}"
                             for name in self._required_inspection_order
                         ]
-                    )
+                    else:
+                        response["next_actions"] = [
+                            "service.propose_delta with the inspected base_revision and exactly one add_operation change"
+                            if self.proposal_mode == "delta" else
+                            "service.propose with the inspected base_revision and complete canonical IR snapshot"
+                        ]
             elif self._inspected_revision is not None:
                 self._inspected_operations.add(operation)
                 full_contract = (response.get("result") or {}).get("operation")
@@ -493,6 +533,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--arm", choices=("progressive", "upfront"), required=True)
     parser.add_argument("--proposal-mode", choices=("snapshot", "delta"), default="snapshot")
+    parser.add_argument("--base-disclosure", choices=("per_operation", "upfront_full", "minimal"))
     parser.add_argument("--sandbox-apply", action="store_true")
     parser.add_argument("--sandbox-dir", type=Path)
     args = parser.parse_args()
@@ -507,7 +548,12 @@ def main() -> None:
             from demo_apply import SandboxApplyCoordinator
             coordinator = SandboxApplyCoordinator(args.sandbox_dir)
             apply_callback = coordinator.apply
-        gateway = AgentNativeGateway(args.arm, proposal_mode=args.proposal_mode, apply_callback=apply_callback)
+        gateway = AgentNativeGateway(
+            args.arm,
+            proposal_mode=args.proposal_mode,
+            base_disclosure=args.base_disclosure,
+            apply_callback=apply_callback,
+        )
     except (AgentGatewayError, SurfaceError, OSError, ValueError) as error:
         parser.error(str(error))
 
