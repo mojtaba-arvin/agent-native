@@ -657,7 +657,7 @@ def _source_manifest(case_path: Path) -> dict:
         case_path,
         E009_ROOT / "AGENT_TASK.md",
         E009_ROOT / "AGENT_TASK_DELTA.md",
-        E009_ROOT / "delta_materializer.py",
+        E007_ROOT / "delta_materializer.py",
         E009_ROOT / "catalog.an",
         E009_ROOT / "local_agent.py",
         E009_ROOT / "agent_gateway.py",
