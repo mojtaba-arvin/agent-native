@@ -111,3 +111,12 @@ After the E-007 real-agent factorial pilot is accepted and E-010 sandbox-apply e
 - **E-011:** the transport-neutral model now validates malformed capability envelopes and passes 13 deterministic tests in [workflow 44337266191](https://github.com/mojtaba-arvin/agent-native/actions/runs/44337266191). Two-process implementation remains gated on E-007 acceptance.
 
 E-009 trusted host identity and atomic runtime publication remain open; the current loopback MemoryIdentityProvider is a demo fixture, not a production adapter. E-002 performance matrix remains skipped until storage correctness and workload parity are proven. No runtime, database, or transport is selected.
+
+
+## 18 November 2026 — follow-up after first product-path measurements
+
+- E-002 SQLite reference adapter now has 24 passing conformance tests, including audit outage, same-key/different-hash concurrency, process-crash-after-commit recovery, and fenced outbox acknowledgement. [Run 44339334484](https://github.com/mojtaba-arvin/agent-native/actions/runs/44339334484) passed Go/Rust/WASI P2/BEAM baselines; the benchmark matrix remains skipped.
+- E-009 100 req/s open-loop load achieved 100.06 req/s across 10,000 requests with zero unexpected outcomes. Aggregate p99 was 73.82 ms, but 2/10 repetitions exceeded 100 ms, so repeatability is not accepted. A 2 ms audit-window comparison then showed p99 7.85 ms in all ten repetitions, but increased CPU and did not reduce audit commit count; no default change is justified. A 0.5 ms baseline replication is running in [44340325781](https://github.com/mojtaba-arvin/agent-native/actions/runs/44340325781).
+- E-009 HTTP trust-boundary suite rejects client-forged principal, tenant, and grants; [run 44339021741](https://github.com/mojtaba-arvin/agent-native/actions/runs/44339021741) passed 121 E-009 tests.
+- CI policy: E-002 and E-009 no longer cancel in-flight conformance/performance runs when a later commit arrives. This prevents wasted work and protects long-running measurements; latest pending runs may still replace earlier pending runs.
+- E-007 retry-1 [run 44337025030](https://github.com/mojtaba-arvin/agent-native/actions/runs/44337025030) has passed marker/preflight/Ollama/model provisioning and is still executing the matched A-D cohort. The corrected runner's 94-test suite passed. Acceptance remains pending artifact inspection.
