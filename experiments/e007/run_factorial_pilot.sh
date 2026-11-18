@@ -27,7 +27,8 @@ if [[ "$ACTUAL_REV" != "$PINNED_REV" ]]; then
 fi
 
 # Validate the complete matched cohort before the first model request.
-mapfile -t CASE_ROWS < <(python - "$WORKTREE" <<'PY'
+ROWS_FILE="$(mktemp "${TMPDIR:-/tmp}/agent-native-e007-cases.XXXXXX")"
+python - "$WORKTREE" > "$ROWS_FILE" <<'PY'
 import json
 import pathlib
 import sys
@@ -130,12 +131,25 @@ if seen != expected_cells:
 for row in rows:
     print("\t".join(row))
 PY
-)
+mapfile -t CASE_ROWS < "$ROWS_FILE"
+rm -f "$ROWS_FILE"
 
-OUTPUT_ROOT="${FACTORIAL_OUTPUT_DIR:-/tmp/agent-native-e007-factorial}"
+if ! grep -q 'proposal_mode' "$WORKTREE/experiments/e009/local_agent.py" ||
+   ! grep -q 'base_disclosure' "$WORKTREE/experiments/e009/agent_gateway.py" ||
+   ! grep -q 'materialize_add_operation' "$WORKTREE/experiments/e007/eval_runner.py" ||
+   ! grep -q 'trusted_revision' "$WORKTREE/experiments/e007/eval_runner.py"; then
+  echo "Refusing factorial pilot: pinned revision is missing proposal/disclosure runner or independent-oracle support." >&2
+  exit 78
+fi
+
+OUTPUT_ROOT="${FACTORIAL_OUTPUT_DIR:-/tmp/agent-native-e007-factorial-${GITHUB_RUN_ID:-local}}"
 case "$OUTPUT_ROOT" in
   "$ROOT"|"$ROOT"/*) echo "Refusing output inside repository: $OUTPUT_ROOT" >&2; exit 78 ;;
 esac
+if [[ -d "$OUTPUT_ROOT" ]] && [[ -n "$(find "$OUTPUT_ROOT" -mindepth 1 -maxdepth 1 -print -quit)" ]]; then
+  echo "Refusing to overwrite existing factorial evidence directory: $OUTPUT_ROOT" >&2
+  exit 78
+fi
 mkdir -p "$OUTPUT_ROOT"
 cp "$WORKTREE/experiments/e007/dispatch.json" "$OUTPUT_ROOT/dispatch.json"
 printf 'pinned_revision=%s\n' "$ACTUAL_REV" > "$OUTPUT_ROOT/pilot-provenance.txt"
