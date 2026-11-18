@@ -282,7 +282,7 @@ jobs:
         run: |
           python experiments/e002/run_matrix.py \
             --go-command "$RUNNER_TEMP/e002-go" \
-            --rust-command experiments/e002/rust/target/release/agent-native-e002-rust \
+            --rust-command ./target/release/agent-native-e002-rust \
             --wasi-command "wasmtime serve --addr=127.0.0.1:8080 -S cli=y -S http=y experiments/e002/wasi-p2/target/wasm32-wasip2/release/agent_native_e002_wasi_p2.wasm" \
             --beam-command "mix run -e AgentNativeE002Beam.Server.main()" \
             --requests 5000 --concurrency 32 --warmup 250 --repetitions 10 \
