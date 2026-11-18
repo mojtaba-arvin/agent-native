@@ -74,6 +74,28 @@ def find_id(value):
     return None
 
 
+def cgroup_v2_limits():
+    root = Path("/sys/fs/cgroup")
+    try:
+        controllers = (root / "cgroup.controllers").read_text(encoding="ascii").strip()
+        membership = Path("/proc/self/cgroup").read_text(encoding="ascii").splitlines()
+        unified = next(line.split(":", 2)[2] for line in membership if line.startswith("0::"))
+        directory = root / unified.lstrip("/")
+        cpu_max = (directory / "cpu.max").read_text(encoding="ascii").strip()
+        memory_max = (directory / "memory.max").read_text(encoding="ascii").strip()
+        quota, period = cpu_max.split()
+        quota_cores = None if quota == "max" else int(quota) / int(period)
+        return {
+            "path": unified,
+            "controllers": controllers,
+            "cpu_max": cpu_max,
+            "cpu_quota_cores": quota_cores,
+            "memory_max": memory_max,
+        }
+    except (OSError, StopIteration, ValueError, IndexError, ZeroDivisionError):
+        return None
+
+
 def percentile(values, fraction):
     ordered = sorted(values)
     if not ordered:
@@ -226,6 +248,7 @@ def main():
                 cpu_tracker = ProcessTreeCpuTracker()
                 cpu_tracker.observe(proc_tree_sample(process.pid))
                 start_cpu_seconds = cpu_tracker.total_cpu_seconds
+                cpu_tracker.peak_tree_rss_bytes = 0
                 stop_cpu_monitor = threading.Event()
 
                 def monitor_server_cpu():
@@ -296,6 +319,7 @@ def main():
                     "server_peak_rss_bytes": server_peak_rss_bytes,
                     "server_observed_process_count": server_observed_process_count,
                     "server_cpu_affinity": server_cpu_affinity,
+                    "cgroup_v2_limits": cgroup_v2_limits(),
                     "server_cpu_percent_of_one_core_during_load": (
                         server_cpu_seconds / total_elapsed * 100 if total_elapsed else None
                     ),
