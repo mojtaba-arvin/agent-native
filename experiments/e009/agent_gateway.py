@@ -21,14 +21,16 @@ PILOT_ROOT = ROOT / "experiments" / "pilot"
 E005_ROOT = ROOT / "experiments" / "e005"
 E001_ROOT = ROOT / "experiments" / "e001" / "prototype"
 E004_ROOT = ROOT / "experiments" / "e004"
+E007_ROOT = ROOT / "experiments" / "e007"
 
-for candidate in (E001_ROOT, E004_ROOT, E005_ROOT, PILOT_ROOT, E009_ROOT):
+for candidate in (E001_ROOT, E004_ROOT, E005_ROOT, PILOT_ROOT, E007_ROOT, E009_ROOT):
     if str(candidate) not in sys.path:
         sys.path.insert(0, str(candidate))
 
 from interface import AgentInterface  # noqa: E402
 from kernel import load_service_ir  # noqa: E402
 from surface import SurfaceError, build_surface, load_catalog  # noqa: E402
+from delta_materializer import DeltaMaterializationError, materialize_add_operation  # noqa: E402
 
 
 PROTOCOL_VERSION = "0.1"
@@ -40,6 +42,61 @@ TRUSTED_EFFECTS = {
     "queue.submit",
     "queue.read",
     "queue.cancel",
+}
+
+TRUSTED_CAPABILITIES = {
+    "items.read", "items.create", "items.rebuild", "jobs.read", "jobs.cancel",
+}
+DELTA_PROPOSAL_TOOL = {
+    "name": "service.propose_delta",
+    "summary": "Propose exactly one append-only operation change against the trusted current service revision; the Gateway materializes the complete canonical IR.",
+    "mode": "proposal_only",
+    "input_schema": {
+        "type": "object",
+        "required": ["service_id", "base_revision", "changes"],
+        "properties": {
+            "service_id": {"type": "string", "enum": ["catalog"]},
+            "base_revision": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+            "changes": {
+                "type": "array", "minItems": 1, "maxItems": 1,
+                "items": {
+                    "type": "object", "required": ["kind", "operation"],
+                    "properties": {
+                        "kind": {"type": "string", "enum": ["add_operation"]},
+                        "operation": {
+                            "type": "object",
+                            "required": ["name", "method", "path", "input", "output", "errors", "validation", "effects", "capability"],
+                            "properties": {
+                                "name": {"type": "string"},
+                                "method": {"type": "string", "enum": ["GET"]},
+                                "path": {"type": "string"},
+                                "input": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object", "required": ["name", "source", "type"],
+                                        "properties": {
+                                            "name": {"type": "string"},
+                                            "source": {"type": "string", "enum": ["path", "query", "header", "body"]},
+                                            "type": {"type": "string", "enum": ["String", "UUID", "Integer", "Boolean", "Float"]},
+                                        },
+                                        "additionalProperties": False,
+                                    },
+                                },
+                                "output": {"type": "string"},
+                                "errors": {"type": "array", "items": {"type": "string"}},
+                                "validation": {"type": "array", "items": {"type": "string"}},
+                                "effects": {"type": "array", "items": {"type": "string", "enum": sorted(TRUSTED_EFFECTS)}},
+                                "capability": {"type": "string", "enum": sorted(TRUSTED_CAPABILITIES)},
+                            },
+                            "additionalProperties": False,
+                        },
+                    },
+                    "additionalProperties": False,
+                },
+            },
+        },
+        "additionalProperties": False,
+    },
 }
 
 
@@ -93,23 +150,35 @@ class AgentNativeGateway:
         self,
         arm: str,
         *,
+        proposal_mode: str = "snapshot",
         service_source: str | None = None,
         apply_callback=None,
     ):
         if arm not in {"progressive", "upfront"}:
             raise AgentGatewayError("unknown_disclosure_arm")
+        if proposal_mode not in {"snapshot", "delta"}:
+            raise AgentGatewayError("unknown_proposal_mode")
         source = service_source
         if source is None:
             source = (E009_ROOT / "catalog.an").read_text(encoding="utf-8")
         service_ir = load_service_ir(source)
-        self.surface = build_surface(arm)
+        self.proposal_mode = proposal_mode
         self.catalog = load_catalog()
+        if proposal_mode == "delta":
+            self.catalog = copy.deepcopy(self.catalog)
+            self.catalog["tools"] = [
+                item for item in self.catalog["tools"] if item["name"] != "service.propose"
+            ] + [copy.deepcopy(DELTA_PROPOSAL_TOOL)]
+        self.surface = build_surface(arm, catalog=self.catalog)
+        self.surface["proposal_mode"] = proposal_mode
         self.allowed_tools = {item["name"] for item in self.catalog["tools"]}
         self.interface = AgentInterface(
             {"catalog": service_ir},
             trusted_effects=TRUSTED_EFFECTS,
             apply_callback=apply_callback,
         )
+        self.interface.catalog = copy.deepcopy(self.catalog)
+        self._delta_intents: dict[str, dict] = {}
         if apply_callback is not None:
             for catalog_tool in self.interface.catalog.get("tools", []):
                 if catalog_tool.get("name") == "service.apply":
@@ -166,6 +235,77 @@ class AgentNativeGateway:
             "response": response,
         }
 
+    def _handle_delta_proposal(self, request_id: str, arguments: dict) -> dict:
+        if self.proposal_mode != "delta":
+            return self._error(request_id, "UNKNOWN_TOOL", "Delta proposals are not enabled in this Gateway instance.")
+        if self._inspected_revision is None:
+            return self._error(
+                request_id, "INSPECTION_REQUIRED", "Inspect the service before proposing a delta.",
+                next_actions=["service.inspect with service_id=catalog"],
+            )
+        if arguments.get("base_revision") != self._inspected_revision:
+            return self._error(
+                request_id, "STALE_BASE_REVISION", "The delta base must match the exact inspected service revision.",
+                next_actions=["service.inspect with service_id=catalog"],
+            )
+        current_service = self.interface.services.get(arguments.get("service_id"))
+        if current_service is None:
+            return self._error(request_id, "SERVICE_NOT_FOUND", "Unknown service for delta proposal.")
+        try:
+            materialized = materialize_add_operation(
+                _encode(arguments).rstrip(b"\\n"),
+                service_id="catalog",
+                current_service=current_service,
+                trusted_effects=TRUSTED_EFFECTS,
+                trusted_capabilities=TRUSTED_CAPABILITIES,
+            )
+        except DeltaMaterializationError as error:
+            code = "DELTA_" + error.code.upper()
+            return self._error(
+                request_id, code, "The append-only delta was rejected by the trusted materializer.",
+                fix_hint="Submit exactly one add_operation against the current inspected base, using only trusted effects and capabilities.",
+            )
+        proposal_response = self.interface.handle({
+            "protocol_version": PROTOCOL_VERSION,
+            "request_id": request_id,
+            "tool": "service.propose",
+            "arguments": {
+                "service_id": "catalog",
+                "base_revision": materialized["base_revision"],
+                "ir": materialized["ir"],
+            },
+        }, context={"request_id": request_id})
+        if proposal_response.get("ok"):
+            change_set_id = proposal_response["result"]["change_set_id"]
+            intent_record = {
+                "base_revision": materialized["base_revision"],
+                "intent_digest": materialized["intent_digest"],
+                "normalized_intent": materialized["normalized_intent"],
+                "materialized_ir_digest": materialized["materialized_ir_digest"],
+            }
+            self._delta_intents[change_set_id] = intent_record
+            self.interface.proposals[change_set_id].update(intent_record)
+            proposal_response["result"].update({
+                "proposal_mode": "delta",
+                "intent_digest": materialized["intent_digest"],
+                "materialized_ir_digest": materialized["materialized_ir_digest"],
+            })
+        return proposal_response
+
+    def _delta_proposal_current_error(self, request_id: str, change_set_id: Any) -> dict | None:
+        if not isinstance(change_set_id, str) or change_set_id not in self._delta_intents:
+            return None
+        proposal = self.interface.proposals.get(change_set_id)
+        if proposal is None or proposal.get("base_revision") != self.interface.revision("catalog"):
+            self.interface.validated_change_sets.discard(change_set_id)
+            self.interface.planned_change_sets.discard(change_set_id)
+            return self._error(
+                request_id, "STALE_BASE_REVISION",
+                "The service base changed after this delta was proposed; validation and planning are blocked.",
+                next_actions=["Inspect the current service and create a new delta proposal."],
+            )
+        return None
+
     def handle_message(self, message: Any) -> dict:
         if not isinstance(message, dict):
             return self._error("invalid", "REQUEST_SHAPE", "Message must be a JSON object.")
@@ -184,6 +324,15 @@ class AgentNativeGateway:
             return self._error(request_id, "UNKNOWN_TOOL", f"Tool {tool!r} is not exposed.")
         if not isinstance(arguments, dict):
             return self._error(request_id, "ARGUMENT_SHAPE", "arguments must be a JSON object.")
+
+        if tool == "service.propose_delta":
+            response = self._handle_delta_proposal(request_id, arguments)
+            return {"type": "tool_result", "request_id": request_id, "response": response}
+
+        if tool in {"service.validate", "service.plan"}:
+            stale = self._delta_proposal_current_error(request_id, arguments.get("change_set_id"))
+            if stale is not None:
+                return stale
 
         if tool == "service.propose":
             base_revision = arguments.get("base_revision")
@@ -291,6 +440,8 @@ class AgentNativeGateway:
                             ),
                         )
                     response["next_actions"] = [
+                        "service.propose_delta with the inspected base_revision and exactly one add_operation change"
+                        if self.proposal_mode == "delta" else
                         "service.propose with the inspected base_revision and complete canonical IR snapshot"
                     ]
                 else:
@@ -333,6 +484,7 @@ class AgentNativeGateway:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--arm", choices=("progressive", "upfront"), required=True)
+    parser.add_argument("--proposal-mode", choices=("snapshot", "delta"), default="snapshot")
     parser.add_argument("--sandbox-apply", action="store_true")
     parser.add_argument("--sandbox-dir", type=Path)
     args = parser.parse_args()
@@ -347,7 +499,7 @@ def main() -> None:
             from demo_apply import SandboxApplyCoordinator
             coordinator = SandboxApplyCoordinator(args.sandbox_dir)
             apply_callback = coordinator.apply
-        gateway = AgentNativeGateway(args.arm, apply_callback=apply_callback)
+        gateway = AgentNativeGateway(args.arm, proposal_mode=args.proposal_mode, apply_callback=apply_callback)
     except (AgentGatewayError, SurfaceError, OSError, ValueError) as error:
         parser.error(str(error))
 
