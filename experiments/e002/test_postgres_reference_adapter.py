@@ -12,7 +12,10 @@ try:
 except ImportError:
     psycopg = None
 
-from postgres_reference_adapter import PostgresReferenceAdapter
+if psycopg is not None:
+    from postgres_reference_adapter import PostgresReferenceAdapter
+else:
+    PostgresReferenceAdapter = None
 
 
 @unittest.skipUnless(
