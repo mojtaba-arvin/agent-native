@@ -168,7 +168,7 @@
       "id": "CP-006",
       "title": "Port and test the path-aware fast runner on reboot-core",
       "milestone": "C1",
-      "status": "in_progress",
+      "status": "complete",
       "priority": 6,
       "depends_on": [
         "CP-004"
@@ -198,13 +198,18 @@
         "Do not port the divergent branch history",
         "Do not claim staging timings as reboot-core measurements"
       ],
-      "evidence_ids": []
+      "evidence_ids": [
+        "run:44422752436",
+        "14/14 suites",
+        "509 unit tests",
+        "4 negative validator cases"
+      ]
     },
     {
       "id": "CP-007",
       "title": "Consolidate workflow policy without losing manual and extended checks",
       "milestone": "C1",
-      "status": "pending",
+      "status": "in_progress",
       "priority": 7,
       "depends_on": [
         "CP-006"
