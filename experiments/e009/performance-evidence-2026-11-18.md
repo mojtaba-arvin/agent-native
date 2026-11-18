@@ -66,3 +66,24 @@ The harness now has an opt-in fail-closed capacity gate. The confirmatory workfl
 3. Add 30-minute soak plus concurrent restart/crash/recovery cohorts before raising any capacity claim.
 4. Only then use the shared adapter contract to compare runtime candidates; do not change workload, durability, or limits between candidates.
 
+
+## Repeatability failure discovered by the enforced gate
+
+A second cgroup-limited 10×1,000-request confirmation was run with the same 1-CPU/1-GiB limits and the same 100 req/s request mix. The newly enforced gate correctly **failed** this run: [workflow 44355728291](https://github.com/mojtaba-arvin/agent-native/actions/runs/44355728291).
+
+| Metric | First cgroup cohort (44345238807) | Second cgroup cohort (44355728291) |
+|---|---:|---:|
+| Throughput | 100.044 req/s | 100.002 req/s |
+| Aggregate p99 | 6.536 ms | 252.021 ms |
+| Aggregate p95 | 5.630 ms | 86.733 ms |
+| CPU | 21.66% of one core | 17.32% of one core |
+| Peak cgroup memory | 35.18 MiB | 43.73 MiB |
+| Unexpected outcomes | 0 | 0 |
+| Capacity gate | Pass (measured retrospectively) | **Fail: p99 only** |
+
+In the second cohort, 9/10 repetitions had p99 above 100 ms (range 84.05–411.37 ms); only repetition 3 passed. Client queue p99 was 0.339 ms aggregate, while service-only p99 was 251.916 ms, so most of the tail was inside the server path rather than client scheduling. All four operation categories showed elevated service p99. Throughput, CPU, memory and expected status counts remained within their thresholds.
+
+A separate uncontainerized 0.5 ms audit-window cohort [workflow 44340325781](https://github.com/mojtaba-arvin/agent-native/actions/runs/44340325781) achieved 100.041 req/s and aggregate p99 23.560 ms, but 2/10 repetition p99 values were still above 100 ms (211.64 and 184.27 ms). It is not a controlled cgroup comparison.
+
+**Decision:** do not claim repeatable p99 compliance and do not select an audit batching delay. The first cgroup cohort is a successful sample, not a stable SLO. The second cohort reveals severe tail variance under the same nominal limits. The harness now records cgroup CPU throttling counters, per-device I/O counters, and CPU/I/O/memory pressure snapshots so the next run can distinguish quota throttling, storage stalls, and host contention. Cgroup limits do not control host disk latency or shared-runner contention.
+
