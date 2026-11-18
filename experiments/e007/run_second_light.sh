@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-PINNED_REV="b85fda8a7a96f0a09ab80607f73e1829177a1213"
+PINNED_REV="a972418e5795a863a1435bf69cc6592e782c6abd"
 ROOT="$(git rev-parse --show-toplevel)"
 WORKTREE="$(mktemp -d "${TMPDIR:-/tmp}/agent-native-second-light.XXXXXX")"
 rmdir "$WORKTREE"
@@ -27,7 +27,10 @@ if ! grep -q 'payload_sha256' "$WORKTREE/experiments/e009/local_agent.py" ||
    ! grep -q 'payload_metadata' "$WORKTREE/experiments/e009/local_agent.py" ||
    ! grep -q 'def _build_compaction_ledger' "$WORKTREE/experiments/e009/local_agent.py" ||
    ! grep -q 'def prevalidate_catalog_operation' "$WORKTREE/experiments/e009/local_agent.py" ||
-   ! grep -q 'exhausted = bool(repair_attempts)' "$WORKTREE/experiments/e009/local_agent.py"; then
+   ! grep -q 'def prevalidation_repair_key' "$WORKTREE/experiments/e009/local_agent.py" ||
+   ! grep -q 'exhausted = bool(repair_attempts)' "$WORKTREE/experiments/e009/local_agent.py" ||
+   ! grep -q 'INSPECTION_OPERATION_REQUIRED' "$WORKTREE/experiments/e009/agent_gateway.py" ||
+   ! grep -q 'INSPECTION_PROGRESS_REPAIR_EXHAUSTED' "$WORKTREE/experiments/e009/agent_gateway.py"; then
   echo "Refusing Second Light: pinned revision $PINNED_REV is missing First Light prompt-state, compaction, payload, or operation-guard instrumentation." >&2
   exit 78
 fi
