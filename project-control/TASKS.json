@@ -90,9 +90,9 @@
     },
     {
       "id": "CP-004",
-      "title": "Port and verify the fast deterministic CI design on reboot-core",
+      "title": "Audit reboot-core CI baseline and the staging fast-CI candidate",
       "milestone": "C1",
-      "status": "in_progress",
+      "status": "complete",
       "priority": 4,
       "depends_on": [
         "CP-001"
@@ -104,13 +104,13 @@
         "experiments/"
       ],
       "acceptance": [
-        "Active reboot-core workflow inventory is verified",
-        "Fast test patch is independently validated",
-        "CI preserves required trust-boundary and integration coverage"
+        "Reboot-core base revision is pinned and its associated workflow runs are inventoried",
+        "The staging CI branch is compared without merging its divergent history",
+        "Candidate CI risks and a safe port sequence are recorded"
       ],
       "expected_outputs": [
-        "Reviewed CI proposal",
-        "Measured test timing and suite map"
+        "Baseline CI inventory",
+        "CI_PORT_AUDIT.md with evidence-backed corrections"
       ],
       "max_unchanged_retries": 1,
       "replan_after_failures": 2,
@@ -118,7 +118,18 @@
         "Do not merge the stale staging branch wholesale",
         "Do not weaken required security or integration tests"
       ],
-      "evidence_ids": []
+      "evidence_ids": [
+        "CI_PORT_AUDIT.md",
+        "run:44361352375",
+        "run:44361352389",
+        "run:44361352415",
+        "run:44361352388",
+        "run:44361352493",
+        "run:44361352395",
+        "run:44361352426",
+        "run:44361352376",
+        "run:44361352514"
+      ]
     },
     {
       "id": "CP-005",
@@ -157,7 +168,7 @@
       "id": "CP-006",
       "title": "Port and test the path-aware fast runner on reboot-core",
       "milestone": "C1",
-      "status": "pending",
+      "status": "in_progress",
       "priority": 6,
       "depends_on": [
         "CP-004"
