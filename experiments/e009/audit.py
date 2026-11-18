@@ -67,6 +67,7 @@ class SQLiteAuditSink:
         self._committed_batches = 0
         self._committed_events = 0
         self._largest_batch = 0
+        self._transactional_events = 0
         Path(self.database).parent.mkdir(parents=True, exist_ok=True)
         self._initialize()
 
@@ -162,6 +163,28 @@ class SQLiteAuditSink:
             event["reason_code"],
         )
 
+    def write_in_transaction(self, connection: sqlite3.Connection, event: dict[str, Any]) -> None:
+        """Insert an audit event into a caller-owned transaction.
+
+        The caller owns BEGIN/COMMIT and must use the same database. This is
+        used for atomic durable-job admission so job, outbox, idempotency
+        identity, and authorization audit share one FULL-synchronous commit.
+        """
+        connection.execute(
+            """
+            INSERT INTO audit_events(
+                request_id, timestamp, principal_id, tenant_id, operation,
+                resource, requested_effects_json, decision, reason_code
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            self._prepare(event),
+        )
+
+    def note_transactional_commit(self) -> None:
+        """Count an audit row only after the caller confirms transaction commit."""
+        with self._stats_lock:
+            self._transactional_events += 1
+
     def _write_batch(self, batch: list[dict[str, Any]]) -> None:
         connection = self._connect()
         try:
@@ -241,6 +264,7 @@ class SQLiteAuditSink:
                 "committed_batches": self._committed_batches,
                 "committed_events": self._committed_events,
                 "largest_batch": self._largest_batch,
+                "transactional_events": self._transactional_events,
             }
 
     def list_events(self, *, request_id: str | None = None) -> list[dict[str, Any]]:
