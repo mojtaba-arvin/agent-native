@@ -1,4 +1,4 @@
-name: E-007 deterministic post-fix expanded-budget Qwen3 trial
+name: E-007 First Light — Qwen3 lifecycle
 
 on:
   workflow_dispatch:
@@ -16,7 +16,7 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  qwen3-deterministic-postfix-expanded-budget:
+  qwen3-first-light:
     runs-on: ubuntu-latest
     timeout-minutes: 75
     steps:
@@ -44,29 +44,19 @@ jobs:
           ollama pull qwen3:8b
           ollama show qwen3:8b --modelfile > /tmp/qwen3-modelfile.txt
           ollama list > /tmp/ollama-models.txt
-      - name: Run one deterministic expanded-budget real-agent eval
-        run: |
-          python experiments/e007/eval_runner.py \
-            --case experiments/e007/evals/e009-readonly-proposal-postfix-expanded-budget.eval.json \
-            --model qwen3:8b \
-            --arm upfront \
-            --repetitions 1 \
-            --max-input-tokens 120000 \
-            --max-output-tokens 6000 \
-            --max-tool-calls 20 \
-            --max-wall-seconds 3000 \
-            --num-ctx 16384 \
-            --num-predict 2048 \
-            --temperature 0 \
-            --seed 42 \
-            --output-dir /tmp/agent-native-e007-evals
+      - name: Verify the E-009 runner/provider contract
+        run: python -m unittest discover -s experiments/e009 -p 'test_local_agent.py' -v
+      - name: Run one deterministic First Light lifecycle
+        env:
+          FIRST_LIGHT_OUTPUT_DIR: /tmp/agent-native-e007-first-light
+        run: bash experiments/e007/run_first_light.sh
       - name: Upload eval evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: e007-qwen3-deterministic-postfix-expanded-budget
           path: |
-            /tmp/agent-native-e007-evals/
+            /tmp/agent-native-e007-first-light/
             /tmp/ollama-version.txt
             /tmp/ollama-models.txt
             /tmp/qwen3-modelfile.txt
