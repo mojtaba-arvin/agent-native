@@ -64,7 +64,7 @@ jobs:
             core.setOutput('run', subject === 'perf(e009): request ten-run cgroup audit confirmation' ? 'true' : 'false');
       - name: Run E-009 durable HTTP performance smoke
         if: (github.event_name == 'pull_request' || github.event_name == 'push') && steps.performance-request.outputs.run == 'true'
-        run: python experiments/e009/performance_smoke.py --requests 1000 --repetitions 10 --concurrency 32 --target-rps 100 --containerized --enforce-capacity-gate --job-batch-size 32 --job-batch-delay-ms 2.0 --output "$RUNNER_TEMP/e009-performance.json"
+        run: python experiments/e009/performance_smoke.py --requests 1000 --repetitions 10 --concurrency 32 --target-rps 100 --containerized --enforce-capacity-gate --audit-batch-delay-ms 1.0 --job-batch-size 32 --job-batch-delay-ms 2.0 --output "$RUNNER_TEMP/e009-performance.json"
       - name: Preserve E-009 performance measurements
         if: always() && (github.event_name == 'pull_request' || github.event_name == 'push') && steps.performance-request.outputs.run == 'true'
         uses: actions/upload-artifact@v4
