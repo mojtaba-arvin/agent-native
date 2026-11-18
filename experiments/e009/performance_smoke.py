@@ -117,6 +117,7 @@ def main():
     parser.add_argument("--repetitions", type=int, default=5)
     parser.add_argument("--concurrency", type=int, default=32)
     parser.add_argument("--audit-batch-delay-ms", type=float, default=2.0)
+    parser.add_argument("--job-batch-delay-ms", type=float, default=0.5)
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
     if args.requests < 100 or not 1 <= args.repetitions <= 10:
@@ -125,6 +126,8 @@ def main():
         parser.error("concurrency must be 1..64")
     if not math.isfinite(args.audit_batch_delay_ms) or not 0 <= args.audit_batch_delay_ms <= 50:
         parser.error("audit batch delay must be between 0 and 50 ms")
+    if not math.isfinite(args.job_batch_delay_ms) or not 0 <= args.job_batch_delay_ms <= 50:
+        parser.error("job batch delay must be between 0 and 50 ms")
 
     token = "e009-performance-smoke-token-" + uuid.uuid4().hex
     env = dict(os.environ, AGENT_NATIVE_DEMO_TOKEN=token)
@@ -134,7 +137,8 @@ def main():
         process = subprocess.Popen(
             [sys.executable, "experiments/e009/serve.py", "--database", str(db),
              "--port", "0", "--max-concurrency", str(server_concurrency),
-             "--audit-batch-delay-ms", str(args.audit_batch_delay_ms)],
+             "--audit-batch-delay-ms", str(args.audit_batch_delay_ms),
+             "--job-batch-delay-ms", str(args.job_batch_delay_ms)],
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, env=env,
             bufsize=1,
         )
@@ -242,6 +246,8 @@ def main():
                             "durable_job_admission": 0.1, "unauthenticated_read": 0.1},
                     "database": "file-backed SQLite WAL via E-009 serve.py",
                     "server_max_concurrency": server_concurrency,
+                    "audit_batch_delay_ms": args.audit_batch_delay_ms,
+                    "job_batch_delay_ms": args.job_batch_delay_ms,
                     "audit_batch_delay_ms": args.audit_batch_delay_ms,
                 },
                 "aggregate": aggregate,
