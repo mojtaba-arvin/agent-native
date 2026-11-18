@@ -47,3 +47,16 @@ def cohort_abort_reason(result_path: str | Path) -> str | None:
     if observed:
         return "shared_infrastructure_failure:" + ",".join(observed)
     return None
+
+
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("result", type=Path)
+    args = parser.parse_args()
+    reason = cohort_abort_reason(args.result)
+    if reason:
+        print(reason)
+        raise SystemExit(1)
+    print("continue")
