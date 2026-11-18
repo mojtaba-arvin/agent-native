@@ -176,17 +176,33 @@ These rules should govern subsequent work on `research/reboot-core`:
 | Product integrity | Continue treating Agent Native as its own programming model/runtime, not a framework wrapper. Keep E-007 no-apply and E-010 apply sandbox-only. |
 | Main integration | PR #6 remains the Draft integration path to `main`; do not imply `main` contains the framework or merge it without a deliberate release review. |
 
-## 6. Current state after this review
+## 6. Execution mistakes made during this work and safeguards
 
-- Active base: `research/reboot-core`, latest reviewed integration commit before this document: `7b3897232e87e2e610db498047288b360b39cf0e`.
-- PR #34 (subprocess diagnostics) merged after E-007 CI passed.
-- E-007 Second Light workflow 44260660138 is **not** a model/lifecycle failure: it ended before any child run or model request. It must be rerun only after the evaluator diagnostics fix is present in the pinned source.
-- E-010 workflow 44261051426 is a genuine model-protocol no-progress failure, terminated after four tool calls; it did not reach proposal or apply.
-- PR #6 remains open/Draft; PR #17 remains open/Draft; PR #20 remains open. None is silently merged by this review.
-- No remote branch deletions, default-branch changes, budget increases, GPU changes, or PR #17 merges were performed.
+This review also records mistakes in the assistant-led execution process, rather than treating every repository defect as someone else's historical issue.
 
-## 7. Immediate next work
+| Mistake | Observable consequence | Corrective rule now applied |
+|---|---|---|
+| I pinned a runner to the PR #31 feature-head SHA after squash merge instead of the resulting integration SHA. | The workflow checkout was not guaranteed to contain the pinned commit; PR #32 was required to realign pins. | Verify commit reachability from the exact post-merge checkout. After squash, pin the new integration SHA; preserve a feature SHA only with an explicit merge commit. |
+| I updated dispatch manifests in closely spaced integration changes. | Push-triggered E-007/E-010 runs were cancelled or superseded (including runs 44260499142, 44260499159, and 44260660103) before producing valid repeat evidence. | Treat every manifest edit as an experiment launch. Wait for the current run to finish, then make one manifest change and verify exactly one resulting run. Do not bundle manifest changes with normal implementation/documentation commits. |
+| I relied on a stale conversational PR-status summary for PR #23. | I described it as open although GitHub showed it had already merged into the E-007 research branch. | Re-read live PR state, merge SHA, base/head, and changed files before every status report or merge decision. Memory/history summaries are navigation aids, not authoritative state. |
+| I accepted `runner_result_missing` as a sufficiently useful evaluator diagnosis without checking whether child-process stderr was retained. | Second Light 44260660138 failed before a model request, but its actual subprocess startup error was lost. | PR #34 now writes bounded stdout/stderr, argv, cwd, interpreter, exit code, timing, and hashes into a private artifact. A missing run record with nonzero exit is a distinct `runner_process_failed` class. |
+| I updated progress/evidence notes before always rechecking whether the workflow had completed. | Some “in progress” statements became stale within the same work window. | Before publishing a status, query the current workflow run and artifact state; record exact timestamps and run IDs. |
 
-1. Update the E-007 pinned runner to a source revision that contains PR #34's stderr-preservation fix; verify all preflight predicates and CI.
-2. Trigger one intentional Second Light using unchanged model, task, and budgets. The purpose is first to recover and classify the prior subprocess startup error; only a run that actually enters the agent lifecycle can test the operation/repair improvements.
-3. Inspect the new E-010 artifact separately. Its four-call termination validates bounded stopping, but not lifecycle success. Do not dispatch a Third Light merely because a workflow completed.
+These are process defects with observable consequences. The changes above reduce recurrence, but they do not prove a real-model lifecycle succeeds.
+
+## 7. Current state after this review
+
+- Active base: `research/reboot-core`; PR #34 merged as `7b3897232e87e2e610db498047288b360b39cf0e`.
+- The commit-history review was added in PR #35 and merged as `f4c1be0839003b059912f315192101c959ff3ce0`.
+- PR #36 intentionally aligned the Second Light pin to the diagnostics-enabled source, added stderr-diagnostics preflight, and refreshed only the E-007 dispatch manifest. It merged as `a2a293266770426e0db6edc5cb84318b7a6ad97c`.
+- The new E-007 run [44265332133](https://github.com/mojtaba-arvin/agent-native/actions/runs/44265332133) is queued/running on the PR #36 merge push. Its task, model, seed, temperature, context, token/tool/wall budgets are unchanged.
+- The prior E-007 workflow 44260660138 is not a model/lifecycle failure: it ended before a child run or model request and its stderr was not preserved by the old evaluator.
+- E-010 workflow 44261051426 is a genuine model-protocol no-progress failure: four tool calls, 11,001 input tokens, 192 output tokens, 139.769 seconds; no operation inspection, propose, validate, plan, or apply.
+- PR #6 remains open/Draft; PR #17 remains open/Draft; PR #20 remains open. None is merged by this review.
+- No remote branch deletions, default-branch changes, Qwen budget increases, GPU changes, or PR #17 merges were performed.
+
+## 8. Immediate next work
+
+1. Analyze workflow 44265332133's child-process diagnostic artifact. If the original process-start failure is fixed, adjudicate its actual lifecycle trace; if it fails again, use captured stderr and the exact source manifest to make one focused correction.
+2. Continue E-010 only from the current artifact and protocol findings. Its four-call termination validates bounded stopping, not lifecycle success or apply.
+3. Keep Third Light gated on actual progress to a real validate opportunity; a workflow completion or an infrastructure/process failure is not such an opportunity.
