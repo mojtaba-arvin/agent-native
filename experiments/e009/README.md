@@ -24,9 +24,9 @@ It is deliberately implemented with the Python standard library as a semantic re
 
 ## Measured single-node reference configuration
 
-The E-009 SQLite audit sink uses a **0.5 ms synchronous group-commit collection window** by default, with SQLite WAL and `synchronous=FULL` unchanged. This provisional setting was selected after two independent 1-CPU/1-GiB cgroup cohorts, each running 10,000 requests at 100 req/s; both passed the fail-closed throughput, p99, CPU, memory and correctness gate. The 2 ms comparison had one cohort fail p99 substantially.
+The E-009 SQLite audit sink uses a **0.5 ms synchronous group-commit collection window** by default, with SQLite WAL and `synchronous=FULL` unchanged. Two 1-CPU/1-GiB cgroup cohorts at 100 req/s passed the fail-closed capacity gate; a third cohort using the actual code default failed p99 during elevated I/O pressure (with no CPU throttling). The 2 ms comparison also had a p99 failure. The 0.5 ms value is therefore a provisional reference setting, not a repeatable SLO guarantee.
 
-See [the performance evidence and repeatability analysis](performance-evidence-2026-11-18.md). This is a measured reference configuration for this prototype only—not a universal SQLite recommendation, production SLO, or runtime/database selection. The capacity gate remains enabled for future confirmatory runs.
+See [the performance evidence and repeatability analysis](performance-evidence-2026-11-18.md). This is a measured reference configuration for this prototype only—not a universal SQLite recommendation, production SLO, or runtime/database selection. The capacity gate remains enabled; no stable p99 claim is made until runs on controlled storage/I/O pass repeatedly.
 
 ## Run tests
 
