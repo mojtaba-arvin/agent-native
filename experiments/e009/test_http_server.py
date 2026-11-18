@@ -147,6 +147,17 @@ class KernelHTTPServerTests(unittest.TestCase):
         finally:
             server.server_close()
 
+    def test_non_loopback_binding_requires_explicit_host_opt_in(self):
+        with self.assertRaisesRegex(ValueError, "must_be_loopback"):
+            create_server(self.runtime, self.identity, host="0.0.0.0")
+        server = create_server(
+            self.runtime, self.identity, host="0.0.0.0", allow_non_loopback=True
+        )
+        try:
+            self.assertEqual(server.server_address[0], "0.0.0.0")
+        finally:
+            server.server_close()
+
     def test_http_request_uses_one_published_runtime_revision(self):
         registry = RuntimeRegistry(self.runtime, revision=7)
         server = create_server(registry, self.identity, max_concurrency=8)
