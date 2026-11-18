@@ -63,7 +63,7 @@ The E-009 smoke is an initial real HTTP/SQLite/worker/relay workload on a shared
 ## Repository state
 
 - Working branch: `research/reboot-core`.
-- Latest known marker commit: `49a178ced8751e5f9a5edbf96054603a55497532`.
+- Latest verified branch commit at scorecard publication: `50baec785894650d65083308de9cfa7b32ca6883` (scorecard/evidence-index update); one-shot dispatch marker commit: `49a178ced8751e5f9a5edbf96054603a55497532`.
 - `main` remains at `da3736c7ea4d239d1ea520d8b56025b4e3251b33`.
 - PR #6 remains Open/Draft; no merge is authorized.
 - The Actions connector exposes job/artifact inspection by run ID but not a list-workflow-runs or workflow-dispatch write action. Where a push-triggered run cannot be inspected through the available action surface, its status is explicitly unknown until an artifact/run reference is available.
