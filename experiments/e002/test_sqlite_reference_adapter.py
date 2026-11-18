@@ -158,6 +158,37 @@ adapter.admit_job(
             "jobs": 1, "outbox": 1, "idempotency_records": 1, "audit": 32,
         })
 
+    def test_audit_storage_failure_fails_closed_without_job_or_outbox(self):
+        db = sqlite3.connect(self.database)
+        try:
+            db.execute("""
+                CREATE TRIGGER reject_audit_insert BEFORE INSERT ON audit
+                BEGIN SELECT RAISE(ABORT, 'audit_unavailable'); END
+            """)
+            db.commit()
+        finally:
+            db.close()
+        with self.assertRaisesRegex(sqlite3.IntegrityError, "audit_unavailable"):
+            self.admit()
+        self.assertEqual(self.adapter.recover(), {
+            "jobs": 0, "outbox": 0, "idempotency_records": 0, "audit": 0,
+        })
+
+    def test_32_concurrent_same_key_different_hashes_have_one_winner(self):
+        def submit(index):
+            return self.admit(
+                payload={"name": f"lamp-{index}"},
+                request_id=f"different-hash-{index}",
+            )
+
+        with ThreadPoolExecutor(max_workers=32) as pool:
+            results = list(pool.map(submit, range(32)))
+        self.assertEqual(sum(status == "created" for status, _ in results), 1)
+        self.assertEqual(sum(status == "conflict" for status, _ in results), 31)
+        self.assertEqual(self.adapter.recover(), {
+            "jobs": 1, "outbox": 1, "idempotency_records": 1, "audit": 32,
+        })
+
     def test_audit_is_append_only(self):
         self.admit()
         db = sqlite3.connect(self.database)
