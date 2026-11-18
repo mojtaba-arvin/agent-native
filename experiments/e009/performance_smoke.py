@@ -372,8 +372,11 @@ def main():
                 server_cpu_seconds = max(
                     0.0, (cgroup_end["cpu_usage_usec"] - cgroup_start["cpu_usage_usec"]) / 1_000_000
                 )
-                server_peak_rss_bytes = cgroup_end["memory_peak_bytes"]
-                server_observed_process_count = cgroup_end["pids_current"]
+                server_peak_rss_bytes = None
+                server_peak_cgroup_memory_bytes = cgroup_end["memory_peak_bytes"]
+                server_observed_process_count = None
+                server_cgroup_pids_current = cgroup_end["pids_current"]
+                server_cgroup_memory_current_bytes = cgroup_end["memory_current_bytes"]
                 cgroup_limits = cgroup_end
             else:
                 stop_cpu_monitor.set()
@@ -381,7 +384,10 @@ def main():
                 cpu_tracker.observe(proc_tree_sample(process.pid))
                 server_cpu_seconds = max(0.0, cpu_tracker.total_cpu_seconds - start_cpu_seconds)
                 server_peak_rss_bytes = cpu_tracker.peak_tree_rss_bytes or None
+                server_peak_cgroup_memory_bytes = None
                 server_observed_process_count = cpu_tracker.observed_process_count
+                server_cgroup_pids_current = None
+                server_cgroup_memory_current_bytes = None
                 cgroup_limits = None
             total_elapsed = sum(item["elapsed_seconds"] for item in repetitions)
             aggregate = summarize(all_results, total_elapsed)
@@ -434,7 +440,10 @@ def main():
                     "accounting": ("container cgroup v2 cpu.stat + memory.peak" if args.containerized else "5ms /proc process-tree cumulative-max; diagnostic, not cgroup v2"),
                     "server_cpu_seconds": server_cpu_seconds,
                     "server_peak_rss_bytes": server_peak_rss_bytes,
+                    "server_peak_cgroup_memory_bytes": server_peak_cgroup_memory_bytes,
                     "server_observed_process_count": server_observed_process_count,
+                    "server_cgroup_pids_current": server_cgroup_pids_current,
+                    "server_cgroup_memory_current_bytes": server_cgroup_memory_current_bytes,
                     "server_cpu_affinity": server_cpu_affinity,
                     "server_cpu_quota_cores": cgroup_limits["cpu_quota_cores"] if cgroup_limits else None,
                     "cgroup_v2_limits": cgroup_limits,
