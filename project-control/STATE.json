@@ -6,12 +6,12 @@
   "baseline_commit": "23f9c77d8ce9a8d55895c6c4903a4ff409ba5781",
   "current_milestone": "C1",
   "active_task_ids": [
-    "CP-004"
+    "CP-006"
   ],
-  "last_completed_task_id": "CP-002",
+  "last_completed_task_id": "CP-004",
   "last_known_green_revision": null,
   "wip_limit": 2,
-  "next_action": "Port the reviewed path-aware runner on a fresh reboot-core branch with deletion handling, project-control suite mapping, and selector regression tests; keep workflow consolidation separate until those tests pass.",
+  "next_action": "Execute the new path-aware fast runner and its selector regression tests in PR CI; correct any failures before preparing the unified workflow migration.",
   "recovery": {
     "unchanged_failure_limit": 2,
     "no_progress_attempt_limit": 3,
