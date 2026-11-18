@@ -753,7 +753,7 @@ def _plan_gate_response(
         "result": None,
         "diagnostics": [{
             "code": "VALIDATION_REQUIRED",
-            "message": "Planning is blocked until the current complete IR proposal passes validation.",
+            "message": "Planning is blocked until the current proposal passes validation.",
             "source_span": None,
             "fix_hint": (
                 "Check result.valid, not only the outer ok flag. Rebuild the complete IR snapshot "
@@ -762,7 +762,7 @@ def _plan_gate_response(
             ),
         }],
         "next_actions": [
-            "service.propose a corrected complete IR; then service.validate the new change_set_id"
+            "Submit a corrected proposal; then service.validate the new change_set_id"
         ],
     }
 
@@ -810,7 +810,7 @@ def run(args: argparse.Namespace) -> dict:
         "model": args.model,
         "arm": args.arm,
         "proposal_mode": getattr(args, "proposal_mode", "snapshot"),
-        "base_disclosure": getattr(args, "base_disclosure", None),
+        "base_disclosure": base_disclosure,
         "status": "running",
         "started_at_monotonic_ns": started,
         "finished_at_monotonic_ns": None,
