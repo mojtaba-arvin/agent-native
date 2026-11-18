@@ -142,3 +142,8 @@ This confirms the default is 0.5 ms, but it does **not** establish repeatable p9
 
 **Decision:** retain 0.5 ms only as a provisional E-009 reference default because its median tail is better than the small 2 ms sample. Keep the fail-closed p99 gate. Do not claim a stable SLO or production capacity until repeated runs on a controlled I/O environment pass. The next experiment should compare the same FULL-durability workload on a dedicated runner or storage volume with observable fsync latency; do not weaken durability or hide I/O stalls by moving the database to tmpfs.
 
+
+## Next experiment: 1.0 ms audit window and WAL size
+
+The next cgroup cohort compares a 1.0 ms audit collection window against the 0.5 ms provisional default. It retains 1 CPU / 1 GiB, FULL durability, the same 100 req/s mix and the same fail-closed capacity gate. The harness now records SQLite database, WAL and SHM file sizes both during load and after graceful shutdown, to determine whether large WAL/checkpoint behavior coincides with high cgroup I/O pressure.
+
