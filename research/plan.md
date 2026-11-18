@@ -1,6 +1,6 @@
 # RPI Plan — Minimum Evidence Infrastructure
 
-**Status:** proposed execution plan  
+**Status:** historical RPI execution plan; superseded as the active task list on 18 November 2026. Retained for the original cycle's decision history. See [current experiment sequence](experiment-plan.md), [E-007 factorial protocol](e007-proposal-surface-factorial.md), and [evidence index](evidence-index.md).  
 **Inputs:** [research audit](research.md), current `EVALUATION.md`, E-007 corpus, E-009 reference kernel, and the fifth Qwen3 trial  
 **Cycle objective:** produce one reproducible real-agent evaluation case, persist E-009 authorization audit records, and publish an explicitly non-selecting E-002 decision matrix.
 
@@ -260,3 +260,16 @@ The three-run Qwen3 cohort is 0/3 accepted and is a deterministic failure reprod
 - No enabling `service.apply`, production deployment, or autonomous destructive action.
 - No statistical claim from three model repetitions and no runtime decision from GitHub-hosted smoke measurements.
 - No open-ended expansion of the E-007 corpus. One executable case is the minimum milestone; expand the corpus only after the runner, scorer, and evidence path work end to end.
+
+
+## Current status — 18 November 2026 (supersedes the execution table above)
+
+- **E-007:** the corrected snapshot/delta × per-operation/upfront-full factorial is implemented in Gateway, local agent, independent scorer, case manifests, and a fail-closed manual-only dispatcher. A–D are matched; E is exploratory. Deterministic CI passes. No real-model factorial cell has run. The dispatch manifest fixes the Qwen3 settings and budget ceilings and pre-registers a seeded order; ordinary branch pushes cannot launch the model workflow.
+- **E-009:** the integrated framework-kernel vertical slice and Agent Gateway remain research infrastructure. The default Gateway does not apply changes.
+- **E-010:** a deterministic private-SQLite sandbox-apply lifecycle demo exists. It is not a production mutation/deployment path.
+- **E-011:** the inter-service invocation/distributed-failure plan is research-only and is gated on E-007 real-agent acceptance plus E-010 review. No transport is selected.
+- **E-002:** its Go/Rust/WASI/BEAM measurements remain diagnostic; no runtime decision is justified.
+- **P2 durable audit:** implemented and covered by integrated tests.
+- **Main branch:** unchanged; integration work remains on the research branch and the overarching PR remains Draft.
+
+The original three-run E-007 plan is no longer the active experiment design. Do not interpret its historical 48,000-token/900-second budgets or its old "one executable case" milestone as the current dispatch configuration. The current E-007 dispatch manifest is authoritative for the matched pilot; it retains the previously established per-cell ceilings without increasing them.
