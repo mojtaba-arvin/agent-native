@@ -75,6 +75,18 @@ This is an evidence plan, not manuscript prose. A claim may be promoted into the
 **Do not claim:** E-007 acceptance, a successful validation opportunity, a compaction benefit, a provider-schema mismatch reproduction, or a hardware bottleneck from this run.
 
 
+
+### 2026-11-18 — Second Light dispatch comparability defect (open)
+
+**Observation.** The first post-First-Light workflow dispatch was triggered by the merge push for revision `6a083d555feea3c440e6544456cb6ce2c6858901` (workflow [44251029459](https://github.com/mojtaba-arvin/agent-native/actions/runs/44251029459)). A final revision audit found that this checkout contained the per-turn payload hash/metadata and provider deadline, but did not contain the deterministic compaction ledger or `prompt-states.jsonl` snapshots that were present in First Light revision `e0facbd`. The local `run_second_light.sh` preflight would have rejected this revision; the push-triggered workflow does not execute that local script.
+
+**Adjudication.** Do not count workflow 44251029459 as a comparable Second Light or as a valid lifecycle repeat, regardless of its eventual agent outcome. Retain its artifact as diagnostic evidence only. It is not evidence about the operation guard's effect under the First Light prompt-state/compaction behavior.
+
+**Correction.** PR [#27](https://github.com/mojtaba-arvin/agent-native/pull/27) selectively ports the deterministic Gateway-derived compaction ledger, per-turn prompt-state snapshots, provider-to-state hash correlation, payload metadata, operation-name guard, and absolute provider deadline onto the integration branch. It does not merge PR #17. A new Second Light dispatch is gated on this PR's complete CI and a verified preflight against the resulting merge SHA.
+
+**Boundary.** No conclusion about Qwen3's repair behavior, validation progress, or lifecycle success is available from this in-progress run. Preserve its raw artifact and classify it separately.
+
+
 ### 2026-11-18 — Absolute request deadline under slow-drip transport
 
 **Observation.** The previous urllib timeout was an inactivity timeout: a peer that emitted response bytes more frequently than the socket timeout could keep a request alive beyond the benchmark's remaining wall budget.
