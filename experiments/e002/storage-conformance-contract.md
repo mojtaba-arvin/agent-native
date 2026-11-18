@@ -34,8 +34,8 @@ Adapters may have richer internal APIs, but benchmark code must use only this co
 
 - Idempotency scope is the tuple `(authenticated_tenant_id, operation_id, idempotency_key)`.
 - The canonical request hash is computed from the validated semantic request, with a versioned canonicalization algorithm pinned in the fixture manifest.
-- Same scope + same hash returns the original logical outcome and MUST NOT create another job, outbox event, or audit admission event.
-- Same scope + different hash returns a stable conflict and MUST NOT mutate the original records.
+- Same scope + same hash returns the original logical outcome and MUST NOT create another job, outbox event, or canonical admission event. The retry attempt still receives its own request ID and a durable audit event recording the replayed outcome.
+- Same scope + different hash returns a stable conflict and MUST NOT mutate the original job/outbox/idempotency records; the rejected attempt receives its own durable denial audit event.
 - Concurrent requests racing on the same scope are linearizable: exactly one new logical admission may win.
 - A retry after an ambiguous client timeout MUST reconcile by the same idempotency key; it MUST NOT invent a new key automatically.
 - Request/attempt IDs identify individual attempts and are distinct from the idempotency key.
@@ -72,11 +72,11 @@ Every test runs against each adapter using the same deterministic fixture set.
 2. Inject failure before transaction begin; verify no records.
 3. Inject failure after each logical write but before commit; verify no partial records after recovery.
 4. Inject failure at commit; classify outcome as committed or not committed only after recovery, never by assuming the client-side exception means rollback.
-5. Kill the process immediately after commit but before response delivery; retry with the same key/hash and verify the original outcome is returned without duplicate effects.
+5. Kill the process immediately after commit but before response delivery; retry with the same key/hash and verify the original outcome is returned without duplicate job/outbox/admission effects, while the retry attempt is separately audited.
 
 ### Idempotency and concurrency
-6. Repeat same key/hash sequentially; one job, one outbox event, one admission audit event.
-7. Repeat same key with a different hash; stable conflict and unchanged original records.
+6. Repeat same key/hash sequentially; one job, one outbox event, one canonical admission audit event, plus one audit event per retry attempt.
+7. Repeat same key with a different hash; stable conflict, unchanged original job/outbox/idempotency records, and one denial audit event for the conflicting attempt.
 8. Race at least 32 concurrent same-key/same-hash requests; exactly one logical admission.
 9. Race same-key/different-hash requests; at most one hash wins, all conflicting hashes are rejected.
 10. Reuse the same key under another tenant; verify scope isolation.
@@ -84,7 +84,7 @@ Every test runs against each adapter using the same deterministic fixture set.
 
 ### Audit and recovery
 12. Verify audit append-only behavior through adapter-supported mutation attempts.
-13. Verify audit record, job, outbox and idempotency result share the same transaction outcome.
+13. Verify the canonical admission audit record, job, outbox and idempotency result share the same transaction outcome; verify replay/conflict attempt audit records are durable without creating a second logical admission.
 14. Reopen the adapter after clean shutdown and after forced process termination.
 15. Verify committed sequence/order tokens remain stable after recovery.
 16. Make audit storage unavailable; admission fails closed and creates no job/outbox record.
