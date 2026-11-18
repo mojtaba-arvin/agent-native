@@ -1035,6 +1035,15 @@ class LocalAgentRunnerTests(unittest.TestCase):
             )
             self.assertEqual(result["proposal_mode"], "delta")
 
+
+    def test_minimal_delta_verifier_rejects_disclosed_operation_contracts(self):
+        values = self.delta_fixture("minimal")
+        with self.assertRaisesRegex(AgentRunError, "minimal_disclosure_contract_leak"):
+            self.verify(
+                *values[:5], inspected_operations=self.inspected_operations,
+                proposal_mode="delta", base_disclosure="minimal",
+            )
+
     def test_delta_verifier_rejects_modified_intent_and_hash(self):
         values = list(self.delta_fixture("minimal"))
         values[0]["intent_digest"] = "0" * 64
