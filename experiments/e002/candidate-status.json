@@ -75,5 +75,29 @@
       "status": "retired_as_hard_gate",
       "reason": "No product-capacity provenance; historical results remain unchanged and are not rescored."
     }
+  },
+  "reference_storage_adapter": {
+    "id": "sqlite-wal-full-reference",
+    "implementation": "experiments/e002/sqlite_reference_adapter.py",
+    "status": "single-adapter-conformance-passed",
+    "workflow_run_id": 44337986951,
+    "tests": 21,
+    "durability_profile": "SQLite WAL, synchronous=FULL; process-crash-after-commit-before-response tested",
+    "guarantees_tested": [
+      "atomic job+outbox+idempotency+audit admission",
+      "rollback at each pre-commit logical write boundary",
+      "tenant+operation-scoped idempotency",
+      "32-way same-key linearization",
+      "process crash after commit and before response reconciliation",
+      "append-only audit",
+      "outbox lease fencing and stale-ack rejection"
+    ],
+    "limitations": [
+      "no cross-runtime adapter parity",
+      "no power-loss certification",
+      "no replication or multi-node linearizability",
+      "no controlled performance result"
+    ],
+    "product_storage_selection": null
   }
 }
