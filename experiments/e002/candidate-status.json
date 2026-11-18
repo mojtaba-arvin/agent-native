@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "snapshot": "2026-11-16",
+  "snapshot": "2026-11-18",
   "candidates": [
     {
       "id": "go-net-http",
@@ -108,7 +108,7 @@
     "implementation": "experiments/e002/postgres_reference_adapter.py",
     "tests": "experiments/e002/test_postgres_reference_adapter.py",
     "status": "single-adapter-conformance-passed",
-    "workflow_run_id": 44341683697,
+    "workflow_run_id": 44345013099,
     "tests_passed": 9,
     "engine_version": "PostgreSQL 16.4 service image",
     "driver_version": "psycopg 3.2.9",
@@ -135,7 +135,7 @@
   },
   "cross_engine_trace_parity": {
     "status": "passed",
-    "workflow_run_id": 44344568192,
+    "workflow_run_id": 44345013099,
     "runner": "experiments/e002/trace_runner.py",
     "seed": 20261118,
     "operations": 60,
@@ -144,17 +144,13 @@
       "postgresql-wal-full-reference"
     ],
     "compared": [
-      "status sequence",
-      "tenant+operation idempotency behavior",
-      "replay outcome stability",
-      "payload conflict behavior",
-      "durable job and outbox visibility",
-      "outbox claim and fenced acknowledgement",
-      "normalized record counts",
-      "canonical trace digest",
-      "matching zero-state after each of four pre-commit injected faults",
-      "process termination after commit and before response on both engines",
-      "same-key reconciliation after reopen with matching durable record counts"
+      "identical status sequence and created/replayed/conflict classification",
+      "tenant+operation-scoped idempotency and stable replay outcome",
+      "canonical payload hash and trace digest equality",
+      "durable job/outbox visibility and record counts",
+      "outbox claim and lease-fenced acknowledgement",
+      "four identical pre-commit rollback fault boundaries",
+      "post-commit process termination and same-key reconciliation after reopen"
     ],
     "limitations": [
       "five deterministic seeds, not exhaustive property-based search",
