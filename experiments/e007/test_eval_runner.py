@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import copy
 import tempfile
 import unittest
 import subprocess
