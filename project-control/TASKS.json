@@ -5,7 +5,7 @@
       "id": "CP-001",
       "title": "Add a standard-library control-plane validator and status command",
       "milestone": "C0",
-      "status": "in_progress",
+      "status": "complete",
       "priority": 1,
       "depends_on": [],
       "owner": "integrator",
@@ -33,7 +33,7 @@
       "id": "CP-002",
       "title": "Add control-plane validation to the active deterministic CI",
       "milestone": "C1",
-      "status": "in_progress",
+      "status": "complete",
       "priority": 2,
       "depends_on": [
         "CP-001"
