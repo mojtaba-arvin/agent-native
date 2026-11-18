@@ -89,17 +89,20 @@ class SandboxApplyCoordinator:
 
     def apply(self, proposal: dict, context: dict) -> dict:
         ir = proposal.get("ir")
-        if not isinstance(ir, dict) or not ir.get("operations"):
+        if not isinstance(ir, dict) or not isinstance(ir.get("operations"), list):
             raise ValueError("sandbox_apply_ir_missing")
-        original_names = {item["name"] for item in self.initial_ir["operations"]}
-        proposed_names = [item.get("name") for item in ir["operations"]]
         if (
-            proposed_names[:-1] != [item["name"] for item in self.initial_ir["operations"]]
-            or proposed_names[-1] != NEW_OPERATION["name"]
-            or ir["operations"][-1] != NEW_OPERATION
-            or set(proposed_names) != original_names | {NEW_OPERATION["name"]}
+            proposal.get("service_id") != "catalog"
+            or proposal.get("base_revision") != digest(self.initial_ir)
         ):
-            raise ValueError("sandbox_apply_operation_not_allowlisted")
+            raise ValueError("sandbox_apply_base_identity_mismatch")
+
+        expected_ir = {
+            **self.initial_ir,
+            "operations": [*self.initial_ir["operations"], NEW_OPERATION],
+        }
+        if ir != expected_ir:
+            raise ValueError("sandbox_apply_contract_not_preserved")
 
         candidate_runtime = self._build_runtime(ir)
         request_id = context.get("request_id")
