@@ -8,6 +8,7 @@ or production authentication configuration.
 from __future__ import annotations
 
 import argparse
+import json
 import math
 import os
 import sys
@@ -43,6 +44,8 @@ def main() -> None:
     parser.add_argument("--relay-lease-seconds", type=int, default=15)
     parser.add_argument("--max-outstanding-jobs", type=int, default=1000)
     parser.add_argument("--max-running-jobs", type=int, default=16)
+    parser.add_argument("--audit-batch-size", type=int, default=32)
+    parser.add_argument("--audit-batch-delay-ms", type=float, default=2.0)
     args = parser.parse_args()
     for name, value in (
         ("worker-poll-seconds", args.worker_poll_seconds),
@@ -55,6 +58,15 @@ def main() -> None:
             or value <= 0
         ):
             parser.error(f"--{name} must be a finite positive number")
+
+    if not 1 <= args.audit_batch_size <= 1024:
+        parser.error("--audit-batch-size must be between 1 and 1024")
+    if (
+        not math.isfinite(args.audit_batch_delay_ms)
+        or args.audit_batch_delay_ms < 0
+        or args.audit_batch_delay_ms > 50
+    ):
+        parser.error("--audit-batch-delay-ms must be between 0 and 50")
 
     token = os.environ.get("AGENT_NATIVE_DEMO_TOKEN", "")
     if len(token) < 24:
@@ -85,7 +97,11 @@ def main() -> None:
         )
     except ValueError as error:
         parser.error(str(error))
-    audit_sink = SQLiteAuditSink(repository.database)
+    audit_sink = SQLiteAuditSink(
+        repository.database,
+        max_batch_size=args.audit_batch_size,
+        max_batch_delay_seconds=args.audit_batch_delay_ms / 1000,
+    )
     runtime = ServiceRuntime(
         ir,
         handlers=build_catalog_handlers(repository, work_store),
@@ -166,6 +182,10 @@ def main() -> None:
         worker_thread.join()
         relay_thread.join()
         server.server_close()
+        print(
+            "E009_AUDIT_METRICS=" + json.dumps(audit_sink.metrics(), sort_keys=True),
+            flush=True,
+        )
         repository.close()
 
 
