@@ -86,6 +86,8 @@ This is an evidence plan, not manuscript prose. A claim may be promoted into the
 
 **Boundary.** No conclusion about Qwen3's repair behavior, validation progress, or lifecycle success is available from this in-progress run. Preserve its raw artifact and classify it separately.
 
+**Corrected dispatch.** The complete instrumentation port was merged as `f86f1709441f65ef358461f242920b82f5d5b671` (PR [#27](https://github.com/mojtaba-arvin/agent-native/pull/27), integrated-kernel CI passed). `run_second_light.sh` is pinned to that exact SHA. The comparable workflow [44252556986](https://github.com/mojtaba-arvin/agent-native/actions/runs/44252556986) was dispatched from the subsequent metadata/workflow commit `a0c3f4c785f16bfa2d4a5667d99b514875e62a78`; the relevant source blobs are identical to the pinned SHA for `local_agent.py`, `eval_runner.py`, `AGENT_TASK.md`, and the eval case. The task and eval-case blob hashes also match First Light exactly. The run is currently in progress; no lifecycle result is claimed yet.
+
 
 ### 2026-11-18 — Absolute request deadline under slow-drip transport
 
