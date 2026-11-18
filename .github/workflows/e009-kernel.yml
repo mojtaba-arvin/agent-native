@@ -2,6 +2,7 @@ name: E-009 integrated framework-kernel checks
 
 on:
   pull_request:
+    types: [opened, reopened, ready_for_review]
     paths:
       - "experiments/e009/**"
       - "experiments/e010/**"
@@ -25,7 +26,7 @@ permissions:
 # New branch revisions supersede stale CI runs; the model pilot keeps its own
 # non-cancelling policy because each factorial artifact is independently useful.
 concurrency:
-  group: e009-kernel-${{ github.event.pull_request.head.ref || github.ref_name }}
+  group: e009-kernel-${{ github.event_name }}-${{ github.event.pull_request.head.ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
