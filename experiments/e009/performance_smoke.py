@@ -249,10 +249,16 @@ def main():
         try:
             deadline = time.monotonic() + (90 if args.containerized else 20)
             base = None
+            startup_output = []
             while time.monotonic() < deadline:
                 line = process.stdout.readline()
+                if line:
+                    startup_output.append(line)
                 if not line and process.poll() is not None:
-                    raise RuntimeError("E-009 server exited before startup")
+                    detail = "".join(startup_output)[-4000:]
+                    raise RuntimeError(
+                        f"E-009 server exited before startup (exit={process.returncode}): {detail}"
+                    )
                 match = re.search(r"http://127\.0\.0\.1:(\d+)", line)
                 if match:
                     base = "http://127.0.0.1:18080" if args.containerized else f"http://127.0.0.1:{match.group(1)}"
