@@ -45,20 +45,7 @@ jobs:
           ollama show qwen3:8b --modelfile > /tmp/qwen3-modelfile.txt
           ollama list > /tmp/ollama-models.txt
       - name: Run real-agent inspect-propose-validate-plan-apply lifecycle
-        run: |
-          bash experiments/e010/run_demo.sh \
-            --model qwen3:8b \
-            --arm upfront \
-            --max-input-tokens 120000 \
-            --max-output-tokens 6000 \
-            --max-tool-calls 20 \
-            --max-wall-seconds 3000 \
-            --num-ctx 16384 \
-            --num-predict 2048 \
-            --temperature 0 \
-            --top-p 1 \
-            --seed 42 \
-            --results-dir /tmp/agent-native-e010-runs
+        run: bash experiments/e010/run_demo.sh
       - name: Upload E-010 runtime and audit evidence
         if: always()
         uses: actions/upload-artifact@v4
