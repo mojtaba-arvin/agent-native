@@ -164,3 +164,15 @@ The run record includes provider-reported input/output token counts, tool-call c
 This integrated slice proves only that the selected reference contracts can be composed in one runnable backend path. The demo identity provider is an in-memory fixture; there is no cryptographic workload identity, key rotation, distributed revocation, or production token validation. SQLite is single-node. The HTTP host is a bounded development host, not a hardened internet-facing server. The runnable service now persists authorization decisions in the shared SQLite file and fails closed on audit-store errors, but there is no remote replication, retention policy, external access control, or cryptographic tamper evidence. The worker/relay are single-node process prototypes; there is no distributed scheduler, authenticated remote worker identity, broker, multi-node consensus, worker kill escalation, schema rollback, distributed service discovery, inter-service transport, streaming, or production deployment story yet.
 
 These limitations are now integration work in one kernel path rather than disconnected prose-only gaps. Any replacement language/runtime/database/transport candidate must pass the same black-box semantics before a product decision is made.
+
+
+## Runtime publication
+
+The host may be constructed with either a fixed ServiceRuntime or a RuntimeRegistry. The registry publishes a frozen (revision, runtime) snapshot under a lock and rejects non-increasing revisions. HTTP dispatch captures one snapshot at request start and uses that runtime for the entire request; responses from registry-backed hosts include X-Runtime-Revision. Construct a replacement runtime completely before publishing it, and do not mutate a published runtime in place.
+
+This is an in-process publication guarantee only. It does not cover multi-process rollout, cross-node consistency, crash recovery of registry state, rollback orchestration, or compatibility between arbitrary runtime revisions. [E-009 workflow 44341003787](https://github.com/mojtaba-arvin/agent-native/actions/runs/44341003787) passed 124 E-009 tests, including concurrent readers racing publication and HTTP revision pinning.
+
+## Product-path performance evidence
+
+The harness includes both saturated closed-loop diagnostics and a paced open-loop workload. A 100 req/s, 10-repetition run completed 10,000 requests with zero unexpected outcomes; aggregate p99 was 73.82 ms and process-tree CPU was 16.1% of one pinned core, but two repetitions exceeded 100 ms p99. A second 2 ms audit-window cohort had all repetition p99 values below 8.3 ms but used more CPU and did not reduce audit transaction count. A 0.5 ms replication again showed two repetition tail outliers. These shared-runner measurements are diagnostic, not a stable capacity certification; cgroup cpu.max was unlimited and FULL audit durability remained enabled.
+
