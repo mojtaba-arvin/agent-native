@@ -121,6 +121,10 @@ class ProcessTreeCpuTracker:
     def total_cpu_seconds(self) -> float:
         return sum(self._cpu_by_identity.values())
 
+    @property
+    def observed_process_count(self) -> int:
+        return len(self._cpu_by_identity)
+
 
 def percentile(values: list[float], percentile_value: float) -> float:
     ordered = sorted(values)
@@ -256,6 +260,7 @@ def main() -> int:
                 "method": "sampled_process_tree_cumulative_max",
                 "sample_interval_seconds": PROCESS_SAMPLE_INTERVAL_SECONDS,
                 "identity": "pid_plus_proc_starttime_ticks",
+                "observed_process_count": cpu_tracker.observed_process_count,
                 "limitations": [
                     "short-lived descendants entirely between samples may be missed",
                     "processes reparented before discovery may no longer be visible below the root",
