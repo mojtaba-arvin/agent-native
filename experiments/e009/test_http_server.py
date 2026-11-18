@@ -8,6 +8,8 @@ import time
 import unittest
 import urllib.error
 import urllib.request
+import socketserver
+from unittest import mock
 from pathlib import Path
 
 from catalog import build_catalog_handlers
@@ -106,6 +108,22 @@ class KernelHTTPServerTests(unittest.TestCase):
         head, _, body = raw.partition(b"\r\n\r\n")
         status = int(head.split(b"\r\n", 1)[0].split()[1])
         return status, head.decode("latin-1"), body
+
+    def test_listen_backlog_is_set_before_socket_activation(self):
+        observed_backlogs = []
+        original_activate = socketserver.TCPServer.server_activate
+
+        def capture_backlog(server):
+            observed_backlogs.append(server.request_queue_size)
+            return original_activate(server)
+
+        with mock.patch.object(socketserver.TCPServer, "server_activate", capture_backlog):
+            server = create_server(self.runtime, self.identity, max_concurrency=17)
+        try:
+            self.assertEqual(observed_backlogs, [17])
+            self.assertEqual(server.request_queue_size, 17)
+        finally:
+            server.server_close()
 
     def test_real_http_create_get_by_id_and_get_by_name(self):
         status, headers, created = self.request(
