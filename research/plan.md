@@ -319,3 +319,41 @@ E-002 remains diagnostic and no runtime is selected. Set the decision review dea
 ### Measurement progress criterion
 
 Progress is measured by completed, analyzable observations—not by the number of decisions, notes, or documents produced.
+
+
+## First Light execution plan — 18 November 2026
+
+**North-star acceptance:** E-007 closes only after two complete, reproducible real-Qwen3 lifecycles. Each lifecycle must independently complete `inspect → propose → validate → plan`; every stage must have a successful Gateway response; the exact proposal/change-set hash must remain continuous through validation and plan; no human intervention or `service.apply` is permitted; and the run artifact must retain raw trace, payload/prompt hashes, provider token usage, and timing. A proposal-only success, a benchmark, or deterministic CI is not lifecycle acceptance.
+
+### Phase 1 — First Light (through 25 November 2026)
+
+1. Integrate the isolated Commit B runner-side prevalidation into `research/reboot-core`; do not merge the unrelated 100-commit PR #17.
+2. After reviewing the completed phase-1 diagnostics artifact, run exactly one real `qwen3:8b` lifecycle using the upfront Gateway surface, `temperature=0`, `top_p=1`, `seed=42`, `num_ctx=16384`, one repetition, and a 3,000-second per-run/aggregate wall budget. Preserve every failed attempt and all raw telemetry.
+3. If the next model turn cannot complete prefill, implement only the existing deterministic state-ledger compaction design. Preserve exact service/type/operation declarations, identity/revision, operation order, tool sequence, and recent diagnostics; keep the raw append-only trace. Do not broaden the redesign.
+4. Gate: at least one complete lifecycle by 25 November. If absent, do not extend Phase 1 or increase Qwen3's CPU wall budget again; enter Phase 2's one-time infrastructure control.
+
+### Phase 2 — Reproduction and infrastructure decision (26 November–9 December)
+
+- If Phase 1 succeeds, execute one second lifecycle with the same pinned task, model, prompt arm, temperature, seed, context, and budgets. Two complete runs permit E-007 closure as **initial evidence, two deterministic repetitions**; do not describe fixed-seed repetitions as statistically independent.
+- If Phase 1 does not produce a complete lifecycle, stop iterative CPU debugging. Run one controlled infrastructure comparison only: GPU-backed Qwen3 or a larger Qwen3 cloud provider. Keep task, Gateway contract, scoring, and safety gates unchanged. Report the result strictly as an infrastructure effect; do not use it to claim model superiority.
+- E-009: demonstrate one real end-to-end request through the HTTP service to a durable audit record using a concrete task (for example, HLS playlist creation). The audit event must be correlated to the request and persisted before any protected handler action.
+- E-002: choose one of the three registered product scenarios, derive a provisional SLO from that scenario, re-evaluate the thresholds, and select one runtime or explicitly select none with an evidence-backed reason. Indefinite deferral is not an outcome.
+
+### Phase 3 — Paper and reproducible artifact (10 December 2026–15 January 2027)
+
+- Center the paper on the semantic-contract boundary between the Gateway's tool semantics and the provider-facing dispatch schema, and the evidence-backed runner-side prevalidation/repair mechanism.
+- Include only verified material: failure taxonomy, audit/lease/fencing architecture, and the completed benchmark/lifecycle artifacts. Separate implementation evidence, synthetic diagnostics, provider-double evidence, and real-model evidence.
+- Deliver one reproducibility script that starts from a clean checkout and replays the documented environment, model, task, Gateway, budgets, and artifact collection.
+
+### Phase 4 — Submission (15–31 January 2027)
+
+- First target: a software-engineering conference demo/tool track (FSE/ASE), subject to current call-for-papers fit and deadlines.
+- Second target: an expanded journal submission such as IEEE Access.
+
+### Stop rules — binding
+
+1. **Three lifecycle failures:** after three consecutive real lifecycle failures under identical pinned settings, stop debugging the same path and begin the infrastructure/model upgrade decision. Preserve all three artifacts. A provider-double or benchmark run does not count as a lifecycle attempt.
+2. **24-hour benchmark ceiling:** no benchmark workflow may remain `in_progress` for more than 24 hours without an explicit decision to inspect the runner or close it as **no evidence**. Do not silently leave it running or dispatch an overlapping run.
+3. **One focused commit:** every change is one focused commit with one objective. Do not combine unrelated implementation and research decisions in a single commit.
+4. **Same-day paper notes:** record every paper-worthy discovery, failure, or evidence item in `paper-notes.md` on the day it is established.
+5. **Acceptance integrity:** E-007 remains open until two full real-model lifecycles satisfy every north-star condition. Never infer a lifecycle pass from a successful proposal, a schema probe, a provider-double, or green CI.
