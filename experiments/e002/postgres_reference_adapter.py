@@ -92,6 +92,7 @@ class PostgresReferenceAdapter:
             """)
             db.execute("DROP TRIGGER IF EXISTS e002_audit_no_update ON e002_audit")
             db.execute("DROP TRIGGER IF EXISTS e002_audit_no_delete ON e002_audit")
+            db.execute("DROP TRIGGER IF EXISTS e002_audit_no_truncate ON e002_audit")
             db.execute("""
                 CREATE TRIGGER e002_audit_no_update BEFORE UPDATE ON e002_audit
                 FOR EACH ROW EXECUTE FUNCTION e002_reject_audit_mutation()
@@ -99,6 +100,10 @@ class PostgresReferenceAdapter:
             db.execute("""
                 CREATE TRIGGER e002_audit_no_delete BEFORE DELETE ON e002_audit
                 FOR EACH ROW EXECUTE FUNCTION e002_reject_audit_mutation()
+            """)
+            db.execute("""
+                CREATE TRIGGER e002_audit_no_truncate BEFORE TRUNCATE ON e002_audit
+                FOR EACH STATEMENT EXECUTE FUNCTION e002_reject_audit_mutation()
             """)
 
     def _fault(self, stage: str):
@@ -108,7 +113,9 @@ class PostgresReferenceAdapter:
     def reset(self):
         """Test-only helper; use only against a disposable conformance database."""
         with self._connect() as db:
+            db.execute("ALTER TABLE e002_audit DISABLE TRIGGER e002_audit_no_truncate")
             db.execute("TRUNCATE e002_audit, e002_idempotency_records, e002_outbox, e002_jobs RESTART IDENTITY CASCADE")
+            db.execute("ALTER TABLE e002_audit ENABLE TRIGGER e002_audit_no_truncate")
 
     def append_audit(self, event: dict) -> int:
         if not isinstance(event, dict):
