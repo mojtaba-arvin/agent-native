@@ -122,3 +122,6 @@ At commit 086f62c851cbfe9dcd77dad66ce32bc626b517dc, [integrated kernel workflow 
 
 
 - **E-002 expanded cross-engine trace/fault parity:** [workflow 44344048163](https://github.com/mojtaba-arvin/agent-native/actions/runs/44344048163) passed five deterministic 60-operation traces (300 total) against SQLite and PostgreSQL, plus matching rollback after four injected pre-commit failures. The same run passed both storage suites and all four runtime baselines; benchmark matrix remained skipped.
+
+
+- **E-002 cross-engine crash reconciliation:** [workflow 44344568192](https://github.com/mojtaba-arvin/agent-native/actions/runs/44344568192) passed a real process termination after commit/before response on both SQLite and PostgreSQL; reopening and retrying the same idempotency key returned the original outcome and matching durable counts. The same run passed five-seed generated traces, four pre-commit rollback fault traces, both storage suites and all four runtime baselines.
