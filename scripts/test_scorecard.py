@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from ci import Suite, build_ci_summary, parse_test_counts
+from ci import Suite, build_ci_summary, parse_negative_self_test_count, parse_test_counts
 from generate_scorecard import build_scorecard, validate_scorecard
 
 
@@ -36,11 +36,14 @@ class EvidenceScorecardTests(unittest.TestCase):
                 "elapsed_seconds": 1.25,
             },
             "test_counts": {
-                "total": 7,
-                "skipped": 1,
+                "total_known": 7,
+                "skipped_known": 1,
+                "complete": False,
+                "unknown_suites": ["project-control"],
+                "negative_self_test_cases": 4,
                 "by_suite": {
-                    "unit": {"tests": 7, "skipped": 1},
-                    "project-control": {"tests": 0, "skipped": 0},
+                    "unit": {"tests": 7, "skipped": 1, "negative_self_test_cases": None, "source": "unittest-output"},
+                    "project-control": {"tests": None, "skipped": None, "negative_self_test_cases": 4, "source": "not-reported"},
                 },
             },
             "suites": [
@@ -51,6 +54,8 @@ class EvidenceScorecardTests(unittest.TestCase):
                     "elapsed_seconds": 1.0,
                     "test_count": 7,
                     "skipped_test_count": 1,
+                    "negative_self_test_count": None,
+                    "test_count_source": "unittest-output",
                     "output_sha256": "c" * 64,
                 },
                 {
@@ -58,8 +63,10 @@ class EvidenceScorecardTests(unittest.TestCase):
                     "status": "passed",
                     "exit_code": 0,
                     "elapsed_seconds": 0.25,
-                    "test_count": 0,
-                    "skipped_test_count": 0,
+                    "test_count": None,
+                    "skipped_test_count": None,
+                    "negative_self_test_count": 4,
+                    "test_count_source": "not-reported",
                     "output_sha256": "d" * 64,
                 },
             ],
@@ -156,6 +163,10 @@ class EvidenceScorecardTests(unittest.TestCase):
         self.assertEqual(summary["test_counts"]["total"], 3)
         self.assertEqual(summary["test_counts"]["skipped"], 1)
 
+    def test_unreported_counts_remain_unknown_and_self_tests_are_separate(self):
+        self.assertEqual(parse_test_counts("project control precheck completed"), (None, None))
+        self.assertEqual(parse_negative_self_test_count("SELF-TEST PASS: 4 negative cases"), 4)
+
     def test_ci_runner_parses_reported_test_and_skip_counts(self):
         output = "Ran 12 tests in 0.05s\n\nOK (skipped=3)\n"
         self.assertEqual(parse_test_counts(output), (12, 3))
@@ -174,8 +185,8 @@ class EvidenceScorecardTests(unittest.TestCase):
         scorecard = build_scorecard(self.summary_raw, self.ledger_raw, self.progress_raw)
         self.assertEqual(scorecard["source"]["workflow_run_id"], 777)
         self.assertEqual(scorecard["source"]["commit_sha"], "a" * 40)
-        self.assertEqual(scorecard["test_counts"]["total"], 7)
-        self.assertEqual(scorecard["test_counts"]["skipped"], 1)
+        self.assertEqual(scorecard["test_counts"]["total_known"], 7)
+        self.assertEqual(scorecard["test_counts"]["skipped_known"], 1)
         self.assertEqual(scorecard["ci_result"]["passed_suites"], 2)
         self.assertEqual(scorecard["verified_claims"][0]["evidence_event_ids"], ["RUN-OK"])
 
@@ -216,7 +227,7 @@ class EvidenceScorecardTests(unittest.TestCase):
             build_scorecard(summary_raw, self.ledger_raw, self.progress_raw)
 
     def test_rejects_summary_test_count_mismatch(self):
-        self.summary["test_counts"]["total"] = 100
+        self.summary["test_counts"]["total_known"] = 100
         summary_raw = json.dumps(self.summary, sort_keys=True).encode()
         with self.assertRaisesRegex(ValueError, "test totals do not match"):
             build_scorecard(summary_raw, self.ledger_raw, self.progress_raw)
