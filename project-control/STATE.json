@@ -9,9 +9,9 @@
     "CP-007"
   ],
   "last_completed_task_id": "CP-006",
-  "last_known_green_revision": "dc705e3e4beee2ed2e897be96e32bf6c993da86e",
+  "last_known_green_revision": "4aa880054ffd624eecd5239877a0f04685333a9a",
   "wip_limit": 2,
-  "next_action": "PR #65 is fully green on its stacked head. After PR #64 is integrated into research/reboot-core, retarget PR #65 to research/reboot-core and require a fresh green run. In parallel, start CP-005 evidence/claims integrity work on a branch stacked on the verified PR head.",
+  "next_action": "PR #65 has a fresh all-green run after separating the always-on E-009 product smoke from the manual capacity gate. Keep it stacked until PR #64 is integrated; then retarget to research/reboot-core and require another full run. CP-005 claims validator is progressing in PR #67.",
   "recovery": {
     "unchanged_failure_limit": 2,
     "no_progress_attempt_limit": 3,
