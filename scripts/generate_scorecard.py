@@ -165,7 +165,8 @@ def build_scorecard(summary_raw: bytes, ledger_raw: bytes, progress_raw: bytes) 
     if not isinstance(selection, dict):
         raise ValueError("CI summary selection must be an object")
     if (
-        selection.get("selected_suite_count") != len(normalized_suites)
+        type(selection.get("selected_suite_count")) is not int
+        or selection.get("selected_suite_count") != len(normalized_suites)
         or selection.get("selected_suites") != [item["name"] for item in normalized_suites]
     ):
         raise ValueError("CI summary selected suites do not match suite result records")
@@ -205,6 +206,7 @@ def build_scorecard(summary_raw: bytes, ledger_raw: bytes, progress_raw: bytes) 
         or type(counts.get("skipped_known")) is not int
         or counts.get("total_known") != total_tests
         or counts.get("skipped_known") != skipped_tests
+        or type(counts.get("complete")) is not bool
         or counts.get("complete") != (not unknown_suites)
         or counts.get("unknown_suites") != unknown_suites
         or counts.get("negative_self_test_cases") != (sum(negative_self_tests) if negative_self_tests else None)
