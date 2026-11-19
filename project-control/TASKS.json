@@ -609,7 +609,7 @@
         "project-control/BRANCH_INVENTORY.md",
         "27 current refs inventoried",
         "4 unique E-007 research branches preserved",
-        "9 additional diverged work branches classified",
+        "16 additional diverged branches classified",
         "5 branches verified reachable from reboot-core",
         "no snapshot-named refs currently visible",
         "no destructive ref operations"
