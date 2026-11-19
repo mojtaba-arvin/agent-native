@@ -851,7 +851,10 @@
         "experiments/e007/evaluator/boundary.py",
         "experiments/e007/evaluator/test_boundary.py",
         "PR-89",
-        "run:44489886038"
+        "run:44489886038",
+        "PR-93",
+        "run:44494715332",
+        "M3-000-TOPOLOGY-SMOKE-2026-11-19-001"
       ]
     },
     {
@@ -1177,7 +1180,7 @@
       "id": "M3-000",
       "title": "Build a no-cost isolated agent/evaluator execution topology",
       "milestone": "M3",
-      "status": "in_progress",
+      "status": "complete",
       "priority": 29,
       "depends_on": [
         "M2-004"
@@ -1224,7 +1227,14 @@
         "experiments/e007/evaluator/test_boundary.py",
         "run:44493638711",
         "artifact:14514595444",
-        "artifact:14513633369"
+        "artifact:14513633369",
+        "PR-93",
+        "run:44494232446",
+        "run:44494715332",
+        "artifact:14514820980",
+        "artifact:14514342990",
+        "merge:ec3975ff11f33516e0d98e349283cbf7b3f19789",
+        "run:44494715310"
       ],
       "execution": {
         "branch": "feat/m3-sandbox-runtime-probes",

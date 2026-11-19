@@ -53,9 +53,8 @@ free usage for this public repository. Paid API/GPU workloads are not
 authorized. The existing Qwen3 CPU workflow remains diagnostic only.
 
 - [x] Record the zero-paid-spend ceiling; do not incur paid model/GPU charges.
-- [ ] Configure a protected environment and evaluator-only oracle custody.
-- [ ] Implement and verify separate ephemeral agent/evaluator process,
-      filesystem, and network trust zones.
+- [ ] Configure a protected environment and evaluator-only hidden-oracle custody; the current GitHub integration cannot write these administrative settings.
+- [x] Implement and verify separate ephemeral agent/evaluator jobs, no-network containers, and runtime sandbox attestations in run #44494715332.
 - [ ] Pin model identities, repetitions, and immutable cohort manifests using
       a qualifying free-tier execution path.
 - [ ] Keep the cohort draft and non-executable until all evidence is frozen.

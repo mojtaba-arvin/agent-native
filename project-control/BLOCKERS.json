@@ -44,13 +44,13 @@
       "id": "BLK-004",
       "status": "open",
       "severity": "high",
-      "title": "Decision-grade M3 evaluation lacks a qualifying zero-cost isolated execution path",
-      "description": "The repository owner authorized spend only within GitHub Actions free usage for this public repository; paid API/GPU workloads are not authorized. The existing Qwen3 CPU workflow is diagnostic and cannot satisfy M3 acceptance. PR #89 hardened filesystem custody preflight (symlink/hard-link, ownership, and permissions checks, with oracle path omitted from evidence objects), but this is not process/filesystem/network isolation. A qualifying isolated free-tier agent/evaluator path and credible model tiers have not yet been demonstrated.",
+      "title": "Decision-grade M3 evaluation lacks a qualifying zero-cost model and protected hidden-oracle path",
+      "description": "M3-000 is complete: the integrated synthetic topology smoke (run #44494715332) passed with separate ephemeral agent/evaluator jobs, allowlisted artifacts, and runtime attestations from both containers (UID 1001, read-only root, noexec /tmp, NoNewPrivs, zero CapEff, outbound network blocked, 2 GiB memory, 1 CPU, 64 PIDs). The smoke used a deterministic stub and synthetic oracle only. Remaining gates are a qualifying zero-paid-spend model cohort, actual protected m3-evaluator Environment rules, and evaluator-only hidden-oracle custody. The current GitHub integration cannot write Environment protection rules or secrets. Paid API/GPU execution is not authorized.",
       "owner_action_required": true,
       "unblocks": [
         "M3 decision-grade model evaluation"
       ],
-      "next_step": "Continue implementing and testing a no-cost isolated evaluator topology. The current GitHub integration cannot provision protected Environment secrets; when the code path is ready, use the repository's protected GitHub Environment for evaluator-only oracle custody. Do not launch paid API/GPU workloads or dispatch the cohort before all isolation and preregistration gates pass."
+      "next_step": "Continue free/open-weight model feasibility and prepare the exact protected Environment/oracle setup. Do not dispatch a real cohort or incur paid API/GPU spend until model quality, oracle custody, sandbox isolation, and preregistration all pass."
     },
     {
       "id": "BLK-005",
