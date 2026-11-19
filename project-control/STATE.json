@@ -6,7 +6,7 @@
   "current_milestone": "M3",
   "active_task_ids": [],
   "last_completed_task_id": "M3-000",
-  "last_known_green_revision": "329c0ed4e19571d9cfad5c98197c0a2a60612bc7",
+  "last_known_green_revision": "ec3975ff11f33516e0d98e349283cbf7b3f19789",
   "wip_limit": 2,
   "next_action": "M3-001 remains blocked by BLK-004. Continue zero-cost open-weight model feasibility and prepare protected m3-evaluator Environment/oracle-custody setup. Do not execute a real cohort until a qualifying model path, protected Environment, hidden-oracle separation, and preregistration are verified. No paid API/GPU spend.",
   "active_workstreams": []
