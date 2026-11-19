@@ -27,36 +27,36 @@
   "models": [
     {
       "tier": "weak",
-      "tag": "ibm/granite4:350m-h",
+      "tag": "ibm/granite4:350m-h-q4_K_M",
       "parameters_total": "340M",
       "parameters_active": "340M",
+      "quantization_expected": "Q4_K_M",
       "manifest_sha256": null,
       "config_digest": null,
       "model_size_bytes": null,
-      "tool_call_smoke": "pending",
-      "quantization_expected": "Q4_K_M"
+      "tool_call_smoke": "pending"
     },
     {
       "tier": "medium",
-      "tag": "ibm/granite4:1b-h",
-      "parameters_total": "1.5B",
-      "parameters_active": "1.5B",
+      "tag": "ibm/granite4:1b-h-q4_K_M",
+      "parameters_total": "1.46B",
+      "parameters_active": "1.46B",
+      "quantization_expected": "Q4_K_M",
       "manifest_sha256": null,
       "config_digest": null,
       "model_size_bytes": null,
-      "tool_call_smoke": "pending",
-      "quantization_expected": "Q4_K_M"
+      "tool_call_smoke": "pending"
     },
     {
       "tier": "strong",
       "tag": "ibm/granite4:3b-h",
-      "parameters_total": "3B",
-      "parameters_active": "3B",
+      "parameters_total": "3.19B",
+      "parameters_active": "3.19B",
+      "quantization_expected": "Q4_K_M",
       "manifest_sha256": null,
       "config_digest": null,
       "model_size_bytes": null,
-      "tool_call_smoke": "pending",
-      "quantization_expected": "Q4_K_M"
+      "tool_call_smoke": "pending"
     }
   ],
   "smoke": {
