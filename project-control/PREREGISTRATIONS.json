@@ -114,6 +114,17 @@
       "run_ids": [],
       "decision_event_id": "DECISION-BASELINE-2026-11-19",
       "notes": "Historical narrative decision log. New decisions append dated entries; historical rationale is not rewritten."
+    },
+    {
+      "record_id": "E009-CAPACITY-CONFIRMATION-2026-11-19-V1",
+      "kind": "performance_cohort_manifest",
+      "path": "experiments/e009/capacity-confirmation-v1.json",
+      "git_blob_sha1": "efee4e4d2f64444b4a38a4203aa88704e562ea53",
+      "status": "ready_for_manual_dispatch",
+      "run_ids": [],
+      "decision_event_id": "DECISION-PREREG-E009-CAPACITY-2026-11-19",
+      "no_apply": true,
+      "notes": "Frozen ten-repetition, one-CPU/1-GiB E-009 capacity cohort. The manual workflow consumes this manifest directly; it is not a production SLO or cross-runtime certification."
     }
   ]
 }
