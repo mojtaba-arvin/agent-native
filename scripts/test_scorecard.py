@@ -159,6 +159,16 @@ class EvidenceScorecardTests(unittest.TestCase):
         output = "Ran 12 tests in 0.05s\n\nOK (skipped=3)\n"
         self.assertEqual(parse_test_counts(output), (12, 3))
 
+    def test_fast_workflow_generates_and_uploads_scorecard_even_after_failure(self):
+        root = __import__("pathlib").Path(__file__).resolve().parents[1]
+        workflow = (root / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+        fast_job = workflow.split("  fast:\n", 1)[1].split("\n  extended:", 1)[0]
+        self.assertIn("--json-summary", fast_job)
+        self.assertIn("Generate source-verified evidence scorecard\n        if: always()", fast_job)
+        self.assertIn("Upload fast-CI evidence artifacts\n        if: always()", fast_job)
+        self.assertIn("fast-ci-summary.json", fast_job)
+        self.assertIn("fast-ci-scorecard.json", fast_job)
+
     def test_generates_counts_bound_to_exact_run_and_commit(self):
         scorecard = build_scorecard(self.summary_raw, self.ledger_raw, self.progress_raw)
         self.assertEqual(scorecard["source"]["workflow_run_id"], 777)
