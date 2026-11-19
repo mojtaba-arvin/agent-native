@@ -3,6 +3,8 @@ from __future__ import annotations
 import unittest
 import subprocess
 import sys
+import re
+from pathlib import Path
 
 from agent_native import ServiceRuntime, load_service_ir
 
@@ -43,6 +45,13 @@ class PackageSurfaceTests(unittest.TestCase):
         ir = load_service_ir(SERVICE)
         runtime = ServiceRuntime(ir, handlers={"check": lambda context: "ok"}, repository=None, trusted_effects=set())
         self.assertEqual(runtime.operations[0]["name"], "check")
+
+    def test_package_sources_do_not_mutate_sys_path(self):
+        package_root = Path(agent_native.__file__).resolve().parent
+        for source in package_root.glob("*.py"):
+            contents = source.read_text(encoding="utf-8")
+            self.assertNotRegex(contents, r"sys\\s*\\.\\s*path\\s*\\.\\s*(insert|append|extend)\\s*\\(")
+            self.assertNotRegex(contents, r"sys\\s*\\.\\s*path\\s*(?:\\[[^]]+\\])?\\s*(?:=|\\+=)")
 
     def test_installed_import_does_not_mutate_sys_path(self):
         code = (
