@@ -175,6 +175,7 @@ def main() -> int:
     candidates = read_json(ROOT / "experiments" / "e007" / "model_candidates.json")
     manifests = read_json(Path(os.environ["MODEL_MANIFESTS"]))
     server_config = read_json(Path(os.environ["OLLAMA_SERVER_CONFIG"]))
+    runner_info = read_json(Path(os.environ["RUNNER_INFO"]))
     endpoint = os.environ.get("OLLAMA_URL", "http://127.0.0.1:11434")
     ollama_version = os.environ.get("OLLAMA_VERSION", "")
     if "0.40.15" not in ollama_version:
@@ -223,7 +224,7 @@ def main() -> int:
         "ollama_version": os.environ.get("OLLAMA_VERSION"),
         "ollama_image": os.environ.get("OLLAMA_IMAGE"),
         "python_image": os.environ.get("PYTHON_IMAGE"),
-        "runner": {"os": "ubuntu-latest", "architecture": "x86_64"},
+        "runner": runner_info,
         "agent_sandbox": sandbox,
         "ollama_server_sandbox": server_config,
         "paid_api_usd": 0,
