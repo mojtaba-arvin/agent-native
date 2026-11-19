@@ -2,21 +2,12 @@
   "updated_at": "2026-11-19",
   "active_branch": "research/reboot-core",
   "baseline_branch": "research/reboot-core",
-  "baseline_commit": "329c0ed4e19571d9cfad5c98197c0a2a60612bc7",
+  "baseline_commit": "ec3975ff11f33516e0d98e349283cbf7b3f19789",
   "current_milestone": "M3",
-  "active_task_ids": [
-    "M3-000"
-  ],
-  "last_completed_task_id": "M2-004",
-  "last_known_green_revision": "b68f4dd108d18b1ea05e1e594c5d5fa74e6b84c4",
+  "active_task_ids": [],
+  "last_completed_task_id": "M3-000",
+  "last_known_green_revision": "329c0ed4e19571d9cfad5c98197c0a2a60612bc7",
   "wip_limit": 2,
-  "next_action": "Add runtime sandbox probes to M3-000: attest non-root execution, read-only root, noexec tmpfs, zero capabilities, no-new-privileges, blocked outbound network, and cgroup memory/CPU/PID limits for both agent and evaluator containers. Preserve the successful synthetic topology run as evidence, but do not mark M3-000 complete until these runtime checks pass.",
-  "active_workstreams": [
-    {
-      "task_id": "M3-000",
-      "branch": "feat/m3-sandbox-runtime-probes",
-      "base_branch": "research/reboot-core",
-      "integration_owner": "integrator"
-    }
-  ]
+  "next_action": "M3-001 remains blocked by BLK-004. Continue zero-cost open-weight model feasibility and prepare protected m3-evaluator Environment/oracle-custody setup. Do not execute a real cohort until a qualifying model path, protected Environment, hidden-oracle separation, and preregistration are verified. No paid API/GPU spend.",
+  "active_workstreams": []
 }
