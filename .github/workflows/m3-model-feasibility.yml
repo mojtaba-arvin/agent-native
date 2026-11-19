@@ -41,6 +41,30 @@ jobs:
           chmod 700 "$MODEL_DIR" "$OLLAMA_HOME" "$OUTPUT_DIR"
           printf 'RUNNER_UID=%s\n' "$(id -u)" >> "$GITHUB_ENV"
           printf 'RUNNER_GID=%s\n' "$(id -g)" >> "$GITHUB_ENV"
+          python3 - "$OUTPUT_DIR/runner-info.json" "$MODEL_DIR" <<'PY'
+          import json
+          import os
+          import platform
+          import shutil
+          import sys
+          from pathlib import Path
+
+          mem_total = None
+          for line in Path("/proc/meminfo").read_text(encoding="utf-8").splitlines():
+              if line.startswith("MemTotal:"):
+                  mem_total = int(line.split()[1]) * 1024
+                  break
+          disk = shutil.disk_usage(sys.argv[2])
+          record = {
+              "os": platform.platform(),
+              "architecture": platform.machine(),
+              "logical_cpu_count": os.cpu_count(),
+              "memory_total_bytes": mem_total,
+              "model_disk_total_bytes": disk.total,
+              "model_disk_free_bytes": disk.free,
+          }
+          Path(sys.argv[1]).write_text(json.dumps(record, indent=2, sort_keys=True) + "\\n", encoding="utf-8")
+          PY
 
       - name: Pull pinned Ollama runtime image
         shell: bash
@@ -252,6 +276,7 @@ jobs:
             -e PYTHONDONTWRITEBYTECODE=1 \
             -e HOME=/tmp \
             -e MODEL_MANIFESTS=/out/model-manifests.json \
+            -e RUNNER_INFO=/out/runner-info.json \
             -e OLLAMA_SERVER_CONFIG=/out/ollama-server-sandbox.json \
             -e OLLAMA_URL=http://127.0.0.1:11434 \
             -e OLLAMA_VERSION="$ollama_version" \
