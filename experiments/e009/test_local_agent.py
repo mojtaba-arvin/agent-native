@@ -41,6 +41,7 @@ from local_agent import (
     _resolve_task_path,
     _compact_conversation,
     _build_compaction_ledger,
+    _compact_tool_outcome,
 )
 
 
@@ -791,6 +792,41 @@ class LocalAgentRunnerTests(unittest.TestCase):
         self.assertEqual(ledger["recent_tool_outcomes"][-1]["next_actions"], ["Correct the complete IR"])
         self.assertNotIn("assistant", [item["role"] for item in compacted])
         self.assertNotIn("tool_calls", compacted[3]["content"])
+
+    def test_progressive_schema_discovery_survives_compaction(self):
+        schema = {
+            "type": "object",
+            "properties": {"service_id": {"type": "string"}},
+            "required": ["service_id"],
+            "additionalProperties": False,
+        }
+        outcome = _compact_tool_outcome(
+            "interface.describe",
+            {"name": "service.inspect"},
+            {
+                "ok": True,
+                "result": {
+                    "name": "service.inspect",
+                    "summary": "Inspect one service or one operation contract.",
+                    "mode": "read_only",
+                    "input_schema": schema,
+                },
+            },
+        )
+        self.assertEqual(outcome["name"], "service.inspect")
+        self.assertEqual(outcome["input_schema"], schema)
+        self.assertEqual(outcome["mode"], "read_only")
+        self.assertEqual(
+            outcome["description"],
+            "Inspect one service or one operation contract.",
+        )
+        ledger = _build_compaction_ledger(
+            self.inspected,
+            self.inspected_operations,
+            ["interface.describe"],
+            [outcome],
+        )
+        self.assertEqual(ledger["recent_tool_outcomes"][0]["input_schema"], schema)
 
     def test_compaction_ledger_is_deterministic_and_traceable(self):
         tool_sequence = ["service.inspect", "service.propose"]
