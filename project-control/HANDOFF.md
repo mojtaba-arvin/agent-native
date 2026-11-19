@@ -15,6 +15,8 @@
 ## Current checkpoint — 2026-11-19
 
 - C0, C1, M0, and M1 are complete and integrated.
+- CP-009 adds a read-only dependency-aware scheduler with WIP enforcement, task-attempt recovery thresholds, and branch/integration ownership checks; CI validation is in progress.
+- The unified CI candidate now checks PR base freshness and requires two independent approvals for trust-boundary implementation changes; actual reviews remain a human gate.
 - M2-001 ServiceRegistry is merged; M2-002 generic declarative CRUD/list/job/event dispatch has passed 15/15 deterministic suites, 78 installed-package tests, and Layer 1 native/container/database validation (run #44453671758).
 - M2-003 Service-independent Gateway is implemented and CI-green on feat/m2-service-independent-gateway; it remains open for two independent reviews before integration.
 - M2-004 cross-service proof is prepared on feat/m2-second-service-proof, stacked on M2-003; Layer 0 and Layer 1 are green.
