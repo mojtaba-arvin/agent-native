@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import unittest
-from dataclasses import replace
 from pathlib import Path
 from types import MappingProxyType
 
@@ -43,7 +42,7 @@ class FakeRepository:
     def create(self, resource, payload, *, tenant_id, idempotency_key=None):
         self.calls.append(("create", resource, tenant_id, idempotency_key))
         key = ITEM_ID if resource == "items" else payload["sku"]
-        record = {"id": key, **payload}
+        record = ({"id": key, **payload} if resource == "items" else dict(payload))
         self.records[(resource, tenant_id, key)] = record
         return dict(record)
 
@@ -140,12 +139,18 @@ class DeclarativeHandlerTests(unittest.TestCase):
         runtime = self.runtime("catalog")
         self.repository.records[("items", "tenant-a", ITEM_ID)] = {"id": ITEM_ID, "name": "Private item"}
         response = runtime.dispatch(
-            "GET", f"/items/{ITEM_ID}", {"tenant_id": "tenant-a"},
+            "GET", f"/items/{ITEM_ID}", {},
             identity("tenant-b", "items.read", "/items"),
         )
         self.assertEqual(response.status_code, 404)
         self.assertEqual(response.body["error"]["code"], "NotFound")
         self.assertIn(("read", "items", "tenant-b"), self.repository.calls)
+        injected = runtime.dispatch(
+            "GET", f"/items/{ITEM_ID}", {"tenant_id": "tenant-a"},
+            identity("tenant-b", "items.read", "/items"),
+        )
+        self.assertEqual(injected.status_code, 400)
+        self.assertEqual(injected.body["error"]["code"], "InvalidInput")
 
     def test_jobs_submit_get_and_cancel_use_generic_queue_handlers(self):
         runtime = self.runtime("catalog")
@@ -199,11 +204,11 @@ class DeclarativeHandlerTests(unittest.TestCase):
 
     def test_host_handler_effects_must_cover_the_service_ir(self):
         service = REGISTRY.load("inventory")
-        registry = built_in_handler_registry()
-        # Replace one handler definition with an intentionally under-scoped host registration.
-        registry._definitions["crud.read_by_field"] = replace(
-            registry._definitions["crud.read_by_field"],
-            allowed_effects=frozenset({"repository.write"}),
+        from agent_native import TrustedHandlerRegistry
+        registry = TrustedHandlerRegistry()
+        registry.register(
+            "crud.read_by_field", lambda config: (lambda context: {}),
+            allowed_effects={"repository.write"},
         )
         with self.assertRaises(ConfigurationError):
             registry.build_handlers(service)
