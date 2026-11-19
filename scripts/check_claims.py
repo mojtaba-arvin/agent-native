@@ -88,6 +88,9 @@ def validate_claims(progress: dict[str, Any], ledger_text: str) -> list[str]:
         if not isinstance(references, list) or not references:
             errors.append(f"{prefix}: at least one evidence_event_id is required")
             continue
+        if not all(isinstance(event_id, str) and event_id.strip() for event_id in references):
+            errors.append(f"{prefix}: evidence_event_ids must contain non-empty strings")
+            continue
         if len(references) != len(set(references)):
             errors.append(f"{prefix}: duplicate evidence_event_ids")
         for event_id in references:
