@@ -25,7 +25,7 @@ def _has_immutable_reference(value: Any) -> bool:
     """Accept a GitHub run ID, a full Git commit SHA, or a durable HTTP(S) URL."""
     if isinstance(value, dict):
         for key, item in value.items():
-            if key == "run_id" and isinstance(item, int) and item > 0:
+            if key == "run_id" and type(item) is int and item > 0:
                 return True
             if key in {"commit", "commit_sha", "head_sha", "sha", "blob_sha"}:
                 if isinstance(item, str) and re.fullmatch(r"[0-9a-f]{40}", item):
