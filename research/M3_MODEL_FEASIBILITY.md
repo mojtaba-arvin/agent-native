@@ -68,7 +68,7 @@ Fixed configuration across all three tiers:
 - Task: add the read-only `get_item_by_normalized_name` operation.
 - Proposal mode: `delta`.
 - Disclosure: `minimal`.
-- Tool-schema arm: `progressive`.
+- Tool-schema arms: `progressive` and `upfront`, executed separately for every model so schema-discovery overhead can be distinguished from model capability.
 - Context: 16,384 tokens.
 - Output budget: 2,048 tokens.
 - Input budget: 12,000 tokens.
@@ -87,6 +87,15 @@ The model server and agent client run in isolated containers. The model weights 
 - sandbox attestation and a raw artifact bundle.
 
 The model smoke wrapper treats a model failure as a data point, not an infrastructure failure. It fails the workflow only for safety/infrastructure violations such as external network access, an apply attempt, missing raw evidence, or a failed sandbox probe.
+
+### Progressive-arm baseline
+
+Two real progressive-arm runs are retained:
+
+- Bootstrap [44509769849](https://github.com/mojtaba-arvin/agent-native/actions/runs/44509769849): 0/3 verified. The 350M tier made no tool call; the 1B tier supplied the target operation name to `interface.describe`; the 3B tier repeated service inspection and selected the new operation as if it already existed.
+- Post-Gateway-repair [44511342601](https://github.com/mojtaba-arvin/agent-native/actions/runs/44511342601): still 0/3 verified. The 350M and 3B tiers returned no tool calls; the 1B tier repeated `interface.describe(name="service.inspect")` six times until the input-token budget was exceeded.
+
+The second run confirmed that all three pulled model manifests still matched the bootstrap lock. Both runs recorded zero safety violations, no apply attempt, no hidden oracle, and zero paid API/GPU spend. Their raw artifacts are retained by the corresponding Actions runs. The next locked run executes both tool-schema arms for each model; the upfront arm will reveal whether progressive schema discovery, rather than the models' underlying tool-use ability, is the dominant failure source.
 
 ## Decision gates
 
