@@ -473,7 +473,7 @@
       "id": "M2-001",
       "title": "Load services through a manifest-backed ServiceRegistry",
       "milestone": "M2",
-      "status": "in_progress",
+      "status": "complete",
       "priority": 20,
       "depends_on": [
         "M1-004"
@@ -501,18 +501,18 @@
         "Do not add dynamic code execution or arbitrary plugin imports as a loading mechanism"
       ],
       "evidence_ids": [
-        "src/agent_native/manifest.py",
-        "schemas/service-manifest-v1.schema.json",
-        "services/catalog/",
-        "services/inventory/",
-        "tests/test_service_registry.py"
+        "run:44450365382",
+        "15/15 deterministic suites",
+        "646 known tests across 15 suites",
+        "Layer 1 native/container/database passed",
+        "69 installed-package tests including ServiceRegistry negative cases"
       ]
     },
     {
       "id": "M2-002",
       "title": "Drive declarative CRUD, job, and event handlers from service IR",
       "milestone": "M2",
-      "status": "pending",
+      "status": "in_progress",
       "priority": 21,
       "depends_on": [
         "M2-001"

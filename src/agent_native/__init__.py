@@ -2,6 +2,7 @@
 
 from .ir import Diagnostic, Parser, Token, lex, validate_ir
 from .runtime import ConfigurationError, DomainFault, HandlerContext, HandlerResult, RuntimeFault, RuntimeResponse, ServiceRuntime, load_service_ir
+from .manifest import RegisteredService, ServiceRegistry, ServiceRegistryError
 
 __version__ = "0.1.0.dev0"
 
@@ -13,6 +14,9 @@ __all__ = [
     "HandlerResult",
     "RuntimeFault",
     "RuntimeResponse",
+    "RegisteredService",
+    "ServiceRegistry",
+    "ServiceRegistryError",
     "ServiceRuntime",
     "Parser",
     "Token",
