@@ -232,9 +232,40 @@ def validate(root: Path) -> list[str]:
     errors: list[str] = []
     registry_path = root / "project-control" / "PREREGISTRATIONS.json"
     event_path = root / "project-control" / "DECISION_EVENTS.jsonl"
+    decision_path = root / "DECISIONS.json"
     registry = _load_json(registry_path, errors)
+    decisions = _load_json(decision_path, errors)
     events = _load_jsonl(event_path, errors)
     event_by_id = _validate_events(root, events, errors)
+
+    decision_records = decisions.get("decisions")
+    if not isinstance(decision_records, list):
+        errors.append("DECISIONS.json: decisions must be an array")
+        known_decision_ids: set[str] = set()
+    else:
+        known_decision_ids = set()
+        for index, decision in enumerate(decision_records):
+            if not isinstance(decision, dict):
+                errors.append(f"DECISIONS.json: decisions[{index}] must be an object")
+                continue
+            decision_id = decision.get("id")
+            if not isinstance(decision_id, str) or not decision_id:
+                errors.append(f"DECISIONS.json: decisions[{index}].id is required")
+            elif decision_id in known_decision_ids:
+                errors.append(f"DECISIONS.json: duplicate decision id {decision_id}")
+            else:
+                known_decision_ids.add(decision_id)
+    for event in events:
+        affected = event.get("affected_decision_ids", [])
+        if isinstance(affected, list):
+            unknown = [
+                item for item in affected
+                if isinstance(item, str) and item not in known_decision_ids
+            ]
+            if unknown:
+                errors.append(
+                    f"decision event {event.get('event_id')}: unknown decision IDs {', '.join(unknown)}"
+                )
 
     if registry.get("schema_version") != 1:
         errors.append("PREREGISTRATIONS.json: schema_version must be 1")
