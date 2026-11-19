@@ -55,7 +55,7 @@ def _read_service(path: str):
             error.code,
             f"{error.message} at {error.token.line}:{error.token.column}",
         ) from error
-    return service_path.resolve(), ir
+    return service_path, ir
 
 
 def _route_pattern(template: str) -> re.Pattern[str]:
@@ -76,7 +76,7 @@ def command_check(args: argparse.Namespace) -> int:
         "service": ir["service"]["name"],
         "version": ir["service"]["version"],
         "operations": len(ir["operations"]),
-        "service_path": str(path),
+        "service_path": args.service,
     })
     return 0
 
@@ -145,7 +145,7 @@ def command_worker(args: argparse.Namespace) -> int:
         "status": "planned",
         "execution_started": False,
         "service_id": args.service_id,
-        "queue_path": str(queue_path.resolve()),
+        "queue_path": args.queue,
         "records": total,
         "queued_records": queued,
     })
@@ -175,7 +175,7 @@ def command_audit(args: argparse.Namespace) -> int:
         deny += event["decision"] == "deny"
     _emit({
         "status": "valid",
-        "events_path": str(events_path.resolve()),
+        "events_path": args.events,
         "events": total,
         "allow": allow,
         "deny": deny,
