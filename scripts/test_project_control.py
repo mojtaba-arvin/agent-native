@@ -32,6 +32,7 @@ class ResumeCheckpointTests(unittest.TestCase):
         task_by_id = {item["id"]: item for item in docs["tasks"]["tasks"]}
         state = docs["state"]
         state["active_task_ids"] = ["M1-001"]
+        task_by_id["M1-001"]["status"] = "in_progress"
         task_by_id["CP-007"]["status"] = "pending"
         with self.assertRaisesRegex(
             CONTROL["ControlPlaneError"], "incomplete dependencies"
