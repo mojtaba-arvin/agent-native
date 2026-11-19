@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from check_preregistrations import event_hash, git_blob_sha1, validate
+from check_preregistrations import event_hash, git_blob_sha1, is_append_only, validate
 
 
 BASELINE_ID = "DECISION-BASELINE-TEST"
@@ -88,6 +88,13 @@ class PreregistrationTests(unittest.TestCase):
             encoding="utf-8",
         )
         return second
+
+    def test_append_only_accepts_exact_extension(self):
+        self.assertTrue(is_append_only(b"event-1\nevent-2\n", b"event-1\n"))
+
+    def test_append_only_rejects_rewrite_and_truncation(self):
+        self.assertFalse(is_append_only(b"event-1\nchanged\n", b"event-1\nevent-2\n"))
+        self.assertFalse(is_append_only(b"event-1\n", b"event-1\nevent-2\n"))
 
     def test_accepts_frozen_manifest_and_baseline_chain(self):
         self.assertEqual(validate(self.root), [])
