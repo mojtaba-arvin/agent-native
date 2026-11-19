@@ -28,6 +28,14 @@ class E009CapacityGateTests(unittest.TestCase):
             "failed_expectations": 0,
         }
 
+    def test_manual_workflow_uses_only_the_frozen_capacity_manifest(self):
+        repository_root = Path(__file__).resolve().parents[2]
+        workflow = (repository_root / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+        section = workflow.split("  performance-confirmation:", 1)[1].split("\n  models:", 1)[0]
+        self.assertIn("--config experiments/e009/capacity-confirmation-v1.json", section)
+        self.assertNotIn("--requests", section)
+        self.assertNotIn("--repetitions", section)
+
     def test_frozen_capacity_manifest_has_exact_parameters_and_blob_pin(self):
         manifest_path = Path(__file__).with_name("capacity-confirmation-v1.json")
         config, blob_sha1 = load_preregistration_config(manifest_path)
