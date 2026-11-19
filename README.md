@@ -8,6 +8,19 @@ The central question is not how to make today's frameworks easier for agents to 
 
 > If AI agents are the primary authors and operators of backend systems, what should a backend framework become when designed from first principles for them?
 
+## Python package status
+
+The supported import namespace is `agent_native`, installed from this repository with:
+
+```sh
+python -m pip install .
+python -c "from agent_native import Parser, ServiceRuntime"
+```
+
+The package currently exposes the canonical service IR parser, default-deny security contracts, and contract-driven runtime. It intentionally declares no runtime dependencies and does not select a production runtime or deployment target.
+
+Code under `experiments/` is research/demo material, not part of the installed package API. In particular, the E-009 `serve.py`, `kernel.py`, and `agent_gateway.py` entry points and E-010 sandbox-apply demo retain their historical experiment imports; do not import them as supported `agent_native` modules. Their migration or compatibility replacement is tracked separately from the stable package namespace.
+
 ## Product objective
 
 Enable agents from weak to strong to build and operate reliable, secure, high-performance microservice systems while minimizing:
