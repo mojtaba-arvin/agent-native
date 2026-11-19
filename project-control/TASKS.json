@@ -542,6 +542,8 @@
       "evidence_ids": [
         "src/agent_native/handlers.py",
         "src/agent_native/manifest.py",
+        "src/agent_native/ir.py",
+        "src/agent_native/runtime.py",
         "schemas/service-manifest-v2.schema.json",
         "services/catalog/service.json",
         "services/inventory/service.json",
