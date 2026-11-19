@@ -4,6 +4,7 @@ service Inventory {
   type StockItem {
     sku: String;
     quantity: Integer;
+    warehouse_id: String;
   }
 
   type EventReceipt {
@@ -11,14 +12,14 @@ service Inventory {
     state: String;
   }
 
-  operation get_stock {
+  operation list_stock {
     method: GET;
-    path: "/stock/{warehouse_id}";
+    path: "/stock";
     input {
-      warehouse_id: String from path;
+      warehouse_id: String from query;
     }
-    output: StockItem;
-    errors: [InvalidInput, NotFound, Unauthorized];
+    output: List<StockItem>;
+    errors: [InvalidInput, Unauthorized];
     validation: [];
     effects: [repository.read];
     capability: "stock.read";
@@ -30,6 +31,7 @@ service Inventory {
     input {
       sku: String from body;
       quantity: Integer from body;
+      warehouse_id: String from body;
     }
     output: StockItem;
     errors: [Conflict, InvalidInput, Unauthorized];
