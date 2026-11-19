@@ -68,23 +68,34 @@
       ],
       "owner": "research",
       "scope": [
-        "experiments/",
-        "research/",
         "REPORT.md",
-        "README.md",
+        "EVALUATION.md",
         "DECISIONS.json",
-        "project-control/"
+        "research/evidence-index.md",
+        "experiments/e001/",
+        "experiments/e002/",
+        "experiments/e003/",
+        "experiments/e004/",
+        "experiments/e005/",
+        "experiments/e006/",
+        "experiments/e007/",
+        "experiments/e008/",
+        "experiments/e009/",
+        "experiments/e010/",
+        "research/e011-interservice-communication-plan.md",
+        "project-control/M0_AUDIT.md"
       ],
       "acceptance": [
-        "Every v0.1 milestone is audited against the current source revision, not a stale report snapshot",
-        "Each verified fact has a commit/run/artifact reference and explicit scope/limitations",
-        "Unresolved questions are classified as blockers or hypotheses",
-        "Research-only branch content and unique artifacts are inventoried without pruning or rewriting branches",
-        "Open implementation work is represented as independently verifiable tasks with dependencies and recovery limits"
+        "Every E-001 through E-011 workstream has a current status and evidence boundary grounded in source/docs",
+        "REPORT.md no longer points to stale in-progress runs or obsolete test counts",
+        "Historical raw traces and dispatch request artifacts remain immutable and are clearly distinguished from active manifests",
+        "Runtime, service syntax, persistence, transport, production identity, capacity, and model acceptance are not overstated",
+        "Each v0.1 gap is mapped to M1-M5 and independently verifiable follow-up work"
       ],
       "expected_outputs": [
-        "Current-state audit",
-        "Refined task graph"
+        "Evidence-backed M0 source audit",
+        "Reconciled REPORT.md and experiment status notes",
+        "Updated task graph for M1/M2 and remaining M0 gates"
       ],
       "max_unchanged_retries": 2,
       "replan_after_failures": 2,
