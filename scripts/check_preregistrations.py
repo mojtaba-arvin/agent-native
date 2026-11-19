@@ -131,7 +131,9 @@ def _validate_events(
             errors.append(f"decision event {event_id}: timestamp must be an ISO-8601 string")
         else:
             try:
-                datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+                parsed_timestamp = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+                if parsed_timestamp.tzinfo is None or parsed_timestamp.utcoffset() is None:
+                    errors.append(f"decision event {event_id}: timestamp must include an explicit timezone")
             except ValueError:
                 errors.append(f"decision event {event_id}: invalid ISO-8601 timestamp")
         if not isinstance(event.get("rationale"), str) or not event["rationale"].strip():
