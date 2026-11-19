@@ -8,6 +8,20 @@ The central question is not how to make today's frameworks easier for agents to 
 
 > If AI agents are the primary authors and operators of backend systems, what should a backend framework become when designed from first principles for them?
 
+## Developer CLI
+
+After installation, the `agent-native` command exposes five deterministic subcommands:
+
+```sh
+agent-native check --service ./path/to/service.an
+agent-native inspect --service ./path/to/service.an
+agent-native run --service ./path/to/service.an --method GET --path /items/42 --dry-run
+agent-native worker --service-id catalog --queue ./jobs.jsonl
+agent-native audit --events ./audit.jsonl
+```
+
+All service and data paths are explicit. The CLI does not discover production credentials or execute deployment/apply operations. In this M1 stage, `run` only resolves and reports a route in dry-run mode; it refuses execution until trusted handlers are registered. `worker` only inspects a supplied JSONL queue and never claims work. `audit` is read-only. Errors are emitted as machine-readable JSON on stderr with stable exit codes.
+
 ## Python package status
 
 The supported import namespace is `agent_native`, installed from this repository with:
