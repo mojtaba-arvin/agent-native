@@ -635,7 +635,11 @@
         "experiments/e009/performance-evidence-2026-11-18.md",
         "scripts/check_preregistrations.py",
         "scripts/test_preregistrations.py",
-        "scripts/ci.py"
+        "scripts/ci.py",
+        "experiments/e009/capacity-confirmation-v1.json",
+        "experiments/e009/performance_smoke.py",
+        "experiments/e009/test_performance_smoke.py",
+        ".github/workflows/ci.yml"
       ],
       "acceptance": [
         "Every frozen/ready/historical cohort or decision artifact has a repository-relative path and exact Git blob SHA-1",
@@ -651,7 +655,10 @@
         "Decision event timestamps include an explicit timezone",
         "Run-ledger content is pinned by the latest decision event and every later ledger revision advances the hash chain",
         "CI compares decision-event and run-ledger byte prefixes to the PR base and rejects rewrites or truncation",
-        "CI compares the narrative design-decision log, decision-event log, and run ledger byte prefixes to the PR base and rejects rewrites or truncation"
+        "CI compares the narrative design-decision log, decision-event log, and run ledger byte prefixes to the PR base and rejects rewrites or truncation",
+        "E-009 ten-repetition capacity parameters and all acceptance thresholds are stored in a frozen manifest",
+        "The manual E-009 workflow consumes that manifest instead of duplicating CLI values and the result records the manifest Git blob SHA-1",
+        "The capacity gate evaluates thresholds supplied by the manifest and regression tests prove configuration overrides are honored"
       ],
       "expected_outputs": [
         "Git-blob-pinned preregistration registry",
