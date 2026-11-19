@@ -51,6 +51,18 @@
         "M3 decision-grade model evaluation"
       ],
       "next_step": "Obtain owner approval for a bounded API/GPU budget and credentials/runner before enabling the decision-grade cohort."
+    },
+    {
+      "id": "BLK-005",
+      "status": "open",
+      "severity": "medium",
+      "title": "Shared-runner E-009 smoke incorrectly enforced capacity thresholds",
+      "description": "Run 44428316444 had zero failed product-path expectations but failed the 100 RPS and p99 <= 100 ms thresholds on a shared runner. Those thresholds are not appropriate for the always-on product smoke and contradict the artifact's non-capacity classification.",
+      "owner_action_required": false,
+      "unblocks": [
+        "Stable unified Layer 1 CI"
+      ],
+      "next_step": "Remove --enforce-capacity-gate from the always-on Layer 1 smoke; preserve the enforced gate in the explicit ten-repetition manual confirmation; verify a fresh all-green run."
     }
   ]
 }
