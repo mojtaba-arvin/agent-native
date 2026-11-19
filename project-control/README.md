@@ -49,6 +49,6 @@ The control-plane validator checks structural invariants and cross-file referenc
 
 ## Generated CI evidence artifacts
 
-The fast workflow writes a raw `fast-ci-summary.json` from each selected suite's captured output and a derived `fast-ci-scorecard.json`. Both are uploaded as a run-scoped artifact. The summary records the PR-head SHA, workflow checkout SHA, base SHA, run ID/attempt, selected suites, per-suite exit status, output digest, elapsed time, and parsed test/skipped counts.
+The fast workflow writes a raw `fast-ci-summary.json` from each selected suite's captured output and a derived `fast-ci-scorecard.json`. Both are uploaded as a run-scoped artifact. The summary records the PR-head SHA, workflow checkout SHA, base SHA, run ID/attempt, selected suites, per-suite exit status, output digest, elapsed time, and parsed test/skipped counts. Suites with no unittest count output retain explicit null/unknown counts rather than being treated as zero; project-control negative self-tests are reported separately.
 
 The scorecard is recomputed from the raw summary, `RUN_LEDGER.jsonl`, and `PROGRESS.json`; it pins SHA-256 digests of those exact inputs. It retains failed, cancelled, and ineligible historical events, and verified claims must resolve to ledger event IDs. A scorecard that differs from those source-derived values is rejected. The artifact is diagnostic evidence; it does not mutate the repository ledger or declare a benchmark/capacity result by itself.
