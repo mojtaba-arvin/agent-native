@@ -45,7 +45,6 @@ class ServiceRegistryTests(unittest.TestCase):
         self.assertEqual(services["inventory"].service_name, "Inventory")
         self.assertEqual(services["inventory"].handler_bindings["get_stock"], "crud.read_by_field")
         self.assertEqual(services["inventory"].handler_configs["get_stock"]["resource"], "stock")
-        self.assertEqual(services["inventory"].handler_configs["get_stock"]["resource"], "stock")
 
     def test_v1_string_bindings_remain_backward_compatible(self):
         temporary, root = self.temporary_registry()
