@@ -1,8 +1,25 @@
 # M3 research execution preflight
 
 **Status:** preparation only; no model cohort dispatched.  
-**Baseline:** `research/reboot-core@0e8e8fe67f410add6d851584eeb7434f2f707aa8`  
+**Baseline:** `research/reboot-core@329c0ed4e19571d9cfad5c98197c0a2a60612bc7`  
 **Purpose:** remove repository-side uncertainty while staying within the owner's zero-paid-spend ceiling (GitHub Actions free usage only).
+
+## First topology-smoke result (2026-11-19)
+
+The first synthetic topology smoke passed after PR #92 was integrated:
+[run #44493638711](https://github.com/mojtaba-arvin/agent-native/actions/runs/44493638711)
+on `research/reboot-core@329c0ed4e19571d9cfad5c98197c0a2a60612bc7`.
+
+- The agent and evaluator ran as separate GitHub-hosted jobs.
+- The agent artifact ZIP contained exactly `candidate.json` and `trace.jsonl`.
+- The evaluator artifact ZIP contained exactly `score.json`.
+- The score reported `passed=true`, `no_apply=true`, and both oracle path/content disclosure flags false.
+- The smoke used a deterministic stub and a synthetic oracle created only inside the evaluator container; it is not an LLM or hidden-oracle evaluation.
+
+A follow-up on `feat/m3-sandbox-runtime-probes` adds runtime probes for non-root UID,
+read-only root, noexec tmpfs, no-new-privileges, zero effective capabilities,
+blocked outbound networking, and cgroup memory/CPU/PID limits. These probes
+must pass before M3-000 can be marked complete.
 
 ## Current verified state
 
@@ -12,7 +29,7 @@
 | Task coverage | The frozen pilot still uses one task (`e009-add-readonly-operation`); PR #74 adds three public draft tasks for operation addition, backward-compatible field addition, and tenant isolation | Public task prompts now exist; hidden evaluator oracles, pinned baseline fixtures, and independent scoring contracts remain outstanding |
 | Model coverage | One local model ID, `qwen3:8b` | Strong/medium/weak tiers and immutable provider/model versions remain unselected |
 | Cost telemetry | Case manifests use `unpriced_local`; monetary prices and cost ceilings are null | Cannot produce decision-grade cost-per-accepted-task comparisons |
-| Agent/oracle separation | PR #89 hardens preflight: rejects symlinks/hard links, verifies oracle file/parent ownership and owner-only permissions, and removes the oracle path from public evidence objects. M3-000 adds a separate-job synthetic topology-smoke workflow scaffold with no-network containers and allowlisted artifacts; it has not yet run on the integrated branch | These checks are defense-in-depth only; disposable agent and evaluator process/filesystem/network sandboxes are still not implemented |
+| Agent/oracle separation | PR #89 hardens preflight: rejects symlinks/hard links, verifies oracle file/parent ownership and owner-only permissions, and removes the oracle path from public evidence objects. The first M3-000 topology smoke passed on run #44493638711; follow-up runtime attestations are being added for non-root, read-only, noexec, no-new-privileges, zero capabilities, network isolation, and cgroup limits | These checks are defense-in-depth only; disposable agent and evaluator process/filesystem/network sandboxes are still not implemented |
 | Execution route | `.github/workflows/ci.yml` has manual CPU diagnostics explicitly labeled not M3 acceptance; `e007-provider-diagnostic.yml` is a one-cell Qwen3 diagnostic | Neither is the M3 acceptance runner |
 | Dispatch guard | The factorial runner pins the revision, validates the four-cell manifest before provisioning, enforces no-apply, and is restricted to `research/reboot-core` | Preserve this boundary; do not dispatch from a feature branch |
 
