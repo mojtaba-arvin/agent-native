@@ -147,7 +147,7 @@ def validate_documents(docs: dict[str, dict[str, Any]], ledger_text: str = "") -
         else:
             workstream_ids = [item.get("task_id") for item in workstreams if isinstance(item, dict)]
             workstream_branches = [item.get("branch") for item in workstreams if isinstance(item, dict)]
-            if set(workstream_ids) != set(state.get("active_task_ids", [])):
+            if len(workstream_ids) != len(set(workstream_ids)) or set(workstream_ids) != set(state.get("active_task_ids", [])):
                 errors.append("state.active_workstreams must map every active task exactly once")
             if len(workstream_branches) != len(set(workstream_branches)):
                 errors.append("state.active_workstreams contains duplicate branches")
@@ -157,6 +157,8 @@ def validate_documents(docs: dict[str, dict[str, Any]], ledger_text: str = "") -
                     for key in ("task_id", "branch", "base_branch", "integration_owner")
                 ):
                     errors.append("state.active_workstreams entries require task_id, branch, base_branch, and integration_owner")
+                elif item["branch"] == item["base_branch"]:
+                    errors.append("state.active_workstreams branch must differ from base_branch")
 
     progress_milestones = progress.get("milestones", {})
     for milestone in milestones:
