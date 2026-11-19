@@ -14,17 +14,16 @@
 
 ## Current checkpoint — 2026-11-19
 
-- PR #70 (M1 package, import boundary, CLI, and regression preservation) is merged into `research/reboot-core`.
-- C0, C1, M0, and M1 are complete with evidence-backed claims. M1 passed 15/15 deterministic suites and 627 known tests; package tests include CLI plus E-009/E-004 parity.
-- PRs #64, #65, #68, #69, #71, #72, #73, #74, #75, and #76 are merged into `research/reboot-core`.
-- PR #77 contains M2-001 manifest-backed ServiceRegistry work, stacked on M1 and awaiting fresh Layer 0/Layer 1 validation.
-- M2-001 introduces Catalog and Inventory manifests, trusted handler-ID references, default-deny policies, and path/symlink/traversal rejection. It does not dynamically import manifest code.
-- M3 has three public draft tasks and an unregistered non-executable cohort draft. CI enforces that no provider, cost, runner, or evaluator-isolation gate is silently treated as complete.
+- PR #70 (M1) is merged. C0, C1, M0, and M1 are complete with evidence-backed claims.
+- PR #77 carries M2-001: manifest-backed ServiceRegistry, Catalog and Inventory manifests, trusted handler references, default-deny policy validation, and path/symlink rejection. Its Layer 0 and Layer 1 run #44450365382 passed 15/15 suites and 646 known tests.
+- M2-001 is complete. M2-002 generic declarative CRUD/job/event dispatch is active on `feat/m2-declarative-handlers`.
+- M3 has three public draft tasks, an unregistered cohort draft, and CI tests that keep execution disabled until evaluator isolation and owner gates are complete.
 - Owner gates remain BLK-001 (main-branch merge/security authority) and BLK-004 (M3 approved spend/provider/runner).
-- No merge to `main`, security-setting changes, secret writes, release, deployment, or branch deletion has been performed.
+- No merge to `main`, production deployment, provider call, paid model/GPU evaluation, or destructive branch operation has been performed.
 
 ## Next actions
 
-1. Complete M2-001 installed-package and native/container/database CI validation.
-2. Implement M2-002 generic declarative handler dispatch with explicit host-registered handlers and default-deny policy checks.
-3. Continue M3 evaluator isolation and immutable baseline fixtures without dispatching paid or GPU workloads until technical gates and owner approval are satisfied.
+1. Implement generic CRUD/job/event handlers using explicit host-registered handler IDs and adapters.
+2. Bind handlers to manifest specs without dynamic imports or service-specific core branches.
+3. Enforce tenant identity from trusted request context and default-deny effect/capability checks.
+4. Run the installed-package and full deterministic CI matrix before integrating M2-002.

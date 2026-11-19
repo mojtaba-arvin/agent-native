@@ -1,0 +1,21 @@
+service Inventory {
+  version: "1";
+
+  type StockItem {
+    sku: String;
+    quantity: Integer;
+  }
+
+  operation list_stock {
+    method: GET;
+    path: "/stock";
+    input {
+      warehouse_id: String from query;
+    }
+    output: StockItem;
+    errors: [InvalidInput, NotFound, Unauthorized];
+    validation: [];
+    effects: [repository.read];
+    capability: "stock.read";
+  }
+}
