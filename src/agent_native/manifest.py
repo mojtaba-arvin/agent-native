@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass
-from pathlib import Path, PurePosixPath
+from pathlib import Path, PurePosixPath, PureWindowsPath
 from types import MappingProxyType
 from typing import Any, Mapping
 
@@ -80,7 +80,7 @@ class ServiceRegistry:
         if not isinstance(relative, str) or not relative:
             raise ServiceRegistryError("invalid_manifest_path", f"{label} path must be a non-empty relative string")
         posix = PurePosixPath(relative)
-        if posix.is_absolute() or any(part in {"", ".", ".."} for part in posix.parts):
+        if posix.is_absolute() or PureWindowsPath(relative).is_absolute() or "\\\\" in relative or any(part in {"", ".", ".."} for part in posix.parts):
             raise ServiceRegistryError("invalid_manifest_path", f"{label} path must not escape its service directory")
         candidate = directory
         for part in posix.parts:
@@ -105,7 +105,7 @@ class ServiceRegistry:
         expected_keys = {"schema_version", "service_id", "service_name", "version", "source", "handlers", "policy"}
         if not isinstance(manifest, dict) or set(manifest) != expected_keys:
             raise ServiceRegistryError("invalid_service_manifest", "manifest has missing or unknown properties")
-        if manifest["schema_version"] != 1:
+        if not isinstance(manifest["schema_version"], int) or isinstance(manifest["schema_version"], bool) or manifest["schema_version"] != 1:
             raise ServiceRegistryError("unsupported_manifest_version", "service manifest schema_version must be 1")
         service_id = manifest["service_id"]
         if not isinstance(service_id, str) or not re.fullmatch(r"[a-z][a-z0-9_-]{0,63}", service_id):
@@ -146,7 +146,7 @@ class ServiceRegistry:
         except (OSError, UnicodeError, json.JSONDecodeError) as error:
             raise ServiceRegistryError("invalid_service_policy", "cannot parse service policy") from error
         policy_keys = {"schema_version", "default_decision", "capabilities", "effects"}
-        if not isinstance(policy, dict) or set(policy) != policy_keys or policy["schema_version"] != 1:
+        if (not isinstance(policy, dict) or set(policy) != policy_keys or not isinstance(policy["schema_version"], int) or isinstance(policy["schema_version"], bool) or policy["schema_version"] != 1):
             raise ServiceRegistryError("invalid_service_policy", "policy has an invalid schema")
         if policy["default_decision"] != "deny":
             raise ServiceRegistryError("policy_not_default_deny", "service policy must default to deny")
