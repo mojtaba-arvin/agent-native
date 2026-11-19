@@ -35,7 +35,7 @@ PR #93 added fail-closed runtime probes and the integrated rerun passed. Both co
 1. **Task corpus:** three public task prompts are now drafted under `experiments/e007/tasks/` and recorded in the unregistered `experiments/e007/m3-cohort-draft.json`. Still required: immutable baseline fixtures, hidden evaluator oracles stored outside the agent workspace, candidate contracts, explicit failure classes, and stable task/candidate identities.
 2. **Cohort design:** preregister strong, medium, and weak model tiers; exact provider/model version or immutable model digest; sampling parameters; repetitions; randomized order; per-run and cohort-level token/tool/time ceilings; abort rules; and exclusion rules. Keep each model tier separately scored.
 3. **Cost accounting:** pin input/output tariffs or declare the run self-hosted with measured hardware/energy cost. Unknown prices must remain unknown, never zero. Establish per-run and total spend ceilings before credentials are used.
-4. **Isolation:** implement a disposable agent execution boundary with CPU, memory, process, disk, and wall-clock limits; deny network by default; export only the candidate and raw telemetry; destroy the agent environment; then evaluate the candidate read-only in a separate sandbox with oracle access. A subprocess or separate directory is not sufficient.
+4. **Isolation:** the synthetic topology smoke now verifies separate ephemeral agent/evaluator jobs, non-root no-network containers, read-only root, noexec tmpfs, no-new-privileges, zero capabilities, and cgroup resource limits. The remaining work is to bind the real agent runtime and protected hidden-oracle custody to this proven topology; a subprocess or separate directory is not sufficient.
 5. **Evidence integrity:** pin source revision, task/case manifests, model identity, runtime image/tool versions, oracle revision, and all artifact hashes. Proposal, validation, and safe plan must carry the exact same candidate hash. Preserve failures, timeouts, infrastructure-invalid trials, and missing telemetry.
 6. **Runner:** create a dedicated manual-only M3 workflow that validates all frozen manifests and approval inputs before provisioning. It must not be reachable from ordinary PR, push, or scheduled CI events.
 7. **Acceptance:** run deterministic validators and isolation negative tests before any model request; then independently inspect the complete raw artifact. A green workflow alone is not acceptance.
@@ -52,7 +52,8 @@ No paid API/GPU workload has been started. No hidden-oracle cohort or real LLM r
 
 ## Immediate next engineering steps
 
-- Build isolated baseline fixtures and hidden evaluator contracts for the three public task drafts without exposing assertions or oracle data to agent workspaces.
-- Build and test the sandbox/evaluator separation before connecting any model provider.
-- Implement the manual-only M3 dispatch workflow and validate its fail-closed approval/budget gate.
+- Complete protected `m3-evaluator` Environment configuration and evaluator-only hidden-oracle custody; do not expose oracle files or keys to the agent job.
+- Identify and pin qualifying free/open-weight model tiers; if none meet the preregistered quality threshold, keep M3 blocked rather than weakening acceptance.
+- Build isolated baseline fixtures and hidden evaluator contracts for the three task drafts without exposing assertions or oracle data to agent workspaces.
+- Implement a separate manual-only real-cohort dispatch workflow and validate its fail-closed manifest/approval gate.
 - Do not request or incur paid spend; only proceed with a no-cost path that meets the same isolation and evidence standards.
