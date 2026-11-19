@@ -22,7 +22,7 @@ This migration is intentionally stacked on PR #64 (`feat/project-control-plane`)
 
 ## Unified policy
 
-- **Layer 0:** fast, changed-path-aware, parallel deterministic checks on every PR; pushes are limited to `main` and `research/**`. PR and push concurrency groups normalize to the same branch name, and newer Layer 0 runs may cancel stale ones.
+- **Layer 0:** fast, changed-path-aware, parallel deterministic checks on every PR; pushes are limited to `main` and `research/**`. There are no workflow/job concurrency groups: each run is allowed to finish so an update cannot intentionally cancel an in-flight extended-evidence job.
 - **Layer 1:** native/database/container checks on relevant PRs and pushes, all merge groups, and nightly. A separate impact job uses GitHub's API; API errors fail safe by enabling Layer 1.
 - **Layer 2:** model trials, the ten-repetition E-002 benchmark matrix, E-009 ten-repetition capacity confirmation, and lockfile generation are explicit manual dispatches. No expensive benchmark schedule remains.
 - **Model evidence:** the current Qwen3/Ollama job runs on a standard CPU runner and is explicitly diagnostic, not M3 acceptance. Decision-grade M3 evidence still requires an approved GPU or API path.
@@ -31,16 +31,16 @@ This migration is intentionally stacked on PR #64 (`feat/project-control-plane`)
 
 ## Review boundary
 
-The 15 workflow deletions exist only on this stacked branch. The PR must not be merged until PR #64 is integrated and the unified workflow has completed its first authoritative run on a base branch that contains it. No branch protection, merge queue, secrets, production deployment, or release settings are changed here.
+The 15 workflow deletions exist only on this stacked branch. The unified workflow has been exercised on the PR head. PR #65 must remain stacked until PR #64 is integrated; then retarget it to research/reboot-core and require a fresh green run against the updated base before merging. No branch protection, merge queue, secrets, production deployment, or release settings are changed here.
 
-## First unified-workflow execution finding
 
-The first run of the new workflow (run 18) parsed and started successfully. The impact detector completed, Layer 0 selected all 14 suites, and 13 passed. E-007 failed in two cases because `experiments/e007/eval_runner.py` still included the removed legacy workflow path in its source manifest. The manifest now hashes `.github/workflows/ci.yml` instead. Layer 1 native checks were running independently at the time this finding was recorded; a corrected Layer 0 rerun is required before the migration is considered verified.
+## Verified PR-head execution
 
-## Concurrency safety finding
+Run [44424340406](https://github.com/mojtaba-arvin/agent-native/actions/runs/44424340406) completed successfully on the unified-workflow PR head:
 
-The first unified-workflow run completed Layer 0 but its workflow run was cancelled when a second run for the same PR started; the Layer 1 job was cancelled with it. The fast job's `cancel-in-progress: true` policy can therefore discard in-flight extended evidence even though Layer 1 itself is configured not to cancel. Because Layer 0 now completes in roughly five seconds, the unified workflow changes this to `cancel-in-progress: false`: runs for the same branch serialize instead of cancelling a workflow that may be collecting Layer 1 evidence. This is an intentional safety trade-off; avoid claiming independent L0 cancellation while both layers share one workflow run.
+- Layer 0: 14/14 suites passed, 509 unit tests, four validator negative cases, 5.57 seconds
+- Layer 1: native/container/database job passed; Go, Rust, WASI Preview 2, BEAM, PostgreSQL and cross-engine parity checks passed
+- E-009 shared-runner product-path smoke passed with zero failed expectations. Its artifact explicitly classifies the result as a repeated product-path smoke, not a capacity claim or a controlled ten-repetition comparison
+- Manual E-002 ten-repetition matrix, E-009 ten-run confirmation, model diagnostics and lockfile generation were skipped as intended
 
-**Concurrency evidence qualification:** Runs 20 and 21 were cancelled during explicit PR draft/ready state transitions. Although the fast job still had `cancel-in-progress: true` at the time, the cancellation cannot be attributed to that setting with certainty. The policy is kept at `false` as the safer evidence-preserving default; run 25 is the first run using that setting and its Layer 1 job is queued, not yet verified.
-
-**Final concurrency policy:** both job-level concurrency groups have been removed. The earlier cancellations coincided with draft/ready transitions and their exact cause was not proven; rather than rely on subtle concurrency semantics that can discard or supersede queued evidence, the unified workflow allows independent runs to complete. Pushes are restricted to `main` and `research/**`, while PR events cover feature branches. Layer 0 is approximately five seconds, so preserving evidence is preferred over cancelling stale runs.
+The stale E-007 source-manifest reference has been corrected to hash .github/workflows/ci.yml. The workflow has no concurrency groups. This run verifies the PR head; after PR #64 merges, PR #65 still needs retargeting and a fresh run on research/reboot-core.
