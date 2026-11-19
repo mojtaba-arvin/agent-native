@@ -7,6 +7,7 @@ name a Python module, callable, or import path.
 from __future__ import annotations
 
 import re
+import time
 from dataclasses import dataclass
 from typing import Any, Callable, Mapping
 
@@ -261,7 +262,6 @@ def _factory_jobs_submit(config: Mapping[str, Any]):
     def handle(context: HandlerContext):
         tenant_id = _tenant_id(context)
         idem = _value(context, idem_input) if idem_input else None
-        submit = _adapter(context, "jobs", "submit")
         if context.audit_receipt is not None:
             transactional = _adapter(context, "jobs", "submit_with_audit")
             return transactional(
@@ -269,6 +269,7 @@ def _factory_jobs_submit(config: Mapping[str, Any]):
                 idempotency_key=idem, request_id=context.request_id,
                 audit_event=context.audit_event, audit_receipt=context.audit_receipt,
             )
+        submit = _adapter(context, "jobs", "submit")
         return HandlerResult(
             submit(queue, _payload(context, fields), tenant_id=tenant_id, idempotency_key=idem, request_id=context.request_id),
             status_code=202,
@@ -308,7 +309,9 @@ def _factory_jobs_cancel(config: Mapping[str, Any]):
 
 def _factory_events_publish(config: Mapping[str, Any]):
     cfg = _config(config, required={"event_type", "input_fields"})
-    event_type = _identifier(cfg["event_type"], "event_type")
+    event_type = cfg["event_type"]
+    if not isinstance(event_type, str) or not re.fullmatch(r"[a-z][a-z0-9_.-]{0,95}", event_type):
+        raise ValueError("event_type must be a lowercase topic identifier")
     fields = _input_fields(cfg["input_fields"])
 
     def handle(context: HandlerContext):
@@ -349,6 +352,6 @@ def build_service_runtime(
         handlers=operation_handlers,
         repository=adapters,
         trusted_effects=set(service.policy["effects"]),
-        clock=clock,
+        clock=clock or time.time,
         audit_sink=audit_sink,
     )
