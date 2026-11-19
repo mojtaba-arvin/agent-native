@@ -16,6 +16,7 @@ This directory is the versioned execution state for the Agent Native v0.1 progra
 - [HANDOFF.md](HANDOFF.md): deterministic resume instructions.
 - [CI_PORT_AUDIT.md](CI_PORT_AUDIT.md): reviewed risks and safe port sequence for the staging fast-CI candidate.
 - [CI_WORKFLOW_MIGRATION.md](CI_WORKFLOW_MIGRATION.md): responsibility map for the unified CI workflow.
+- [M0_AUDIT.md](M0_AUDIT.md): current source/evidence audit and v0.1 gap assessment.
 - [check_claims.py](../scripts/check_claims.py): fail-closed validation for evidence-backed completion claims.
 
 ## Validate
