@@ -11,7 +11,7 @@
   "last_completed_task_id": "CP-008",
   "last_known_green_revision": "a7ee807f10819ccf870fd3d1f119b242a37ad433",
   "wip_limit": 2,
-  "next_action": "Validate the new schedule command, WIP/dependency selection, failure-signature recovery thresholds, and execution ownership metadata. Keep M2-003 blocked from merge until two independent reviews are recorded; continue M2-004 preparation on its stacked branch.",
+  "next_action": "Complete CP-009 scheduler CI and integration. BLK-007 remains an owner action: request two independent human reviews on PR #81; keep M2-003 unmerged until both approvals are recorded. Then retarget PR #82 and complete M2-004. Keep M3 execution disabled until owner environment and budget gates are satisfied.",
   "active_workstreams": [
     {
       "task_id": "M2-003",
