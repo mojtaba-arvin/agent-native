@@ -346,7 +346,7 @@
       "id": "M1-002",
       "title": "Remove import-time sys.path mutation from the packaged core and entry points",
       "milestone": "M1",
-      "status": "pending",
+      "status": "in_progress",
       "priority": 11,
       "depends_on": [
         "M1-001"
@@ -375,7 +375,10 @@
       "stop_conditions": [
         "Do not break reproducible historical experiment entry points without a migration path"
       ],
-      "evidence_ids": []
+      "evidence_ids": [
+        "src/agent_native/runtime.py",
+        "src/agent_native/security.py"
+      ]
     },
     {
       "id": "M1-003",
