@@ -40,6 +40,8 @@ def validate_ollama_server_config(config: dict[str, Any]) -> None:
         raise RuntimeError("ollama_server_capabilities_not_dropped")
     if "no-new-privileges" not in config.get("security_opt", []):
         raise RuntimeError("ollama_server_no_new_privileges_missing")
+    if config.get("tmp_noexec") is not True:
+        raise RuntimeError("ollama_server_tmp_not_noexec")
     if type(config.get("memory_bytes")) is not int or not 0 < config["memory_bytes"] <= 10 * 1024**3:
         raise RuntimeError("ollama_server_memory_limit_invalid")
     if type(config.get("nano_cpus")) is not int or not 0 < config["nano_cpus"] <= 3_000_000_000:
