@@ -818,7 +818,8 @@
       "status": "blocked",
       "priority": 30,
       "depends_on": [
-        "M2-004"
+        "M2-004",
+        "M3-000"
       ],
       "owner": "owner-approval",
       "scope": [
@@ -1171,6 +1172,59 @@
         "run:44489986238",
         "M2-OWNER-WAIVER-CI-001"
       ]
+    },
+    {
+      "id": "M3-000",
+      "title": "Build a no-cost isolated agent/evaluator execution topology",
+      "milestone": "M3",
+      "status": "in_progress",
+      "priority": 29,
+      "depends_on": [
+        "M2-004"
+      ],
+      "owner": "verification",
+      "scope": [
+        ".github/workflows/m3-evaluator.yml",
+        "experiments/e007/evaluator/",
+        "scripts/",
+        "tests/"
+      ],
+      "acceptance": [
+        "The agent and evaluator run in separate ephemeral GitHub-hosted jobs/VMs with no shared process or filesystem namespace",
+        "The agent job receives no oracle file, oracle path, oracle key, or evaluator-only environment secret",
+        "The agent job exports only an allowlisted candidate artifact and raw telemetry; the evaluator reads candidate JSON as data and never executes candidate content as code",
+        "The agent and evaluator containers are non-root, resource-limited, read-only except for explicit output mounts, and have network disabled during untrusted execution/scoring",
+        "The evaluator job alone references the m3-evaluator environment; the topology smoke uses a synthetic oracle only, and actual environment protection/hidden-oracle custody remains a separate owner setup gate",
+        "The topology smoke runs only on research/reboot-core pushes affecting evaluator paths or by manual dispatch on that branch; real model cohort dispatch remains a separate manual-only workflow and is not enabled",
+        "Workflow and unit tests cover artifact allowlisting, oracle non-disclosure, separation, negative paths, and zero paid API/GPU usage"
+      ],
+      "expected_outputs": [
+        "Research-branch synthetic evaluator topology-smoke workflow; the real model cohort remains a separate manual-only workflow",
+        "Separate agent/evaluator GitHub-hosted job and allowlisted artifact contract",
+        "Resource-limited no-network agent and evaluator containers",
+        "Synthetic evaluator-only oracle for topology smoke; actual protected hidden-oracle custody remains a separate setup gate",
+        "Isolation and workflow contract regression tests"
+      ],
+      "max_unchanged_retries": 2,
+      "replan_after_failures": 2,
+      "stop_conditions": [
+        "Do not incur paid API/GPU spend; use only GitHub Actions free usage for this public repository",
+        "Do not place plaintext hidden-oracle data in the repository, agent workspace, or shared artifacts",
+        "Do not dispatch a real model cohort or execute hidden-oracle scoring in this task; the synthetic topology smoke is not M3 acceptance",
+        "Do not claim filesystem preflight checks alone establish process/container/network isolation"
+      ],
+      "evidence_ids": [
+        "PR-89",
+        "run:44489886038",
+        "experiments/e007/evaluator/README.md",
+        "experiments/e007/evaluator/boundary.py",
+        "experiments/e007/evaluator/test_boundary.py"
+      ],
+      "execution": {
+        "branch": "feat/m3-evaluator-isolation",
+        "base_branch": "research/reboot-core",
+        "integration_owner": "integrator"
+      }
     }
   ]
 }

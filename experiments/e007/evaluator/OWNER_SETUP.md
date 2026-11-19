@@ -27,9 +27,9 @@ create secrets, configure GitHub settings, approve spending, or enable dispatch.
 
 ## 3. Runner and image
 
-- [ ] Use an ephemeral isolated runner; do not reuse a persistent self-hosted
-      runner shared with the agent job.
-- [ ] Pin the evaluator container image by immutable digest, not a mutable tag.
+- [ ] Run and verify the topology smoke's separate ephemeral GitHub-hosted jobs/runners; do not reuse a persistent self-hosted runner shared with the agent job.
+- [x] Pin the topology-smoke Python container image by immutable multi-platform digest.
+- [ ] Configure and verify actual protected Environment approval rules and evaluator-only oracle custody.
 - [ ] Pin the OS, Python/runtime versions, evaluator dependencies, and scoring
       code revision.
 - [ ] Disable unnecessary network egress from the evaluator job.
@@ -40,16 +40,12 @@ create secrets, configure GitHub settings, approve spending, or enable dispatch.
 
 ## 4. Model and spend approval
 
-- [ ] Select exact provider/model identifiers and immutable model versions for
-      strong, medium, and weak tiers.
-- [ ] Record provider API version, region, endpoint, sampling parameters,
-      context limits, and tool configuration.
-- [ ] Set per-run and cohort-wide USD ceilings before any provider call.
-- [ ] Set token, tool-call, wall-time, retry, and concurrency budgets.
-- [ ] Ensure the credential used by the agent job cannot access the oracle.
-- [ ] Confirm billing alerts and hard spend enforcement; an alert alone is not a
-      hard ceiling.
-- [ ] Obtain explicit owner approval for the final budget and execution path.
+- [x] Record the owner-approved zero-paid-spend ceiling: GitHub Actions free usage for this public repository only.
+- [ ] Select exact open-weight model identifiers and immutable model versions for strong, medium, and weak tiers using a qualifying free route.
+- [ ] Record inference runtime version, quantization, sampling parameters, context limits, and tool configuration.
+- [ ] Set token, tool-call, wall-time, retry, and concurrency budgets for the selected free route.
+- [ ] Ensure any future agent credential cannot access the oracle.
+- [ ] If no free model path meets the preregistered quality threshold, do not run a decision-grade cohort; do not substitute a paid provider.
 
 ## 5. Freeze the preregistration
 
@@ -69,15 +65,12 @@ create secrets, configure GitHub settings, approve spending, or enable dispatch.
 - [ ] Run the boundary tests and verify the candidate hash is identical across
       proposal, semantic validation, and plan.
 - [ ] Verify `no_apply=true` and prove no apply endpoint or handler is invoked.
-- [ ] Run a canary with a synthetic oracle and no paid provider calls.
-- [ ] Have an independent reviewer inspect the workflow, environment boundary,
-      artifact handling, and cost controls.
-- [ ] Enable the paid cohort only after every checkbox above has evidence.
+- [x] Implement a synthetic-oracle topology smoke with no paid provider calls.
+- [ ] Run it after merge to research/reboot-core and preserve its score artifact.
+- [ ] Verify protected environment configuration, oracle custody, and separate runner trust zones.
+- [ ] Have an independent reviewer inspect the workflow, environment boundary, artifact handling, and zero-cost controls.
+- [ ] Keep the real model cohort disabled until every required checkbox has evidence; paid execution is not authorized.
 
 ## Current status
 
-The repository currently contains a boundary preflight scaffold only. Actual
-process isolation, GitHub Environment setup, oracle provisioning, model
-selection, spend approval, frozen preregistration, and paid execution are not
-implemented. Keep `execution_allowed=false` until the owner gates above are
-verified.
+The repository now contains boundary preflight checks and a synthetic topology-smoke workflow scaffold. The smoke uses separate ephemeral jobs, a no-network agent container, a synthetic evaluator-only oracle, and allowlisted artifacts; it has not yet been executed on the integrated research branch. Actual protected Environment rules, hidden-oracle provisioning, model selection, frozen preregistration, and real cohort execution remain unimplemented. The owner-approved spend ceiling is zero paid spend. Keep `execution_allowed=false` until the owner gates above are verified.

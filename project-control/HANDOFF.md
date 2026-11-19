@@ -27,7 +27,7 @@
 
 ## Next actions
 
-1. Implement a genuinely isolated, no-cost agent/evaluator execution topology. The current preflight checks are defense-in-depth only and do not establish process, filesystem, or network isolation.
+1. Continue M3-000 on branch `feat/m3-evaluator-isolation`: implement separate ephemeral agent/evaluator jobs, a no-oracle agent artifact contract, a resource-limited no-network agent container, evaluator-only protected oracle custody, and negative tests. The current preflight checks are defense-in-depth only and do not establish process, filesystem, or network isolation.
 2. Investigate and pin a free-tier model cohort that can meet the preregistered quality requirements. Keep CPU-only Qwen3 diagnostics exploratory; if no free path is decision-grade, preserve the blocker rather than lowering acceptance.
 3. Keep the M3 cohort non-executable until hidden-oracle custody, sandbox separation, model identity, task fixtures, and preregistration hashes are verified.
 4. Pursue genuine independent human reviews for C3 in parallel; do not represent the owner waiver as peer review.

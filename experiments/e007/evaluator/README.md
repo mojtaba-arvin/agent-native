@@ -29,6 +29,26 @@ contains no oracle fixtures, provider credentials, or hidden expected answers.
   process, filesystem, network, container, or VM isolation and do not claim
   that the evaluator is safe to run against an untrusted agent on the same host.
 
+## Topology smoke implementation
+
+`.github/workflows/m3-evaluator.yml` provides a no-cost synthetic topology
+smoke. It runs only on relevant pushes to `research/reboot-core` or by manual
+dispatch on that branch. It uses two separate GitHub-hosted jobs:
+
+- The agent job has no evaluator environment or oracle input. A deterministic
+  stub runs in a non-root Docker container with no network, bounded CPU/RAM/PIDs,
+  a read-only root filesystem, and one output mount. It uploads only
+  `candidate.json` and `trace.jsonl`.
+- The evaluator job downloads only those two files on a separate runner,
+  rejects unexpected/symlink/hard-link entries, and reads candidate JSON as
+  data. It creates a synthetic oracle inside its private container and uploads
+  only `score.json`.
+
+The Python 3.12 slim image is pinned by its multi-platform manifest digest.
+This is a topology smoke, not an LLM run, hidden-oracle evaluation, or M3
+acceptance evidence. The `m3-evaluator` environment reference is present, but
+its protection rules and real oracle secret are not configured by this change.
+
 ## Owner setup still required
 
 See [OWNER_SETUP.md](OWNER_SETUP.md) for the complete security, runner, model-budget, preregistration, and preflight checklist.
