@@ -335,6 +335,7 @@ def evaluate_capacity_gate(aggregate, resource_metrics, thresholds=None):
 
 def main():
     parser = argparse.ArgumentParser()
+    parser.add_argument("--config", type=Path, help="load all cohort parameters and thresholds from a frozen JSON manifest")
     parser.add_argument("--requests", type=int, default=1000, help="measured requests per repetition")
     parser.add_argument("--repetitions", type=int, default=5)
     parser.add_argument("--concurrency", type=int, default=32)
@@ -349,6 +350,23 @@ def main():
     parser.add_argument("--job-batch-delay-ms", type=float, default=0.5)
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
+    preregistration = None
+    preregistration_sha1 = None
+    if args.config is not None:
+        try:
+            preregistration, preregistration_sha1 = load_preregistration_config(args.config)
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
+            parser.error(f"invalid preregistration config: {exc}")
+        parameters = preregistration["parameters"]
+        args.requests = parameters["requests_per_repetition"]
+        args.repetitions = parameters["repetitions"]
+        args.concurrency = parameters["client_concurrency"]
+        args.target_rps = parameters["target_rps"]
+        args.containerized = parameters["containerized"]
+        args.enforce_capacity_gate = parameters["enforce_capacity_gate"]
+        args.audit_batch_delay_ms = parameters["audit_batch_delay_ms"]
+        args.job_batch_size = parameters["job_batch_size"]
+        args.job_batch_delay_ms = parameters["job_batch_delay_ms"]
     if args.requests < 100 or not 1 <= args.repetitions <= 10:
         parser.error("requests must be >=100 and repetitions must be 1..10")
     if not 1 <= args.concurrency <= 64:
@@ -639,9 +657,18 @@ def main():
                     "not a 10-repetition controlled cross-runtime capacity comparison",
                 ],
             }
+            if preregistration is not None:
+                summary["preregistration"] = {
+                    "cohort_id": preregistration["cohort_id"],
+                    "config_path": args.config.as_posix(),
+                    "git_blob_sha1": preregistration_sha1,
+                    "thresholds": preregistration["thresholds"],
+                }
             if args.enforce_capacity_gate:
                 summary["capacity_gate"] = evaluate_capacity_gate(
-                    summary["aggregate"], summary["resource_metrics"]
+                    summary["aggregate"],
+                    summary["resource_metrics"],
+                    preregistration["thresholds"] if preregistration is not None else None,
                 )
             rendered = json.dumps(summary, indent=2, sort_keys=True)
             print(rendered)
