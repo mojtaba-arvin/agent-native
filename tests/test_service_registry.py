@@ -11,13 +11,15 @@ from agent_native import ServiceRegistry, ServiceRegistryError
 ROOT = Path(__file__).resolve().parents[1]
 SERVICES = ROOT / "services"
 TRUSTED = {
-    "catalog.get_item",
-    "catalog.create_item",
-    "catalog.get_item_by_name",
-    "catalog.submit_rebuild",
-    "catalog.get_job",
-    "catalog.cancel_job",
-    "inventory.list_stock",
+    "crud.read",
+    "crud.create",
+    "crud.read_by_field",
+    "crud.update",
+    "crud.delete",
+    "jobs.submit",
+    "jobs.get",
+    "jobs.cancel",
+    "events.publish",
 }
 
 
@@ -41,7 +43,21 @@ class ServiceRegistryTests(unittest.TestCase):
         self.assertEqual(set(services), {"catalog", "inventory"})
         self.assertEqual(services["catalog"].service_name, "Catalog")
         self.assertEqual(services["inventory"].service_name, "Inventory")
-        self.assertEqual(services["inventory"].handler_bindings["list_stock"], "inventory.list_stock")
+        self.assertEqual(services["inventory"].handler_bindings["get_stock"], "crud.read_by_field")
+        self.assertEqual(services["inventory"].handler_configs["get_stock"]["resource"], "stock")
+
+    def test_v1_string_bindings_remain_backward_compatible(self):
+        temporary, root = self.temporary_registry()
+        self.addCleanup(temporary.cleanup)
+        folder = self.copy_service(root)
+        manifest_path = folder / "service.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["schema_version"] = 1
+        manifest["handlers"] = {name: spec["handler_id"] for name, spec in manifest["handlers"].items()}
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+        service = ServiceRegistry(root, trusted_handler_ids=TRUSTED).load("inventory")
+        self.assertEqual(service.handler_bindings["get_stock"], "crud.read_by_field")
+        self.assertEqual(dict(service.handler_configs["get_stock"]), {})
 
     def test_unknown_service_fails_closed(self):
         with self.assertRaisesRegex(ServiceRegistryError, "unknown service ID") as raised:
@@ -69,7 +85,7 @@ class ServiceRegistryTests(unittest.TestCase):
         folder = self.copy_service(root)
         manifest_path = folder / "service.json"
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        manifest["handlers"]["list_stock"] = "python:os.system"
+        manifest["handlers"]["get_stock"] = {"handler_id": "python:os.system", "config": {}}
         manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
         with self.assertRaises(ServiceRegistryError) as raised:
             ServiceRegistry(root, trusted_handler_ids=TRUSTED).load_all()
@@ -81,7 +97,7 @@ class ServiceRegistryTests(unittest.TestCase):
         folder = self.copy_service(root)
         manifest_path = folder / "service.json"
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        manifest["handlers"].pop("list_stock")
+        manifest["handlers"].pop("get_stock")
         manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
         with self.assertRaises(ServiceRegistryError) as raised:
             ServiceRegistry(root, trusted_handler_ids=TRUSTED).load_all()
