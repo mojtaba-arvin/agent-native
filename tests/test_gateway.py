@@ -74,6 +74,11 @@ class AgentGatewayTests(unittest.TestCase):
         self.assertEqual(proposal.resource, "/stock")
         self.assertEqual(self.gateway.validate(proposal, context).service_id, "inventory")
 
+    def test_proposal_rejects_non_host_request_context(self):
+        with self.assertRaises(GatewayError) as caught:
+            self.gateway.propose("catalog", "get_item", {"id": ITEM_ID}, None)
+        self.assertEqual(caught.exception.code, "INVALID_REQUEST_CONTEXT")
+
     def test_missing_capability_is_denied(self):
         context = RequestContext("agent-1", "tenant-a", NOW, grants=())
         with self.assertRaises(GatewayError) as caught:
