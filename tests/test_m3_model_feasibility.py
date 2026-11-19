@@ -177,6 +177,8 @@ class M3ModelFeasibilityTests(unittest.TestCase):
         self.assertIn('for arm in ("progressive", "upfront")', smoke)
         self.assertIn('"tool_schema_arm": arm', smoke)
         self.assertIn('"tool_schema_arms": ["progressive", "upfront"]', smoke)
+        self.assertIn('"comparative_scorecard": comparative_scorecard', smoke)
+        self.assertIn('"scorecard.json"', smoke)
 
 
 if __name__ == "__main__":
