@@ -112,6 +112,8 @@ class M3ModelFeasibilityTests(unittest.TestCase):
         self.assertIn("--cap-drop ALL", workflow)
         self.assertIn("--security-opt no-new-privileges", workflow)
         self.assertIn("/api/show", workflow)
+        self.assertIn("runner-info.json", workflow)
+        self.assertIn("RUNNER_INFO", smoke if False else workflow)
         self.assertIn("manifest_sha256", workflow)
 
     def test_model_smoke_disables_apply_and_uses_existing_e009_agent(self):
