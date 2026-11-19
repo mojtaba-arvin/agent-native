@@ -15,13 +15,12 @@
 
 - Baseline: research/reboot-core at 23f9c77d8ce9a8d55895c6c4903a4ff409ba5781.
 - PR #64: feat/project-control-plane -> research/reboot-core; open, ready for review.
-- PR #65: ci/unified-workflow -> feat/project-control-plane; all configured checks passed after separating the always-on E-009 product smoke from the manual capacity gate. Retarget and re-run after PR #64 is integrated.
-- PR #68: feat/evidence-claims-gates-v3 -> ci/unified-workflow; run 44430692124 passed Layer 0 and Layer 1, 14 suites, 524 unit tests, 15 claims tests, and seven evidence-backed completion claims. It remains stacked until PR #65 is integrated.
+- PR #65: ci/unified-workflow -> feat/project-control-plane; configured Layer 0 and Layer 1 checks pass after separating the always-on E-009 product smoke from the manual capacity gate. Retarget and re-run after PR #64 is integrated.
+- PR #68: feat/evidence-claims-gates-v3 -> ci/unified-workflow; run 44430692124 passed Layer 0 and Layer 1, 14 suites, 524 unit tests, 15 claims tests, and seven evidence-backed claims. Run 44432301307 also passed both layers after M0 docs/task graph changes.
 - Superseded drafts PR #66 and #67 are closed; do not merge their branches.
 - Working branch: feat/evidence-claims-gates-v3.
-- Current milestone: C1, with M0 audit preparation now active.
-- Active tasks: CP-007 (final retarget/revalidation after PR #64), CP-003 (M0 source/evidence audit).
-- Completed this iteration: CP-005 evidence-backed claims gate, validated in run 44430692124.
-- Current audit artifact: project-control/M0_AUDIT.md. REPORT.md, E-007 README, and E-009 capacity-gate wording have been reconciled; remaining CP-003 work is source/artifact cross-check and task decomposition.
-- Next: finish CP-003, then split M1 package/CLI and M2 service/Gateway generalization into independently verifiable task contracts. Do not infer production readiness, runtime selection, capacity, or model acceptance.
+- Current milestones: C1 and M0 in progress.
+- Completed tasks: CP-005 (claims integrity) and CP-003 (source/evidence audit).
+- Active tasks: CP-007 (final retarget/revalidation after PR #64), M0-001 (non-destructive research branch/artifact inventory).
+- Next: verify all research-only refs and unique artifacts remain reachable. Do not delete or rewrite branches/tags.
 - Do not merge to main, alter repository security settings, run paid GPU/API workloads, or delete research branches/tags without owner authorization.
