@@ -186,6 +186,12 @@ class EvidenceScorecardTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "differs from metrics derived"):
             validate_scorecard(scorecard, self.summary_raw, self.ledger_raw, self.progress_raw)
 
+    def test_rejects_manual_edits_to_source_revision(self):
+        scorecard = build_scorecard(self.summary_raw, self.ledger_raw, self.progress_raw)
+        scorecard["source"]["commit_sha"] = "f" * 40
+        with self.assertRaisesRegex(ValueError, "differs from metrics derived"):
+            validate_scorecard(scorecard, self.summary_raw, self.ledger_raw, self.progress_raw)
+
     def test_rejects_verified_claim_with_missing_ledger_evidence(self):
         self.progress["completion_claims"][0]["evidence_event_ids"] = ["MISSING"]
         progress_raw = json.dumps(self.progress, sort_keys=True).encode()
