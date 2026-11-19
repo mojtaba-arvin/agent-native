@@ -19,6 +19,6 @@
 - PR #66 and #67: superseded drafts; their branches were based on older PR #65 heads. Do not merge them.
 - Working branch: feat/evidence-claims-gates-v3, based on the latest PR #65 head.
 - Current milestone: C1 (execution governance and evidence integrity).
-- Active tasks: CP-007 (fresh stable CI verification and later retarget), CP-005 (evidence ledger and claims enforcement).
+- Active tasks: CP-007 (final retarget/revalidation after PR #64), CP-005 (claims validator; final seven-claim verification pending).
 - Next: finish CP-005 validator and negative tests; do not treat E-009 product-path smoke as a capacity claim or CPU model diagnostics as M3 acceptance.
 - Do not merge to main, alter repository security settings, run paid GPU/API workloads, or delete research branches/tags without owner authorization.
