@@ -33,6 +33,7 @@ from local_agent import (
     _persist_candidate_response,
     _proposal_budget_response,
     _proposal_attempt_gate,
+    _proposal_replacement_gate,
     _is_proposal_budget_exhausted,
     prevalidate_catalog_operation,
     prevalidate_tool_call,
@@ -945,6 +946,57 @@ class LocalAgentRunnerTests(unittest.TestCase):
         self.assertEqual(attempts, 4)
         self.assertFalse(response["ok"])
         self.assertEqual(response["diagnostics"][0]["code"], "PROPOSAL_REPAIR_BUDGET_EXCEEDED")
+
+    def test_repeated_proposal_before_validation_redirects_to_existing_validation(self):
+        response = {
+            "ok": True,
+            "result": {"change_set_id": "new-or-duplicate"},
+            "diagnostics": [],
+            "next_actions": [],
+        }
+        previous = {"result": {"change_set_id": "change-set-001"}}
+        gated = _proposal_replacement_gate(response, previous, None)
+        self.assertFalse(gated["ok"])
+        self.assertEqual(gated["diagnostics"][0]["code"], "PROPOSAL_REQUIRES_VALIDATION")
+        self.assertEqual(
+            gated["next_actions"],
+            ["service.validate with change_set_id=change-set-001"],
+        )
+        self.assertIn("do not repeat service.propose_delta", gated["diagnostics"][0]["fix_hint"])
+
+    def test_repeated_proposal_after_successful_validation_redirects_to_plan(self):
+        response = {"ok": True, "result": {"change_set_id": "change-set-002"}}
+        previous = {"result": {"change_set_id": "change-set-001"}}
+        validation = {"ok": True, "result": {"valid": True}}
+        gated = _proposal_replacement_gate(response, previous, validation)
+        self.assertFalse(gated["ok"])
+        self.assertEqual(gated["diagnostics"][0]["code"], "PROPOSAL_ALREADY_VALIDATED")
+        self.assertEqual(
+            gated["next_actions"],
+            ["service.plan with change_set_id=change-set-001"],
+        )
+
+    def test_identical_proposal_after_validation_failure_uses_real_diagnostics(self):
+        response = {"ok": True, "result": {"change_set_id": "change-set-001"}}
+        previous = {"result": {"change_set_id": "change-set-001"}}
+        validation = {
+            "ok": True,
+            "result": {
+                "valid": False,
+                "diagnostics": [{"code": "AN021", "fix_hint": "Add ir_version=1 to the complete IR."}],
+            },
+        }
+        gated = _proposal_replacement_gate(response, previous, validation)
+        self.assertFalse(gated["ok"])
+        self.assertEqual(gated["diagnostics"][0]["code"], "DUPLICATE_UNREPAIRED_PROPOSAL")
+        self.assertIn("Add ir_version=1", gated["diagnostics"][0]["fix_hint"])
+        self.assertIn("previous service.validate diagnostics", gated["next_actions"][0])
+
+    def test_corrected_proposal_after_validation_failure_is_allowed(self):
+        response = {"ok": True, "result": {"change_set_id": "change-set-002"}}
+        previous = {"result": {"change_set_id": "change-set-001"}}
+        validation = {"ok": True, "result": {"valid": False, "diagnostics": []}}
+        self.assertIsNone(_proposal_replacement_gate(response, previous, validation))
 
     def test_exhausted_proposal_budget_is_a_terminal_runner_condition(self):
         response = _proposal_budget_response({"request_id": "fourth-proposal"})
