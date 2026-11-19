@@ -51,6 +51,8 @@ class TrustedHandlerRegistry:
             raise ConfigurationError(f"duplicate trusted handler ID: {handler_id}")
         if not callable(factory):
             raise ConfigurationError("handler factory must be callable")
+        if not isinstance(allowed_effects, (set, frozenset)):
+            raise ConfigurationError("allowed_effects must be an explicit set of effect IDs")
         effects = frozenset(allowed_effects)
         if not effects or any(not isinstance(effect, str) or not effect for effect in effects):
             raise ConfigurationError("handler definition requires explicit allowed effects")
