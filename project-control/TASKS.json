@@ -1,0 +1,245 @@
+{
+  "schema_version": 1,
+  "tasks": [
+    {
+      "id": "CP-001",
+      "title": "Add a standard-library control-plane validator and status command",
+      "milestone": "C0",
+      "status": "complete",
+      "priority": 1,
+      "depends_on": [],
+      "owner": "integrator",
+      "scope": [
+        "project_control.py",
+        "project-control/"
+      ],
+      "acceptance": [
+        "python project_control.py validate",
+        "python project_control.py status",
+        "python project_control.py self-test"
+      ],
+      "expected_outputs": [
+        "Cross-file schema/reference validation",
+        "Readable milestone/task status summary"
+      ],
+      "max_unchanged_retries": 1,
+      "replan_after_failures": 2,
+      "stop_conditions": [
+        "Do not modify main or repository security settings"
+      ],
+      "evidence_ids": []
+    },
+    {
+      "id": "CP-002",
+      "title": "Add control-plane validation to the active deterministic CI",
+      "milestone": "C1",
+      "status": "complete",
+      "priority": 2,
+      "depends_on": [
+        "CP-001"
+      ],
+      "owner": "integrator",
+      "scope": [
+        ".github/workflows/"
+      ],
+      "acceptance": [
+        "The active CI invokes the validator",
+        "A malformed-state negative test fails"
+      ],
+      "expected_outputs": [
+        "CI integration",
+        "Negative test"
+      ],
+      "max_unchanged_retries": 1,
+      "replan_after_failures": 2,
+      "stop_conditions": [
+        "Do not replace or merge an unrelated CI workflow without diff review"
+      ],
+      "evidence_ids": []
+    },
+    {
+      "id": "CP-003",
+      "title": "Audit active v0.1 implementation against the roadmap and create evidence-backed task contracts",
+      "milestone": "M0",
+      "status": "pending",
+      "priority": 3,
+      "depends_on": [
+        "CP-001"
+      ],
+      "owner": "research",
+      "scope": [
+        "experiments/",
+        "research/",
+        "REPORT.md"
+      ],
+      "acceptance": [
+        "Every milestone claim links to a current source revision or artifact",
+        "Open work is represented as independently verifiable tasks",
+        "Unknowns are recorded as blockers or hypotheses, not assumed facts"
+      ],
+      "expected_outputs": [
+        "Current-state audit",
+        "Refined task graph"
+      ],
+      "max_unchanged_retries": 2,
+      "replan_after_failures": 2,
+      "stop_conditions": [
+        "Do not claim model success or runtime selection without evidence"
+      ],
+      "evidence_ids": []
+    },
+    {
+      "id": "CP-004",
+      "title": "Audit reboot-core CI baseline and the staging fast-CI candidate",
+      "milestone": "C1",
+      "status": "complete",
+      "priority": 4,
+      "depends_on": [
+        "CP-001"
+      ],
+      "owner": "ci",
+      "scope": [
+        ".github/workflows/",
+        "scripts/",
+        "experiments/"
+      ],
+      "acceptance": [
+        "Reboot-core base revision is pinned and its associated workflow runs are inventoried",
+        "The staging CI branch is compared without merging its divergent history",
+        "Candidate CI risks and a safe port sequence are recorded"
+      ],
+      "expected_outputs": [
+        "Baseline CI inventory",
+        "CI_PORT_AUDIT.md with evidence-backed corrections"
+      ],
+      "max_unchanged_retries": 1,
+      "replan_after_failures": 2,
+      "stop_conditions": [
+        "Do not merge the stale staging branch wholesale",
+        "Do not weaken required security or integration tests"
+      ],
+      "evidence_ids": [
+        "CI_PORT_AUDIT.md",
+        "run:44361352375",
+        "run:44361352389",
+        "run:44361352415",
+        "run:44361352388",
+        "run:44361352493",
+        "run:44361352395",
+        "run:44361352426",
+        "run:44361352376",
+        "run:44361352514"
+      ]
+    },
+    {
+      "id": "CP-005",
+      "title": "Establish evidence ledger and automated claims checks",
+      "milestone": "C1",
+      "status": "pending",
+      "priority": 5,
+      "depends_on": [
+        "CP-001"
+      ],
+      "owner": "verification",
+      "scope": [
+        "project-control/",
+        "project_control.py",
+        "research/",
+        "REPORT.md"
+      ],
+      "acceptance": [
+        "Evidence IDs resolve to immutable source/artifact references",
+        "Claims lint rejects unsupported pass/accepted claims",
+        "Run records include canceled and ineligible states"
+      ],
+      "expected_outputs": [
+        "Evidence schema",
+        "Claims checker",
+        "Run ledger tests"
+      ],
+      "max_unchanged_retries": 2,
+      "replan_after_failures": 2,
+      "stop_conditions": [
+        "Never synthesize run IDs, hashes, or benchmark metrics"
+      ],
+      "evidence_ids": []
+    },
+    {
+      "id": "CP-006",
+      "title": "Port and test the path-aware fast runner on reboot-core",
+      "milestone": "C1",
+      "status": "complete",
+      "priority": 6,
+      "depends_on": [
+        "CP-004"
+      ],
+      "owner": "ci",
+      "scope": [
+        "scripts/ci.py",
+        "scripts/fast.sh",
+        "scripts/test_ci.py",
+        "project_control.py",
+        "project-control/"
+      ],
+      "acceptance": [
+        "Deleted source/test paths select the affected suite",
+        "Project-control changes select the validator/self-test suite",
+        "Path selection and cross-suite dependencies have unit tests",
+        "All selected deterministic suites pass on the reboot-core base"
+      ],
+      "expected_outputs": [
+        "Fast suite runner port",
+        "Path-selection regression tests",
+        "Measured target-branch run"
+      ],
+      "max_unchanged_retries": 1,
+      "replan_after_failures": 2,
+      "stop_conditions": [
+        "Do not port the divergent branch history",
+        "Do not claim staging timings as reboot-core measurements"
+      ],
+      "evidence_ids": [
+        "run:44422752436",
+        "run:44422941792",
+        "14/14 suites",
+        "509 unit tests",
+        "4 negative validator cases",
+        "16.22s to 5.79s"
+      ]
+    },
+    {
+      "id": "CP-007",
+      "title": "Consolidate workflow policy without losing manual and extended checks",
+      "milestone": "C1",
+      "status": "in_progress",
+      "priority": 7,
+      "depends_on": [
+        "CP-006"
+      ],
+      "owner": "ci",
+      "scope": [
+        ".github/workflows/",
+        "project-control/CI_PORT_AUDIT.md"
+      ],
+      "acceptance": [
+        "All legacy workflow responsibilities are mapped",
+        "Unified L0/L1/L2 triggers and permissions are reviewed",
+        "Expensive E-002 matrix is manual-only",
+        "Model acceptance is not based on CPU-only Qwen3 runs",
+        "Legacy workflow deletion is covered by the same PR's verified unified workflow"
+      ],
+      "expected_outputs": [
+        "Unified CI workflow",
+        "Workflow responsibility matrix",
+        "CI migration evidence"
+      ],
+      "max_unchanged_retries": 1,
+      "replan_after_failures": 2,
+      "stop_conditions": [
+        "Do not weaken trust-boundary tests",
+        "Do not enable unattended paid model runs"
+      ],
+      "evidence_ids": []
+    }
+  ]
+}

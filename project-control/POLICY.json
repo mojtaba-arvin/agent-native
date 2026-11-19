@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "autonomy": {
+    "allowed_without_owner_approval": ["Read repository state", "Create non-protected working branches", "Edit files on working branches", "Run local deterministic tests", "Create reviewable pull requests", "Request independent review"],
+    "requires_explicit_owner_approval": ["Merge to main", "Publish releases", "Deploy production", "Change branch protection or repository security settings", "Delete branches or tags", "Force-push or rewrite shared history", "Run paid external model/GPU workloads above an approved budget"],
+    "never_allowed": ["Expose secrets in logs or commits", "Grant agent writer principal apply authority", "Treat prompt instructions as security enforcement", "Fabricate benchmark or CI evidence"]
+  },
+  "verification": {
+    "minimum_levels": ["syntax_or_schema", "targeted_tests", "regression_tests", "independent_diff_review", "remote_ci"],
+    "trust_boundary_paths": ["auth", "authz", "identity", "capability", "allowlist", "audit", "apply", "rollback"],
+    "trust_boundary_requirements": ["Two independent reviews", "At least one new security regression test", "Full relevant regression suite"]
+  },
+  "recovery": {
+    "unchanged_failure_limit": 2,
+    "no_progress_attempt_limit": 3,
+    "retry_requires_new_information_or_a_changed_hypothesis": true,
+    "on_blocker": "Record blocker and continue independent ready work",
+    "on_limit": "Stop unchanged retries, capture root cause, split task or choose alternate implementation"
+  },
+  "integration": {
+    "wip_limit": 2,
+    "required_before_pr": ["Acceptance command recorded", "Targeted tests pass", "Diff reviewed", "State and ledger updated"],
+    "main_merge_authorized": false
+  }
+}

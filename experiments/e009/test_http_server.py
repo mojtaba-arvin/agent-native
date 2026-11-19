@@ -70,7 +70,7 @@ class KernelHTTPServerTests(unittest.TestCase):
             "restricted-token-cccccccccccccccc": make_context("restricted", "tenant-a", grants=False),
         })
         self.server = create_server(self.runtime, self.identity, max_concurrency=8)
-        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+        self.thread = threading.Thread(target=self.server.serve_forever, kwargs={"poll_interval": 0.01}, daemon=True)
         self.thread.start()
         self.base_url = f"http://127.0.0.1:{self.server.server_port}"
 
@@ -166,7 +166,7 @@ class KernelHTTPServerTests(unittest.TestCase):
 
         registry = RuntimeRegistry(self.runtime, revision=7)
         server = create_server(registry, BlockingProvider(), max_concurrency=8)
-        server_thread = threading.Thread(target=server.serve_forever, daemon=True)
+        server_thread = threading.Thread(target=server.serve_forever, kwargs={"poll_interval": 0.01}, daemon=True)
         server_thread.start()
         previous_base = self.base_url
         self.base_url = f"http://127.0.0.1:{server.server_port}"
@@ -213,7 +213,7 @@ class KernelHTTPServerTests(unittest.TestCase):
     def test_http_request_uses_one_published_runtime_revision(self):
         registry = RuntimeRegistry(self.runtime, revision=7)
         server = create_server(registry, self.identity, max_concurrency=8)
-        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread = threading.Thread(target=server.serve_forever, kwargs={"poll_interval": 0.01}, daemon=True)
         thread.start()
         previous_base = self.base_url
         self.base_url = f"http://127.0.0.1:{server.server_port}"
@@ -504,7 +504,7 @@ class KernelHTTPServerTests(unittest.TestCase):
             clock=lambda: 100,
         )
         server = create_server(runtime, self.identity, max_concurrency=1)
-        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread = threading.Thread(target=server.serve_forever, kwargs={"poll_interval": 0.01}, daemon=True)
         thread.start()
         base = f"http://127.0.0.1:{server.server_port}"
         first_result = {}
