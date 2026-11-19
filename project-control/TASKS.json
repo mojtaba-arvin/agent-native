@@ -190,7 +190,6 @@
         "15 claims-validator tests",
         "14/14 fast suites",
         "524 unit tests",
-        "6 completion claims validated",
         "Layer 1 native/database success",
         "run:44430692124",
         "7 completion claims validated",
@@ -265,13 +264,14 @@
         "No workflow concurrency groups can cancel in-flight evidence",
         "E-009 PR smoke is labelled as a product-path smoke, not a capacity claim",
         "After PR #64 is integrated, PR #65 is retargeted to research/reboot-core and passes a fresh run",
-        "Always-on E-009 smoke enforces functional expectations only; capacity thresholds remain in the manual ten-repetition confirmation"
+        "Always-on E-009 smoke enforces functional expectations only; capacity thresholds remain in the manual ten-repetition confirmation",
+        "Run 44428892897 and run 44429525898 both pass Layer 0 and Layer 1 after the E-009 smoke threshold separation"
       ],
       "expected_outputs": [
         "Unified CI workflow",
         "Workflow responsibility matrix",
         "CI migration evidence",
-        "First authoritative run after base branch includes the workflow"
+        "Fresh full run after retargeting PR #65 to research/reboot-core following PR #64 integration"
       ],
       "max_unchanged_retries": 1,
       "replan_after_failures": 2,
@@ -290,6 +290,280 @@
         "post-correction Layer 0 + Layer 1 success",
         "E-009 smoke zero failed expectations without capacity enforcement"
       ]
+    },
+    {
+      "id": "M1-001",
+      "title": "Create an installable agent_native package without selecting a production runtime",
+      "milestone": "M1",
+      "status": "pending",
+      "priority": 10,
+      "depends_on": [
+        "CP-003",
+        "CP-007"
+      ],
+      "owner": "core",
+      "scope": [
+        "src/agent_native/",
+        "pyproject.toml",
+        "experiments/e001/",
+        "experiments/e009/"
+      ],
+      "acceptance": [
+        "pip install . succeeds in a clean isolated environment without network runtime dependencies",
+        "Public imports are exposed from agent_native",
+        "Package metadata and supported Python version are explicit",
+        "No production runtime or language selection is claimed"
+      ],
+      "expected_outputs": [
+        "Installable package layout",
+        "Package metadata",
+        "Clean-environment install smoke"
+      ],
+      "max_unchanged_retries": 2,
+      "replan_after_failures": 2,
+      "stop_conditions": [
+        "Do not silently change service syntax or runtime semantics",
+        "Do not introduce nonessential runtime dependencies"
+      ],
+      "evidence_ids": []
+    },
+    {
+      "id": "M1-002",
+      "title": "Remove import-time sys.path mutation from the packaged core and entry points",
+      "milestone": "M1",
+      "status": "pending",
+      "priority": 11,
+      "depends_on": [
+        "M1-001"
+      ],
+      "owner": "core",
+      "scope": [
+        "src/agent_native/",
+        "experiments/e009/serve.py",
+        "experiments/e009/kernel.py",
+        "experiments/e009/agent_gateway.py",
+        "experiments/e010/"
+      ],
+      "acceptance": [
+        "No import-time sys.path.insert or sys.path mutation remains in supported package/CLI paths",
+        "Internal imports resolve through the package namespace",
+        "Legacy research prototypes are either migrated or explicitly isolated as non-package experiments",
+        "Import tests pass from outside the repository root"
+      ],
+      "expected_outputs": [
+        "Stable package imports",
+        "Import-isolation regression tests",
+        "Legacy experiment compatibility note"
+      ],
+      "max_unchanged_retries": 2,
+      "replan_after_failures": 2,
+      "stop_conditions": [
+        "Do not break reproducible historical experiment entry points without a migration path"
+      ],
+      "evidence_ids": []
+    },
+    {
+      "id": "M1-003",
+      "title": "Add a unified developer CLI for check, run, inspect, worker, and audit",
+      "milestone": "M1",
+      "status": "pending",
+      "priority": 12,
+      "depends_on": [
+        "M1-001",
+        "M1-002"
+      ],
+      "owner": "core",
+      "scope": [
+        "src/agent_native/cli.py",
+        "src/agent_native/",
+        "project_control.py"
+      ],
+      "acceptance": [
+        "One installed command exposes check, run, inspect, worker, and audit subcommands",
+        "Each command has deterministic help, exit codes, and machine-readable errors",
+        "CLI commands operate on explicit service IDs/paths and never infer production credentials",
+        "CLI smoke tests run from a clean installed environment"
+      ],
+      "expected_outputs": [
+        "Unified CLI entry point",
+        "CLI command contract",
+        "End-to-end CLI smoke tests"
+      ],
+      "max_unchanged_retries": 2,
+      "replan_after_failures": 2,
+      "stop_conditions": [
+        "Do not add production deployment commands in M1"
+      ],
+      "evidence_ids": []
+    },
+    {
+      "id": "M1-004",
+      "title": "Preserve deterministic regression coverage through package migration",
+      "milestone": "M1",
+      "status": "pending",
+      "priority": 13,
+      "depends_on": [
+        "M1-001",
+        "M1-002",
+        "M1-003"
+      ],
+      "owner": "verification",
+      "scope": [
+        "tests/",
+        "experiments/",
+        "scripts/ci.py",
+        "pyproject.toml"
+      ],
+      "acceptance": [
+        "Existing deterministic suite count is not reduced without an evidence-backed replacement",
+        "Package install, import isolation, CLI, parser/IR, Gateway, HTTP, persistence, and audit tests pass",
+        "CI runs the packaged test suite from the installed artifact",
+        "Coverage claims are generated from actual test output, not hand-maintained counts"
+      ],
+      "expected_outputs": [
+        "Package migration regression suite",
+        "Installed-artifact CI job",
+        "Evidence-backed test count"
+      ],
+      "max_unchanged_retries": 2,
+      "replan_after_failures": 2,
+      "stop_conditions": [
+        "Do not weaken trust-boundary or failure-injection tests"
+      ],
+      "evidence_ids": []
+    },
+    {
+      "id": "M2-001",
+      "title": "Load services through a manifest-backed ServiceRegistry",
+      "milestone": "M2",
+      "status": "pending",
+      "priority": 20,
+      "depends_on": [
+        "M1-004"
+      ],
+      "owner": "core",
+      "scope": [
+        "src/agent_native/",
+        "services/",
+        "experiments/e009/"
+      ],
+      "acceptance": [
+        "Service IDs resolve through an explicit manifest/registry rather than hard-coded Catalog mappings",
+        "Service source, version, handlers, and policy references are validated before publication",
+        "Unknown or duplicate service IDs fail closed",
+        "A second service loads without editing kernel/Gateway code"
+      ],
+      "expected_outputs": [
+        "Service manifest schema",
+        "ServiceRegistry and loader",
+        "Registry negative tests"
+      ],
+      "max_unchanged_retries": 2,
+      "replan_after_failures": 2,
+      "stop_conditions": [
+        "Do not add dynamic code execution or arbitrary plugin imports as a loading mechanism"
+      ],
+      "evidence_ids": []
+    },
+    {
+      "id": "M2-002",
+      "title": "Drive declarative CRUD, job, and event handlers from service IR",
+      "milestone": "M2",
+      "status": "pending",
+      "priority": 21,
+      "depends_on": [
+        "M2-001"
+      ],
+      "owner": "core",
+      "scope": [
+        "src/agent_native/",
+        "services/",
+        "tests/"
+      ],
+      "acceptance": [
+        "GET/list/create/update/delete/job/event handler contracts are represented declaratively",
+        "Handler dispatch is generic and does not branch on service or operation names",
+        "Input/output/error schemas and effect declarations are validated against IR",
+        "Custom handlers require explicit trusted host registration"
+      ],
+      "expected_outputs": [
+        "Declarative handler contracts",
+        "Generic dispatch implementation",
+        "IR/handler conformance tests"
+      ],
+      "max_unchanged_retries": 2,
+      "replan_after_failures": 2,
+      "stop_conditions": [
+        "Do not allow agent-supplied Python or arbitrary handler code"
+      ],
+      "evidence_ids": []
+    },
+    {
+      "id": "M2-003",
+      "title": "Generalize Agent Gateway proposals to explicit read/write effects while keeping apply separate",
+      "milestone": "M2",
+      "status": "pending",
+      "priority": 22,
+      "depends_on": [
+        "M2-002"
+      ],
+      "owner": "security",
+      "scope": [
+        "src/agent_native/gateway/",
+        "src/agent_native/authz/",
+        "tests/"
+      ],
+      "acceptance": [
+        "Gateway resolves any registered service by service ID",
+        "Read and write proposal effects have explicit capability mapping and default-deny policy",
+        "Agent may propose, validate, and plan write operations but cannot invoke service.apply",
+        "Trust-boundary negative tests cover missing grants, cross-tenant scope, unsupported effects, and service identity mismatch"
+      ],
+      "expected_outputs": [
+        "Service-independent Gateway",
+        "Read/write capability catalog",
+        "Negative authorization tests"
+      ],
+      "max_unchanged_retries": 2,
+      "replan_after_failures": 2,
+      "stop_conditions": [
+        "Do not grant agent-writer service.apply authority",
+        "Trust-boundary changes require two independent reviews and a new security regression test"
+      ],
+      "evidence_ids": []
+    },
+    {
+      "id": "M2-004",
+      "title": "Prove a second service can be added without changing core code",
+      "milestone": "M2",
+      "status": "pending",
+      "priority": 23,
+      "depends_on": [
+        "M2-003"
+      ],
+      "owner": "verification",
+      "scope": [
+        "services/",
+        "tests/integration/",
+        "docs/"
+      ],
+      "acceptance": [
+        "A second service is added using only manifest, IR, declarative handlers, and policy configuration",
+        "No core runtime/Gateway source changes are required for that service",
+        "Read and write proposal/validate/plan flows are tested against the second service",
+        "Cross-tenant and unauthorized-write negative tests pass"
+      ],
+      "expected_outputs": [
+        "Second service fixture",
+        "No-core-change diff evidence",
+        "Cross-service integration test report"
+      ],
+      "max_unchanged_retries": 2,
+      "replan_after_failures": 2,
+      "stop_conditions": [
+        "Do not treat a fixture-only demonstration as production readiness"
+      ],
+      "evidence_ids": []
     }
   ]
 }
