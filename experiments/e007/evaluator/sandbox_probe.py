@@ -43,7 +43,7 @@ def parse_cpu_quota(raw: str) -> float:
 def validate_sandbox_report(report: dict[str, Any]) -> None:
     if not isinstance(report, dict):
         raise SandboxProbeError("sandbox report must be an object")
-    if not isinstance(report.get("effective_uid"), int) or report["effective_uid"] == 0:
+    if type(report.get("effective_uid")) is not int or report["effective_uid"] == 0:
         raise SandboxProbeError("sandbox must run as a non-root user")
     for field in (
         "root_read_only",
@@ -63,11 +63,11 @@ def validate_sandbox_report(report: dict[str, Any]) -> None:
     memory_limit = report.get("memory_limit_bytes")
     cpu_cores = report.get("cpu_quota_cores")
     pids_limit = report.get("pids_limit")
-    if not isinstance(memory_limit, int) or not 0 < memory_limit <= 2 * 1024**3:
+    if type(memory_limit) is not int or not 0 < memory_limit <= 2 * 1024**3:
         raise SandboxProbeError("memory cgroup limit is missing or exceeds 2 GiB")
-    if not isinstance(cpu_cores, (int, float)) or not 0 < cpu_cores <= 1.01:
+    if type(cpu_cores) not in (int, float) or not 0 < cpu_cores <= 1.01:
         raise SandboxProbeError("CPU cgroup limit is missing or exceeds one core")
-    if not isinstance(pids_limit, int) or not 0 < pids_limit <= 64:
+    if type(pids_limit) is not int or not 0 < pids_limit <= 64:
         raise SandboxProbeError("PID cgroup limit is missing or exceeds 64")
 
 
