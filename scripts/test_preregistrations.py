@@ -222,6 +222,13 @@ class PreregistrationTests(unittest.TestCase):
         self.refresh_baseline()
         self.assertTrue(any("referenced cohort manifest must declare no_apply=true" in error for error in validate(self.root)))
 
+    def test_rejects_performance_cohort_manifest_without_no_apply(self):
+        self.registry["records"][0]["kind"] = "performance_cohort_manifest"
+        self.registry["records"][0]["status"] = "draft"
+        self.registry["records"][0]["no_apply"] = False
+        self.refresh_baseline()
+        self.assertTrue(any("cohort manifests must remain no-apply" in error for error in validate(self.root)))
+
     def test_rejects_draft_cohort_metadata_without_no_apply(self):
         self.registry["records"][0]["status"] = "draft"
         self.registry["records"][0]["no_apply"] = False
