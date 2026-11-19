@@ -6,13 +6,13 @@
       "status": "open",
       "severity": "high",
       "title": "GitHub autonomous merge and required-check authority is not established",
-      "description": "AGENTS.md reserves repository security settings and main merges for explicit owner authorization. CI can be prepared in a PR, but rulesets, merge queue, tokens/secrets, and unattended merge acceptance require owner action.",
+      "description": "AGENTS.md reserves repository security settings and main merges for explicit owner authorization. The active Protect Main Branch ruleset currently enforces deletion and non-fast-forward protections only. The classic branch-protection endpoint is not readable through the current integration, so required PR approvals and status checks remain unverified. PR-based integration is available; ruleset/branch-protection changes and unattended main merge require owner action.",
       "owner_action_required": true,
       "unblocks": [
         "Autonomous merge-to-main acceptance test",
         "Automated release publication"
       ],
-      "next_step": "Keep PR-based integration; prepare a least-privilege setup checklist without changing repository settings."
+      "next_step": "Owner reviews GitHub Settings for main, configures required PR approvals/status checks and up-to-date branches, then explicitly authorizes main integration. Keep PR-based integration meanwhile."
     },
     {
       "id": "BLK-002",
