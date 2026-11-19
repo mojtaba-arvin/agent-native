@@ -42,7 +42,7 @@ The main product risk is no longer lack of a runnable example. It is the gap bet
 - E-007 README line 83 repeats workflow 44144939813 as currently running, although the completed input-budget-exhaustion result is already described in lines 65–69. This is contradictory.
 - `experiments/e007/dispatch-request.json` names the superseded `e007-real-agent-eval.yml`. The active factorial runner reads `experiments/e007/dispatch.json`; `run_factorial_pilot.sh` does not consume the older request file. Treat the latter as a historical request artifact, not the current dispatch source.
 - E-009 performance documentation distinguishes its manually enforced capacity gate from always-on CI product-path smoke. The unified CI now runs the always-on smoke without `--enforce-capacity-gate`; the explicit manual ten-repetition confirmation retains the gate. Shared-runner product smoke must never be described as capacity acceptance.
-- The 0.5 ms E-009 audit group-commit window is provisional. Two of three cgroup cohorts passed the p99 gate and one failed under elevated I/O pressure; this is not a stable SLO or a production SQLite recommendation.
+- The 0.5 ms E-009 audit group-commit window is provisional. The evidence includes a passing cgroup cohort and a later default-setting cohort that failed p99 under elevated I/O pressure; repeatability is not established, so this is not a stable SLO or a production SQLite recommendation.
 - `DECISIONS.json` contains 14 decisions: D-0001, D-0002, and D-0006 are decided; D-0003 through D-0005 and D-0007 through D-0014 remain open. No service syntax, runtime, persistence, transport, or production identity architecture has been selected.
 
 ## v0.1 gap assessment
