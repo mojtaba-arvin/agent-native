@@ -6,12 +6,12 @@
   "baseline_commit": "10ae594f405519344b1d654e9577bd78cb1f4985",
   "current_milestone": "M1",
   "active_task_ids": [
-    "M1-002"
+    "M1-001"
   ],
-  "last_completed_task_id": "M1-001",
+  "last_completed_task_id": "CP-007",
   "last_known_green_revision": "8625e94eb1a285e9516d0e69048581ba6b240a1f",
   "wip_limit": 2,
-  "next_action": "Complete M1-002 by migrating the supported E-009 kernel, Gateway, and service entry points into the package namespace without import-time sys.path mutation. Keep legacy experiment prototypes explicitly isolated and preserve their regression tests. Then implement M1-003 unified CLI.",
+  "next_action": "Complete the stronger M1-001 acceptance check by installing and running package tests inside a fresh isolated virtual environment with no runtime dependencies. Package runtime/security modules are staged, but M1-002 remains pending until M1-001 passes.",
   "recovery": {
     "unchanged_failure_limit": 2,
     "no_progress_attempt_limit": 3,
