@@ -302,28 +302,28 @@ def evaluate_capacity_gate(aggregate, resource_metrics, thresholds=None):
     thresholds = dict(DEFAULT_CAPACITY_THRESHOLDS if thresholds is None else thresholds)
     cgroup = resource_metrics.get("cgroup_v2_limits") or {}
     checks = {
-        "throughput_at_least_100_rps": (
+        "throughput_meets_preregistered_minimum": (
             aggregate.get("throughput_requests_per_second", 0) >= thresholds["minimum_throughput_requests_per_second"]
         ),
-        "aggregate_p99_at_most_100_ms": (
+        "aggregate_p99_within_preregistered_maximum": (
             (aggregate.get("latency_ms") or {}).get("p99", float("inf")) <= thresholds["maximum_aggregate_p99_ms"]
         ),
-        "server_cpu_at_most_50_percent_of_one_core": (
+        "server_cpu_within_preregistered_maximum": (
             resource_metrics.get("server_cpu_percent_of_one_core_during_load", float("inf")) <= thresholds["maximum_one_core_cpu_percent"]
         ),
-        "peak_cgroup_memory_at_most_1_gib": (
+        "peak_cgroup_memory_within_preregistered_maximum": (
             resource_metrics.get("server_peak_cgroup_memory_bytes") is not None
             and resource_metrics["server_peak_cgroup_memory_bytes"] <= thresholds["maximum_peak_cgroup_memory_bytes"]
         ),
-        "server_cgroup_is_one_cpu": (
+        "server_cgroup_matches_preregistered_cpu_quota": (
             resource_metrics.get("server_containerized") is True
             and resource_metrics.get("server_cpu_quota_cores") == thresholds["required_server_cpu_quota_cores"]
             and cgroup.get("cpu_max") == "100000 100000"
         ),
-        "server_cgroup_memory_limit_is_1_gib": (
+        "server_cgroup_matches_preregistered_memory_limit": (
             cgroup.get("memory_max") == str(thresholds["required_server_memory_limit_bytes"])
         ),
-        "zero_unexpected_outcomes": aggregate.get("failed_expectations") <= thresholds["maximum_unexpected_outcomes"],
+        "unexpected_outcomes_within_preregistered_maximum": aggregate.get("failed_expectations") <= thresholds["maximum_unexpected_outcomes"],
     }
     return {
         "enabled": True,
