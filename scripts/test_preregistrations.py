@@ -233,7 +233,7 @@ class PreregistrationTests(unittest.TestCase):
         self.registry["records"][0]["status"] = "draft"
         self.registry["records"][0]["no_apply"] = False
         self.refresh_baseline()
-        self.assertTrue(any("agent cohort manifests must remain no-apply" in error for error in validate(self.root)))
+        self.assertTrue(any("cohort manifests must remain no-apply" in error for error in validate(self.root)))
 
     def test_rejects_invalid_status_type_without_crashing(self):
         self.registry["records"][0]["status"] = {"unexpected": "object"}
