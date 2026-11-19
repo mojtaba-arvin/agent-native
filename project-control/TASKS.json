@@ -1295,7 +1295,15 @@
         "M3-000-TOPOLOGY-SMOKE-2026-11-19-001",
         "https://docs.github.com/en/actions/reference/runners/github-hosted-runners",
         "https://ollama.com/ibm/granite4",
-        "https://github.com/ollama/ollama/issues/19694"
+        "https://github.com/ollama/ollama/issues/19694",
+        "https://ollama.com/ibm/granite4:350m-h-q4_K_M",
+        "https://ollama.com/ibm/granite4:1b-h-q4_K_M",
+        "https://ollama.com/ibm/granite4:3b-h",
+        "https://huggingface.co/ibm-granite/granite-4.0-h-350m",
+        "https://huggingface.co/ibm-granite/granite-4.0-h-1b",
+        "https://huggingface.co/ibm-granite/granite-4.0-h-micro",
+        "https://docs.ollama.com/capabilities/tool-calling",
+        "https://github.com/ggml-org/llama.cpp/issues/25986"
       ],
       "execution": {
         "branch": "feat/m3-model-feasibility",
