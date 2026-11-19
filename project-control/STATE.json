@@ -1,15 +1,17 @@
 {
   "schema_version": 1,
   "updated_at": "2026-11-19",
-  "active_branch": "feat/m1-package-cli",
+  "active_branch": "feat/m2-service-registry",
   "baseline_branch": "research/reboot-core",
-  "baseline_commit": "9d52c773effe42a0a0161467db401ad6505e9761",
-  "current_milestone": "M1",
-  "active_task_ids": [],
+  "baseline_commit": "35d138f9ddb96fa026bdc6ea0f64cb28bcb8eddf",
+  "current_milestone": "M2",
+  "active_task_ids": [
+    "M2-001"
+  ],
   "last_completed_task_id": "M1-004",
-  "last_known_green_revision": "c7c50ca1b017eb2f411bd92782dfff07bf7f1ebe",
+  "last_known_green_revision": "77561f404fcae89b3bd7b14124c73a230e023266",
   "wip_limit": 2,
-  "next_action": "M1-001 through M1-004 are implemented and passed the full CI matrix. Integrate PR #70 into research/reboot-core after the fresh base check. Then start M2-001 on a new branch: manifest-backed ServiceRegistry with fail-closed duplicate/unknown service handling. Keep M3 draft and evaluator isolation work independent; no paid model dispatch.",
+  "next_action": "M1 is complete and integrated. Finish M2-001 by passing the fresh installed-package and Layer 1 CI matrix for the manifest-backed ServiceRegistry. Then begin M2-002 generic declarative handler dispatch without service-specific core branches. M3 cohort remains draft-only until evaluator isolation and owner budget/provider/runner gates are satisfied.",
   "recovery": {
     "unchanged_failure_limit": 2,
     "no_progress_attempt_limit": 3,
