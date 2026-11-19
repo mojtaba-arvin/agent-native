@@ -94,7 +94,6 @@ class M3ModelFeasibilityTests(unittest.TestCase):
             self.assertEqual(item["quantization_expected"], pin["quantization_level"])
             self.assertTrue(item["manifest_sha256"])
             self.assertTrue(pin["layers"])
-            self.assertEqual(item["last_feasibility_run_id"], 44509769849)
             self.assertTrue(item["tool_call_smoke"].startswith("progressive_failed_"))
             self.assertEqual(item["initial_bootstrap_run_id"], 44509769849)
             self.assertEqual(item["last_feasibility_run_id"], 44511342601)
