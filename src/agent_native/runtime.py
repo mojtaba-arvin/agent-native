@@ -208,7 +208,17 @@ def validate_operation_inputs(ir: dict, operation_name: str, values: object) -> 
     for field_name, type_name in fields.items():
         if not _validate_output(ir, type_name, values[field_name]):
             raise ValueError(f"invalid_input_type:{field_name}")
-    return dict(values)
+    for rule in operation["validation"]:
+        field_name, separator, rule_name = rule.partition(".")
+        if separator != "." or field_name not in values:
+            raise ValueError("unsupported_validation_rule")
+        if rule_name == "non_empty":
+            value = values[field_name]
+            if not isinstance(value, str) or not value.strip():
+                raise ValueError(f"invalid_input_rule:{field_name}")
+        else:
+            raise ValueError(f"unsupported_validation_rule:{rule_name}")
+    return copy.deepcopy(values)
 
 
 class ServiceRuntime:
