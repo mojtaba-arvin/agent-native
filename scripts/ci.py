@@ -117,7 +117,7 @@ def run_suite(suite: Suite) -> tuple[str, int, float, str]:
 def parse_test_counts(output: str) -> tuple[int, int]:
     """Extract unittest counts from a suite's captured output without guessing."""
     test_runs = [int(value) for value in re.findall(r"Ran (\d+) tests?", output)]
-    skipped_runs = [int(value) for value in re.findall(r"OK \(skipped=(\d+)\)", output)]
+    skipped_runs = [int(value) for value in re.findall(r"\bskipped=(\d+)", output)]
     return sum(test_runs), sum(skipped_runs)
 
 
