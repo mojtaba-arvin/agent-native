@@ -581,7 +581,21 @@
         "Do not grant agent-writer service.apply authority",
         "Trust-boundary changes require two independent reviews and a new security regression test"
       ],
-      "evidence_ids": [],
+      "evidence_ids": [
+        "run:44461707556",
+        "90 package tests",
+        "Layer 0 passed",
+        "Layer 1 native/container/database passed",
+        "src/agent_native/gateway/core.py",
+        "src/agent_native/authz/effects.py",
+        "src/agent_native/runtime.py",
+        "schemas/gateway-proposal-v1.schema.json",
+        "schemas/gateway-validation-v1.schema.json",
+        "schemas/gateway-plan-v1.schema.json",
+        "docs/gateway.md",
+        "tests/test_gateway.py",
+        "PR-81"
+      ],
       "execution": {
         "branch": "feat/m2-service-independent-gateway",
         "base_branch": "research/reboot-core",
@@ -619,7 +633,15 @@
       "stop_conditions": [
         "Do not treat a fixture-only demonstration as production readiness"
       ],
-      "evidence_ids": [],
+      "evidence_ids": [
+        "run:44461727908",
+        "94 package tests",
+        "Layer 0 passed",
+        "Layer 1 native/container/database passed",
+        "tests/test_gateway_integration.py",
+        "docs/multi-service-gateway-proof.md",
+        "PR-82"
+      ],
       "execution": {
         "branch": "feat/m2-second-service-proof",
         "base_branch": "feat/m2-service-independent-gateway",
