@@ -152,6 +152,8 @@ def run_one(model: dict[str, Any], endpoint: str, results_root: Path) -> dict[st
         "manifest_sha256": model.get("manifest_sha256"),
         "config_digest": model.get("config_digest"),
         "model_size_bytes": model.get("model_size_bytes"),
+        "quantization_level": model.get("quantization_level"),
+        "parameter_size": model.get("parameter_size"),
         "run_id": run_id,
         "status": record.get("status"),
         "candidate_verified_locally": success,
@@ -192,6 +194,8 @@ def main() -> int:
         manifest = manifest_by_tag[model["tag"]]
         if not manifest.get("manifest_sha256") or not manifest.get("config_digest"):
             raise RuntimeError(f"model_manifest_digest_missing:{model['tag']}")
+        if manifest.get("quantization_level") != model.get("quantization_expected"):
+            raise RuntimeError(f"model_quantization_mismatch:{model['tag']}")
         model.update(manifest)
 
     available = ollama_tags(endpoint)
