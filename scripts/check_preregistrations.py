@@ -29,7 +29,7 @@ RUN_REQUIRED_STATUSES = {"dispatched", "completed", "failed", "cancelled", "inel
 
 def git_blob_sha1(path: Path) -> str:
     data = path.read_bytes()
-    header = f"blob {len(data)}\\0".encode("ascii")
+    header = f"blob {len(data)}\0".encode("ascii")
     return hashlib.sha1(header + data).hexdigest()
 
 
@@ -238,10 +238,10 @@ def validate(root: Path) -> list[str]:
         if not isinstance(kind, str) or not kind:
             errors.append(f"{label}: kind is required")
         status = record.get("status")
-        if status not in ALLOWED_STATUSES:
+        if not isinstance(status, str) or status not in ALLOWED_STATUSES:
             errors.append(f"{label}: unsupported status {status!r}")
         decision_event_id = record.get("decision_event_id")
-        if decision_event_id not in event_by_id:
+        if not isinstance(decision_event_id, str) or decision_event_id not in event_by_id:
             errors.append(f"{label}: decision_event_id does not resolve to an event")
         raw_path = record.get("path")
         path = _safe_repo_path(root, raw_path, errors, label)
@@ -288,7 +288,7 @@ def validate(root: Path) -> list[str]:
     for event in events:
         affected = event.get("affected_preregistration_ids", [])
         if isinstance(affected, list):
-            unknown = [item for item in affected if item not in known_record_ids]
+            unknown = [item for item in affected if isinstance(item, str) and item not in known_record_ids]
             if unknown:
                 errors.append(
                     f"decision event {event.get('event_id')}: unknown preregistration IDs {', '.join(unknown)}"
