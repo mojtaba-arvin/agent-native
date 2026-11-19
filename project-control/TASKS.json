@@ -682,7 +682,7 @@
       "id": "M0-003",
       "title": "Generate scorecards, test counts, and evidence summaries from source artifacts",
       "milestone": "M0",
-      "status": "pending",
+      "status": "in_progress",
       "priority": 6,
       "depends_on": [
         "CP-005",
@@ -694,17 +694,29 @@
         "project-control/RUN_LEDGER.jsonl",
         "scripts/",
         "REPORT.md",
-        "research/evidence-index.md"
+        "research/evidence-index.md",
+        "scripts/ci.py",
+        "scripts/generate_scorecard.py",
+        "scripts/test_scorecard.py",
+        ".github/workflows/ci.yml"
       ],
       "acceptance": [
         "Test counts are parsed from CI logs/artifacts rather than hand-entered",
         "Scorecard claims bind to exact run IDs and source revisions",
         "Failed/canceled/ineligible runs remain visible and are not silently excluded",
-        "A CI negative test rejects manual edits to generated metrics without source evidence"
+        "A CI negative test rejects manual edits to generated metrics without source evidence",
+        "The fast runner emits a JSON summary with workflow run ID, attempt, PR-head SHA, checkout SHA, base SHA, per-suite status, output hash, elapsed time, test counts, and skipped counts",
+        "Test counts are parsed from unittest output and validated against per-suite records; unknown values are not coerced to zero",
+        "The scorecard is deterministically derived from the CI summary, append-only run ledger, and progress register, and pins SHA-256 hashes of all three source artifacts",
+        "Scorecard history includes successful, failed, cancelled, and ineligible ledger events without filtering negative outcomes",
+        "Every verified completion claim in the scorecard resolves to existing immutable ledger evidence",
+        "Negative tests reject manual edits to generated test counts, run IDs, source revisions, and claim evidence without changing the source artifacts",
+        "The fast workflow generates and uploads both the raw CI summary and validated machine-readable scorecard, including when a suite fails"
       ],
       "expected_outputs": [
-        "Machine-readable evidence scorecard",
-        "Generated test-count summary",
+        "Machine-readable CI suite/test summary artifact",
+        "Source-hash-pinned evidence scorecard artifact",
+        "Negative scorecard provenance and tamper tests",
         "Claims-lint integration"
       ],
       "max_unchanged_retries": 2,
