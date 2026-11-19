@@ -18,7 +18,7 @@ service catalog {
             id: String from path;
         }
         output: String;
-        errors: [Unauthorized];
+        errors: [InvalidInput, Unauthorized];
         validation: [];
         effects: [repository.read];
         capability: "items.read";
