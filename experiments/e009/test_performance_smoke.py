@@ -43,7 +43,7 @@ class E009CapacityGateTests(unittest.TestCase):
         thresholds["minimum_throughput_requests_per_second"] = 101.0
         result = evaluate_capacity_gate(self.aggregate(), self.metrics(), thresholds)
         self.assertFalse(result["passed"])
-        self.assertFalse(result["checks"]["throughput_at_least_100_rps"])
+        self.assertFalse(result["checks"]["throughput_meets_preregistered_minimum"])
         self.assertEqual(result["thresholds"]["minimum_throughput_requests_per_second"], 101.0)
 
     def test_rejects_capacity_manifest_that_allows_apply(self):
@@ -66,7 +66,7 @@ class E009CapacityGateTests(unittest.TestCase):
         aggregate["latency_ms"]["p99"] = 100.01
         result = evaluate_capacity_gate(aggregate, self.metrics())
         self.assertFalse(result["passed"])
-        self.assertFalse(result["checks"]["aggregate_p99_at_most_100_ms"])
+        self.assertFalse(result["checks"]["aggregate_p99_within_preregistered_maximum"])
 
     def test_missing_or_unlimited_cgroup_accounting_fails_closed(self):
         metrics = self.metrics()
@@ -76,8 +76,8 @@ class E009CapacityGateTests(unittest.TestCase):
         metrics["cgroup_v2_limits"] = None
         result = evaluate_capacity_gate(self.aggregate(), metrics)
         self.assertFalse(result["passed"])
-        self.assertFalse(result["checks"]["server_cgroup_is_one_cpu"])
-        self.assertFalse(result["checks"]["peak_cgroup_memory_at_most_1_gib"])
+        self.assertFalse(result["checks"]["server_cgroup_matches_preregistered_cpu_quota"])
+        self.assertFalse(result["checks"]["peak_cgroup_memory_within_preregistered_maximum"])
 
 
 if __name__ == "__main__":
