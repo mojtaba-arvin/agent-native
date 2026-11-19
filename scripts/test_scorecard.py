@@ -163,6 +163,28 @@ class EvidenceScorecardTests(unittest.TestCase):
         self.assertEqual(summary["test_counts"]["total_known"], 3)
         self.assertEqual(summary["test_counts"]["skipped_known"], 1)
 
+    def test_ci_summary_keeps_non_unittest_suite_counts_unknown(self):
+        suite = Suite("project-control", ("python", "project_control.py", "status"), ("project-control/**",))
+        output = "SELF-TEST PASS: 4 negative cases\n"
+        with patch.dict(os.environ, {
+            "AGENT_NATIVE_SOURCE_SHA": "a" * 40,
+            "GITHUB_SHA": "b" * 40,
+            "AGENT_NATIVE_SOURCE_BRANCH": "feat/example",
+            "GITHUB_RUN_ID": "889",
+            "GITHUB_RUN_ATTEMPT": "1",
+        }, clear=True):
+            summary = build_ci_summary(
+                suites=[suite],
+                results=[("project-control", 0, 0.01, output)],
+                paths=["project-control/TASKS.json"],
+                base_sha="c" * 40,
+                elapsed_seconds=0.02,
+            )
+        self.assertIsNone(summary["test_counts"]["by_suite"]["project-control"]["tests"])
+        self.assertFalse(summary["test_counts"]["complete"])
+        self.assertEqual(summary["test_counts"]["unknown_suites"], ["project-control"])
+        self.assertEqual(summary["test_counts"]["negative_self_test_cases"], 4)
+
     def test_unreported_counts_remain_unknown_and_self_tests_are_separate(self):
         self.assertEqual(parse_test_counts("project control precheck completed"), (None, None))
         self.assertEqual(parse_negative_self_test_count("SELF-TEST PASS: 4 negative cases"), 4)
