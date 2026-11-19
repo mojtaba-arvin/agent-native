@@ -24,8 +24,9 @@
 
 ## Next actions
 
-1. Implement M2-003 Gateway service resolution by ID.
-2. Add explicit read/write proposal capabilities and default-deny policy mapping.
-3. Prove agents can propose, validate, and plan writes but cannot invoke service.apply.
-4. Add negative tests for missing grants, cross-tenant scope, unsupported effects, and service identity mismatch.
-5. Keep M3 cohort non-executable until owner gates and evaluator isolation are verified.
+1. Validate M2-003 Gateway service resolution and typed input contracts.
+2. Run the read/write capability and default-deny authorization tests.
+3. Verify proposal hash integrity and stale-validation rejection.
+4. Keep plan generation non-executable; there is no apply method or service.apply grant.
+5. After M2-003 is green, start M2-004 second-service/no-core-change integration proof.
+6. Keep M3 cohort non-executable until owner gates and evaluator process isolation are verified.
