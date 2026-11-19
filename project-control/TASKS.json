@@ -297,7 +297,10 @@
         "E-009 product-path smoke: failed_expectations=0",
         "run:44428892897",
         "post-correction Layer 0 + Layer 1 success",
-        "E-009 smoke zero failed expectations without capacity enforcement"
+        "E-009 smoke zero failed expectations without capacity enforcement",
+        "run:44444482357",
+        "14/14 fast suites; 571 known tests; scorecard artifact 14492437245",
+        "Layer 1 native/container/database passed on the stacked PR head"
       ]
     },
     {
@@ -609,10 +612,11 @@
         "project-control/BRANCH_INVENTORY.md",
         "27 current refs inventoried",
         "4 unique E-007 research branches preserved",
-        "16 additional diverged branches classified",
+        "20 diverged branches classified (corrected verification: CP-M0-001-COMPLETE-002)",
         "5 branches verified reachable from reboot-core",
         "no snapshot-named refs currently visible",
-        "no destructive ref operations"
+        "no destructive ref operations",
+        "CP-M0-001-COMPLETE-002"
       ]
     },
     {
@@ -682,7 +686,7 @@
       "id": "M0-003",
       "title": "Generate scorecards, test counts, and evidence summaries from source artifacts",
       "milestone": "M0",
-      "status": "pending",
+      "status": "complete",
       "priority": 6,
       "depends_on": [
         "CP-005",
@@ -694,17 +698,30 @@
         "project-control/RUN_LEDGER.jsonl",
         "scripts/",
         "REPORT.md",
-        "research/evidence-index.md"
+        "research/evidence-index.md",
+        "scripts/ci.py",
+        "scripts/generate_scorecard.py",
+        "scripts/test_scorecard.py",
+        ".github/workflows/ci.yml"
       ],
       "acceptance": [
         "Test counts are parsed from CI logs/artifacts rather than hand-entered",
         "Scorecard claims bind to exact run IDs and source revisions",
         "Failed/canceled/ineligible runs remain visible and are not silently excluded",
-        "A CI negative test rejects manual edits to generated metrics without source evidence"
+        "A CI negative test rejects manual edits to generated metrics without source evidence",
+        "The fast runner emits a JSON summary with workflow run ID, attempt, PR-head SHA, checkout SHA, base SHA, per-suite status, output hash, elapsed time, test counts, and skipped counts",
+        "Test counts are parsed from unittest output and validated against per-suite records; unknown values are not coerced to zero",
+        "The scorecard is deterministically derived from the CI summary, append-only run ledger, and progress register, and pins SHA-256 hashes of all three source artifacts",
+        "Scorecard history includes successful, failed, cancelled, and ineligible ledger events without filtering negative outcomes",
+        "Every verified completion claim in the scorecard resolves to existing immutable ledger evidence",
+        "Negative tests reject manual edits to generated test counts, run IDs, source revisions, and claim evidence without changing the source artifacts",
+        "The fast workflow generates and uploads both the raw CI summary and validated machine-readable scorecard, including when a suite fails",
+        "Suites without unittest count output retain null/unknown test counts; control-plane negative self-tests are reported as a separate metric"
       ],
       "expected_outputs": [
-        "Machine-readable evidence scorecard",
-        "Generated test-count summary",
+        "Machine-readable CI suite/test summary artifact",
+        "Source-hash-pinned evidence scorecard artifact",
+        "Negative scorecard provenance and tamper tests",
         "Claims-lint integration"
       ],
       "max_unchanged_retries": 2,
@@ -712,7 +729,11 @@
       "stop_conditions": [
         "Do not infer missing metrics or convert unknown values to zero"
       ],
-      "evidence_ids": []
+      "evidence_ids": [
+        "CI-RUN-44443670754",
+        "ARTIFACT-14491996926",
+        "fast-ci-scorecard.json@69cfa780e2a138fe40b8ae762784bc904d148e8ca2226271191c9b113f911948"
+      ]
     },
     {
       "id": "M3-001",

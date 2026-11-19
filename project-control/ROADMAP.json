@@ -75,7 +75,7 @@
     {
       "id": "M0",
       "name": "Research integrity and repository baseline",
-      "status": "in_progress",
+      "status": "blocked",
       "depends_on": [
         "C0",
         "C1"

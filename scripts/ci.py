@@ -5,10 +5,14 @@ from __future__ import annotations
 import argparse
 import concurrent.futures
 import fnmatch
+import hashlib
+import json
 import os
+import re
 import subprocess
 import sys
 import time
+from datetime import datetime, timezone
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -110,11 +114,123 @@ def run_suite(suite: Suite) -> tuple[str, int, float, str]:
     except subprocess.CalledProcessError as exc:
         return suite.name, exc.returncode, time.monotonic() - started, "\n".join(output) + (exc.stderr or "")
 
+def parse_test_counts(output: str) -> tuple[int | None, int | None]:
+    """Return None when unittest did not report counts; never turn unknown into zero."""
+    test_runs = [int(value) for value in re.findall(r"Ran (\d+) tests?", output)]
+    if not test_runs:
+        return None, None
+    skipped_runs = [int(value) for value in re.findall(r"\bskipped=(\d+)", output)]
+    return sum(test_runs), sum(skipped_runs)
+
+
+def parse_negative_self_test_count(output: str) -> int | None:
+    values = [int(value) for value in re.findall(r"SELF-TEST PASS: (\d+) negative cases", output)]
+    return sum(values) if values else None
+
+
+def build_ci_summary(
+    *,
+    suites: list[Suite],
+    results: list[tuple[str, int, float, str]],
+    paths: list[str] | None,
+    base_sha: str | None,
+    elapsed_seconds: float,
+) -> dict:
+    by_name = {name: (code, duration, output) for name, code, duration, output in results}
+    suite_records = []
+    for suite in suites:
+        code, duration, output = by_name[suite.name]
+        tests, skipped = parse_test_counts(output)
+        suite_records.append({
+            "name": suite.name,
+            "status": "passed" if code == 0 else "failed",
+            "exit_code": code,
+            "elapsed_seconds": round(duration, 6),
+            "test_count": tests,
+            "skipped_test_count": skipped,
+            "negative_self_test_count": parse_negative_self_test_count(output),
+            "test_count_source": "unittest-output" if tests is not None else "not-reported",
+            "output_sha256": hashlib.sha256(output.encode("utf-8")).hexdigest(),
+        })
+    passed = sum(item["status"] == "passed" for item in suite_records)
+    failed = len(suite_records) - passed
+    source_sha = (
+        os.environ.get("AGENT_NATIVE_SOURCE_SHA")
+        or os.environ.get("GITHUB_SHA")
+        or subprocess.run(
+            ["git", "rev-parse", "HEAD"], cwd=ROOT, text=True,
+            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, check=False,
+        ).stdout.strip()
+    )
+    branch = (
+        os.environ.get("AGENT_NATIVE_SOURCE_BRANCH")
+        or os.environ.get("GITHUB_REF_NAME")
+        or subprocess.run(
+            ["git", "branch", "--show-current"], cwd=ROOT, text=True,
+            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, check=False,
+        ).stdout.strip()
+    )
+    run_id = os.environ.get("GITHUB_RUN_ID")
+    attempt = os.environ.get("GITHUB_RUN_ATTEMPT")
+    known_test_counts = [item["test_count"] for item in suite_records if item["test_count"] is not None]
+    known_skipped_counts = [item["skipped_test_count"] for item in suite_records if item["skipped_test_count"] is not None]
+    unknown_suites = [item["name"] for item in suite_records if item["test_count"] is None]
+    negative_self_tests = [item["negative_self_test_count"] for item in suite_records if item["negative_self_test_count"] is not None]
+    return {
+        "schema_version": 1,
+        "generated_at_utc": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "source": {
+            "repository": os.environ.get("GITHUB_REPOSITORY"),
+            "commit_sha": source_sha or None,
+            "checkout_sha": os.environ.get("GITHUB_SHA") or source_sha or None,
+            "branch": branch or None,
+            "base_sha": base_sha,
+            "event_name": os.environ.get("GITHUB_EVENT_NAME"),
+            "workflow_run_id": int(run_id) if run_id and run_id.isdigit() else None,
+            "workflow_run_attempt": int(attempt) if attempt and attempt.isdigit() else None,
+        },
+        "selection": {
+            "changed_paths": paths,
+            "selected_suites": [suite.name for suite in suites],
+            "selected_suite_count": len(suites),
+        },
+        "result": {
+            "status": "passed" if failed == 0 else "failed",
+            "passed_suites": passed,
+            "failed_suites": failed,
+            "elapsed_seconds": round(elapsed_seconds, 6),
+        },
+        "test_counts": {
+            "total_known": sum(known_test_counts),
+            "skipped_known": sum(known_skipped_counts),
+            "complete": not unknown_suites,
+            "unknown_suites": unknown_suites,
+            "negative_self_test_cases": sum(negative_self_tests) if negative_self_tests else None,
+            "by_suite": {
+                item["name"]: {
+                    "tests": item["test_count"],
+                    "skipped": item["skipped_test_count"],
+                    "negative_self_test_cases": item["negative_self_test_count"],
+                    "source": item["test_count_source"],
+                }
+                for item in suite_records
+            },
+        },
+        "suites": suite_records,
+    }
+
+
+def write_ci_summary(path: Path, summary: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--layer", choices=("fast",), default="fast")
     parser.add_argument("--base", help="base git ref; only affected suites run")
     parser.add_argument("--jobs", type=int, default=min(8, os.cpu_count() or 2))
+    parser.add_argument("--json-summary", type=Path, help="write machine-readable suite/test evidence")
     args = parser.parse_args()
     if args.base:
         os.environ["AGENT_NATIVE_BASE_SHA"] = args.base
@@ -124,19 +240,32 @@ def main() -> int:
         print(f"Changed paths: {len(paths)}; selected suites: {', '.join(s.name for s in suites) or 'none'}", flush=True)
     if not suites:
         print("No fast test suites are affected by this change.")
+        if args.json_summary:
+            write_ci_summary(args.json_summary, build_ci_summary(
+                suites=[], results=[], paths=paths, base_sha=args.base, elapsed_seconds=0.0
+            ))
         return 0
     started = time.monotonic()
     failures = []
+    suite_results = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, min(args.jobs, len(suites)))) as pool:
         futures = [pool.submit(run_suite, suite) for suite in suites]
         for future in concurrent.futures.as_completed(futures):
             name, code, elapsed, output = future.result()
+            suite_results.append((name, code, elapsed, output))
             print(f"\n===== {name}: {'PASS' if code == 0 else 'FAIL'} ({elapsed:.2f}s) =====", flush=True)
             if output:
                 print(output, end="" if output.endswith("\n") else "\n", flush=True)
             if code:
                 failures.append((name, code))
     elapsed = time.monotonic() - started
+    if args.json_summary:
+        summary = build_ci_summary(
+            suites=suites, results=suite_results, paths=paths,
+            base_sha=args.base, elapsed_seconds=elapsed,
+        )
+        write_ci_summary(args.json_summary, summary)
+        print(f"CI evidence summary: {args.json_summary}", flush=True)
     print(f"\nFast CI: {len(suites) - len(failures)}/{len(suites)} suites passed in {elapsed:.2f}s")
     if failures:
         print("Failed suites: " + ", ".join(f"{name} (exit {code})" for name, code in failures))

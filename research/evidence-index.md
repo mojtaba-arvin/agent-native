@@ -125,3 +125,12 @@ At commit 086f62c851cbfe9dcd77dad66ce32bc626b517dc, [integrated kernel workflow 
 
 
 - **E-002 cross-engine crash reconciliation:** [workflow 44344568192](https://github.com/mojtaba-arvin/agent-native/actions/runs/44344568192) passed a real process termination after commit/before response on both SQLite and PostgreSQL; reopening and retrying the same idempotency key returned the original outcome and matching durable counts. The same run passed five-seed generated traces, four pre-commit rollback fault traces, both storage suites and all four runtime baselines.
+
+## Generated CI evidence artifacts
+
+For each fast-CI workflow run, the workflow emits and uploads two run-scoped JSON files:
+
+- `fast-ci-summary.json`: source revision (PR head and checked-out merge revision), workflow run/attempt, base revision, selected suites, per-suite exit status and captured-output SHA-256, elapsed time, and parsed unit/skipped test counts. Suites without unittest output retain explicit unknown/null counts; control-plane negative self-tests are recorded separately rather than coerced into unit-test totals.
+- `fast-ci-scorecard.json`: deterministic summary derived from the raw CI summary, `project-control/RUN_LEDGER.jsonl`, and `project-control/PROGRESS.json`. It pins SHA-256 hashes of all three inputs, preserves failed/cancelled/ineligible run history, and binds verified claims to ledger event IDs.
+
+The scorecard generator validates its output by recomputing it from the source artifacts; manual changes to counts, run IDs, source revisions, or claim references fail validation. These artifacts are evidence snapshots, not a capacity certification or M3 model-acceptance result. The manual E-009 ten-repetition capacity confirmation and model diagnostics remain separately gated.

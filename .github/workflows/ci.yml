@@ -112,6 +112,9 @@ jobs:
     if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    env:
+      AGENT_NATIVE_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      AGENT_NATIVE_SOURCE_BRANCH: ${{ github.head_ref || github.ref_name }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -139,10 +142,29 @@ jobs:
       - name: Run affected suites in parallel
         run: |
           if [[ -n "${{ steps.paths.outputs.base }}" ]]; then
-            bash scripts/fast.sh --base "${{ steps.paths.outputs.base }}"
+            bash scripts/fast.sh --base "${{ steps.paths.outputs.base }}" --json-summary "$RUNNER_TEMP/fast-ci-summary.json"
           else
-            bash scripts/fast.sh
+            bash scripts/fast.sh --json-summary "$RUNNER_TEMP/fast-ci-summary.json"
           fi
+      - name: Generate source-verified evidence scorecard
+        if: always()
+        run: |
+          test -s "$RUNNER_TEMP/fast-ci-summary.json"
+          python scripts/generate_scorecard.py \
+            --summary "$RUNNER_TEMP/fast-ci-summary.json" \
+            --ledger project-control/RUN_LEDGER.jsonl \
+            --progress project-control/PROGRESS.json \
+            --output "$RUNNER_TEMP/fast-ci-scorecard.json"
+      - name: Upload fast-CI evidence artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fast-ci-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/fast-ci-summary.json
+            ${{ runner.temp }}/fast-ci-scorecard.json
+          if-no-files-found: error
+          retention-days: 30
 
   extended:
     name: Layer 1 · native, container, and database validation

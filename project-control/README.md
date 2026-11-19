@@ -22,6 +22,7 @@ This directory is the versioned execution state for the Agent Native v0.1 progra
 - [DECISION_EVENTS.jsonl](DECISION_EVENTS.jsonl): hash-chained append-only decision, preregistration, and run-ledger integrity events.
 - [E-009 capacity confirmation manifest](../experiments/e009/capacity-confirmation-v1.json): frozen ten-repetition workload and capacity thresholds consumed by the manual workflow.
 - [check_claims.py](../scripts/check_claims.py): fail-closed validation for evidence-backed completion claims.
+- [generate_scorecard.py](../scripts/generate_scorecard.py): derives run-bound scorecards from CI summaries, the run ledger, and the progress register.
 
 ## Validate
 
@@ -45,3 +46,9 @@ The control-plane validator checks structural invariants and cross-file referenc
 5. Record immutable evidence references and update task/state/progress in the same change.
 6. If blocked or repeatedly failing, record the blocker and replan rather than retrying unchanged.
 7. Integrate only through a reviewable PR. Never merge to `main`, release, deploy production, change security settings, or perform destructive external actions without explicit owner authorization.
+
+## Generated CI evidence artifacts
+
+The fast workflow writes a raw `fast-ci-summary.json` from each selected suite's captured output and a derived `fast-ci-scorecard.json`. Both are uploaded as a run-scoped artifact. The summary records the PR-head SHA, workflow checkout SHA, base SHA, run ID/attempt, selected suites, per-suite exit status, output digest, elapsed time, and parsed test/skipped counts. Suites with no unittest count output retain explicit null/unknown counts rather than being treated as zero; project-control negative self-tests are reported separately.
+
+The scorecard is recomputed from the raw summary, `RUN_LEDGER.jsonl`, and `PROGRESS.json`; it pins SHA-256 digests of those exact inputs. It retains failed, cancelled, and ineligible historical events, and verified claims must resolve to ledger event IDs. A scorecard that differs from those source-derived values is rejected. The artifact is diagnostic evidence; it does not mutate the repository ledger or declare a benchmark/capacity result by itself.
