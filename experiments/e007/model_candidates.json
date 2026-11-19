@@ -61,7 +61,6 @@
   ],
   "smoke": {
     "task_path": "experiments/e009/AGENT_TASK_DELTA.md",
-    "task_id_prefix": "m3-free-model-feasibility",
     "proposal_mode": "delta",
     "base_disclosure": "minimal",
     "arm": "progressive",
@@ -75,7 +74,8 @@
     "top_p": 1,
     "seed": 42,
     "allow_sandbox_apply": false,
-    "retries": 0
+    "retries": 0,
+    "task_id_source": "local_agent.TASK_ID"
   },
   "cost": {
     "paid_api_usd_ceiling": 0,
