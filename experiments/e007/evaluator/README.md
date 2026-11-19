@@ -46,9 +46,12 @@ dispatch on that branch. It uses two separate GitHub-hosted jobs:
 
 The Python 3.12 slim image is pinned by its multi-platform manifest digest.
 This is a topology smoke, not an LLM run, hidden-oracle evaluation, or M3
-acceptance evidence. The sandbox attestations prove the configured container
-restrictions for this synthetic run; they do not replace independent review or
-prove a production-grade VM/tenant boundary. The `m3-evaluator` environment reference is present, but
+acceptance evidence. The updated workflow now performs fail-closed runtime
+probes for non-root UID, read-only root, noexec tmpfs, no-new-privileges, zero
+effective capabilities, blocked outbound networking, and cgroup limits. The
+integrated rerun of these probes is still pending; even a successful synthetic
+attestation does not replace independent review or prove a production-grade
+VM/tenant boundary. The `m3-evaluator` environment reference is present, but
 its protection rules and real oracle secret are not configured by this change.
 
 ## Owner setup still required
@@ -58,9 +61,9 @@ See [OWNER_SETUP.md](OWNER_SETUP.md) for the complete security, runner, model-bu
 - Configure a protected GitHub Environment named `m3-evaluator`.
 - Provision the oracle decryption key only to that environment (never to the
   agent job).
-- Select an isolated ephemeral runner/container image and pin its digest.
-- Approve the model provider, model identities, repetitions, and spend ceilings
-  before freezing the preregistration.
+- Keep the smoke image pinned by digest and separately pin any future real-agent runtime.
+- Select free/open-weight model identities, versions, repetitions, and sampling parameters; paid API/GPU use is not authorized.
+- Freeze the preregistration only after a qualifying zero-cost model path and protected oracle custody are verified.
 
 Until those controls are configured and independently verified,
 `evaluator_isolation.implemented` remains false and the M3 cohort remains a
