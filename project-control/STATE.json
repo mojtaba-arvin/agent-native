@@ -4,15 +4,14 @@
   "active_branch": "feat/generated-evidence-scorecards-v1",
   "baseline_branch": "research/reboot-core",
   "baseline_commit": "23f9c77d8ce9a8d55895c6c4903a4ff409ba5781",
-  "current_milestone": "M0",
+  "current_milestone": "C1",
   "active_task_ids": [
-    "M0-003",
     "CP-007"
   ],
-  "last_completed_task_id": "M0-002",
-  "last_known_green_revision": "b19768092c2db52409db4cf1f752137f5426be57",
+  "last_completed_task_id": "M0-003",
+  "last_known_green_revision": "10d7e8ee541a1ee08776e513158afeb034a77a79",
   "wip_limit": 2,
-  "next_action": "Finish the generated scorecard pipeline and prove tamper rejection on this stacked branch. Keep integration gated: PR #64 owner review/integration is still required before PR #65 can be retargeted; do not merge the stack.",
+  "next_action": "M0's three exit criteria are verified, but the milestone remains blocked by its C1 dependency. PR #64 still requires owner review/integration into research/reboot-core before PR #65 can be retargeted. Keep PRs #68 and #69 stacked and unmerged. After CP-007 is integrated, begin M1-001 packaging.",
   "recovery": {
     "unchanged_failure_limit": 2,
     "no_progress_attempt_limit": 3,

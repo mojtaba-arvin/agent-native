@@ -80,6 +80,26 @@
       "evidence_event_ids": [
         "CI-RUN-44441229102"
       ]
+    },
+    {
+      "id": "CLAIM-M0-001",
+      "statement": "The current branch inventory preserves the four unique E-007 research branches and their evidence artifacts, records exact branch tips/reachability for all 27 refs, and performs no destructive ref operations.",
+      "status": "verified",
+      "milestone_id": "M0",
+      "criterion": "Research-only branch content is preserved and reviewed before pruning",
+      "evidence_event_ids": [
+        "CP-M0-001-COMPLETE-002"
+      ]
+    },
+    {
+      "id": "CLAIM-M0-003",
+      "statement": "Fast CI generates a run-bound JSON summary and a source-hash-pinned scorecard from CI output, the append-only run ledger, and the progress register; it preserves unknown test counts and failed/cancelled/ineligible history.",
+      "status": "verified",
+      "milestone_id": "M0",
+      "criterion": "Run artifacts and test counts are generated from source evidence",
+      "evidence_event_ids": [
+        "CI-RUN-44443670754"
+      ]
     }
   ],
   "milestones": {
@@ -117,9 +137,11 @@
       "total_exit_criteria": 3
     },
     "M0": {
-      "status": "in_progress",
+      "status": "blocked",
       "verified_exit_criteria": [
-        "Benchmark cohorts and thresholds are preregistered and immutable after start"
+        "Research-only branch content is preserved and reviewed before pruning",
+        "Benchmark cohorts and thresholds are preregistered and immutable after start",
+        "Run artifacts and test counts are generated from source evidence"
       ],
       "total_exit_criteria": 3
     },

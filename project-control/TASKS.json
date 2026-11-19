@@ -612,7 +612,8 @@
         "16 additional diverged branches classified",
         "5 branches verified reachable from reboot-core",
         "no snapshot-named refs currently visible",
-        "no destructive ref operations"
+        "no destructive ref operations",
+        "CP-M0-001-COMPLETE-002"
       ]
     },
     {
@@ -682,7 +683,7 @@
       "id": "M0-003",
       "title": "Generate scorecards, test counts, and evidence summaries from source artifacts",
       "milestone": "M0",
-      "status": "in_progress",
+      "status": "complete",
       "priority": 6,
       "depends_on": [
         "CP-005",
@@ -725,7 +726,11 @@
       "stop_conditions": [
         "Do not infer missing metrics or convert unknown values to zero"
       ],
-      "evidence_ids": []
+      "evidence_ids": [
+        "CI-RUN-44443670754",
+        "ARTIFACT-14491996926",
+        "fast-ci-scorecard.json@69cfa780e2a138fe40b8ae762784bc904d148e8ca2226271191c9b113f911948"
+      ]
     },
     {
       "id": "M3-001",
