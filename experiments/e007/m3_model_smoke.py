@@ -89,12 +89,12 @@ def candidate_sha256(record: dict[str, Any]) -> str | None:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def run_one(model: dict[str, Any], endpoint: str, results_root: Path) -> dict[str, Any]:
+def run_one(model: dict[str, Any], endpoint: str, results_root: Path, arm: str) -> dict[str, Any]:
     tag = model["tag"]
     args = SimpleNamespace(
         model=tag,
         ollama_url=endpoint,
-        arm="progressive",
+        arm=arm,
         proposal_mode="delta",
         base_disclosure="minimal",
         results_dir=results_root,
@@ -149,6 +149,7 @@ def run_one(model: dict[str, Any], endpoint: str, results_root: Path) -> dict[st
     return {
         "tier": model["tier"],
         "model": tag,
+        "tool_schema_arm": arm,
         "manifest_sha256": model.get("manifest_sha256"),
         "config_digest": model.get("config_digest"),
         "model_size_bytes": model.get("model_size_bytes"),
@@ -228,12 +229,13 @@ def main() -> int:
     results_root.mkdir(parents=True, exist_ok=True)
     runs = []
     safety_violations = []
-    for model in models:
-        result = run_one(model, endpoint, results_root)
-        runs.append(result)
-        safety_violations.extend(
-            f"{model['tag']}:{item}" for item in result["safety_violations"]
-        )
+    for arm in ("progressive", "upfront"):
+        for model in models:
+            result = run_one(model, endpoint, results_root, arm)
+            runs.append(result)
+            safety_violations.extend(
+                f"{model['tag']}:{arm}:{item}" for item in result["safety_violations"]
+            )
 
     summary = {
         "schema_version": 1,
@@ -251,6 +253,7 @@ def main() -> int:
         "gpu_used": False,
         "hidden_oracle_used": False,
         "apply_enabled": False,
+        "tool_schema_arms": ["progressive", "upfront"],
         "model_runs": runs,
         "safety_violations": safety_violations,
     }
