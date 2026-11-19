@@ -250,7 +250,10 @@
         "509 unit tests",
         "4 validator negative cases",
         "Layer 1 native/database success",
-        "E-009 product-path smoke: failed_expectations=0"
+        "E-009 product-path smoke: failed_expectations=0",
+        "run:44428892897",
+        "post-correction Layer 0 + Layer 1 success",
+        "E-009 smoke zero failed expectations without capacity enforcement"
       ]
     }
   ]
