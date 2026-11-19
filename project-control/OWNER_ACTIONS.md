@@ -12,19 +12,19 @@ exact head when external reviewers are unavailable. A waiver is not a peer
 review, does not complete C3's independent-review criterion, and must never be
 reported as two approvals.
 
-For PR #81, the owner authorized a narrow waiver for head
-`8f6ea008ef80cf0a1ef0d29ac503f5214ad5497e`. The exact marker is recorded in
+For PR #81, the owner authorized a narrow waiver for the final reviewed head
+`0e53539ac8652a79bd831c4883ec9ff26ebf411c`. The exact marker is recorded in
 the PR conversation:
 
-`OWNER-APPROVED-REVIEW-WAIVER: 8f6ea008ef80cf0a1ef0d29ac503f5214ad5497e`
+`OWNER-APPROVED-REVIEW-WAIVER: 0e53539ac8652a79bd831c4883ec9ff26ebf411c`
 
 CI accepts this exception only when the PR author is the repository owner and
 a comment authored by that same repository owner contains the exact current
 head marker. Any new commit invalidates the waiver automatically.
 
 - [x] Record owner authorization on PR #81's exact current head.
-- [ ] Confirm the owner-waiver gate and fresh Layer 0/Layer 1 checks pass.
-- [ ] Complete a source-level security audit and preserve its findings.
+- [x] Confirm the owner-waiver gate and fresh Layer 0/Layer 1 checks pass on the final PR #81 head.
+- [x] Complete a source-level security audit and preserve its findings in the PR conversation.
 - [ ] Keep C3 pending until genuine independent peer reviews are obtained.
 
 ## B. Branch protection and main integration
@@ -48,10 +48,16 @@ verified.
 
 ## C. M3 decision-grade evaluation
 
-- [ ] Complete the steps in [E-007 evaluator owner setup](../experiments/e007/evaluator/OWNER_SETUP.md).
-- [ ] Configure protected environment, evaluator-only oracle custody, and an
-      isolated ephemeral runner.
-- [ ] Approve exact model identities, repetitions, and hard spend ceilings.
+The owner has authorized a zero-paid-spend ceiling, limited to GitHub Actions
+free usage for this public repository. Paid API/GPU workloads are not
+authorized. The existing Qwen3 CPU workflow remains diagnostic only.
+
+- [x] Record the zero-paid-spend ceiling; do not incur paid model/GPU charges.
+- [ ] Configure a protected environment and evaluator-only oracle custody.
+- [ ] Implement and verify separate ephemeral agent/evaluator process,
+      filesystem, and network trust zones.
+- [ ] Pin model identities, repetitions, and immutable cohort manifests using
+      a qualifying free-tier execution path.
 - [ ] Keep the cohort draft and non-executable until all evidence is frozen.
 
 No additional ChatGPT/GitHub code permission is required for ordinary branch,

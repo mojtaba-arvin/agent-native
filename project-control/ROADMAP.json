@@ -103,7 +103,7 @@
     {
       "id": "M2",
       "name": "Service-independent Gateway and declarative handlers",
-      "status": "in_progress",
+      "status": "complete",
       "depends_on": [
         "M1"
       ],

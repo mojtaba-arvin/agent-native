@@ -1,8 +1,8 @@
 # M3 research execution preflight
 
 **Status:** preparation only; no model cohort dispatched.  
-**Baseline:** `research/reboot-core@c14d3f2e6eda5963668217ba2ad5fb2d8a1de6b0`  
-**Purpose:** remove repository-side uncertainty before asking the owner to authorize any paid API/GPU work.
+**Baseline:** `research/reboot-core@0e8e8fe67f410add6d851584eeb7434f2f707aa8`  
+**Purpose:** remove repository-side uncertainty while staying within the owner's zero-paid-spend ceiling (GitHub Actions free usage only).
 
 ## Current verified state
 
@@ -12,7 +12,7 @@
 | Task coverage | The frozen pilot still uses one task (`e009-add-readonly-operation`); PR #74 adds three public draft tasks for operation addition, backward-compatible field addition, and tenant isolation | Public task prompts now exist; hidden evaluator oracles, pinned baseline fixtures, and independent scoring contracts remain outstanding |
 | Model coverage | One local model ID, `qwen3:8b` | Strong/medium/weak tiers and immutable provider/model versions remain unselected |
 | Cost telemetry | Case manifests use `unpriced_local`; monetary prices and cost ceilings are null | Cannot produce decision-grade cost-per-accepted-task comparisons |
-| Agent/oracle separation | `ORACLE_ISOLATION.md` defines the required trust zones; workspace materialization exists | A disposable agent sandbox and separate evaluator sandbox are not implemented |
+| Agent/oracle separation | PR #89 hardens preflight: rejects symlinks/hard links, verifies oracle file/parent ownership and owner-only permissions, and removes the oracle path from public evidence objects | These checks are defense-in-depth only; disposable agent and evaluator process/filesystem/network sandboxes are still not implemented |
 | Execution route | `.github/workflows/ci.yml` has manual CPU diagnostics explicitly labeled not M3 acceptance; `e007-provider-diagnostic.yml` is a one-cell Qwen3 diagnostic | Neither is the M3 acceptance runner |
 | Dispatch guard | The factorial runner pins the revision, validates the four-cell manifest before provisioning, enforces no-apply, and is restricted to `research/reboot-core` | Preserve this boundary; do not dispatch from a feature branch |
 
@@ -26,19 +26,19 @@
 6. **Runner:** create a dedicated manual-only M3 workflow that validates all frozen manifests and approval inputs before provisioning. It must not be reachable from ordinary PR, push, or scheduled CI events.
 7. **Acceptance:** run deterministic validators and isolation negative tests before any model request; then independently inspect the complete raw artifact. A green workflow alone is not acceptance.
 
-## Owner-only inputs (not requested until the technical gates are ready)
+## Remaining protected setup
 
-- Explicit maximum total spend for the first M3 cohort, in USD (or an explicit zero-cost self-hosted-only constraint).
-- Approval of the model/provider route and access to a suitable GPU runner or provider credentials.
-- If API credentials are used, add them directly as narrowly scoped GitHub Actions secrets after the provider/model set is selected. Never paste secrets into chat, manifests, PR comments, or logs.
+- The repository owner has authorized a zero-paid-spend ceiling, limited to GitHub Actions free usage for this public repository. Paid API/GPU workloads are not authorized.
+- A protected GitHub Environment and evaluator-only oracle custody are still required. The current GitHub integration cannot create or write protected Environment secrets, so this administrative setup remains unavailable through the current connection.
+- Prefer a qualifying open-weight/free-tier model path. Do not treat the existing CPU-only Qwen3 diagnostic as M3 acceptance.
 
 ## Safety and dispatch decision
 
-No paid API/GPU workload has been started. No secret is currently required for this preparation. The existing Qwen3 pilot remains frozen and unchanged; do not reinterpret it as M3 acceptance. The M3-001 task remains blocked until the owner approves a bounded execution budget and runner/credentials, and until the three-task, three-tier cohort and oracle isolation gates are implemented and reviewed.
+No paid API/GPU workload has been started. No oracle cohort has been executed. The existing Qwen3 pilot remains frozen and unchanged; do not reinterpret it as M3 acceptance. M3-001 remains blocked until a qualifying zero-cost isolated runner/evaluator path and the three-task, three-tier cohort are implemented and verified.
 
 ## Immediate next engineering steps
 
 - Build isolated baseline fixtures and hidden evaluator contracts for the three public task drafts without exposing assertions or oracle data to agent workspaces.
 - Build and test the sandbox/evaluator separation before connecting any model provider.
 - Implement the manual-only M3 dispatch workflow and validate its fail-closed approval/budget gate.
-- Only then request the owner’s spend ceiling and provider/GPU authorization.
+- Do not request or incur paid spend; only proceed with a no-cost path that meets the same isolation and evidence standards.

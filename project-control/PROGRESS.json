@@ -190,6 +190,46 @@
       "evidence_event_ids": [
         "CP-009-SCHEDULER-CI-001"
       ]
+    },
+    {
+      "id": "CLAIM-M2-001",
+      "statement": "The Gateway resolves services by manifest/service ID rather than a hard-coded demo mapping.",
+      "status": "verified",
+      "milestone_id": "M2",
+      "criterion": "Gateway resolves service by manifest/id, not a hard-coded demo",
+      "evidence_event_ids": [
+        "M2-INTEGRATION-2026-11-19-001"
+      ]
+    },
+    {
+      "id": "CLAIM-M2-002",
+      "statement": "Declarative CRUD, job, and event handlers are driven by service IR and generic dispatch.",
+      "status": "verified",
+      "milestone_id": "M2",
+      "criterion": "Declarative CRUD/job/event handlers are driven by IR",
+      "evidence_event_ids": [
+        "M2-INTEGRATION-2026-11-19-001"
+      ]
+    },
+    {
+      "id": "CLAIM-M2-003",
+      "statement": "Write effects and capabilities are explicit, default-deny, tenant/resource scoped, and cannot be applied by the agent.",
+      "status": "verified",
+      "milestone_id": "M2",
+      "criterion": "Write effects/capabilities are explicit and deny-by-default",
+      "evidence_event_ids": [
+        "M2-INTEGRATION-2026-11-19-001"
+      ]
+    },
+    {
+      "id": "CLAIM-M2-004",
+      "statement": "A second service (Inventory) uses the same Gateway without service-specific core changes; positive write planning and negative capability/tenant cases pass.",
+      "status": "verified",
+      "milestone_id": "M2",
+      "criterion": "A new service can be added without core changes",
+      "evidence_event_ids": [
+        "M2-INTEGRATION-2026-11-19-001"
+      ]
     }
   ],
   "milestones": {
@@ -252,8 +292,13 @@
       "total_exit_criteria": 4
     },
     "M2": {
-      "status": "in_progress",
-      "verified_exit_criteria": [],
+      "status": "complete",
+      "verified_exit_criteria": [
+        "Gateway resolves service by manifest/id, not a hard-coded demo",
+        "Declarative CRUD/job/event handlers are driven by IR",
+        "Write effects/capabilities are explicit and deny-by-default",
+        "A new service can be added without core changes"
+      ],
       "total_exit_criteria": 4
     },
     "M3": {

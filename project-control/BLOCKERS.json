@@ -44,13 +44,13 @@
       "id": "BLK-004",
       "status": "open",
       "severity": "high",
-      "title": "Decision-grade M3 model evaluation needs an approved GPU or API execution path",
-      "description": "The unified workflow retains the existing Ollama/Qwen3 CPU job only as a manual diagnostic. It cannot be used to satisfy the v0.1 M3 acceptance gate, which requires a strong model and representative stochastic cohorts on an approved GPU or API path.",
+      "title": "Decision-grade M3 evaluation lacks a qualifying zero-cost isolated execution path",
+      "description": "The repository owner authorized spend only within GitHub Actions free usage for this public repository; paid API/GPU workloads are not authorized. The existing Qwen3 CPU workflow is diagnostic and cannot satisfy M3 acceptance. PR #89 hardened filesystem custody preflight (symlink/hard-link, ownership, and permissions checks, with oracle path omitted from evidence objects), but this is not process/filesystem/network isolation. A qualifying isolated free-tier agent/evaluator path and credible model tiers have not yet been demonstrated.",
       "owner_action_required": true,
       "unblocks": [
         "M3 decision-grade model evaluation"
       ],
-      "next_step": "Obtain owner approval for a bounded API/GPU budget and credentials/runner before enabling the decision-grade cohort."
+      "next_step": "Continue implementing and testing a no-cost isolated evaluator topology. The current GitHub integration cannot provision protected Environment secrets; when the code path is ready, use the repository's protected GitHub Environment for evaluator-only oracle custody. Do not launch paid API/GPU workloads or dispatch the cohort before all isolation and preregistration gates pass."
     },
     {
       "id": "BLK-005",
@@ -81,16 +81,14 @@
     {
       "id": "BLK-007",
       "status": "open",
-      "severity": "high",
-      "title": "Two independent human reviews are required before M2-003 trust-boundary integration",
-      "description": "PR #81 changes Gateway/authz trust-boundary code. Two independent human reviews remain the default. The repository owner has explicitly authorized an exact-head waiver for 8f6ea008ef80cf0a1ef0d29ac503f5214ad5497e, recorded in the PR conversation. CI support for this narrow waiver is being added. The waiver is not peer review and does not complete C3.",
+      "severity": "medium",
+      "title": "C3 independent peer review remains outstanding after M2 owner waiver",
+      "description": "M2-003 was integrated after an exact-head repository-owner waiver, source-level integrator audit, and fresh Layer 0/Layer 1 checks. The waiver is not peer review. C3 still requires genuine independent human APPROVED reviews on a trust-boundary change; this remaining governance criterion no longer blocks M2 or M3 preparation.",
       "owner_action_required": false,
       "unblocks": [
-        "M2-003 integration",
-        "M2-004 retarget and integration",
         "C3 completion"
       ],
-      "next_step": "Verify the exact-head owner-waiver CI path and complete source-level security audit. Integrate M2-003 only after fresh Layer 0 and Layer 1 pass. Keep C3 pending until two genuine independent peer reviews are recorded."
+      "next_step": "Seek two genuine independent human reviewers for a future trust-boundary review and keep C3 pending until their approvals are recorded. Do not block unrelated M3 preparation on this criterion."
     }
   ]
 }
