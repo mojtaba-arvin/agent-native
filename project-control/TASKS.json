@@ -223,12 +223,13 @@
       ],
       "acceptance": [
         "All 15 legacy workflow responsibilities are mapped",
-        "Unified L0/L1/L2 triggers and permissions are reviewed",
-        "Layer 0 and Layer 1 pass in one workflow run after the workflow is present in the base branch",
-        "E-002 benchmark and E-009 ten-run confirmation are manual-only",
+        "Unified L0/L1/L2 triggers and least-privilege permissions are reviewed",
+        "Layer 0 and Layer 1 pass in one workflow run on the PR head (run 44424340406)",
+        "E-002 ten-repetition benchmark and E-009 ten-run confirmation are manual-only",
         "CPU-only model runs are explicitly non-acceptance diagnostics",
-        "No workflow concurrency policy cancels in-flight evidence",
-        "Legacy workflow deletion is covered by the verified unified workflow"
+        "No workflow concurrency groups can cancel in-flight evidence",
+        "E-009 PR smoke is labelled as a product-path smoke, not a capacity claim",
+        "After PR #64 is integrated, PR #65 is retargeted to research/reboot-core and passes a fresh run"
       ],
       "expected_outputs": [
         "Unified CI workflow",
@@ -242,7 +243,14 @@
         "Do not weaken trust-boundary tests",
         "Do not enable unattended paid model runs"
       ],
-      "evidence_ids": []
+      "evidence_ids": [
+        "run:44424340406",
+        "14/14 suites",
+        "509 unit tests",
+        "4 validator negative cases",
+        "Layer 1 native/database success",
+        "E-009 product-path smoke: failed_expectations=0"
+      ]
     }
   ]
 }
