@@ -61,7 +61,7 @@
       "id": "CP-003",
       "title": "Audit active v0.1 implementation against the roadmap and create evidence-backed task contracts",
       "milestone": "M0",
-      "status": "in_progress",
+      "status": "complete",
       "priority": 3,
       "depends_on": [
         "CP-001"
@@ -102,7 +102,16 @@
       "stop_conditions": [
         "Do not claim model success or runtime selection without evidence"
       ],
-      "evidence_ids": []
+      "evidence_ids": [
+        "project-control/M0_AUDIT.md",
+        "REPORT.md reconciled",
+        "experiments/e007/README.md reconciled",
+        "experiments/e009/README.md reconciled",
+        "M1/M2/M3/M4/M5 task contracts",
+        "run:44432301307",
+        "14/14 fast suites",
+        "Layer 1 native/database success"
+      ]
     },
     {
       "id": "CP-004",
@@ -569,7 +578,7 @@
       "id": "M0-001",
       "title": "Inventory and preserve research-only branches and unique evidence artifacts",
       "milestone": "M0",
-      "status": "pending",
+      "status": "in_progress",
       "priority": 4,
       "depends_on": [
         "CP-003"
