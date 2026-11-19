@@ -29,16 +29,16 @@
     },
     {
       "id": "BLK-003",
-      "status": "open",
+      "status": "resolved",
       "severity": "high",
       "title": "Unified CI candidate needs safety and cost corrections before port",
-      "description": "The unified workflow is implemented on the stacked PR. Its first run validated Layer 1 but exposed a stale E-007 workflow-manifest path; after fixing that path, Layer 0 passed 14/14. The latest Layer 1 job was cancelled during PR state transitions. A final single run with both layers green is still required.",
+      "description": "The unified workflow's PR-head run 44424340406 completed with Layer 0 and Layer 1 successful. The stale E-007 source-manifest path is fixed, all 15 legacy workflow responsibilities are mapped, manual expensive jobs remain opt-in, and the workflow has no concurrency groups. The E-009 shared-runner smoke passed but explicitly does not constitute a capacity claim. A fresh run is still required after PR #64 is integrated and PR #65 is retargeted.",
       "owner_action_required": false,
       "unblocks": [
         "CP-006",
         "CP-007"
       ],
-      "next_step": "Trigger one final run without changing PR draft/ready state; confirm both Layer 0 and Layer 1 complete successfully under the no-concurrency policy."
+      "next_step": "After PR #64 is integrated into research/reboot-core, retarget PR #65 and verify a fresh all-green run before merge."
     },
     {
       "id": "BLK-004",
