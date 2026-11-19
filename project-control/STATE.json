@@ -1,17 +1,18 @@
 {
   "schema_version": 1,
   "updated_at": "2026-11-19",
-  "active_branch": "feat/generated-evidence-scorecards-v1",
+  "active_branch": "feat/control-plane-resume",
   "baseline_branch": "research/reboot-core",
-  "baseline_commit": "23f9c77d8ce9a8d55895c6c4903a4ff409ba5781",
-  "current_milestone": "C1",
+  "baseline_commit": "10ae594f405519344b1d654e9577bd78cb1f4985",
+  "current_milestone": "C0",
   "active_task_ids": [
-    "CP-007"
+    "CP-008",
+    "M1-001"
   ],
-  "last_completed_task_id": "M0-003",
-  "last_known_green_revision": "8625e94eb1a285e9516d0e69048581ba6b240a1f",
+  "last_completed_task_id": "CP-007",
+  "last_known_green_revision": "c14d3f2e6eda5963668217ba2ad5fb2d8a1de6b0",
   "wip_limit": 2,
-  "next_action": "M0's three exit criteria are verified; the milestone is blocked only by C1/CP-007 integration. Owner review and integration of PR #64 into research/reboot-core is required before PR #65 can be retargeted and CP-007 completed. Keep PRs #68 and #69 stacked and unmerged. M1-001 package scaffolding can proceed on a separate stacked branch while this owner gate remains open.",
+  "next_action": "Complete CP-008 by validating the stateless resume command and its dependency/WIP negative tests. In parallel, continue M1-001 on feat/m1-package-cli and require a fresh all-green install/runtime package CI run before marking it complete. M0 remains blocked only by the remaining C0/C1 exit criteria, not by PR integration.",
   "recovery": {
     "unchanged_failure_limit": 2,
     "no_progress_attempt_limit": 3,
