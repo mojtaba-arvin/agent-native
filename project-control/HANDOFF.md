@@ -3,8 +3,8 @@
 ## Resume protocol
 
 1. Read AGENTS.md and this directory's README.md.
-2. Run python project_control.py validate, status, self-test, and resume.
-3. Run python scripts/check_claims.py and python scripts/check_preregistrations.py.
+2. Run `python project_control.py validate`, `status`, `self-test`, and `resume`.
+3. Run `python scripts/check_claims.py` and `python scripts/check_preregistrations.py`.
 4. Inspect current branch, base, open PRs, diffs, and latest workflow runs.
 5. Continue only active tasks whose dependencies are complete.
 6. If blocked, record the blocker and continue independent work.
@@ -14,21 +14,20 @@
 
 ## Current checkpoint — 2026-11-19
 
-- C0, C1, M0, and M1 are complete and integrated.
-- CP-009 adds a read-only dependency-aware scheduler with WIP enforcement, task-attempt recovery thresholds, and branch/integration ownership checks; CI validation is in progress.
-- The unified CI candidate now checks PR base freshness and requires two independent approvals for trust-boundary implementation changes; actual reviews remain a human gate.
-- M2-001 ServiceRegistry is merged; M2-002 generic declarative CRUD/list/job/event dispatch has passed 15/15 deterministic suites, 78 installed-package tests, and Layer 1 native/container/database validation (run #44453671758).
-- M2-003 Service-independent Gateway is implemented and CI-green on feat/m2-service-independent-gateway; it remains open for two independent reviews before integration.
-- M2-004 cross-service proof is prepared on feat/m2-second-service-proof, stacked on M2-003; Layer 0 and Layer 1 are green.
-- CP-009 dependency-aware scheduler/recovery is active on feat/control-plane-scheduler; active workstreams and integration owners are recorded in STATE.json.
-- M3 evaluator boundary scaffold is merged. It rejects workspace-local oracle files, symlinks, weak oracle permissions, and candidate-hash discontinuity. Actual process isolation remains unimplemented.
-- M3 cohort remains draft, unregistered, no-apply, and non-executable. Owner setup still requires protected evaluator environment, evaluator-only oracle key, isolated runner/image digest, model identities, and approved budget.
-- Owner gates remain BLK-001 (main-branch merge/security authority), BLK-004 (M3 approved spend/provider/runner), and BLK-007 (two independent human reviews for PR #81).
+- C0, C1, M0, M1, and C2 are complete and integrated into `research/reboot-core`.
+- CP-009 dependency-aware scheduling/recovery is complete through PR #84. Run #44463121689 passed deterministic Layer 0 and Layer 1; task evidence, claims, and the append-only ledger pin are recorded.
+- M2-001 ServiceRegistry and M2-002 generic declarative CRUD/list/job/event dispatch are integrated.
+- M2-003 Service-independent Gateway is implemented on PR #81. Layer 1 passes on the current head; Layer 0 intentionally blocks at the two-independent-human-review gate because no qualifying approvals are recorded.
+- M2-004 multi-service proof is prepared on PR #82. Its current stacked head passed Layer 0 and Layer 1 in run #44464064586; it remains pending and must not be integrated ahead of PR #81.
+- The active task is M2-003. Its branch, base, and integration owner are recorded in STATE.json.
+- M3 real-agent/oracle evaluation is intentionally skipped for now. No oracle, provider API, paid model, or GPU evaluation has been executed. The cohort remains draft and non-executable.
+- Owner gates remain BLK-001 (main-branch merge/security authority), BLK-004 (M3 spend/provider/runner approval), and BLK-007 (two independent human reviews for PR #81).
 - No main merge, production deployment, provider call, paid model/GPU evaluation, or destructive branch operation has been performed.
 
 ## Next actions
 
-1. Complete CP-009 scheduler tests and recovery validation.
-2. Complete M2-003 independent reviews before merging; then retarget M2-004 and integrate it.
-3. Keep M3 cohort non-executable until the protected evaluator environment, oracle separation, runner, model identities, and budget are verified.
-4. Do not merge to main or alter repository security settings without explicit owner authorization.
+1. Owner adds two independent human reviewers and requests APPROVED reviews on PR #81's current head. Do not merge before both approvals.
+2. After approvals, verify the review gate and fresh Layer 0/Layer 1 checks, then integrate M2-003 into `research/reboot-core`.
+3. Retarget PR #82 to `research/reboot-core`, rerun CI against the integrated Gateway, and integrate M2-004 only after all checks pass.
+4. Keep M3/oracle evaluation skipped until explicitly resumed with the required owner-approved isolation and budget controls.
+5. Do not merge to `main` or alter repository security settings without explicit owner authorization.

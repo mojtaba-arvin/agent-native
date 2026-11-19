@@ -33,7 +33,7 @@
     {
       "id": "C2",
       "name": "Autonomous scheduling and recovery",
-      "status": "in_progress",
+      "status": "complete",
       "depends_on": [
         "C0",
         "C1"

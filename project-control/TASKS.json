@@ -635,7 +635,9 @@
         "Layer 1 native/container/database passed",
         "tests/test_gateway_integration.py",
         "docs/multi-service-gateway-proof.md",
-        "PR-82"
+        "PR-82",
+        "M2-004-STACKED-CI-001",
+        "run:44464064586"
       ],
       "execution": {
         "branch": "feat/m2-second-service-proof",
@@ -1056,7 +1058,7 @@
       "id": "CP-009",
       "title": "Add dependency-aware scheduling, WIP enforcement, and retry recovery planning",
       "milestone": "C2",
-      "status": "in_progress",
+      "status": "complete",
       "priority": 9,
       "depends_on": [
         "CP-008"
@@ -1095,8 +1097,12 @@
         "integration_owner": "integrator"
       },
       "evidence_ids": [
+        "CP-009-SCHEDULER-CI-001",
+        "run:44463121689",
         "project_control.py#build_schedule_plan",
-        "project_control.py#command_schedule"
+        "project_control.py#command_schedule",
+        "scripts/test_project_control.py",
+        "PR-84"
       ]
     },
     {
