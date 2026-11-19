@@ -252,7 +252,7 @@
       "statement": "A separate shortlist of small CPU-capable Ollama tool-calling models was researched from official model-library metadata, with exact tags, published download sizes, context metadata, and a resource-heavier reserve; the active Granite cohort and lock were not changed.",
       "status": "verified",
       "evidence_event_ids": [
-        "M3-006-ALTERNATIVE-MODEL-SHORTLIST-2026-11-19-001"
+        "M3-006-RESEARCH-VERIFIED-2026-11-19-002"
       ]
     },
     {

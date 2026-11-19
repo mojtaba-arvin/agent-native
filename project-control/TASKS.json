@@ -1463,7 +1463,9 @@
         "https://ollama.com/library/gemma4",
         "Qwen3 1.7b 1.4GB / 4b 2.5GB",
         "Granite4.2 3b 2.2GB",
-        "Gemma4 e2b 4.6–7.5GB"
+        "Gemma4 e2b 4.6–7.5GB",
+        "commit:13dc637f1e8b3dc1a2739e099338f15a89a1dfc2",
+        "https://github.com/mojtaba-arvin/agent-native/commit/13dc637f1e8b3dc1a2739e099338f15a89a1dfc2"
       ]
     },
     {
