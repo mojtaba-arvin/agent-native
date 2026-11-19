@@ -89,6 +89,43 @@ jobs:
             echo "Pulling public model $model"
             docker exec ollama-pull ollama pull "$model"
           done
+          python3 - "$GITHUB_WORKSPACE/experiments/e007/model_candidates.json" "$OUTPUT_DIR/model-details.json" <<'PY'
+          import json
+          import sys
+          import urllib.request
+          from pathlib import Path
+
+          candidates = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+          records = []
+          for model in candidates["models"]:
+              payload = json.dumps({"name": model["tag"]}).encode("utf-8")
+              request = urllib.request.Request(
+                  "http://127.0.0.1:11434/api/show",
+                  data=payload,
+                  headers={"Content-Type": "application/json"},
+                  method="POST",
+              )
+              with urllib.request.urlopen(request, timeout=60) as response:
+                  details = json.loads(response.read())
+              model_details = details.get("details", {})
+              quantization = model_details.get("quantization_level")
+              if quantization != model["quantization_expected"]:
+                  raise SystemExit(
+                      f"unexpected quantization for {model['tag']}: {quantization!r}"
+                  )
+              records.append({
+                  "tag": model["tag"],
+                  "format": model_details.get("format"),
+                  "family": model_details.get("family"),
+                  "families": model_details.get("families"),
+                  "parameter_size": model_details.get("parameter_size"),
+                  "quantization_level": quantization,
+              })
+          Path(sys.argv[2]).write_text(
+              json.dumps({"schema_version": 1, "models": records}, indent=2, sort_keys=True) + "\\n",
+              encoding="utf-8",
+          )
+          PY
           docker stop ollama-pull
           docker rm ollama-pull
 
@@ -104,6 +141,8 @@ jobs:
 
           model_dir = Path(sys.argv[1])
           candidates = json.loads(Path(sys.argv[2]).read_text(encoding="utf-8"))
+          details_data = json.loads((Path(sys.argv[3]).parent / "model-details.json").read_text(encoding="utf-8"))
+          details_by_tag = {item["tag"]: item for item in details_data["models"]}
           output = Path(sys.argv[3])
           records = []
           for item in candidates["models"]:
@@ -117,9 +156,14 @@ jobs:
               raw = manifest_path.read_bytes()
               manifest = json.loads(raw)
               layers = manifest.get("layers", [])
+              model_details = details_by_tag[tag]
               records.append({
                   "tag": tag,
                   "manifest_sha256": hashlib.sha256(raw).hexdigest(),
+                  "quantization_level": model_details["quantization_level"],
+                  "parameter_size": model_details.get("parameter_size"),
+                  "format": model_details.get("format"),
+                  "family": model_details.get("family"),
                   "config_digest": manifest["config"]["digest"],
                   "model_size_bytes": sum(
                       layer.get("size", 0) for layer in layers
