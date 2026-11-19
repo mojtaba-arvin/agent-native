@@ -33,6 +33,8 @@ def main() -> int:
             check=True,
             timeout=45,
         )
+        console = environment / ("Scripts/agent-native.exe" if sys.platform == "win32" else "bin/agent-native")
+        subprocess.run([str(console), "--version"], cwd=temporary, check=True, timeout=10)
         subprocess.run(
             [
                 str(python), "-I", "-c",
