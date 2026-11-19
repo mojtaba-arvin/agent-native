@@ -307,7 +307,7 @@
       "id": "M1-001",
       "title": "Create an installable agent_native package without selecting a production runtime",
       "milestone": "M1",
-      "status": "pending",
+      "status": "in_progress",
       "priority": 10,
       "depends_on": [
         "CP-003",
@@ -337,7 +337,10 @@
         "Do not silently change service syntax or runtime semantics",
         "Do not introduce nonessential runtime dependencies"
       ],
-      "evidence_ids": []
+      "evidence_ids": [
+        "branch:feat/m1-package-cli",
+        "commit:56545b968ddc005a4a5268a678af1331f1642627"
+      ]
     },
     {
       "id": "M1-002",
