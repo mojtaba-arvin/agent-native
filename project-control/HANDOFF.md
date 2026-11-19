@@ -23,7 +23,7 @@
 - CP-009 dependency-aware scheduler/recovery is active on feat/control-plane-scheduler; active workstreams and integration owners are recorded in STATE.json.
 - M3 evaluator boundary scaffold is merged. It rejects workspace-local oracle files, symlinks, weak oracle permissions, and candidate-hash discontinuity. Actual process isolation remains unimplemented.
 - M3 cohort remains draft, unregistered, no-apply, and non-executable. Owner setup still requires protected evaluator environment, evaluator-only oracle key, isolated runner/image digest, model identities, and approved budget.
-- Owner gates remain BLK-001 (main-branch merge/security authority) and BLK-004 (M3 approved spend/provider/runner).
+- Owner gates remain BLK-001 (main-branch merge/security authority), BLK-004 (M3 approved spend/provider/runner), and BLK-007 (two independent human reviews for PR #81).
 - No main merge, production deployment, provider call, paid model/GPU evaluation, or destructive branch operation has been performed.
 
 ## Next actions
