@@ -14,7 +14,7 @@ service health {
         input {
         }
         output: String;
-        errors: [];
+        errors: [Unauthorized];
         validation: [];
         effects: [];
         capability: "health.read";
