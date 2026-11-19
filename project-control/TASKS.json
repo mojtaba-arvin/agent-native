@@ -307,7 +307,7 @@
       "id": "M1-001",
       "title": "Create an installable agent_native package without selecting a production runtime",
       "milestone": "M1",
-      "status": "complete",
+      "status": "in_progress",
       "priority": 10,
       "depends_on": [
         "CP-003",
@@ -347,7 +347,7 @@
       "id": "M1-002",
       "title": "Remove import-time sys.path mutation from the packaged core and entry points",
       "milestone": "M1",
-      "status": "in_progress",
+      "status": "pending",
       "priority": 11,
       "depends_on": [
         "M1-001"
@@ -376,11 +376,7 @@
       "stop_conditions": [
         "Do not break reproducible historical experiment entry points without a migration path"
       ],
-      "evidence_ids": [
-        "src/agent_native/runtime.py",
-        "src/agent_native/security.py",
-        "test: installed import preserves sys.path"
-      ]
+      "evidence_ids": []
     },
     {
       "id": "M1-003",
