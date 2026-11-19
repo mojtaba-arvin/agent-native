@@ -7,7 +7,7 @@
     {
       "id": "C0",
       "name": "Execution checkpoint and recovery",
-      "status": "in_progress",
+      "status": "complete",
       "depends_on": [],
       "exit_criteria": [
         "Versioned project state exists",
@@ -19,7 +19,7 @@
     {
       "id": "C1",
       "name": "Evidence and progress integrity",
-      "status": "in_progress",
+      "status": "complete",
       "depends_on": [
         "C0"
       ],
@@ -75,7 +75,7 @@
     {
       "id": "M0",
       "name": "Research integrity and repository baseline",
-      "status": "blocked",
+      "status": "complete",
       "depends_on": [
         "C0",
         "C1"
@@ -89,7 +89,7 @@
     {
       "id": "M1",
       "name": "Package and single-command developer workflow",
-      "status": "pending",
+      "status": "in_progress",
       "depends_on": [
         "M0"
       ],
