@@ -327,7 +327,8 @@ def main() -> int:
     print(
         f"SCORECARD VALID: run {scorecard['source']['workflow_run_id']} "
         f"commit {scorecard['source']['commit_sha']} "
-        f"{scorecard['test_counts']['total']} tests across {scorecard['ci_result']['passed_suites'] + scorecard['ci_result']['failed_suites']} suites"
+        f"{scorecard['test_counts']['total_known']} known tests across {scorecard['ci_result']['passed_suites'] + scorecard['ci_result']['failed_suites']} suites "
+        f"({len(scorecard['test_counts']['unknown_suites'])} suite(s) without unittest counts)"
     )
     return 0
 
