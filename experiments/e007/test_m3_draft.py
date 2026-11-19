@@ -48,6 +48,12 @@ class M3DraftSafetyTests(unittest.TestCase):
         self.assertIsNone(self.draft["runner"]["image_digest"])
         self.assertFalse(self.draft["evaluator_isolation"]["implemented"])
         self.assertTrue(self.draft["evaluator_isolation"]["required"])
+        self.assertTrue(self.draft["evaluator_isolation"]["scaffolded"])
+
+    def test_evaluator_scaffold_contains_no_oracle_fixture(self):
+        evaluator_dir = ROOT / "experiments" / "e007" / "evaluator"
+        names = {path.name for path in evaluator_dir.iterdir() if path.is_file()}
+        self.assertEqual(names, {"__init__.py", "README.md", "boundary.py", "test_boundary.py"})
 
     def test_no_provider_secrets_are_embedded_in_the_draft(self):
         serialized = json.dumps(self.draft).lower()

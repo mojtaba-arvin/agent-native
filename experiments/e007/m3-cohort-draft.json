@@ -43,7 +43,14 @@
   "evaluator_isolation": {
     "implemented": false,
     "required": true,
-    "agent_oracle_separation_required": true
+    "agent_oracle_separation_required": true,
+    "scaffolded": true,
+    "architecture": "separate protected evaluator job with an owner-only oracle file outside the agent workspace",
+    "owner_setup_required": [
+      "protected GitHub Environment named m3-evaluator",
+      "oracle decryption key available only to the evaluator job",
+      "isolated ephemeral runner/container image with a pinned digest"
+    ]
   },
   "candidate_hash_continuity": {
     "proposal_validation_plan_required": true

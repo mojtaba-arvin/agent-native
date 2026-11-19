@@ -798,7 +798,11 @@
         "Do not launch paid API/GPU workloads without explicit owner approval",
         "Do not treat CPU-only Qwen3 diagnostics as M3 acceptance"
       ],
-      "evidence_ids": []
+      "evidence_ids": [
+        "experiments/e007/evaluator/README.md",
+        "experiments/e007/evaluator/boundary.py",
+        "experiments/e007/evaluator/test_boundary.py"
+      ]
     },
     {
       "id": "M3-002",

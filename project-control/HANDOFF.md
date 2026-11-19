@@ -17,7 +17,7 @@
 - PR #70 (M1) is merged. C0, C1, M0, and M1 are complete with evidence-backed claims.
 - PR #77 carries M2-001: manifest-backed ServiceRegistry, Catalog and Inventory manifests, trusted handler references, default-deny policy validation, and path/symlink rejection. Its Layer 0 and Layer 1 run #44450365382 passed 15/15 suites and 646 known tests.
 - M2-001 is complete. M2-002 generic declarative CRUD/job/event dispatch is active on `feat/m2-declarative-handlers`.
-- M3 has three public draft tasks, an unregistered cohort draft, and CI tests that keep execution disabled until evaluator isolation and owner gates are complete.
+- M3 has two tracked tasks and three public task prompts. The cohort remains unregistered and non-executable. An evaluator-boundary scaffold now rejects oracle files inside the agent workspace, symlinks, and weak file permissions; actual process isolation remains unimplemented until owner setup.
 - Owner gates remain BLK-001 (main-branch merge/security authority) and BLK-004 (M3 approved spend/provider/runner).
 - No merge to `main`, production deployment, provider call, paid model/GPU evaluation, or destructive branch operation has been performed.
 
