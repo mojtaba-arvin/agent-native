@@ -46,7 +46,9 @@ dispatch on that branch. It uses two separate GitHub-hosted jobs:
 
 The Python 3.12 slim image is pinned by its multi-platform manifest digest.
 This is a topology smoke, not an LLM run, hidden-oracle evaluation, or M3
-acceptance evidence. The `m3-evaluator` environment reference is present, but
+acceptance evidence. The sandbox attestations prove the configured container
+restrictions for this synthetic run; they do not replace independent review or
+prove a production-grade VM/tenant boundary. The `m3-evaluator` environment reference is present, but
 its protection rules and real oracle secret are not configured by this change.
 
 ## Owner setup still required
