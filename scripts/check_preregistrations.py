@@ -308,7 +308,7 @@ def validate(root: Path) -> list[str]:
                 errors.append(f"{label}: ready_for_manual_dispatch requires no_apply=true")
             if run_ids:
                 errors.append(f"{label}: ready_for_manual_dispatch must not already contain run IDs")
-        if kind == "cohort_manifest" and status in {
+        if isinstance(status, str) and kind == "cohort_manifest" and status in {
             "ready_for_manual_dispatch", "dispatched", "completed", "failed", "cancelled", "ineligible"
         } and record.get("no_apply") is not True:
             errors.append(f"{label}: agent cohort manifests must remain no-apply")
