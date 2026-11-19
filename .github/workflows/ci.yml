@@ -201,7 +201,7 @@ jobs:
             const ownerAuthoredPull = pull.user?.login?.toLowerCase() === ownerLogin;
             const ownerWaiver = ownerAuthoredPull && comments.some(comment =>
               comment.user?.login?.toLowerCase() === ownerLogin &&
-              comment.body?.split(/\\r?\\n/).some(line => line.trim() === waiverMarker)
+              comment.body?.split(/\r?\n/).some(line => line.trim() === waiverMarker)
             );
 
             core.info('Trust-boundary files: ' + changed.join(', '));
