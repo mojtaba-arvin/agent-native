@@ -22,12 +22,12 @@
 - PR #89 hardened E-007 evaluator filesystem-custody preflight: symlink and hard-link rejection, owner/mode checks, and no oracle path in the public evidence object. These checks are not OS/container/network isolation.
 - M3 is now the current milestone. M3-001 remains blocked because a qualifying zero-cost isolated agent/evaluator path and decision-grade model tiers have not been demonstrated. The owner authorized zero paid spend, limited to GitHub Actions free usage for this public repository. No paid API/GPU call or oracle cohort has been run.
 - The manual Qwen3 CPU workflow remains exploratory only and cannot satisfy M3 acceptance. The cohort remains draft and non-executable.
-- BLK-001 (main branch protection/integration authority), BLK-004 (qualifying zero-cost isolated M3 path), and BLK-007 (C3 peer review) remain open; BLK-007 no longer blocks M2 or M3 preparation.
+- BLK-001 (main branch protection/integration authority), BLK-004 (qualifying zero-cost model and protected hidden-oracle path), and BLK-007 (C3 peer review) remain open; BLK-007 does not block M3 preparation.
 - No main merge, production deployment, paid provider call, paid GPU evaluation, or destructive branch operation has been performed.
 
 ## Next actions
 
-1. Continue M3-000 on branch `feat/m3-sandbox-runtime-probes`: the first synthetic topology smoke passed on run #44493638711, with separate agent/evaluator jobs and allowlisted artifacts. Add runtime probes to attest non-root execution, read-only root, noexec tmpfs, no-new-privileges, zero capabilities, blocked outbound network, and cgroup resource limits before marking the task complete. The current preflight checks are defense-in-depth only and do not establish process, filesystem, or network isolation.
+1. M3-000 is complete. PR #93 integrated runtime probes and post-merge topology run #44494715332 passed on `research/reboot-core@ec3975ff11f33516e0d98e349283cbf7b3f19789`. Both separate jobs reported UID 1001, read-only root, noexec /tmp, NoNewPrivs, zero CapEff, blocked outbound networking, 2 GiB memory, 1 CPU, and 64 PIDs. The agent artifact contained only candidate/trace; the evaluator artifact contained only score.json. The smoke used a deterministic stub and synthetic oracle only. The current preflight checks are defense-in-depth only and do not establish process, filesystem, or network isolation.
 2. Investigate and pin a free-tier model cohort that can meet the preregistered quality requirements. Keep CPU-only Qwen3 diagnostics exploratory; if no free path is decision-grade, preserve the blocker rather than lowering acceptance.
 3. Keep the M3 cohort non-executable until hidden-oracle custody, sandbox separation, model identity, task fixtures, and preregistration hashes are verified.
 4. Pursue genuine independent human reviews for C3 in parallel; do not represent the owner waiver as peer review.
