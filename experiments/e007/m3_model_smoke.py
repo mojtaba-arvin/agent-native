@@ -38,7 +38,8 @@ def validate_ollama_server_config(config: dict[str, Any]) -> None:
         raise RuntimeError("ollama_server_runs_as_root")
     if "ALL" not in config.get("cap_drop", []):
         raise RuntimeError("ollama_server_capabilities_not_dropped")
-    if "no-new-privileges" not in config.get("security_opt", []):
+    security_options = config.get("security_opt", [])
+    if not any(item == "no-new-privileges" or item.startswith("no-new-privileges:") for item in security_options):
         raise RuntimeError("ollama_server_no_new_privileges_missing")
     if config.get("tmp_noexec") is not True:
         raise RuntimeError("ollama_server_tmp_not_noexec")
