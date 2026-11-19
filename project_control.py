@@ -380,6 +380,19 @@ def build_schedule_plan(docs: dict[str, dict[str, Any]], ledger_text: str) -> di
         ):
             deferred.append({"task_id": task_id, "reason": "execution_metadata_missing"})
             continue
+        if execution["branch"] == execution["base_branch"]:
+            deferred.append({"task_id": task_id, "reason": "working_branch_must_differ_from_base"})
+            continue
+        occupied_branches = {
+            item.get("branch") for item in state.get("active_workstreams", [])
+            if isinstance(item, dict) and isinstance(item.get("branch"), str)
+        }
+        if execution["branch"] in occupied_branches:
+            deferred.append({"task_id": task_id, "reason": "working_branch_already_active"})
+            continue
+        if any(item["execution"]["branch"] == execution["branch"] for item in candidates):
+            deferred.append({"task_id": task_id, "reason": "duplicate_working_branch"})
+            continue
         candidates.append({
             "id": task_id,
             "title": task.get("title"),
