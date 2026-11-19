@@ -3,15 +3,13 @@
   "updated_at": "2026-11-19",
   "active_branch": "feat/m1-package-cli",
   "baseline_branch": "research/reboot-core",
-  "baseline_commit": "24c799263efdda555b3413c3ee64d4143c7883e0",
+  "baseline_commit": "9d52c773effe42a0a0161467db401ad6505e9761",
   "current_milestone": "M1",
-  "active_task_ids": [
-    "M1-002"
-  ],
-  "last_completed_task_id": "M1-001",
-  "last_known_green_revision": "2ce48625a2e27ff24296757e95dac69a9e5df406",
+  "active_task_ids": [],
+  "last_completed_task_id": "M1-004",
+  "last_known_green_revision": "c7c50ca1b017eb2f411bd92782dfff07bf7f1ebe",
   "wip_limit": 2,
-  "next_action": "Run the existing E-009 kernel and E-004 security regression suites against the installed agent_native.runtime and agent_native.security modules through tests/test_runtime_parity.py. If parity passes, complete M1-002 and resume M1-003 CLI acceptance.",
+  "next_action": "M1-001 through M1-004 are implemented and passed the full CI matrix. Integrate PR #70 into research/reboot-core after the fresh base check. Then start M2-001 on a new branch: manifest-backed ServiceRegistry with fail-closed duplicate/unknown service handling. Keep M3 draft and evaluator isolation work independent; no paid model dispatch.",
   "recovery": {
     "unchanged_failure_limit": 2,
     "no_progress_attempt_limit": 3,
