@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from boundary import EvaluatorBoundaryError, validate_candidate_continuity, verify_evaluator_boundary
+from evaluator.boundary import EvaluatorBoundaryError, validate_candidate_continuity, verify_evaluator_boundary
 
 
 class EvaluatorBoundaryTests(unittest.TestCase):
