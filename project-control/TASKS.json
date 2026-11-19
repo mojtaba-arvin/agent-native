@@ -626,21 +626,31 @@
       ],
       "owner": "verification",
       "scope": [
+        "project-control/PREREGISTRATIONS.json",
+        "project-control/DECISION_EVENTS.jsonl",
+        "DECISIONS.json",
+        "research/design-decisions.md",
         "experiments/e007/dispatch.json",
         "experiments/e002/",
-        "DECISIONS.json",
-        "project-control/"
+        "experiments/e009/performance-evidence-2026-11-18.md",
+        "scripts/check_preregistrations.py",
+        "scripts/test_preregistrations.py",
+        "scripts/ci.py"
       ],
       "acceptance": [
-        "Every benchmark cohort pins model/runtime identity, settings, seeds, repetitions, randomized order, thresholds, and budget before dispatch",
-        "A dispatched cohort's manifest hash is immutable; any change requires a dated decision event and a new cohort ID",
-        "Canceled, failed, and not-started runs remain in the ledger with eligibility classification",
-        "CI rejects a modified preregistered manifest after dispatch without a new decision event"
+        "Every frozen/ready/historical cohort or decision artifact has a repository-relative path and exact Git blob SHA-1",
+        "Any mutation of a frozen manifest, decision register, decision log, or preregistration registry fails CI unless accompanied by a new record/event with previous hashes and rationale",
+        "Decision events form a validated SHA-256 chain with unique IDs, ISO timestamps, prior hashes, rationale, affected IDs, and evidence IDs",
+        "Dispatched/completed/failed/cancelled/ineligible cohort records require positive run IDs; cancelled and failed outcomes remain visible",
+        "Agent factorial cohorts remain no-apply and ready-for-manual-dispatch records cannot already contain run IDs",
+        "Negative tests cover changed frozen manifests, changed decision/registry files, duplicate IDs, missing run IDs, bad event chains, invalid statuses, and path traversal",
+        "Validator runs in the project-control fast-CI precheck"
       ],
       "expected_outputs": [
-        "Preregistration schema and hash",
-        "Append-only decision event contract",
-        "Negative mutation tests"
+        "Git-blob-pinned preregistration registry",
+        "Hash-chained decision event log",
+        "Standard-library preregistration validator",
+        "Negative regression suite and CI enforcement"
       ],
       "max_unchanged_retries": 2,
       "replan_after_failures": 2,
