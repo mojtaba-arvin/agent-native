@@ -564,6 +564,316 @@
         "Do not treat a fixture-only demonstration as production readiness"
       ],
       "evidence_ids": []
+    },
+    {
+      "id": "M0-001",
+      "title": "Inventory and preserve research-only branches and unique evidence artifacts",
+      "milestone": "M0",
+      "status": "pending",
+      "priority": 4,
+      "depends_on": [
+        "CP-003"
+      ],
+      "owner": "research",
+      "scope": [
+        "research/",
+        "experiments/",
+        "git refs"
+      ],
+      "acceptance": [
+        "All research-only branches are classified as unique, merged, or snapshot-only with exact commit SHAs",
+        "Unique paper notes, workflows, benchmark scripts, and evidence artifacts are preserved on a reviewable branch or in a documented immutable reference",
+        "No branch or tag is deleted or rewritten as part of this task",
+        "A reachability check proves each retained unique artifact remains retrievable"
+      ],
+      "expected_outputs": [
+        "Branch inventory with commit/tree references",
+        "Unique-artifact preservation matrix",
+        "Non-destructive cleanup proposal"
+      ],
+      "max_unchanged_retries": 2,
+      "replan_after_failures": 2,
+      "stop_conditions": [
+        "No branch deletion, tag deletion, or force push without owner approval"
+      ],
+      "evidence_ids": []
+    },
+    {
+      "id": "M0-002",
+      "title": "Enforce preregistration and append-only decision integrity",
+      "milestone": "M0",
+      "status": "pending",
+      "priority": 5,
+      "depends_on": [
+        "CP-003"
+      ],
+      "owner": "verification",
+      "scope": [
+        "experiments/e007/dispatch.json",
+        "experiments/e002/",
+        "DECISIONS.json",
+        "project-control/"
+      ],
+      "acceptance": [
+        "Every benchmark cohort pins model/runtime identity, settings, seeds, repetitions, randomized order, thresholds, and budget before dispatch",
+        "A dispatched cohort's manifest hash is immutable; any change requires a dated decision event and a new cohort ID",
+        "Canceled, failed, and not-started runs remain in the ledger with eligibility classification",
+        "CI rejects a modified preregistered manifest after dispatch without a new decision event"
+      ],
+      "expected_outputs": [
+        "Preregistration schema and hash",
+        "Append-only decision event contract",
+        "Negative mutation tests"
+      ],
+      "max_unchanged_retries": 2,
+      "replan_after_failures": 2,
+      "stop_conditions": [
+        "Never rewrite historical run manifests or raw artifacts"
+      ],
+      "evidence_ids": []
+    },
+    {
+      "id": "M0-003",
+      "title": "Generate scorecards, test counts, and evidence summaries from source artifacts",
+      "milestone": "M0",
+      "status": "pending",
+      "priority": 6,
+      "depends_on": [
+        "CP-005",
+        "CP-007"
+      ],
+      "owner": "verification",
+      "scope": [
+        "project-control/PROGRESS.json",
+        "project-control/RUN_LEDGER.jsonl",
+        "scripts/",
+        "REPORT.md",
+        "research/evidence-index.md"
+      ],
+      "acceptance": [
+        "Test counts are parsed from CI logs/artifacts rather than hand-entered",
+        "Scorecard claims bind to exact run IDs and source revisions",
+        "Failed/canceled/ineligible runs remain visible and are not silently excluded",
+        "A CI negative test rejects manual edits to generated metrics without source evidence"
+      ],
+      "expected_outputs": [
+        "Machine-readable evidence scorecard",
+        "Generated test-count summary",
+        "Claims-lint integration"
+      ],
+      "max_unchanged_retries": 2,
+      "replan_after_failures": 2,
+      "stop_conditions": [
+        "Do not infer missing metrics or convert unknown values to zero"
+      ],
+      "evidence_ids": []
+    },
+    {
+      "id": "M3-001",
+      "title": "Approve and preregister a decision-grade model evaluation cohort",
+      "milestone": "M3",
+      "status": "blocked",
+      "priority": 30,
+      "depends_on": [
+        "M2-004"
+      ],
+      "owner": "owner-approval",
+      "scope": [
+        "experiments/e007/dispatch.json",
+        "experiments/e007/",
+        "project-control/BLOCKERS.json"
+      ],
+      "acceptance": [
+        "Owner approves a bounded GPU/API budget and credentials/runner",
+        "Strong/medium/weak model identities and versions are pinned",
+        "Three representative tasks and the 2x2 proposal/disclosure design are preregistered with randomized repetitions and immutable hashes",
+        "No-apply and external-oracle isolation are verified before dispatch"
+      ],
+      "expected_outputs": [
+        "Approved bounded execution budget",
+        "Preregistered model/task cohort",
+        "Immutable manifest hashes"
+      ],
+      "max_unchanged_retries": 1,
+      "replan_after_failures": 2,
+      "stop_conditions": [
+        "Do not launch paid API/GPU workloads without explicit owner approval",
+        "Do not treat CPU-only Qwen3 diagnostics as M3 acceptance"
+      ],
+      "evidence_ids": []
+    },
+    {
+      "id": "M3-002",
+      "title": "Run and independently score real-agent proposal/validate/plan cohorts",
+      "milestone": "M3",
+      "status": "pending",
+      "priority": 31,
+      "depends_on": [
+        "M3-001"
+      ],
+      "owner": "verification",
+      "scope": [
+        "experiments/e007/",
+        "experiments/e009/",
+        "research/evidence-index.md"
+      ],
+      "acceptance": [
+        "Operation-addition, backward-compatible field-addition, and tenant-isolation tasks are evaluated",
+        "Proposal, semantic validation, and safe plan use the exact same candidate hash",
+        "Strong model reaches the preregistered success threshold; weaker models are reported separately without pooling",
+        "All failures, timeouts, invalid trials, and ineligible runs remain visible in raw traces"
+      ],
+      "expected_outputs": [
+        "Raw traces and provider telemetry",
+        "Independent oracle results",
+        "Model-tier scorecard with uncertainty"
+      ],
+      "max_unchanged_retries": 2,
+      "replan_after_failures": 2,
+      "stop_conditions": [
+        "No apply or deployment during model evaluation"
+      ],
+      "evidence_ids": []
+    },
+    {
+      "id": "M4-001",
+      "title": "Separate agent-writer and trusted deployment-controller authority",
+      "milestone": "M4",
+      "status": "pending",
+      "priority": 40,
+      "depends_on": [
+        "M2-004",
+        "M3-002"
+      ],
+      "owner": "security",
+      "scope": [
+        "src/agent_native/authz/",
+        "src/agent_native/deployment/",
+        "tests/security/"
+      ],
+      "acceptance": [
+        "Agent-writer principal can propose, validate, and plan but cannot invoke service.apply",
+        "Deployment controller has a separate principal and explicit dev-only enablement",
+        "Controller rejects missing, stale, or mismatched plan hashes",
+        "Negative tests prove writer cannot acquire controller authority"
+      ],
+      "expected_outputs": [
+        "Separate controller interface and principal",
+        "Capability separation tests",
+        "Threat-model update"
+      ],
+      "max_unchanged_retries": 2,
+      "replan_after_failures": 2,
+      "stop_conditions": [
+        "No production apply path in v0.1",
+        "Trust-boundary changes require two independent reviews and new security tests"
+      ],
+      "evidence_ids": []
+    },
+    {
+      "id": "M4-002",
+      "title": "Implement hash-bound dev apply, health gates, atomic publication, and rollback",
+      "milestone": "M4",
+      "status": "pending",
+      "priority": 41,
+      "depends_on": [
+        "M4-001"
+      ],
+      "owner": "core",
+      "scope": [
+        "src/agent_native/deployment/",
+        "src/agent_native/runtime/",
+        "tests/failure_injection/"
+      ],
+      "acceptance": [
+        "Apply requires explicit dev-only enablement and exact validated plan hash",
+        "Conformance and health checks pass before publication",
+        "Publication is atomic for active runtime readers",
+        "Failure injection proves rollback restores the previous revision and audit records every transition"
+      ],
+      "expected_outputs": [
+        "Dev-only deployment controller",
+        "Atomic publication and rollback implementation",
+        "Failure-injection report"
+      ],
+      "max_unchanged_retries": 2,
+      "replan_after_failures": 2,
+      "stop_conditions": [
+        "No production deployment or multi-node claim"
+      ],
+      "evidence_ids": []
+    },
+    {
+      "id": "M5-001",
+      "title": "Close or explicitly scope identity, audit atomicity, and security findings",
+      "milestone": "M5",
+      "status": "pending",
+      "priority": 50,
+      "depends_on": [
+        "M4-002"
+      ],
+      "owner": "security",
+      "scope": [
+        "src/agent_native/identity/",
+        "src/agent_native/audit/",
+        "tests/security/",
+        "project-control/BLOCKERS.json"
+      ],
+      "acceptance": [
+        "F-01 uses a verifiable replaceable identity mechanism with fail-closed invalid/expired/revoked cases",
+        "F-03 business-state and audit writes have defined atomicity and recovery semantics",
+        "Audit retention, access control, and tamper-evidence limitations are explicitly documented",
+        "All remaining security findings have owner, evidence, and release disposition"
+      ],
+      "expected_outputs": [
+        "Identity adapter and regression tests",
+        "Atomic audit/business-state evidence",
+        "Security findings disposition"
+      ],
+      "max_unchanged_retries": 2,
+      "replan_after_failures": 2,
+      "stop_conditions": [
+        "Do not claim production security certification"
+      ],
+      "evidence_ids": []
+    },
+    {
+      "id": "M5-002",
+      "title": "Complete v0.1 quickstart, security/limitations docs, and reproducible release artifact",
+      "milestone": "M5",
+      "status": "pending",
+      "priority": 51,
+      "depends_on": [
+        "M1-004",
+        "M2-004",
+        "M3-002",
+        "M4-002",
+        "M5-001"
+      ],
+      "owner": "release",
+      "scope": [
+        "README.md",
+        "docs/",
+        "project-control/",
+        "release/"
+      ],
+      "acceptance": [
+        "A clean environment completes the quickstart in ten minutes or less",
+        "Security model, threat boundaries, and unsupported production features are explicit",
+        "Version, source revision, build inputs, and release artifact hashes are reproducible",
+        "Release candidate passes all required checks and review gates"
+      ],
+      "expected_outputs": [
+        "10-minute quickstart evidence",
+        "Security and limitations documentation",
+        "Reproducible v0.1.0 artifact and checksum"
+      ],
+      "max_unchanged_retries": 2,
+      "replan_after_failures": 2,
+      "stop_conditions": [
+        "No release publication without explicit owner approval"
+      ],
+      "evidence_ids": []
     }
   ]
 }
