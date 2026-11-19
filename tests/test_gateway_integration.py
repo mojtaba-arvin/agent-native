@@ -7,7 +7,7 @@ from pathlib import Path
 
 from agent_native import AgentGateway, GatewayError, Grant, RequestContext, ServiceRegistry, built_in_handler_registry
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[1]
 REGISTRY = ServiceRegistry(
     ROOT / "services",
     trusted_handler_ids=built_in_handler_registry().handler_ids,
