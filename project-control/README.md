@@ -28,7 +28,7 @@ python project_control.py status
 python scripts/check_claims.py
 ```
 
-The control-plane validator checks structural invariants and cross-file references. The claims checker additionally requires verified completion claims to resolve to successful ledger events with immutable run, commit, or GitHub Actions run references. Neither tool replaces tests, peer review, or GitHub branch protections.
+The control-plane validator checks structural invariants and cross-file references. The claims checker additionally requires verified completion claims to resolve to successful ledger events with immutable run, commit, or GitHub Actions run references, and requires every verified milestone criterion to map to exactly one such claim. Neither tool replaces tests, peer review, or GitHub branch protections.
 
 ## Operating loop
 
