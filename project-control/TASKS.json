@@ -1199,10 +1199,10 @@
         "Workflow and unit tests cover artifact allowlisting, oracle non-disclosure, separation, negative paths, and zero paid API/GPU usage"
       ],
       "expected_outputs": [
-        "Manual-only M3 evaluator workflow",
-        "Separate agent/evaluator job and artifact contract",
-        "Resource-limited no-network agent sandbox",
-        "Evaluator-only oracle custody adapter",
+        "Research-branch synthetic evaluator topology-smoke workflow; the real model cohort remains a separate manual-only workflow",
+        "Separate agent/evaluator GitHub-hosted job and allowlisted artifact contract",
+        "Resource-limited no-network agent and evaluator containers",
+        "Synthetic evaluator-only oracle for topology smoke; actual protected hidden-oracle custody remains a separate setup gate",
         "Isolation and workflow contract regression tests"
       ],
       "max_unchanged_retries": 2,
