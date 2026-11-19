@@ -297,6 +297,125 @@ def command_resume() -> int:
     return 0
 
 
+
+
+def _task_attempt_streaks(ledger_text: str, task_id: str) -> tuple[int, int, str | None]:
+    """Return unchanged-failure and no-progress streaks from explicit task attempts."""
+    unchanged = 0
+    no_progress = 0
+    last_signature: str | None = None
+    for line in ledger_text.splitlines():
+        if not line.strip():
+            continue
+        event = json.loads(line)
+        if not isinstance(event, dict) or event.get("kind") != "task_attempt" or event.get("task_id") != task_id:
+            continue
+        outcome = event.get("outcome")
+        if outcome == "failed":
+            signature = event.get("failure_signature")
+            if unchanged and signature == last_signature:
+                unchanged += 1
+            else:
+                unchanged = 1
+            no_progress = 0
+            last_signature = signature
+        elif outcome == "no_progress":
+            no_progress += 1
+            unchanged = 0
+            last_signature = None
+        else:
+            unchanged = 0
+            no_progress = 0
+            last_signature = None
+    return unchanged, no_progress, last_signature
+
+
+def build_schedule_plan(docs: dict[str, dict[str, Any]], ledger_text: str) -> dict[str, Any]:
+    """Select only dependency-ready work with explicit branch/integration ownership."""
+    state = docs["state"]
+    tasks = docs["tasks"].get("tasks", [])
+    milestones = {item["id"]: item for item in docs["roadmap"].get("milestones", [])}
+    by_id = {task["id"]: task for task in tasks}
+    active_ids = state.get("active_task_ids", [])
+    limit = state.get("wip_limit", 0)
+    slots = max(0, limit - len(active_ids))
+    recovery = docs["policy"]["recovery"]
+    unchanged_limit = recovery.get("unchanged_failure_limit", 2)
+    no_progress_limit = recovery.get("no_progress_attempt_limit", 3)
+
+    replan_required: list[dict[str, Any]] = []
+    candidates: list[dict[str, Any]] = []
+    deferred: list[dict[str, str]] = []
+    for task in sorted(tasks, key=lambda item: (item.get("priority", 999), item["id"])):
+        task_id = task["id"]
+        if task_id in active_ids or task.get("status") in {"complete", "cancelled", "blocked", "in_progress"}:
+            continue
+        unchanged, no_progress, signature = _task_attempt_streaks(ledger_text, task_id)
+        if unchanged >= unchanged_limit or no_progress >= no_progress_limit:
+            replan_required.append({
+                "task_id": task_id,
+                "reason": "unchanged_failure_limit" if unchanged >= unchanged_limit else "no_progress_attempt_limit",
+                "unchanged_failure_streak": unchanged,
+                "no_progress_streak": no_progress,
+                "failure_signature": signature,
+                "required_action": "stop_retries_record_root_cause_and_replan",
+            })
+            continue
+        unsatisfied = [
+            dependency for dependency in task.get("depends_on", [])
+            if by_id.get(dependency, {}).get("status") != "complete"
+        ]
+        if unsatisfied:
+            deferred.append({"task_id": task_id, "reason": "dependencies_incomplete:" + ",".join(unsatisfied)})
+            continue
+        milestone = milestones.get(task.get("milestone"), {})
+        if milestone.get("status") not in {"ready", "in_progress"}:
+            deferred.append({"task_id": task_id, "reason": "milestone_not_ready"})
+            continue
+        execution = task.get("execution")
+        if not isinstance(execution, dict) or not all(
+            isinstance(execution.get(key), str) and execution[key].strip()
+            for key in ("branch", "base_branch", "integration_owner")
+        ):
+            deferred.append({"task_id": task_id, "reason": "execution_metadata_missing"})
+            continue
+        candidates.append({
+            "id": task_id,
+            "title": task.get("title"),
+            "milestone": task.get("milestone"),
+            "priority": task.get("priority", 999),
+            "depends_on": task.get("depends_on", []),
+            "execution": execution,
+            "acceptance": task.get("acceptance", []),
+        })
+    return {
+        "schema_version": 1,
+        "status": "ready",
+        "wip_limit": limit,
+        "active_task_ids": active_ids,
+        "available_slots": slots,
+        "selected_tasks": candidates[:slots],
+        "replan_required": replan_required,
+        "deferred_tasks": deferred,
+        "mutates_repository_state": False,
+        "next_step": "Record a task_attempt event before retrying; update task status and STATE.json in a reviewed branch when work is accepted.",
+    }
+
+
+def command_schedule() -> int:
+    """Print a deterministic ready-work and recovery plan without mutating state."""
+    try:
+        docs, ledger = load_documents()
+        errors = validate_documents(docs, ledger)
+        if errors:
+            raise ControlPlaneError("control-plane validation failed: " + "; ".join(errors))
+        plan = build_schedule_plan(docs, ledger)
+    except (ControlPlaneError, OSError, json.JSONDecodeError) as exc:
+        print(json.dumps({"status": "blocked", "error": str(exc)}, sort_keys=True), file=sys.stderr)
+        return 1
+    print(json.dumps(plan, ensure_ascii=False, sort_keys=True, indent=2))
+    return 0
+
 def command_self_test() -> int:
     """Exercise representative negative cases without modifying repository files."""
     try:
@@ -335,7 +454,7 @@ def command_self_test() -> int:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("command", choices=("validate", "status", "self-test", "resume"))
+    parser.add_argument("command", choices=("validate", "status", "self-test", "resume", "schedule"))
     args = parser.parse_args()
     if args.command == "validate":
         return command_validate()
@@ -343,6 +462,8 @@ def main() -> int:
         return command_status()
     if args.command == "resume":
         return command_resume()
+    if args.command == "schedule":
+        return command_schedule()
     return command_self_test()
 
 
