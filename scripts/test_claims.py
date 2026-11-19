@@ -23,7 +23,8 @@ class ClaimsValidationTests(unittest.TestCase):
                 "statement": "Layer 0 and Layer 1 passed on the PR head.",
                 "status": "verified",
                 "evidence_event_ids": ["RUN-1"],
-            }]
+            }],
+            "milestones": {}
         }
         self.ledger = json.dumps(self.event)
 
@@ -74,6 +75,21 @@ class ClaimsValidationTests(unittest.TestCase):
         self.event["evidence"] = [{"run_id": True}]
         self.ledger = json.dumps(self.event)
         self.assertTrue(any("no immutable" in e for e in validate_claims(self.progress, self.ledger)))
+
+    def test_rejects_verified_milestone_criterion_without_claim(self):
+        self.progress["milestones"] = {"C1": {"verified_exit_criteria": ["CI passes"]}}
+        self.assertTrue(any("lacks an evidence-backed completion claim" in e for e in validate_claims(self.progress, self.ledger)))
+
+    def test_accepts_milestone_criterion_with_matching_evidence_claim(self):
+        self.progress["milestones"] = {"C1": {"verified_exit_criteria": ["CI passes"]}}
+        self.progress["completion_claims"].append({"id": "CLAIM-C1", "statement": "CI passes", "status": "verified", "milestone_id": "C1", "criterion": "CI passes", "evidence_event_ids": ["RUN-1"]})
+        self.assertEqual(validate_claims(self.progress, self.ledger), [])
+
+    def test_rejects_duplicate_milestone_criterion_claims(self):
+        self.progress["milestones"] = {"C1": {"verified_exit_criteria": ["CI passes"]}}
+        claim = {"id": "CLAIM-C1", "statement": "CI passes", "status": "verified", "milestone_id": "C1", "criterion": "CI passes", "evidence_event_ids": ["RUN-1"]}
+        self.progress["completion_claims"].extend([claim, dict(claim, id="CLAIM-C1-DUP")])
+        self.assertTrue(any("duplicate claim for C1 criterion" in e for e in validate_claims(self.progress, self.ledger)))
 
     def test_rejects_duplicate_claim_ids(self):
         self.progress["completion_claims"].append(dict(self.progress["completion_claims"][0]))
