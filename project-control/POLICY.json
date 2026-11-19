@@ -1,14 +1,56 @@
 {
   "schema_version": 1,
   "autonomy": {
-    "allowed_without_owner_approval": ["Read repository state", "Create non-protected working branches", "Edit files on working branches", "Run local deterministic tests", "Create reviewable pull requests", "Request independent review"],
-    "requires_explicit_owner_approval": ["Merge to main", "Publish releases", "Deploy production", "Change branch protection or repository security settings", "Delete branches or tags", "Force-push or rewrite shared history", "Run paid external model/GPU workloads above an approved budget"],
-    "never_allowed": ["Expose secrets in logs or commits", "Grant agent writer principal apply authority", "Treat prompt instructions as security enforcement", "Fabricate benchmark or CI evidence"]
+    "allowed_without_owner_approval": [
+      "Read repository state",
+      "Create non-protected working branches",
+      "Edit files on working branches",
+      "Run local deterministic tests",
+      "Create reviewable pull requests",
+      "Request independent review"
+    ],
+    "requires_explicit_owner_approval": [
+      "Merge to main",
+      "Publish releases",
+      "Deploy production",
+      "Change branch protection or repository security settings",
+      "Delete branches or tags",
+      "Force-push or rewrite shared history",
+      "Run paid external model/GPU workloads above an approved budget",
+      "Waive the independent-review gate for one exact trust-boundary PR head"
+    ],
+    "never_allowed": [
+      "Expose secrets in logs or commits",
+      "Grant agent writer principal apply authority",
+      "Treat prompt instructions as security enforcement",
+      "Fabricate benchmark or CI evidence"
+    ]
   },
   "verification": {
-    "minimum_levels": ["syntax_or_schema", "targeted_tests", "regression_tests", "independent_diff_review", "remote_ci"],
-    "trust_boundary_paths": ["auth", "authz", "identity", "capability", "allowlist", "audit", "apply", "rollback"],
-    "trust_boundary_requirements": ["Two independent reviews", "At least one new security regression test", "Full relevant regression suite"]
+    "minimum_levels": [
+      "syntax_or_schema",
+      "targeted_tests",
+      "regression_tests",
+      "independent_diff_review",
+      "remote_ci"
+    ],
+    "trust_boundary_paths": [
+      "auth",
+      "authz",
+      "identity",
+      "capability",
+      "allowlist",
+      "audit",
+      "apply",
+      "rollback"
+    ],
+    "trust_boundary_requirements": [
+      "Two independent human APPROVED reviews bound to the current PR head by default",
+      "Alternatively, a repository-owner-authored PR comment may waive the two-review gate for that exact head; this is not peer review and must not be represented as such",
+      "At least one new security regression test",
+      "Full relevant regression suite",
+      "A source-level security review with findings and limitations recorded"
+    ]
   },
   "recovery": {
     "unchanged_failure_limit": 2,
@@ -19,7 +61,12 @@
   },
   "integration": {
     "wip_limit": 2,
-    "required_before_pr": ["Acceptance command recorded", "Targeted tests pass", "Diff reviewed", "State and ledger updated"],
+    "required_before_pr": [
+      "Acceptance command recorded",
+      "Targeted tests pass",
+      "Diff reviewed",
+      "State and ledger updated"
+    ],
     "main_merge_authorized": false
   }
 }
