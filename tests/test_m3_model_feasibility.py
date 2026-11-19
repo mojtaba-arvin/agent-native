@@ -170,6 +170,9 @@ class M3ModelFeasibilityTests(unittest.TestCase):
         self.assertIn('MODEL_LOCK', smoke)
         self.assertIn('model_lock_sha256', smoke)
         self.assertIn('expected_lock_sha256', smoke)
+        self.assertIn('for arm in ("progressive", "upfront")', smoke)
+        self.assertIn('"tool_schema_arm": arm', smoke)
+        self.assertIn('"tool_schema_arms": ["progressive", "upfront"]', smoke)
 
 
 if __name__ == "__main__":
