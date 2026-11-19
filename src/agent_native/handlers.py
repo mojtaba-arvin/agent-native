@@ -199,6 +199,27 @@ def _factory_crud_read_by_field(config: Mapping[str, Any]):
     return handle
 
 
+def _factory_crud_list(config: Mapping[str, Any]):
+    cfg = _config(config, required={"resource", "filters"})
+    resource = _identifier(cfg["resource"], "resource")
+    filters = cfg["filters"]
+    if not isinstance(filters, Mapping) or any(
+        not isinstance(field, str) or not re.fullmatch(r"[a-z][a-z0-9_-]{0,63}", field)
+        or not isinstance(input_name, str) or not input_name
+        for field, input_name in filters.items()
+    ):
+        raise ValueError("filters must map resource fields to input field names")
+
+    def handle(context: HandlerContext):
+        tenant_id = _tenant_id(context)
+        values = {field: _value(context, input_name) for field, input_name in filters.items()}
+        result = _adapter(context, "repository", "list")(resource, values, tenant_id=tenant_id)
+        if not isinstance(result, list):
+            raise DomainFault("ServiceUnavailable")
+        return result
+    return handle
+
+
 def _factory_crud_create(config: Mapping[str, Any]):
     cfg = _config(config, required={"resource", "input_fields"}, optional={"idempotency_input"})
     resource = _identifier(cfg["resource"], "resource")
@@ -331,6 +352,7 @@ def built_in_handler_registry() -> TrustedHandlerRegistry:
     registry = TrustedHandlerRegistry()
     registry.register("crud.read", _factory_crud_read, allowed_effects={"repository.read"})
     registry.register("crud.read_by_field", _factory_crud_read_by_field, allowed_effects={"repository.read"})
+    registry.register("crud.list", _factory_crud_list, allowed_effects={"repository.read"})
     registry.register("crud.create", _factory_crud_create, allowed_effects={"repository.write"})
     registry.register("crud.update", _factory_crud_update, allowed_effects={"repository.write"})
     registry.register("crud.delete", _factory_crud_delete, allowed_effects={"repository.write"})
