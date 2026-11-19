@@ -27,7 +27,7 @@ def main() -> int:
         subprocess.run(
             [
                 str(python), "-I", "-m", "unittest", "discover",
-                "-s", str(ROOT / "tests"), "-p", "test_package.py", "-v",
+                "-s", str(ROOT / "tests"), "-p", "test_*.py", "-v",
             ],
             cwd=temporary,
             check=True,
