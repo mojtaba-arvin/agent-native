@@ -239,8 +239,11 @@ jobs:
               for field in ("manifest_sha256", "config_digest", "quantization_level", "parameter_size", "model_size_bytes", "layers"):
                   if record[field] != locked.get(field):
                       raise SystemExit(f"model_lock_mismatch:{tag}:{field}")
+              for field in ("manifest_sha256", "config_digest", "model_size_bytes"):
                   if candidate.get(field) != locked.get(field):
                       raise SystemExit(f"model_candidate_lock_mismatch:{tag}:{field}")
+              if candidate.get("quantization_expected") != locked.get("quantization_level"):
+                  raise SystemExit(f"model_candidate_lock_mismatch:{tag}:quantization_expected")
               records.append(record)
           disk = shutil.disk_usage(model_dir)
           disk_after_pull = {"total_bytes": disk.total, "used_bytes": disk.used, "free_bytes": disk.free, "model_layers_total_bytes": sum(item["model_size_bytes"] for item in records)}
