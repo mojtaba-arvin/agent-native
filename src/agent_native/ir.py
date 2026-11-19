@@ -94,6 +94,13 @@ class Parser:
         except json.JSONDecodeError as error:
             raise Diagnostic("AN038", "invalid string escape or encoding", token) from error
 
+    def name_value(self, keyword: str) -> str:
+        self.take(keyword)
+        self.take(":")
+        value = self.identifier()
+        self.take(";")
+        return value
+
     def type_reference(self) -> str:
         name = self.identifier()
         if name == "List" and self.current.value == "<":
