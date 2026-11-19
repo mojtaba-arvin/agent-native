@@ -31,26 +31,26 @@ The runtime image and model manifest digests are recorded in every run artifact.
 
 ## Provisional same-family model tiers
 
-The first candidate family is IBM Granite 4.0 Hybrid, distributed through the [official Ollama library](https://ollama.com/ibm/granite4). The family advertises code-related and function-calling tasks, Apache 2.0 licensing, and default Q4_K_M quantization. The `-h` variants use the hybrid Mamba2 architecture.
+The first candidate family is IBM Granite 4.0 Hybrid, distributed through the [official Ollama library](https://ollama.com/ibm/granite4). The family advertises code-related and function-calling tasks, Apache 2.0 licensing, and default Q4_K_M quantization. The `-h` variants use a hybrid Mamba2 architecture. The selected H-350M, H-1B, and H-Micro variants are all dense hybrid models, keeping the initial size-tier comparison within one architecture family.
 
 | Tier | Provisional model tag | Approximate capacity | Purpose |
 |---|---|---:|---|
-| Weak | `ibm/granite4:350m-h` | 350M parameters | Lower-capability baseline |
-| Medium | `ibm/granite4:1b-h` | 1.46B parameters | Small CPU model |
-| Strong | `ibm/granite4:7b-a1b-h` | 6.94B total / 1B active | Larger hybrid/MoE candidate |
+| Weak | `ibm/granite4:350m-h` | 340M parameters | Lower-capability baseline |
+| Medium | `ibm/granite4:1b-h` | 1.5B parameters | Small CPU model |
+| Strong | `ibm/granite4:3b-h` | 3B parameters | Larger dense hybrid candidate |
 
-These are candidate labels, not a claim that the 7B-A1B model will pass. The exact quantization, size, configuration digest, and manifest SHA-256 are read from the pulled manifests and retained per run. No model is considered pinned until those values are verified and committed.
+These are candidate labels, not a claim that the 3B model will pass. The H-350M and H-1B variants are documented as 340M and 1.5B parameters; H-Micro is 3B. The exact quantization, size, configuration digest, and manifest SHA-256 are read from the pulled manifests and retained per run. No model is considered pinned until those values are verified and committed.
 
 Official model references:
 - [IBM Granite 4.0 Ollama model family](https://ollama.com/ibm/granite4)
 - [Granite 4.0 H-350M model card](https://huggingface.co/ibm-granite/granite-4.0-h-350m)
 - [Granite 4.0 H-1B model card](https://huggingface.co/ibm-granite/granite-4.0-h-1b)
-- [Granite 4.0 H-7B-A1B model card](https://huggingface.co/ibm-granite/granite-4.0-h-7b-a1b)
+- [Granite 4.0 H-Micro 3B model card](https://huggingface.co/ibm-granite/granite-4.0-h-micro)
 - [Ollama tool-calling API](https://docs.ollama.com/capabilities/tool-calling)
 
 ### Challenger and exclusions
 
-- **Granite 4.2 3B/8B** is a possible challenger if the Granite 4.0 hybrid tiers fail the task-quality gate. The 30B variant is not a first-pass candidate for a 16 GB runner. It will not be added to the initial smoke, to keep the first comparison bounded.
+- **Granite 4.0 H-Tiny 7B-A1B** and **Granite 4.2 3B/8B** are possible challengers if the dense Granite 4.0 H tiers fail the task-quality gate. H-Tiny is a hybrid MoE architecture, so it is not part of the initial dense size-tier comparison. The Granite 4.2 30B variant is not a first-pass candidate for a 16 GB runner.
 - **Qwen3.5** is not in the initial Ollama cohort. Ollama issue [#19694](https://github.com/ollama/ollama/issues/19694), opened in November 2026, reports tool-call argument corruption for code-like content. This is directly relevant to multiline source and patch arguments. Reconsider only after the issue is resolved or an alternate parser/runtime passes the same regression.
 - **Gemma 4** is not in the initial llama.cpp cohort. llama.cpp issue [#25986](https://github.com/ggml-org/llama.cpp/issues/25986) documents a parser failure involving long multiline tool arguments. This issue is specific to the llama.cpp path and does not prove an Ollama failure; any future Gemma 4 candidate must pass runtime-specific regression tests first.
 - Previous Qwen3 8B pilot evidence remains exploratory and is not reused as a passing tier.
