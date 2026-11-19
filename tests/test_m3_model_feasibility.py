@@ -79,7 +79,7 @@ class M3ModelFeasibilityTests(unittest.TestCase):
                 "ibm/granite4:3b-h",
             ],
         )
-        lock = json.loads((E007 / "model_lock.json").read_text(encoding="utf-8"))
+        lock = json.loads((E007 / "model-lock.json").read_text(encoding="utf-8"))
         self.assertEqual(lock["status"], "provisional_pinned_not_qualified")
         self.assertEqual(lock["runtime"]["version"], "0.40.15")
         self.assertEqual(lock["provenance"]["verification_run_id"], 44511342601)
@@ -147,7 +147,7 @@ class M3ModelFeasibilityTests(unittest.TestCase):
         self.assertIn("runner-info.json", workflow)
         self.assertIn("manifest_sha256", workflow)
         self.assertIn("disk_after_pull", workflow)
-        self.assertIn("model_lock.json", workflow)
+        self.assertIn("model-lock.json", workflow)
         self.assertIn("model_lock_mismatch", workflow)
         self.assertIn("model_lock_sha256", workflow)
 
