@@ -116,6 +116,8 @@ def main() -> int:
     parser.add_argument("--base", help="base git ref; only affected suites run")
     parser.add_argument("--jobs", type=int, default=min(8, os.cpu_count() or 2))
     args = parser.parse_args()
+    if args.base:
+        os.environ["AGENT_NATIVE_BASE_SHA"] = args.base
     paths = changed_paths(args.base) if args.base else None
     suites = selected_suites(paths)
     if paths is not None:
