@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import unittest
 
+from agent_native import ServiceRuntime, load_service_ir
+
 import agent_native
 
 
@@ -34,6 +36,11 @@ class PackageSurfaceTests(unittest.TestCase):
         ir = agent_native.Parser(SERVICE).parse()
         self.assertEqual(ir["service"], {"name": "health", "version": "1.0"})
         self.assertEqual(ir["operations"][0]["name"], "check")
+
+    def test_package_runtime_is_constructible_without_mutating_sys_path(self):
+        ir = load_service_ir(SERVICE)
+        runtime = ServiceRuntime(ir, handlers={"check": lambda context: "ok"}, repository=None, trusted_effects=set())
+        self.assertEqual(runtime.operations[0]["name"], "check")
 
     def test_invalid_source_has_stable_diagnostic(self):
         with self.assertRaises(agent_native.Diagnostic) as raised:
