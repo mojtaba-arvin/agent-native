@@ -953,7 +953,7 @@
       "id": "CP-008",
       "title": "Prove a fresh agent can resume from the committed execution checkpoint",
       "milestone": "C0",
-      "status": "in_progress",
+      "status": "complete",
       "priority": 8,
       "depends_on": [
         "CP-001",
@@ -981,7 +981,12 @@
       "stop_conditions": [
         "Do not infer completion or authority from prose-only handoff notes"
       ],
-      "evidence_ids": []
+      "evidence_ids": [
+        "run:44447117325",
+        "resume command: machine-readable checkpoint",
+        "negative dependency test passed",
+        "Layer 0 and Layer 1 passed"
+      ]
     }
   ]
 }
