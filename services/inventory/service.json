@@ -5,21 +5,14 @@
   "version": "1",
   "source": "service.an",
   "handlers": {
-    "get_stock": {
-      "handler_id": "crud.read_by_field",
-      "config": {
-        "resource": "stock",
-        "field": "warehouse_id",
-        "input": "warehouse_id"
-      }
-    },
     "create_stock": {
       "handler_id": "crud.create",
       "config": {
         "resource": "stock",
         "input_fields": [
           "sku",
-          "quantity"
+          "quantity",
+          "warehouse_id"
         ]
       }
     },
@@ -48,6 +41,15 @@
           "sku",
           "quantity"
         ]
+      }
+    },
+    "list_stock": {
+      "handler_id": "crud.list",
+      "config": {
+        "resource": "stock",
+        "filters": {
+          "warehouse_id": "warehouse_id"
+        }
       }
     }
   },
