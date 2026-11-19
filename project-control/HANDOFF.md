@@ -14,17 +14,17 @@
 
 ## Current checkpoint — 2026-11-19
 
-- Baseline: `research/reboot-core@24c799263efdda555b3413c3ee64d4143c7883e0`.
-- PRs #64, #65, #68, #69, #71, #72, and #73 are merged into `research/reboot-core`.
+- Baseline: `research/reboot-core@9d52c773effe42a0a0161467db401ad6505e9761`.
+- PRs #64, #65, #68, #69, #71, #72, #73, #74, and #75 are merged into `research/reboot-core`.
 - PR #63 is closed as superseded; its branch is preserved.
-- PR #70 is open as a draft on `feat/m1-package-cli`; M1-001 package install and M1-002 import-boundary acceptance passed in run #44447460958. M1-003 unified CLI implementation is active and awaits fresh CI.
-- C0, C1, and M0 are complete with evidence-backed completion claims. CP-007 and CP-008 are complete.
-- M3 task/evaluator/runner preflight is documented in `research/M3_PREFLIGHT.md`; no paid model evaluation has been dispatched.
+- PR #70 is ready for integration after the latest base refresh. M1-001 through M1-004 passed run #44449169805: isolated package install, import-boundary scan, E-009/E-004 parity, CLI, and all 15 deterministic suites (627 known tests).
+- C0, C1, and M0 are complete with evidence-backed claims. CP-007 and CP-008 are complete.
+- M3 has three public draft tasks and a non-executable cohort draft. PR #76 adds CI tests that keep it unregistered until all gates are ready.
 - Owner gates remain BLK-001 (main-branch merge/security authority) and BLK-004 (M3 approved spend/provider/runner).
 - No merge to `main`, security-setting changes, secret writes, release, deployment, branch deletion, or force-push has been performed.
 
 ## Next actions
 
-1. Validate the installed CLI in a clean virtual environment: check, inspect, run dry-run, worker, audit, help, error codes, and console-script installation.
-2. If green, complete M1-003 and proceed to M1-004 full regression preservation.
-3. Then continue M2 service-independent Gateway and declarative handler work; M3 task-corpus and sandbox/oracle implementation can proceed in parallel without paid model dispatch.
+1. Refresh PR #70 against the latest `research/reboot-core` base and integrate M1.
+2. Start M2-001: manifest-backed ServiceRegistry, strict manifest/IR validation, duplicate/unknown service rejection, and a second service fixture.
+3. Continue M3 evaluator isolation and task fixtures without dispatching paid or GPU workloads until technical gates and owner approval are satisfied.
