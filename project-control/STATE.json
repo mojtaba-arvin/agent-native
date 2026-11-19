@@ -3,15 +3,15 @@
   "updated_at": "2026-11-19",
   "active_branch": "feat/m1-package-cli",
   "baseline_branch": "research/reboot-core",
-  "baseline_commit": "7bfd3441c81c0af1b1cbbbc7c99a35137e18daad",
+  "baseline_commit": "24c799263efdda555b3413c3ee64d4143c7883e0",
   "current_milestone": "M1",
   "active_task_ids": [
-    "M1-001"
+    "M1-003"
   ],
-  "last_completed_task_id": "CP-008",
-  "last_known_green_revision": "65a5022b1098eaed446eb529507d9f7f737a8173",
+  "last_completed_task_id": "M1-002",
+  "last_known_green_revision": "2ce48625a2e27ff24296757e95dac69a9e5df406",
   "wip_limit": 2,
-  "next_action": "Finish the strengthened M1-001 acceptance run after adding the isolated virtualenv installer and package-source sys.path mutation scanner. If green, start M1-002: package the supported E-009 Gateway/server path and keep historical E-009/E-010 scripts explicitly isolated until compatibility tests pass. Do not claim M1 complete until the unified CLI and full regression suite are integrated.",
+  "next_action": "Implement the installed CLI with deterministic check, inspect, run, worker, and audit commands. Preserve explicit paths and service IDs, machine-readable errors, and no credential inference. Execution/apply remain disabled until M2 provides trusted registry and handlers.",
   "recovery": {
     "unchanged_failure_limit": 2,
     "no_progress_attempt_limit": 3,

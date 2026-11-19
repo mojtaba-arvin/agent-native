@@ -312,7 +312,7 @@
       "id": "M1-001",
       "title": "Create an installable agent_native package without selecting a production runtime",
       "milestone": "M1",
-      "status": "in_progress",
+      "status": "complete",
       "priority": 10,
       "depends_on": [
         "CP-003",
@@ -343,14 +343,17 @@
         "Do not introduce nonessential runtime dependencies"
       ],
       "evidence_ids": [
-        "PR #70"
+        "run:44447460958",
+        "isolated-venv install passed",
+        "6 package tests passed",
+        "577 known tests across 15 suites"
       ]
     },
     {
       "id": "M1-002",
       "title": "Remove import-time sys.path mutation from the packaged core and entry points",
       "milestone": "M1",
-      "status": "pending",
+      "status": "complete",
       "priority": 11,
       "depends_on": [
         "M1-001"
@@ -379,13 +382,18 @@
       "stop_conditions": [
         "Do not break reproducible historical experiment entry points without a migration path"
       ],
-      "evidence_ids": []
+      "evidence_ids": [
+        "run:44447460958",
+        "package sys.path static scan passed",
+        "isolated import test passed",
+        "experiments/README.md legacy isolation contract"
+      ]
     },
     {
       "id": "M1-003",
       "title": "Add a unified developer CLI for check, run, inspect, worker, and audit",
       "milestone": "M1",
-      "status": "pending",
+      "status": "in_progress",
       "priority": 12,
       "depends_on": [
         "M1-001",
