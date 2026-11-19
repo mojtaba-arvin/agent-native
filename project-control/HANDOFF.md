@@ -15,19 +15,19 @@
 ## Current checkpoint — 2026-11-19
 
 - C0, C1, M0, M1, and C2 are complete and integrated into `research/reboot-core`.
-- CP-009 dependency-aware scheduling/recovery is complete through PR #84. Run #44463121689 passed deterministic Layer 0 and Layer 1; task evidence, claims, and the append-only ledger pin are recorded.
-- M2-001 ServiceRegistry and M2-002 generic declarative CRUD/list/job/event dispatch are integrated.
-- M2-003 Service-independent Gateway is implemented on PR #81. Layer 1 passes on head 8f6ea008ef80cf0a1ef0d29ac503f5214ad5497e. The repository owner authorized an exact-head review waiver in the PR conversation; CI support is being added. This waiver is not peer review, so C3 remains pending.
-- M2-004 multi-service proof is prepared on PR #82. Its current stacked head passed Layer 0 and Layer 1 in run #44464064586; it remains pending and must not be integrated ahead of PR #81.
-- The active task is M2-003. Its branch, base, and integration owner are recorded in STATE.json.
-- M3 real-agent/oracle evaluation is intentionally skipped for now. No oracle, provider API, paid model, or GPU evaluation has been executed. The cohort remains draft and non-executable.
-- Remaining owner gates include BLK-001 (main-branch merge/security authority) and BLK-004 (decision-grade M3 provider/GPU path). BLK-007 is being handled through a narrowly scoped owner-authorized waiver for PR #81; C3's genuine peer-review criterion remains open.
-- No main merge, production deployment, provider call, paid model/GPU evaluation, or destructive branch operation has been performed.
-
+- CP-009 dependency-aware scheduling/recovery is complete through PR #84.
+- M2-001 ServiceRegistry, M2-002 generic declarative CRUD/list/job/event dispatch, M2-003 Service-independent Gateway, and M2-004 multi-service proof are integrated. M2 is complete on `research/reboot-core@0e8e8fe67f410add6d851584eeb7434f2f707aa8`.
+- PR #81 passed Layer 0 and Layer 1 on head `0e53539ac8652a79bd831c4883ec9ff26ebf411c`; it was integrated under the repository owner's exact-head waiver. The waiver is not peer review. PR #82 passed Layer 0 and Layer 1 on head `1607feafeea17b3d7dfcd1e51f8a3ec5544731ec` and was integrated. The integrated merge commit also passed push CI run #44491048454.
+- PR #90 added the narrow owner-waiver CI path; the two-human-review policy remains the default. C3 remains pending until genuine independent peer reviews are obtained.
+- PR #89 hardened E-007 evaluator filesystem-custody preflight: symlink and hard-link rejection, owner/mode checks, and no oracle path in the public evidence object. These checks are not OS/container/network isolation.
+- M3 is now the current milestone. M3-001 remains blocked because a qualifying zero-cost isolated agent/evaluator path and decision-grade model tiers have not been demonstrated. The owner authorized zero paid spend, limited to GitHub Actions free usage for this public repository. No paid API/GPU call or oracle cohort has been run.
+- The manual Qwen3 CPU workflow remains exploratory only and cannot satisfy M3 acceptance. The cohort remains draft and non-executable.
+- BLK-001 (main branch protection/integration authority), BLK-004 (qualifying zero-cost isolated M3 path), and BLK-007 (C3 peer review) remain open; BLK-007 no longer blocks M2 or M3 preparation.
+- No main merge, production deployment, paid provider call, paid GPU evaluation, or destructive branch operation has been performed.
 ## Next actions
 
-1. Verify the exact-head owner-waiver gate and complete a source-level security audit on PR #81. If the head changes, obtain a new exact-SHA owner authorization or two independent reviews.
-2. After fresh Layer 0/Layer 1 checks pass, integrate M2-003 into `research/reboot-core`; do not claim that the waiver constitutes peer review.
-3. Retarget PR #82 to `research/reboot-core`, rerun CI against the integrated Gateway, and integrate M2-004 only after all checks pass.
-4. Keep M3/oracle evaluation skipped until explicitly resumed with the required owner-approved isolation and budget controls.
-5. Do not merge to `main` or alter repository security settings without explicit owner authorization.
+1. Implement a genuinely isolated, no-cost agent/evaluator execution topology. The current preflight checks are defense-in-depth only and do not establish process, filesystem, or network isolation.
+2. Investigate and pin a free-tier model cohort that can meet the preregistered quality requirements. Keep CPU-only Qwen3 diagnostics exploratory; if no free path is decision-grade, preserve the blocker rather than lowering acceptance.
+3. Keep the M3 cohort non-executable until hidden-oracle custody, sandbox separation, model identity, task fixtures, and preregistration hashes are verified.
+4. Pursue genuine independent human reviews for C3 in parallel; do not represent the owner waiver as peer review.
+5. Do not merge to `main`, deploy production, or incur paid API/GPU spend.
