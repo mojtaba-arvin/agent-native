@@ -2,16 +2,16 @@
   "schema_version": 1,
   "updated_at": "2026-11-19",
   "active_branch": "feat/m2-service-registry",
-  "baseline_branch": "feat/m1-package-cli",
-  "baseline_commit": "77561f404fcae89b3bd7b14124c73a230e023266",
+  "baseline_branch": "research/reboot-core",
+  "baseline_commit": "35d138f9ddb96fa026bdc6ea0f64cb28bcb8eddf",
   "current_milestone": "M2",
   "active_task_ids": [
     "M2-001"
   ],
   "last_completed_task_id": "M1-004",
-  "last_known_green_revision": "c7c50ca1b017eb2f411bd92782dfff07bf7f1ebe",
+  "last_known_green_revision": "77561f404fcae89b3bd7b14124c73a230e023266",
   "wip_limit": 2,
-  "next_action": "Validate M2-001: run the installed-package smoke in a clean venv with the two service manifests, fail-closed negative tests, and all existing regression suites. Fix only evidence-backed failures; then complete M2-001 and begin M2-002 generic declarative handler dispatch.",
+  "next_action": "M1 is complete and integrated. Finish M2-001 by passing the fresh installed-package and Layer 1 CI matrix for the manifest-backed ServiceRegistry. Then begin M2-002 generic declarative handler dispatch without service-specific core branches. M3 cohort remains draft-only until evaluator isolation and owner budget/provider/runner gates are satisfied.",
   "recovery": {
     "unchanged_failure_limit": 2,
     "no_progress_attempt_limit": 3,
