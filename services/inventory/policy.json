@@ -2,9 +2,13 @@
   "schema_version": 1,
   "default_decision": "deny",
   "capabilities": [
-    "stock.read"
+    "stock.read",
+    "stock.write",
+    "stock.events.publish"
   ],
   "effects": [
-    "repository.read"
+    "repository.read",
+    "repository.write",
+    "event.publish"
   ]
 }

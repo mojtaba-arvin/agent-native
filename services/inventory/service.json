@@ -1,11 +1,57 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "service_id": "inventory",
   "service_name": "Inventory",
   "version": "1",
   "source": "service.an",
   "handlers": {
-    "list_stock": "inventory.list_stock"
+    "create_stock": {
+      "handler_id": "crud.create",
+      "config": {
+        "resource": "stock",
+        "input_fields": [
+          "sku",
+          "quantity",
+          "warehouse_id"
+        ]
+      }
+    },
+    "update_stock": {
+      "handler_id": "crud.update",
+      "config": {
+        "resource": "stock",
+        "key_input": "sku",
+        "input_fields": [
+          "quantity"
+        ]
+      }
+    },
+    "delete_stock": {
+      "handler_id": "crud.delete",
+      "config": {
+        "resource": "stock",
+        "key_input": "sku"
+      }
+    },
+    "publish_stock_event": {
+      "handler_id": "events.publish",
+      "config": {
+        "event_type": "stock.changed",
+        "input_fields": [
+          "sku",
+          "quantity"
+        ]
+      }
+    },
+    "list_stock": {
+      "handler_id": "crud.list",
+      "config": {
+        "resource": "stock",
+        "filters": {
+          "warehouse_id": "warehouse_id"
+        }
+      }
+    }
   },
   "policy": "policy.json"
 }

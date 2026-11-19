@@ -3,6 +3,8 @@
 from .ir import Diagnostic, Parser, Token, lex, validate_ir
 from .runtime import ConfigurationError, DomainFault, HandlerContext, HandlerResult, RuntimeFault, RuntimeResponse, ServiceRuntime, load_service_ir
 from .manifest import RegisteredService, ServiceRegistry, ServiceRegistryError
+from .handlers import RuntimeAdapters, TrustedHandlerRegistry, built_in_handler_registry, build_service_runtime
+from .security import Grant, PolicyEngine, RequestContext
 
 __version__ = "0.1.0.dev0"
 
@@ -17,6 +19,13 @@ __all__ = [
     "RegisteredService",
     "ServiceRegistry",
     "ServiceRegistryError",
+    "RuntimeAdapters",
+    "TrustedHandlerRegistry",
+    "built_in_handler_registry",
+    "build_service_runtime",
+    "Grant",
+    "PolicyEngine",
+    "RequestContext",
     "ServiceRuntime",
     "Parser",
     "Token",

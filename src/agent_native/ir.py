@@ -10,7 +10,7 @@ from pathlib import Path
 
 TOKEN = re.compile(
     r'(?P<space>\s+)|(?P<comment>//[^\n]*)|(?P<string>"(?:\\.|[^"\\])*")|'
-    r'(?P<ident>[A-Za-z_][A-Za-z0-9_.-]*)|(?P<punct>[{}:;\[\],])'
+    r'(?P<ident>[A-Za-z_][A-Za-z0-9_.-]*)|(?P<punct>[{}:;\[\],<>])'
 )
 
 
@@ -56,6 +56,13 @@ def lex(source: str) -> list[Token]:
     return result
 
 
+def _is_known_type_reference(type_name: str, known_types: set[str]) -> bool:
+    if type_name in known_types:
+        return True
+    match = re.fullmatch(r"List<([A-Za-z_][A-Za-z0-9_]*)>", type_name)
+    return bool(match and match.group(1) in known_types)
+
+
 class Parser:
     def __init__(self, source: str):
         self.tokens = lex(source)
@@ -94,6 +101,21 @@ class Parser:
         self.take(";")
         return value
 
+    def type_reference(self) -> str:
+        name = self.identifier()
+        if name == "List" and self.current.value == "<":
+            self.take("<")
+            item_type = self.identifier()
+            self.take(">")
+            return f"List<{item_type}>"
+        return name
+
+    def type_value(self, keyword: str) -> str:
+        self.take(keyword)
+        self.take(":")
+        value = self.type_reference()
+        self.take(";")
+        return value
     def string_value(self, keyword: str) -> str:
         self.take(keyword)
         self.take(":")
@@ -151,7 +173,7 @@ class Parser:
                 if field["type"] not in known_types:
                     self.fail("AN020", f"unknown type {field['type']!r} in record field {field['name']!r}")
         for operation in operations:
-            if operation["output"] not in known_types:
+            if not _is_known_type_reference(operation["output"], known_types):
                 self.fail("AN020", f"unknown output type {operation['output']!r}")
             for field in operation["input"]:
                 if field["type"] not in known_types:
@@ -213,7 +235,7 @@ class Parser:
             self.take(";")
             inputs.append({"name": field, "type": type_name, "source": source})
         self.take("}")
-        output = self.name_value("output")
+        output = self.type_value("output")
         errors = self.list_value("errors")
         validation = self.list_value("validation")
         effects = self.list_value("effects")
@@ -333,7 +355,7 @@ def validate_ir(ir: object) -> None:
         if route_key in route_keys:
             fail("AN028", f"duplicate route {method} {path}")
         route_keys.add(route_key)
-        if not isinstance(operation.get("output"), str) or operation.get("output") not in known_types:
+        if not isinstance(operation.get("output"), str) or not _is_known_type_reference(operation.get("output"), known_types):
             fail("AN020", f"unknown output type {operation.get('output')!r}")
         capability = operation.get("capability")
         if not isinstance(capability, str) or not capability:
