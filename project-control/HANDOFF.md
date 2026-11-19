@@ -22,5 +22,6 @@
 - Current milestone: C1, with M0 audit preparation now active.
 - Active tasks: CP-007 (final retarget/revalidation after PR #64), CP-003 (M0 source/evidence audit).
 - Completed this iteration: CP-005 evidence-backed claims gate, validated in run 44430692124.
-- Next: audit source-of-truth claims across E-001–E-011 and research branches; do not infer production readiness, runtime selection, capacity, or model acceptance.
+- Current audit artifact: project-control/M0_AUDIT.md. REPORT.md, E-007 README, and E-009 capacity-gate wording have been reconciled; remaining CP-003 work is source/artifact cross-check and task decomposition.
+- Next: finish CP-003, then split M1 package/CLI and M2 service/Gateway generalization into independently verifiable task contracts. Do not infer production readiness, runtime selection, capacity, or model acceptance.
 - Do not merge to main, alter repository security settings, run paid GPU/API workloads, or delete research branches/tags without owner authorization.
