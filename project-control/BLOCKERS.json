@@ -54,15 +54,15 @@
     },
     {
       "id": "BLK-005",
-      "status": "open",
+      "status": "resolved",
       "severity": "medium",
       "title": "Shared-runner E-009 smoke incorrectly enforced capacity thresholds",
-      "description": "Run 44428316444 had zero failed product-path expectations but failed the 100 RPS and p99 <= 100 ms thresholds on a shared runner. Those thresholds are not appropriate for the always-on product smoke and contradict the artifact's non-capacity classification.",
+      "description": "Removed --enforce-capacity-gate from the always-on E-009 product-path smoke while preserving it in the manual ten-repetition capacity confirmation. Run 44428892897 passed Layer 0 and Layer 1, and the E-009 smoke had zero failed expectations.",
       "owner_action_required": false,
       "unblocks": [
         "Stable unified Layer 1 CI"
       ],
-      "next_step": "Remove --enforce-capacity-gate from the always-on Layer 1 smoke; preserve the enforced gate in the explicit ten-repetition manual confirmation; verify a fresh all-green run."
+      "next_step": "No further action on the shared-runner smoke. Review the raw artifact only for product-path diagnostics; use the manual ten-run confirmation for capacity claims."
     }
   ]
 }
