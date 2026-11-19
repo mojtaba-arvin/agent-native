@@ -3,15 +3,15 @@
   "updated_at": "2026-11-19",
   "active_branch": "feat/m1-package-cli",
   "baseline_branch": "research/reboot-core",
-  "baseline_commit": "10ae594f405519344b1d654e9577bd78cb1f4985",
+  "baseline_commit": "9f847b23d493150b1d578eba3b430a2d859f5371",
   "current_milestone": "M1",
   "active_task_ids": [
-    "M1-002"
+    "M1-003"
   ],
-  "last_completed_task_id": "M1-001",
-  "last_known_green_revision": "8625e94eb1a285e9516d0e69048581ba6b240a1f",
+  "last_completed_task_id": "M1-002",
+  "last_known_green_revision": "2ce48625a2e27ff24296757e95dac69a9e5df406",
   "wip_limit": 2,
-  "next_action": "Complete M1-002 by making the package namespace the sole supported import surface, statically rejecting sys.path mutation in src/agent_native, and explicitly isolating legacy E-009/E-010 scripts as non-package research prototypes. Then add the installed CLI in M1-003.",
+  "next_action": "Implement the installed agent-native CLI with deterministic check, inspect, run, worker, and audit commands. Keep execution side effects disabled until a trusted service registry and handler runtime are available; make all service IDs, file paths, and input files explicit.",
   "recovery": {
     "unchanged_failure_limit": 2,
     "no_progress_attempt_limit": 3,
