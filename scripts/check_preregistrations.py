@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import subprocess
 import sys
@@ -406,7 +407,7 @@ def validate(root: Path, base_ref: str | None = None) -> list[str]:
 
 def main() -> int:
     root = Path(__file__).resolve().parents[1]
-    errors = validate(root, base_ref=__import__('os').environ.get('AGENT_NATIVE_BASE_SHA'))
+    errors = validate(root, base_ref=os.environ.get('AGENT_NATIVE_BASE_SHA'))
     if errors:
         for error in errors:
             print(f"INVALID: {error}")
