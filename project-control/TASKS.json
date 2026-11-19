@@ -1079,7 +1079,8 @@
         "Scheduler never selects work beyond the configured WIP limit",
         "Repeated identical task-attempt failures and no-progress attempts produce a replan-required result and are not retried automatically",
         "A scheduled task must declare its working branch, base branch, and integration owner",
-        "Scheduling is deterministic, machine-readable, and does not mutate repository state"
+        "Scheduling is deterministic, machine-readable, and does not mutate repository state",
+        "Recovery thresholds are evaluated for active tasks as well as pending tasks; a threshold breach emits a stop-and-replan result"
       ],
       "expected_outputs": [
         "project_control.py schedule command",
