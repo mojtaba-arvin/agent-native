@@ -165,11 +165,17 @@ jobs:
             const latest = new Map();
             for (const review of reviews.sort((a, b) =>
               new Date(a.submitted_at || 0) - new Date(b.submitted_at || 0))) {
-              if (review.user?.login) latest.set(review.user.login, review.state);
+              if (review.user?.login) {
+                latest.set(review.user.login, {
+                  state: review.state,
+                  user_type: review.user.type
+                });
+              }
             }
             const approvals = [...latest.entries()]
-              .filter(([login, state]) =>
-                state === 'APPROVED' &&
+              .filter(([login, review]) =>
+                review.state === 'APPROVED' &&
+                review.user_type !== 'Bot' &&
                 login !== pull.user.login &&
                 !login.endsWith('[bot]'))
               .map(([login]) => login);
