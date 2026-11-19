@@ -154,6 +154,32 @@ class SchedulerPlanTests(unittest.TestCase):
         self.assertEqual(plan["selected_tasks"], [])
         self.assertEqual(plan["deferred_tasks"][0]["reason"], "working_branch_must_differ_from_base")
 
+
+    def test_control_plane_rejects_active_task_without_execution_ownership(self):
+        docs, ledger = CONTROL["load_documents"]()
+        task = next(item for item in docs["tasks"]["tasks"] if item["id"] == "CP-009")
+        task.pop("execution", None)
+        errors = CONTROL["validate_documents"](docs, ledger)
+        self.assertTrue(any("CP-009: executable task requires" in error for error in errors))
+
+    def test_control_plane_rejects_active_workstream_branch_collisions(self):
+        docs, ledger = CONTROL["load_documents"]()
+        docs["state"]["active_workstreams"][1]["branch"] = docs["state"]["active_workstreams"][0]["branch"]
+        errors = CONTROL["validate_documents"](docs, ledger)
+        self.assertTrue(any("duplicate branches" in error for error in errors))
+
+    def test_control_plane_rejects_malformed_task_attempt_events(self):
+        docs, ledger = CONTROL["load_documents"]()
+        event = {
+            "event_id": "invalid-task-attempt",
+            "timestamp": "2026-11-19T00:00:00Z",
+            "task_id": "CP-009",
+            "kind": "task_attempt",
+            "outcome": "retry-forever",
+        }
+        errors = CONTROL["validate_documents"](docs, ledger + "\n" + json.dumps(event))
+        self.assertTrue(any("invalid task_attempt outcome" in error for error in errors))
+
     def test_schedule_command_emits_machine_readable_checkpoint(self):
         result = subprocess.run(
             [sys.executable, str(ROOT / "project_control.py"), "schedule"],
