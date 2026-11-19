@@ -50,7 +50,7 @@ class PackageSurfaceTests(unittest.TestCase):
         package_root = Path(agent_native.__file__).resolve().parent
         for source in package_root.glob("*.py"):
             contents = source.read_text(encoding="utf-8")
-            self.assertNotRegex(contents, r"sys\s*\.\s*path\s*\.\s*(insert|append|extend)\s*\\(")
+            self.assertNotRegex(contents, r"sys\s*\.\s*path\s*\.\s*(insert|append|extend)\s*\(")
             self.assertNotRegex(contents, r"sys\s*\.\s*path\s*(?:\[[^]]+\])?\s*(?:=|\+=)")
 
     def test_installed_import_does_not_mutate_sys_path(self):
