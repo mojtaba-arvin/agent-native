@@ -1,7 +1,7 @@
 # M3 research execution preflight
 
 **Status:** preparation only; no model cohort dispatched.  
-**Baseline:** `research/reboot-core@329c0ed4e19571d9cfad5c98197c0a2a60612bc7`  
+**Baseline:** `research/reboot-core@ec3975ff11f33516e0d98e349283cbf7b3f19789`  
 **Purpose:** remove repository-side uncertainty while staying within the owner's zero-paid-spend ceiling (GitHub Actions free usage only).
 
 ## First topology-smoke result (2026-11-19)
@@ -16,10 +16,7 @@ on `research/reboot-core@329c0ed4e19571d9cfad5c98197c0a2a60612bc7`.
 - The score reported `passed=true`, `no_apply=true`, and both oracle path/content disclosure flags false.
 - The smoke used a deterministic stub and a synthetic oracle created only inside the evaluator container; it is not an LLM or hidden-oracle evaluation.
 
-A follow-up on `feat/m3-sandbox-runtime-probes` adds runtime probes for non-root UID,
-read-only root, noexec tmpfs, no-new-privileges, zero effective capabilities,
-blocked outbound networking, and cgroup memory/CPU/PID limits. These probes
-must pass before M3-000 can be marked complete.
+PR #93 added fail-closed runtime probes and the integrated rerun passed. Both containers reported UID 1001, read-only root, noexec /tmp, no-new-privileges, zero effective capabilities, blocked outbound networking, 2 GiB memory, 1 CPU, and 64 PIDs. M3-000 is complete; M3-001 remains blocked on a qualifying free model cohort and protected hidden-oracle custody.
 
 ## Current verified state
 
@@ -29,7 +26,7 @@ must pass before M3-000 can be marked complete.
 | Task coverage | The frozen pilot still uses one task (`e009-add-readonly-operation`); PR #74 adds three public draft tasks for operation addition, backward-compatible field addition, and tenant isolation | Public task prompts now exist; hidden evaluator oracles, pinned baseline fixtures, and independent scoring contracts remain outstanding |
 | Model coverage | One local model ID, `qwen3:8b` | Strong/medium/weak tiers and immutable provider/model versions remain unselected |
 | Cost telemetry | Case manifests use `unpriced_local`; monetary prices and cost ceilings are null | Cannot produce decision-grade cost-per-accepted-task comparisons |
-| Agent/oracle separation | PR #89 hardens preflight: rejects symlinks/hard links, verifies oracle file/parent ownership and owner-only permissions, and removes the oracle path from public evidence objects. The first M3-000 topology smoke passed on run #44493638711; follow-up runtime attestations are being added for non-root, read-only, noexec, no-new-privileges, zero capabilities, network isolation, and cgroup limits | These checks are defense-in-depth only; disposable agent and evaluator process/filesystem/network sandboxes are still not implemented |
+| Agent/oracle separation | PR #89 hardens preflight: rejects symlinks/hard links, verifies oracle file/parent ownership and owner-only permissions, and removes the oracle path from public evidence objects. The integrated M3-000 topology smoke passed on run #44494715332 with runtime attestations for non-root, read-only, noexec, no-new-privileges, zero capabilities, network isolation, and cgroup limits | These checks are defense-in-depth only; disposable agent and evaluator process/filesystem/network sandboxes are still not implemented |
 | Execution route | `.github/workflows/ci.yml` has manual CPU diagnostics explicitly labeled not M3 acceptance; `e007-provider-diagnostic.yml` is a one-cell Qwen3 diagnostic | Neither is the M3 acceptance runner |
 | Dispatch guard | The factorial runner pins the revision, validates the four-cell manifest before provisioning, enforces no-apply, and is restricted to `research/reboot-core` | Preserve this boundary; do not dispatch from a feature branch |
 
@@ -51,7 +48,7 @@ must pass before M3-000 can be marked complete.
 
 ## Safety and dispatch decision
 
-No paid API/GPU workload has been started. No oracle cohort has been executed. The existing Qwen3 pilot remains frozen and unchanged; do not reinterpret it as M3 acceptance. M3-001 remains blocked until a qualifying zero-cost isolated runner/evaluator path and the three-task, three-tier cohort are implemented and verified.
+No paid API/GPU workload has been started. No hidden-oracle cohort or real LLM run has been executed. M3-000 synthetic topology verification is complete; M3-001 remains blocked until a qualifying zero-cost model path, protected Environment, hidden-oracle custody, and the three-task/three-tier preregistered cohort are implemented and verified.
 
 ## Immediate next engineering steps
 
