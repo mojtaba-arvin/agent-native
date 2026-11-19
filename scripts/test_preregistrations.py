@@ -226,6 +226,12 @@ class PreregistrationTests(unittest.TestCase):
         self.refresh_baseline()
         self.assertTrue(any("unsupported status" in error for error in validate(self.root)))
 
+    def test_rejects_timezone_naive_event_timestamp(self):
+        self.event["timestamp"] = "2026-11-19T00:00:00"
+        self.event["event_hash"] = event_hash(self.event)
+        self.events_path.write_text(json.dumps(self.event) + "\n", encoding="utf-8")
+        self.assertTrue(any("explicit timezone" in error for error in validate(self.root)))
+
     def test_rejects_invalid_event_timestamp(self):
         self.event["timestamp"] = "not-a-date"
         self.event["event_hash"] = event_hash(self.event)
