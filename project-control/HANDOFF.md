@@ -14,17 +14,17 @@
 
 ## Current checkpoint — 2026-11-19
 
-- Baseline: `research/reboot-core@9d52c773effe42a0a0161467db401ad6505e9761`.
-- PRs #64, #65, #68, #69, #71, #72, #73, #74, and #75 are merged into `research/reboot-core`.
-- PR #63 is closed as superseded; its branch is preserved.
-- PR #70 is ready for integration after the latest base refresh. M1-001 through M1-004 passed run #44449169805: isolated package install, import-boundary scan, E-009/E-004 parity, CLI, and all 15 deterministic suites (627 known tests).
-- C0, C1, and M0 are complete with evidence-backed claims. CP-007 and CP-008 are complete.
-- M3 has three public draft tasks and a non-executable cohort draft. PR #76 adds CI tests that keep it unregistered until all gates are ready.
+- PR #70 (M1 package, import boundary, CLI, and regression preservation) is merged into `research/reboot-core`.
+- C0, C1, M0, and M1 are complete with evidence-backed claims. M1 passed 15/15 deterministic suites and 627 known tests; package tests include CLI plus E-009/E-004 parity.
+- PRs #64, #65, #68, #69, #71, #72, #73, #74, #75, and #76 are merged into `research/reboot-core`.
+- PR #77 contains M2-001 manifest-backed ServiceRegistry work, stacked on M1 and awaiting fresh Layer 0/Layer 1 validation.
+- M2-001 introduces Catalog and Inventory manifests, trusted handler-ID references, default-deny policies, and path/symlink/traversal rejection. It does not dynamically import manifest code.
+- M3 has three public draft tasks and an unregistered non-executable cohort draft. CI enforces that no provider, cost, runner, or evaluator-isolation gate is silently treated as complete.
 - Owner gates remain BLK-001 (main-branch merge/security authority) and BLK-004 (M3 approved spend/provider/runner).
-- No merge to `main`, security-setting changes, secret writes, release, deployment, branch deletion, or force-push has been performed.
+- No merge to `main`, security-setting changes, secret writes, release, deployment, or branch deletion has been performed.
 
 ## Next actions
 
-1. Refresh PR #70 against the latest `research/reboot-core` base and integrate M1.
-2. Start M2-001: manifest-backed ServiceRegistry, strict manifest/IR validation, duplicate/unknown service rejection, and a second service fixture.
-3. Continue M3 evaluator isolation and task fixtures without dispatching paid or GPU workloads until technical gates and owner approval are satisfied.
+1. Complete M2-001 installed-package and native/container/database CI validation.
+2. Implement M2-002 generic declarative handler dispatch with explicit host-registered handlers and default-deny policy checks.
+3. Continue M3 evaluator isolation and immutable baseline fixtures without dispatching paid or GPU workloads until technical gates and owner approval are satisfied.

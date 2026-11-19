@@ -120,6 +120,46 @@
       "evidence_event_ids": [
         "C1-DECISION-APPEND-001"
       ]
+    },
+    {
+      "id": "CLAIM-M1-001",
+      "statement": "The agent_native package installs in a clean isolated virtual environment, exposes stable public imports, and declares no runtime dependencies.",
+      "status": "verified",
+      "milestone_id": "M1",
+      "criterion": "Installable agent_native package",
+      "evidence_event_ids": [
+        "M1-PACKAGE-CLI-001"
+      ]
+    },
+    {
+      "id": "CLAIM-M1-002",
+      "statement": "Supported package and CLI imports do not mutate sys.path; historical E-009/E-010 entry points are explicitly isolated as non-package experiments, with E-009/E-004 parity tests passing against the package API.",
+      "status": "verified",
+      "milestone_id": "M1",
+      "criterion": "No import-time sys.path mutation",
+      "evidence_event_ids": [
+        "M1-PACKAGE-CLI-001"
+      ]
+    },
+    {
+      "id": "CLAIM-M1-003",
+      "statement": "The installed agent-native command exposes check, inspect, run, worker, and audit with explicit paths/service IDs, deterministic help, machine-readable errors, stable exit codes, and no implicit production credentials.",
+      "status": "verified",
+      "milestone_id": "M1",
+      "criterion": "Unified CLI supports check/run/inspect/worker/audit",
+      "evidence_event_ids": [
+        "M1-PACKAGE-CLI-001"
+      ]
+    },
+    {
+      "id": "CLAIM-M1-004",
+      "statement": "All 15 deterministic CI suites pass with 627 known tests; the installed-package suite includes 54 CLI/package/parity tests and preserves the prior experiment suites.",
+      "status": "verified",
+      "milestone_id": "M1",
+      "criterion": "Existing deterministic test coverage is preserved or increased",
+      "evidence_event_ids": [
+        "M1-PACKAGE-CLI-001"
+      ]
     }
   ],
   "milestones": {
@@ -168,12 +208,17 @@
       "total_exit_criteria": 3
     },
     "M1": {
-      "status": "in_progress",
-      "verified_exit_criteria": [],
+      "status": "complete",
+      "verified_exit_criteria": [
+        "Installable agent_native package",
+        "No import-time sys.path mutation",
+        "Unified CLI supports check/run/inspect/worker/audit",
+        "Existing deterministic test coverage is preserved or increased"
+      ],
       "total_exit_criteria": 4
     },
     "M2": {
-      "status": "pending",
+      "status": "in_progress",
       "verified_exit_criteria": [],
       "total_exit_criteria": 4
     },

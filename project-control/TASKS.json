@@ -473,7 +473,7 @@
       "id": "M2-001",
       "title": "Load services through a manifest-backed ServiceRegistry",
       "milestone": "M2",
-      "status": "pending",
+      "status": "in_progress",
       "priority": 20,
       "depends_on": [
         "M1-004"
@@ -500,7 +500,13 @@
       "stop_conditions": [
         "Do not add dynamic code execution or arbitrary plugin imports as a loading mechanism"
       ],
-      "evidence_ids": []
+      "evidence_ids": [
+        "src/agent_native/manifest.py",
+        "schemas/service-manifest-v1.schema.json",
+        "services/catalog/",
+        "services/inventory/",
+        "tests/test_service_registry.py"
+      ]
     },
     {
       "id": "M2-002",
