@@ -29,3 +29,6 @@ include = ["agent_native*"]
 
 [tool.setuptools.package-data]
 agent_native = ["py.typed"]
+
+[project.scripts]
+agent-native = "agent_native.cli:main"
