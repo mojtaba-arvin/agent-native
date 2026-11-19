@@ -301,7 +301,7 @@ def validate(root: Path) -> list[str]:
             errors.append(f"{label}: run_ids must be an array of positive integer IDs")
         elif len(run_ids) != len(set(run_ids)):
             errors.append(f"{label}: run_ids must not contain duplicates")
-        elif status in RUN_REQUIRED_STATUSES and not run_ids:
+        elif isinstance(status, str) and status in RUN_REQUIRED_STATUSES and not run_ids:
             errors.append(f"{label}: status {status} requires at least one run ID")
         if status == "ready_for_manual_dispatch":
             if record.get("no_apply") is not True:
