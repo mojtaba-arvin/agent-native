@@ -38,6 +38,13 @@ class SurfaceTests(unittest.TestCase):
         }
         self.assertEqual(visible, {"interface.describe"})
 
+    def test_schema_discovery_names_gateway_tools_not_target_operations(self):
+        instruction = self.progressive["schema_discovery"]["instruction"]
+        self.assertIn("exact exposed Gateway tool name", instruction)
+        self.assertIn("service.inspect", instruction)
+        self.assertIn("service.propose_delta", instruction)
+        self.assertIn("never pass the operation being added", instruction)
+
     def test_upfront_arm_exposes_every_schema(self):
         self.assertTrue(all("input_schema" in item for item in self.upfront["tools"]))
 
