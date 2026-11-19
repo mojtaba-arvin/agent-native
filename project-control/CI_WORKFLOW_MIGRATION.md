@@ -40,7 +40,13 @@ Run [44424340406](https://github.com/mojtaba-arvin/agent-native/actions/runs/444
 
 - Layer 0: 14/14 suites passed, 509 unit tests, four validator negative cases, 5.57 seconds
 - Layer 1: native/container/database job passed; Go, Rust, WASI Preview 2, BEAM, PostgreSQL and cross-engine parity checks passed
-- E-009 shared-runner product-path smoke passed with zero failed expectations. Its artifact explicitly classifies the result as a repeated product-path smoke, not a capacity claim or a controlled ten-repetition comparison
+- E-009 shared-runner product-path smoke passed with zero failed expectations in run 44424340406. A later run (44428316444) failed only the throughput/p99 capacity thresholds on the same shared runner; this exposed that the Layer 1 smoke was incorrectly enforcing a capacity gate despite its own non-capacity classification
 - Manual E-002 ten-repetition matrix, E-009 ten-run confirmation, model diagnostics and lockfile generation were skipped as intended
 
 The stale E-007 source-manifest reference has been corrected to hash .github/workflows/ci.yml. The workflow has no concurrency groups. This run verifies the PR head; after PR #64 merges, PR #65 still needs retargeting and a fresh run on research/reboot-core.
+
+## Shared-runner threshold correction
+
+Run [44428316444](https://github.com/mojtaba-arvin/agent-native/actions/runs/44428316444) passed the E-001/E-002 native and PostgreSQL checks but failed the E-009 smoke's 100 RPS and p99 <= 100 ms capacity thresholds. The request outcomes themselves had zero failed expectations; the artifact classifies this as a shared-runner product-path smoke, not a capacity claim. This is expected environmental variance, not a product correctness regression.
+
+The normal Layer 1 job therefore runs the E-009 smoke without --enforce-capacity-gate. It continues to enforce the product-path expectations and uploads raw diagnostics. The controlled ten-repetition E-009 confirmation remains a separate manual job and retains the capacity gate. This separates deterministic correctness CI from environment-sensitive capacity evidence without deleting or weakening the actual capacity experiment.
