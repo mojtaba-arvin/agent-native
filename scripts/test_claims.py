@@ -56,6 +56,15 @@ class ClaimsValidationTests(unittest.TestCase):
         self.ledger += "\n{not-json"
         self.assertTrue(any("invalid JSON" in e for e in validate_claims(self.progress, self.ledger)))
 
+    def test_rejects_mutable_source_url_as_immutable_evidence(self):
+        self.event["evidence"] = [{"url": "https://github.com/owner/repo/blob/main/REPORT.md"}]
+        self.ledger = json.dumps(self.event)
+        self.assertTrue(any("no immutable" in e for e in validate_claims(self.progress, self.ledger)))
+
+    def test_rejects_non_string_evidence_reference(self):
+        self.progress["completion_claims"][0]["evidence_event_ids"] = [{"event": "RUN-1"}]
+        self.assertTrue(any("must contain non-empty strings" in e for e in validate_claims(self.progress, self.ledger)))
+
     def test_rejects_duplicate_claim_ids(self):
         self.progress["completion_claims"].append(dict(self.progress["completion_claims"][0]))
         self.assertTrue(any("duplicate claim id" in e for e in validate_claims(self.progress, self.ledger)))
