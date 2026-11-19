@@ -32,13 +32,13 @@
       "status": "resolved",
       "severity": "high",
       "title": "Unified CI candidate needs safety and cost corrections before port",
-      "description": "The unified workflow's PR-head run 44424340406 completed with Layer 0 and Layer 1 successful. The stale E-007 source-manifest path is fixed, all 15 legacy workflow responsibilities are mapped, manual expensive jobs remain opt-in, and the workflow has no concurrency groups. The E-009 shared-runner smoke passed but explicitly does not constitute a capacity claim. A fresh run is still required after PR #64 is integrated and PR #65 is retargeted.",
+      "description": "The unified workflow was integrated into research/reboot-core through PR #65 after PR #64. Fresh PR-head run 44429525898 passed Layer 0 and Layer 1 after retargeting. E-002 ten-repetition performance and E-009 ten-run capacity jobs are manual-only; CPU diagnostics are explicitly not M3 acceptance; the always-on E-009 smoke is functional-only. Evidence scorecards and preregistration integrity are integrated through PRs #68 and #69.",
       "owner_action_required": false,
       "unblocks": [
         "CP-006",
         "CP-007"
       ],
-      "next_step": "After PR #64 is integrated into research/reboot-core, retarget PR #65 and verify a fresh all-green run before merge."
+      "next_step": "No further CI consolidation action; preserve manual gates and verify future changes through the unified workflow."
     },
     {
       "id": "BLK-004",
@@ -66,17 +66,17 @@
     },
     {
       "id": "BLK-006",
-      "status": "open",
+      "status": "resolved",
       "severity": "high",
       "title": "C1 integration and M0 unblock await owner review of PR #64",
-      "description": "All three M0 exit criteria are evidence-verified on the stacked PR #69 head, and PRs #68/#69 have green candidate runs. However, M0 declares C1 as a dependency and CP-007 still requires PR #64 to be owner-reviewed and integrated into research/reboot-core before PR #65 can be retargeted and receive its required fresh baseline run. No merge or destructive action has been taken.",
-      "owner_action_required": true,
+      "description": "PR #64, #65, #68, and #69 are integrated into research/reboot-core. PR #65 was retargeted after #64 and passed fresh Layer 0 and Layer 1 in run 44429525898. CP-007 is complete. M0 remains blocked by the remaining C0/C1 exit criteria, not by owner review of the PR stack.",
+      "owner_action_required": false,
       "unblocks": [
         "CP-007 final acceptance",
         "M0 milestone unblock",
         "M1-001 package baseline integration"
       ],
-      "next_step": "Review and integrate PR #64 into research/reboot-core; then retarget PR #65 and run fresh Layer 0 and Layer 1 checks."
+      "next_step": "Complete the C0 clean-handoff resume gate and the remaining C1 evidence/decision-integrity criterion; then re-evaluate M0."
     }
   ]
 }
