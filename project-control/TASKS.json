@@ -644,7 +644,8 @@
         "Dispatched/completed/failed/cancelled/ineligible cohort records require positive run IDs; cancelled and failed outcomes remain visible",
         "Agent factorial cohorts remain no-apply and ready-for-manual-dispatch records cannot already contain run IDs",
         "Negative tests cover changed frozen manifests, changed decision/registry files, duplicate IDs, missing run IDs, bad event chains, invalid statuses, and path traversal",
-        "Validator runs in the project-control fast-CI precheck"
+        "Validator runs in the project-control fast-CI precheck",
+        "Factorial cells that are not started due to infrastructure or budget abort remain explicit in the raw cohort artifact with a reason and ineligible classification"
       ],
       "expected_outputs": [
         "Git-blob-pinned preregistration registry",
