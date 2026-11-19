@@ -49,6 +49,12 @@ class SandboxProbeUnitTests(unittest.TestCase):
         with self.assertRaises(SandboxProbeError):
             validate_sandbox_report(report)
 
+    def test_rejects_boolean_cgroup_limits(self):
+        report = self._valid_report()
+        report["memory_limit_bytes"] = True
+        with self.assertRaises(SandboxProbeError):
+            validate_sandbox_report(report)
+
     def test_evaluator_score_contains_both_sandbox_attestations(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
