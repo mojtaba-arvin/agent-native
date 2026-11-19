@@ -10,6 +10,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 E007 = ROOT / "experiments" / "e007"
 E009 = ROOT / "experiments" / "e009"
+sys.path.insert(0, str(E007))
 sys.path.insert(0, str(E009))
 sys.path.insert(0, str(E007 / "evaluator"))
 
