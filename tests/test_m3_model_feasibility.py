@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import sys
+import textwrap
 import tempfile
 import unittest
 from pathlib import Path
@@ -126,6 +128,14 @@ class M3ModelFeasibilityTests(unittest.TestCase):
         self.assertIn("runner-info.json", workflow)
         self.assertIn("manifest_sha256", workflow)
         self.assertIn("disk_after_pull", workflow)
+
+    def test_embedded_python_workflow_scripts_are_syntactically_valid(self):
+        workflow = (ROOT / ".github" / "workflows" / "m3-model-feasibility.yml").read_text(encoding="utf-8")
+        scripts = re.findall(r"(?ms)^[ \t]*python3\b[^\n]*<<'PY'[ \t]*\n(.*?)^[ \t]*PY[ \t]*$", workflow)
+        self.assertGreaterEqual(len(scripts), 3, "expected all embedded Python heredocs to be discovered")
+        for index, script in enumerate(scripts):
+            with self.subTest(script=index):
+                compile(textwrap.dedent(script), f"m3-model-feasibility-heredoc-{index}", "exec")
 
     def test_model_smoke_disables_apply_and_uses_existing_e009_agent(self):
         smoke = (E007 / "m3_model_smoke.py").read_text(encoding="utf-8")
