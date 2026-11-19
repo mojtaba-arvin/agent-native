@@ -649,7 +649,8 @@
         "Every affected decision ID in an event resolves to a unique decision in DECISIONS.json",
         "Every cohort_manifest is no-apply in both registry metadata and the referenced manifest body, including draft records",
         "Decision event timestamps include an explicit timezone",
-        "Run-ledger content is pinned by the latest decision event and every later ledger revision advances the hash chain"
+        "Run-ledger content is pinned by the latest decision event and every later ledger revision advances the hash chain",
+        "CI compares decision-event and run-ledger byte prefixes to the PR base and rejects rewrites or truncation"
       ],
       "expected_outputs": [
         "Git-blob-pinned preregistration registry",
