@@ -18,6 +18,8 @@ This directory is the versioned execution state for the Agent Native v0.1 progra
 - [CI_WORKFLOW_MIGRATION.md](CI_WORKFLOW_MIGRATION.md): responsibility map for the unified CI workflow.
 - [M0_AUDIT.md](M0_AUDIT.md): current source/evidence audit and v0.1 gap assessment.
 - [BRANCH_INVENTORY.md](BRANCH_INVENTORY.md): current branch graph and preserved unique artifacts.
+- [PREREGISTRATIONS.json](PREREGISTRATIONS.json): frozen benchmark/evidence manifest registry.
+- [DECISION_EVENTS.jsonl](DECISION_EVENTS.jsonl): hash-chained append-only decision and registry baseline events.
 - [check_claims.py](../scripts/check_claims.py): fail-closed validation for evidence-backed completion claims.
 
 ## Validate
