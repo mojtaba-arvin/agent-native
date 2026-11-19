@@ -170,13 +170,41 @@ class SchedulerPlanTests(unittest.TestCase):
     def test_control_plane_rejects_active_task_without_execution_ownership(self):
         docs, ledger = CONTROL["load_documents"]()
         task = next(item for item in docs["tasks"]["tasks"] if item["id"] == "CP-009")
+
+        # Build the invalid active-task state explicitly. CP-009 is complete in
+        # the repository's real state, so removing its execution contract alone
+        # must not be expected to trigger the executable-task validation rule.
+        task["status"] = "in_progress"
         task.pop("execution", None)
+        docs["state"]["active_task_ids"] = ["CP-009"]
+        docs["state"].pop("active_workstreams", None)
+
         errors = CONTROL["validate_documents"](docs, ledger)
         self.assertTrue(any("CP-009: executable task requires" in error for error in errors))
 
     def test_control_plane_rejects_active_workstream_branch_collisions(self):
         docs, ledger = CONTROL["load_documents"]()
-        docs["state"]["active_workstreams"][1]["branch"] = docs["state"]["active_workstreams"][0]["branch"]
+        state = docs["state"]
+        first_workstream = state["active_workstreams"][0]
+        second_task_id = "CP-009"
+        second_task = next(
+            item for item in docs["tasks"]["tasks"] if item["id"] == second_task_id
+        )
+
+        # Create a second valid active task/workstream, then introduce exactly
+        # one invalid property: both workstreams claim the same working branch.
+        second_task["status"] = "in_progress"
+        second_task["execution"] = {
+            "branch": first_workstream["branch"],
+            "base_branch": first_workstream["base_branch"],
+            "integration_owner": first_workstream["integration_owner"],
+        }
+        state["active_task_ids"].append(second_task_id)
+        state["active_workstreams"].append({
+            "task_id": second_task_id,
+            **second_task["execution"],
+        })
+
         errors = CONTROL["validate_documents"](docs, ledger)
         self.assertTrue(any("duplicate branches" in error for error in errors))
 
