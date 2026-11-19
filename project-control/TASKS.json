@@ -343,17 +343,17 @@
         "Do not introduce nonessential runtime dependencies"
       ],
       "evidence_ids": [
-        "run:44447460958",
-        "isolated-venv install passed",
-        "6 package tests passed",
-        "577 known tests across 15 suites"
+        "run:44449169805",
+        "isolated-venv pip install passed",
+        "no runtime dependencies",
+        "installed public imports passed"
       ]
     },
     {
       "id": "M1-002",
       "title": "Remove import-time sys.path mutation from the packaged core and entry points",
       "milestone": "M1",
-      "status": "in_progress",
+      "status": "complete",
       "priority": 11,
       "depends_on": [
         "M1-001"
@@ -383,17 +383,18 @@
         "Do not break reproducible historical experiment entry points without a migration path"
       ],
       "evidence_ids": [
-        "src/agent_native/runtime.py",
-        "src/agent_native/security.py",
-        "tests/test_package.py",
-        "tests/test_runtime_parity.py"
+        "run:44449169805",
+        "package sys.path scanner passed",
+        "isolated import test passed",
+        "E-009 kernel parity tests passed",
+        "E-004 security parity tests passed"
       ]
     },
     {
       "id": "M1-003",
       "title": "Add a unified developer CLI for check, run, inspect, worker, and audit",
       "milestone": "M1",
-      "status": "pending",
+      "status": "complete",
       "priority": 12,
       "depends_on": [
         "M1-001",
@@ -421,13 +422,17 @@
       "stop_conditions": [
         "Do not add production deployment commands in M1"
       ],
-      "evidence_ids": []
+      "evidence_ids": [
+        "run:44449169805",
+        "CLI tests: check/run/inspect/worker/audit/help/errors passed",
+        "console script agent-native installed and --version passed"
+      ]
     },
     {
       "id": "M1-004",
       "title": "Preserve deterministic regression coverage through package migration",
       "milestone": "M1",
-      "status": "pending",
+      "status": "complete",
       "priority": 13,
       "depends_on": [
         "M1-001",
@@ -457,7 +462,12 @@
       "stop_conditions": [
         "Do not weaken trust-boundary or failure-injection tests"
       ],
-      "evidence_ids": []
+      "evidence_ids": [
+        "run:44449169805",
+        "15/15 deterministic suites passed",
+        "627 known tests across 15 suites",
+        "54 package tests including E-009/E-004 parity"
+      ]
     },
     {
       "id": "M2-001",
