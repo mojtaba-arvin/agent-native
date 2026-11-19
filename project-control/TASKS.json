@@ -1247,7 +1247,7 @@
       "id": "M3-003",
       "title": "Qualify zero-cost CPU model tiers for the E007 agent harness",
       "milestone": "M3",
-      "status": "in_progress",
+      "status": "complete",
       "priority": 30,
       "depends_on": [
         "M3-000"
@@ -1305,13 +1305,62 @@
         "https://huggingface.co/ibm-granite/granite-4.0-h-1b",
         "https://huggingface.co/ibm-granite/granite-4.0-h-micro",
         "https://docs.ollama.com/capabilities/tool-calling",
-        "https://github.com/ggml-org/llama.cpp/issues/25986"
+        "https://github.com/ggml-org/llama.cpp/issues/25986",
+        "run:44529848174",
+        "artifact:14533985747",
+        "run:44529847920",
+        "0/6 full lifecycle completions; no model qualified",
+        "model-lock SHA-256 8dd6e4e2acbea225dbd4fa2b4428f3691f11176be862539430aee0aced67bc17 verified"
       ],
       "execution": {
         "branch": "feat/m3-model-feasibility",
         "base_branch": "research/reboot-core",
         "integration_owner": "integrator"
       }
+    },
+    {
+      "id": "M3-004",
+      "title": "Expose progressive and upfront Gateway tool schemas as native provider functions",
+      "milestone": "M3",
+      "status": "pending",
+      "priority": 32,
+      "depends_on": [
+        "M3-003"
+      ],
+      "owner": "core",
+      "scope": [
+        "experiments/e009/local_agent.py",
+        "experiments/e009/test_local_agent.py",
+        "experiments/e009/agent_gateway.py",
+        "research/M3_MODEL_FEASIBILITY.md"
+      ],
+      "acceptance": [
+        "The provider receives one native function definition per currently disclosed Gateway tool, with that tool's exact input schema",
+        "Progressive mode initially exposes only interface.describe and adds a tool definition only after its schema is discovered",
+        "Upfront mode exposes all declared Gateway tools and their exact schemas before the first model turn",
+        "Provider function calls map to the existing agent.invoke Gateway envelope without widening Gateway authority",
+        "Calls to undiscovered or unexposed tools fail closed and remain visible in raw traces",
+        "Deterministic tests cover progressive discovery, upfront disclosure, schema mapping, unknown-tool rejection, and tool-result continuation",
+        "The existing no-apply and no-network inference boundaries remain unchanged"
+      ],
+      "expected_outputs": [
+        "Provider-native tool schema adapter",
+        "Progressive/upfront schema regression tests",
+        "Fresh locked CPU feasibility run with raw traces"
+      ],
+      "max_unchanged_retries": 1,
+      "replan_after_failures": 2,
+      "stop_conditions": [
+        "Do not weaken the Gateway's tool allowlist or authorization checks",
+        "Do not treat a harness-only pass as model qualification",
+        "Do not enable apply or hidden-oracle access"
+      ],
+      "evidence_ids": [
+        "run:44529848174",
+        "artifact:14533985747",
+        "provider telemetry: tool_definition_count=1",
+        "progressive 1B repeated interface.describe despite retained schema"
+      ]
     }
   ]
 }
