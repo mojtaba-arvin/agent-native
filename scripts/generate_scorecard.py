@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import re
 from pathlib import Path
 from typing import Any
@@ -94,6 +95,9 @@ def build_scorecard(summary_raw: bytes, ledger_raw: bytes, progress_raw: bytes) 
         raise ValueError("CI scorecards require the exact 40-character workflow checkout SHA")
     if not isinstance(source.get("branch"), str) or not source["branch"]:
         raise ValueError("CI scorecards require a source branch")
+    base_sha = source.get("base_sha")
+    if base_sha is not None and (not isinstance(base_sha, str) or not SHA1_RE.fullmatch(base_sha)):
+        raise ValueError("CI scorecards require a valid base SHA when one is supplied")
     if not isinstance(summary.get("generated_at_utc"), str):
         raise ValueError("CI summary generated_at_utc is required")
 
@@ -120,7 +124,12 @@ def build_scorecard(summary_raw: bytes, ledger_raw: bytes, progress_raw: bytes) 
         if (status == "passed") != (suite["exit_code"] == 0):
             raise ValueError(f"CI suite {name} status does not match its exit code")
         duration = suite.get("elapsed_seconds")
-        if isinstance(duration, bool) or not isinstance(duration, (int, float)) or duration < 0:
+        if (
+            isinstance(duration, bool)
+            or not isinstance(duration, (int, float))
+            or not math.isfinite(duration)
+            or duration < 0
+        ):
             raise ValueError(f"CI suite {name} has invalid elapsed_seconds")
         output_sha = suite.get("output_sha256")
         if not isinstance(output_sha, str) or not SHA256_RE.fullmatch(output_sha):
@@ -146,6 +155,14 @@ def build_scorecard(summary_raw: bytes, ledger_raw: bytes, progress_raw: bytes) 
     expected_status = "passed" if failed == 0 else "failed"
     if result.get("status") != expected_status:
         raise ValueError("CI summary result status does not match suite outcomes")
+    total_elapsed = result.get("elapsed_seconds")
+    if (
+        isinstance(total_elapsed, bool)
+        or not isinstance(total_elapsed, (int, float))
+        or not math.isfinite(total_elapsed)
+        or total_elapsed < 0
+    ):
+        raise ValueError("CI summary result elapsed_seconds is invalid")
     if (
         type(result.get("passed_suites")) is not int
         or type(result.get("failed_suites")) is not int
