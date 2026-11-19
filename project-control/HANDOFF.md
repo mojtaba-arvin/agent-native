@@ -3,7 +3,7 @@
 ## Resume protocol
 
 1. Read AGENTS.md and this directory's README.md.
-2. Run python project_control.py validate, python project_control.py status, and python scripts/check_claims.py.
+2. Run python project_control.py validate, python project_control.py status, and python scripts/check_claims.py, and python scripts/check_preregistrations.py.
 3. Inspect current branch, base, open PRs, diffs, and latest workflow runs; never rely on a previous conversation's CI state.
 4. Read STATE.json and continue only tasks whose dependencies and branch preconditions still hold.
 5. Select the highest-priority ready task within the WIP limit. If a task is blocked, record it and continue independent work.
