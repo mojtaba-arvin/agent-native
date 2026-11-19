@@ -1360,7 +1360,12 @@
         "artifact:14533985747",
         "provider telemetry: tool_definition_count=1",
         "progressive 1B repeated interface.describe despite retained schema"
-      ]
+      ],
+      "execution": {
+        "branch": "feat/e009-native-provider-tool-schemas",
+        "base_branch": "research/reboot-core",
+        "integration_owner": "integrator"
+      }
     }
   ]
 }
