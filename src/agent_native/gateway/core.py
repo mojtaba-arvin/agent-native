@@ -158,6 +158,8 @@ class AgentGateway:
         resource: str,
         identity: RequestContext,
     ) -> tuple[str, tuple[str, ...], str]:
+        if not isinstance(identity, RequestContext):
+            raise GatewayError("INVALID_REQUEST_CONTEXT")
         effects = tuple(sorted(operation["effects"]))
         try:
             effect_mode = classify_effects(effects)
