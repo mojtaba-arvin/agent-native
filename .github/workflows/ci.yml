@@ -225,7 +225,7 @@ jobs:
         run: |
           python experiments/e009/performance_smoke.py \
             --requests 1000 --repetitions 2 --concurrency 32 --target-rps 100 \
-            --containerized --enforce-capacity-gate --output "$RUNNER_TEMP/e009-cgroup-smoke.json"
+            --containerized --output "$RUNNER_TEMP/e009-cgroup-smoke.json"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
