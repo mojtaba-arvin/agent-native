@@ -145,7 +145,7 @@ class PreregistrationTests(unittest.TestCase):
     def test_draft_manifest_can_change_before_freeze(self):
         self.registry["records"][0]["status"] = "draft"
         self.refresh_baseline()
-        (self.root / "manifest.json").write_text('{"draft_revision": 2}\n', encoding="utf-8")
+        (self.root / "manifest.json").write_text('{"no_apply": true, "draft_revision": 2}\n', encoding="utf-8")
         self.assertEqual(validate(self.root), [])
 
     def test_rejects_event_hash_tampering(self):
