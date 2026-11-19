@@ -578,7 +578,7 @@
       "id": "M0-001",
       "title": "Inventory and preserve research-only branches and unique evidence artifacts",
       "milestone": "M0",
-      "status": "in_progress",
+      "status": "complete",
       "priority": 4,
       "depends_on": [
         "CP-003"
@@ -605,13 +605,21 @@
       "stop_conditions": [
         "No branch deletion, tag deletion, or force push without owner approval"
       ],
-      "evidence_ids": []
+      "evidence_ids": [
+        "project-control/BRANCH_INVENTORY.md",
+        "27 current refs inventoried",
+        "4 unique E-007 research branches preserved",
+        "9 additional diverged work branches classified",
+        "5 branches verified reachable from reboot-core",
+        "no snapshot-named refs currently visible",
+        "no destructive ref operations"
+      ]
     },
     {
       "id": "M0-002",
       "title": "Enforce preregistration and append-only decision integrity",
       "milestone": "M0",
-      "status": "pending",
+      "status": "in_progress",
       "priority": 5,
       "depends_on": [
         "CP-003"
