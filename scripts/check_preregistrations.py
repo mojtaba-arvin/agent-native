@@ -91,6 +91,7 @@ def _validate_append_only_history(root: Path, base_ref: str, errors: list[str]) 
         errors.append(f"append-only history: base ref is not available: {base_ref}")
         return
     for relative in (
+        "research/design-decisions.md",
         "project-control/DECISION_EVENTS.jsonl",
         "project-control/RUN_LEDGER.jsonl",
     ):
