@@ -6,13 +6,13 @@
       "status": "open",
       "severity": "high",
       "title": "GitHub autonomous merge and required-check authority is not established",
-      "description": "AGENTS.md reserves repository security settings and main merges for explicit owner authorization. CI can be prepared in a PR, but rulesets, merge queue, tokens/secrets, and unattended merge acceptance require owner action.",
+      "description": "AGENTS.md reserves repository security settings and main merges for explicit owner authorization. The active Protect Main Branch ruleset currently enforces deletion and non-fast-forward protections only. The classic branch-protection endpoint is not readable through the current integration, so required PR approvals and status checks remain unverified. PR-based integration is available; ruleset/branch-protection changes and unattended main merge require owner action.",
       "owner_action_required": true,
       "unblocks": [
         "Autonomous merge-to-main acceptance test",
         "Automated release publication"
       ],
-      "next_step": "Keep PR-based integration; prepare a least-privilege setup checklist without changing repository settings."
+      "next_step": "Owner reviews GitHub Settings for main, configures required PR approvals/status checks and up-to-date branches, then explicitly authorizes main integration. Keep PR-based integration meanwhile."
     },
     {
       "id": "BLK-002",
@@ -77,6 +77,20 @@
         "M1-001 package baseline integration"
       ],
       "next_step": "Complete the C0 clean-handoff resume gate and the remaining C1 evidence/decision-integrity criterion; then re-evaluate M0."
+    },
+    {
+      "id": "BLK-007",
+      "status": "open",
+      "severity": "high",
+      "title": "Two independent human reviews are required before M2-003 trust-boundary integration",
+      "description": "PR #81 changes Gateway/authz trust-boundary code. The repository task contract requires two independent reviews. CI enforcement is prepared in PR #84, but PR #81 currently has no independent review submissions; the author cannot satisfy this gate.",
+      "owner_action_required": true,
+      "unblocks": [
+        "M2-003 integration",
+        "M2-004 retarget and integration",
+        "C3 completion"
+      ],
+      "next_step": "Add two independent human reviewers with repository read access or higher and request their reviews on https://github.com/mojtaba-arvin/agent-native/pull/81. Do not count the PR author or bots."
     }
   ]
 }
