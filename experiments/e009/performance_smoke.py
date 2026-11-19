@@ -297,45 +297,38 @@ def load_preregistration_config(path: Path) -> tuple[dict, str]:
     return config, git_blob_sha1(raw_bytes)
 
 
-def evaluate_capacity_gate(aggregate, resource_metrics):
+def evaluate_capacity_gate(aggregate, resource_metrics, thresholds=None):
     """Evaluate the preregistered single-node E-009 target using server cgroup metrics."""
+    thresholds = dict(DEFAULT_CAPACITY_THRESHOLDS if thresholds is None else thresholds)
     cgroup = resource_metrics.get("cgroup_v2_limits") or {}
     checks = {
         "throughput_at_least_100_rps": (
-            aggregate.get("throughput_requests_per_second", 0) >= 100.0
+            aggregate.get("throughput_requests_per_second", 0) >= thresholds["minimum_throughput_requests_per_second"]
         ),
         "aggregate_p99_at_most_100_ms": (
-            (aggregate.get("latency_ms") or {}).get("p99", float("inf")) <= 100.0
+            (aggregate.get("latency_ms") or {}).get("p99", float("inf")) <= thresholds["maximum_aggregate_p99_ms"]
         ),
         "server_cpu_at_most_50_percent_of_one_core": (
-            resource_metrics.get("server_cpu_percent_of_one_core_during_load", float("inf")) <= 50.0
+            resource_metrics.get("server_cpu_percent_of_one_core_during_load", float("inf")) <= thresholds["maximum_one_core_cpu_percent"]
         ),
         "peak_cgroup_memory_at_most_1_gib": (
             resource_metrics.get("server_peak_cgroup_memory_bytes") is not None
-            and resource_metrics["server_peak_cgroup_memory_bytes"] <= 1_073_741_824
+            and resource_metrics["server_peak_cgroup_memory_bytes"] <= thresholds["maximum_peak_cgroup_memory_bytes"]
         ),
         "server_cgroup_is_one_cpu": (
             resource_metrics.get("server_containerized") is True
-            and resource_metrics.get("server_cpu_quota_cores") == 1.0
+            and resource_metrics.get("server_cpu_quota_cores") == thresholds["required_server_cpu_quota_cores"]
             and cgroup.get("cpu_max") == "100000 100000"
         ),
         "server_cgroup_memory_limit_is_1_gib": (
-            cgroup.get("memory_max") == "1073741824"
+            cgroup.get("memory_max") == str(thresholds["required_server_memory_limit_bytes"])
         ),
-        "zero_unexpected_outcomes": aggregate.get("failed_expectations") == 0,
+        "zero_unexpected_outcomes": aggregate.get("failed_expectations") <= thresholds["maximum_unexpected_outcomes"],
     }
     return {
         "enabled": True,
         "passed": all(checks.values()),
-        "thresholds": {
-            "minimum_throughput_requests_per_second": 100.0,
-            "maximum_aggregate_p99_ms": 100.0,
-            "maximum_one_core_cpu_percent": 50.0,
-            "maximum_peak_cgroup_memory_bytes": 1_073_741_824,
-            "required_server_cpu_quota_cores": 1.0,
-            "required_server_memory_limit_bytes": 1_073_741_824,
-            "maximum_unexpected_outcomes": 0,
-        },
+        "thresholds": thresholds,
         "checks": checks,
     }
 
