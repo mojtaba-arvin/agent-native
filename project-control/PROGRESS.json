@@ -100,24 +100,46 @@
       "evidence_event_ids": [
         "CI-RUN-44443670754"
       ]
+    },
+    {
+      "id": "CLAIM-C0-004",
+      "statement": "A fresh process can resume from committed repository state through the machine-readable resume command, which enforces task dependencies and WIP limits.",
+      "status": "verified",
+      "milestone_id": "C0",
+      "criterion": "A clean handoff can resume from repository state",
+      "evidence_event_ids": [
+        "CP-008-RESUME-001"
+      ]
+    },
+    {
+      "id": "CLAIM-C1-004",
+      "statement": "Decision history changes are dated, hash-chained, and append-only; CI rejects rewrites and truncation while preserving prior rationale.",
+      "status": "verified",
+      "milestone_id": "C1",
+      "criterion": "Decision changes are dated and preserve prior rationale",
+      "evidence_event_ids": [
+        "C1-DECISION-APPEND-001"
+      ]
     }
   ],
   "milestones": {
     "C0": {
-      "status": "in_progress",
+      "status": "complete",
       "verified_exit_criteria": [
         "Versioned project state exists",
         "Task contracts define acceptance and recovery",
-        "Validator rejects malformed statuses and broken references"
+        "Validator rejects malformed statuses and broken references",
+        "A clean handoff can resume from repository state"
       ],
       "total_exit_criteria": 4
     },
     "C1": {
-      "status": "in_progress",
+      "status": "complete",
       "verified_exit_criteria": [
-        "Run ledger records successful and cancelled CI runs with immutable run IDs",
-        "CI executes validator negative self-tests and rejects malformed control-plane data",
-        "Claims checker enforces evidence mapping for verified milestone criteria"
+        "Run ledger records successes and failures with immutable evidence references",
+        "Progress claims resolve to evidence",
+        "Decision changes are dated and preserve prior rationale",
+        "CI rejects malformed control-plane state"
       ],
       "total_exit_criteria": 4
     },
@@ -137,7 +159,7 @@
       "total_exit_criteria": 3
     },
     "M0": {
-      "status": "blocked",
+      "status": "complete",
       "verified_exit_criteria": [
         "Research-only branch content is preserved and reviewed before pruning",
         "Benchmark cohorts and thresholds are preregistered and immutable after start",
@@ -146,7 +168,7 @@
       "total_exit_criteria": 3
     },
     "M1": {
-      "status": "pending",
+      "status": "in_progress",
       "verified_exit_criteria": [],
       "total_exit_criteria": 4
     },
