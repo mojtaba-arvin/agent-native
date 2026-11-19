@@ -254,7 +254,7 @@
       "id": "CP-007",
       "title": "Consolidate workflow policy without losing manual and extended checks",
       "milestone": "C1",
-      "status": "in_progress",
+      "status": "complete",
       "priority": 7,
       "depends_on": [
         "CP-006"
@@ -300,7 +300,12 @@
         "E-009 smoke zero failed expectations without capacity enforcement",
         "run:44444482357",
         "14/14 fast suites; 571 known tests; scorecard artifact 14492437245",
-        "Layer 1 native/container/database passed on the stacked PR head"
+        "Layer 1 native/container/database passed on the stacked PR head",
+        "run:44429525898",
+        "PR #64 merged into research/reboot-core",
+        "PR #65 merged into research/reboot-core",
+        "PR #68 merged into research/reboot-core",
+        "PR #69 merged into research/reboot-core"
       ]
     },
     {
@@ -951,6 +956,45 @@
         "No release publication without explicit owner approval"
       ],
       "evidence_ids": []
+    },
+    {
+      "id": "CP-008",
+      "title": "Prove a fresh agent can resume from the committed execution checkpoint",
+      "milestone": "C0",
+      "status": "complete",
+      "priority": 8,
+      "depends_on": [
+        "CP-001",
+        "CP-002"
+      ],
+      "owner": "integrator",
+      "scope": [
+        "project_control.py",
+        "project-control/HANDOFF.md",
+        "scripts/test_project_control.py"
+      ],
+      "acceptance": [
+        "python project_control.py resume emits a machine-readable checkpoint from committed repository state",
+        "Resume rejects active tasks whose dependencies are incomplete",
+        "Resume rejects invalid control-plane state and active work beyond the WIP limit",
+        "A fresh process can read the handoff, validate state, and recover active task contracts and next action"
+      ],
+      "expected_outputs": [
+        "Stateless resume command",
+        "Resume checkpoint regression tests",
+        "Updated handoff protocol"
+      ],
+      "max_unchanged_retries": 2,
+      "replan_after_failures": 2,
+      "stop_conditions": [
+        "Do not infer completion or authority from prose-only handoff notes"
+      ],
+      "evidence_ids": [
+        "run:44447117325",
+        "resume command: machine-readable checkpoint",
+        "negative dependency test passed",
+        "Layer 0 and Layer 1 passed"
+      ]
     }
   ]
 }
