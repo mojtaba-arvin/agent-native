@@ -113,6 +113,8 @@ class M3ModelFeasibilityTests(unittest.TestCase):
         self.assertIn("workflow_dispatch:", workflow)
         self.assertIn("branches:", workflow)
         self.assertIn("research/reboot-core", workflow)
+        self.assertIn("allowed=false", workflow)
+        self.assertIn("needs.guard.outputs.allowed == 'true'", workflow)
         self.assertNotIn("pull_request:", workflow)
         self.assertNotIn("schedule:", workflow)
         self.assertIn("--network none", workflow)
