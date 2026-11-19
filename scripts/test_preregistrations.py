@@ -209,6 +209,18 @@ class PreregistrationTests(unittest.TestCase):
         )
         self.assertTrue(any("duplicate decision id D-1" in error for error in validate(self.root)))
 
+    def test_rejects_cohort_manifest_without_no_apply_flag(self):
+        (self.root / "manifest.json").write_text('{"no_apply": false}\n', encoding="utf-8")
+        self.registry["records"][0]["git_blob_sha1"] = git_blob_sha1(self.root / "manifest.json")
+        self.refresh_baseline()
+        self.assertTrue(any("referenced cohort manifest must declare no_apply=true" in error for error in validate(self.root)))
+
+    def test_rejects_draft_cohort_metadata_without_no_apply(self):
+        self.registry["records"][0]["status"] = "draft"
+        self.registry["records"][0]["no_apply"] = False
+        self.refresh_baseline()
+        self.assertTrue(any("agent cohort manifests must remain no-apply" in error for error in validate(self.root)))
+
     def test_rejects_invalid_status_type_without_crashing(self):
         self.registry["records"][0]["status"] = {"unexpected": "object"}
         self.refresh_baseline()
