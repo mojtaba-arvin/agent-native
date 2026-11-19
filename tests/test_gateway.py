@@ -140,6 +140,28 @@ class AgentGatewayTests(unittest.TestCase):
             self.gateway.plan(second, validation, identity("tenant-a", "stock.read", "/stock"))
         self.assertEqual(caught.exception.code, "VALIDATION_STALE")
 
+    def test_plan_rejects_forged_validation_metadata(self):
+        context = identity("tenant-a", "items.read", "/items")
+        proposal = self.gateway.propose("catalog", "get_item", {"id": ITEM_ID}, context)
+        validation = self.gateway.validate(proposal, context)
+        forged = replace(validation, required_capability="admin.root")
+
+        with self.assertRaises(GatewayError) as caught:
+            self.gateway.plan(proposal, forged, context)
+        self.assertEqual(caught.exception.code, "VALIDATION_STALE")
+
+    def test_plan_does_not_retain_mutable_effect_lists(self):
+        context = identity("tenant-a", "items.read", "/items")
+        proposal = self.gateway.propose("catalog", "get_item", {"id": ITEM_ID}, context)
+        mutable_effects = list(proposal.effects)
+        forged = replace(proposal, effects=mutable_effects)
+        validation = self.gateway.validate(forged, context)
+        plan = self.gateway.plan(forged, validation, context)
+
+        mutable_effects.append("repository.write")
+        self.assertEqual(plan.effects, ("repository.read",))
+        self.assertIsInstance(plan.effects, tuple)
+
     def test_proposal_payload_freezing_is_recursive(self):
         source = {"nested": {"items": [{"name": "original"}]}}
         frozen = _freeze_json(source)
