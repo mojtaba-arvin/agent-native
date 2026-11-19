@@ -872,7 +872,7 @@ def run(args: argparse.Namespace) -> dict:
             "This run uses the upfront tool-schema arm: all exposed tool schemas are already present in the session surface. Never call interface.describe. "
             if args.arm == "upfront"
             else
-            "This run uses the progressive tool-schema arm. Before each tool whose detailed schema has not yet been retrieved, call interface.describe with its exact name and use that returned schema. Retrieve the service.inspect schema first. "
+            "This run uses the progressive tool-schema arm. Before each Gateway tool whose detailed schema has not yet been retrieved, call interface.describe with name set to that exact exposed Gateway tool name (for example, service.inspect or service.propose_delta), not the operation being added. Retrieve the service.inspect schema first. "
         )
         if proposal_mode == "snapshot":
             base_instruction = (
@@ -894,7 +894,7 @@ def run(args: argparse.Namespace) -> dict:
         inspection_instruction = (
             "Inspect every existing operation exactly once before proposing. "
             if base_disclosure == "per_operation" else
-            "Do not call service.inspect with operation; follow the selected disclosure treatment. "
+            "The first service-level inspection completes the base disclosure in this mode. Do not repeat service.inspect or request individual operation contracts; follow its next_actions and proceed to the proposal. "
         )
         apply_instruction = (
             "After service.plan returns valid=true, will_mutate=true, sandbox_only=true, and will_deploy=false, call service.apply exactly once with the same change_set_id. The apply is restricted to the isolated temporary E-010 sandbox; it cannot deploy or mutate production. Read the apply result and ensure its runtime_smoke_test status_code is 200. "
