@@ -31,15 +31,16 @@ def _write_synthetic_oracle(directory: Path) -> Path:
 
 def evaluate_candidate(workspace: str | Path, candidate_path: str | Path, output_path: str | Path) -> dict[str, Any]:
     workspace_path = Path(workspace).resolve(strict=True)
-    candidate_file = Path(candidate_path).resolve(strict=True)
-    if candidate_file.stat().st_size > 64 * 1024:
+    candidate_input = Path(candidate_path)
+    candidate_for_size = candidate_input if candidate_input.is_absolute() else workspace_path / candidate_input
+    if candidate_for_size.stat().st_size > 64 * 1024:
         raise EvaluatorBoundaryError("candidate artifact exceeds the 64 KiB limit")
 
     with tempfile.TemporaryDirectory(prefix="m3-evaluator-private-", dir="/tmp") as private_root:
         oracle_path = _write_synthetic_oracle(Path(private_root))
-        evidence = verify_evaluator_boundary(workspace_path, candidate_file, oracle_path)
+        evidence = verify_evaluator_boundary(workspace_path, candidate_input, oracle_path)
 
-        candidate = json.loads(candidate_file.read_text(encoding="utf-8"))
+        candidate = json.loads(evidence.candidate_path.read_text(encoding="utf-8"))
         semantic_hash = validate_candidate_continuity(candidate)
         actual_hash = hashlib.sha256(canonical_json(candidate.get("candidate"))).hexdigest()
         if semantic_hash != actual_hash:
