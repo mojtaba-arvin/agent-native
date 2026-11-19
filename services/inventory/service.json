@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "service_id": "inventory",
+  "service_name": "Inventory",
+  "version": "1",
+  "source": "service.an",
+  "handlers": {
+    "list_stock": "inventory.list_stock"
+  },
+  "policy": "policy.json"
+}
