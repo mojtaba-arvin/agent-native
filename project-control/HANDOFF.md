@@ -15,10 +15,12 @@
 
 - Baseline: research/reboot-core at 23f9c77d8ce9a8d55895c6c4903a4ff409ba5781.
 - PR #64: feat/project-control-plane -> research/reboot-core; open, ready for review.
-- PR #65: ci/unified-workflow -> feat/project-control-plane; run 44428892897 passed Layer 0 and Layer 1 after the shared-runner threshold correction. The always-on E-009 smoke validates product-path expectations only; the manual ten-run job retains the capacity gate. A fresh run after the latest evidence-ledger updates is in progress.
-- PR #66 and #67: superseded drafts; their branches were based on older PR #65 heads. Do not merge them.
-- Working branch: feat/evidence-claims-gates-v3, based on the latest PR #65 head.
-- Current milestone: C1 (execution governance and evidence integrity).
-- Active tasks: CP-007 (final retarget/revalidation after PR #64), CP-005 (claims validator; final seven-claim verification pending).
-- Next: finish CP-005 validator and negative tests; do not treat E-009 product-path smoke as a capacity claim or CPU model diagnostics as M3 acceptance.
+- PR #65: ci/unified-workflow -> feat/project-control-plane; all configured checks passed after separating the always-on E-009 product smoke from the manual capacity gate. Retarget and re-run after PR #64 is integrated.
+- PR #68: feat/evidence-claims-gates-v3 -> ci/unified-workflow; run 44430692124 passed Layer 0 and Layer 1, 14 suites, 524 unit tests, 15 claims tests, and seven evidence-backed completion claims. It remains stacked until PR #65 is integrated.
+- Superseded drafts PR #66 and #67 are closed; do not merge their branches.
+- Working branch: feat/evidence-claims-gates-v3.
+- Current milestone: C1, with M0 audit preparation now active.
+- Active tasks: CP-007 (final retarget/revalidation after PR #64), CP-003 (M0 source/evidence audit).
+- Completed this iteration: CP-005 evidence-backed claims gate, validated in run 44430692124.
+- Next: audit source-of-truth claims across E-001–E-011 and research branches; do not infer production readiness, runtime selection, capacity, or model acceptance.
 - Do not merge to main, alter repository security settings, run paid GPU/API workloads, or delete research branches/tags without owner authorization.
