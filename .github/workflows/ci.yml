@@ -39,6 +39,7 @@ on:
 
 permissions:
   contents: read
+  issues: read
   pull-requests: read
 
 jobs:
@@ -192,10 +193,25 @@ jobs:
                 login !== pull.user.login &&
                 !login.endsWith('[bot]'))
               .map(([login]) => login);
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner, repo, issue_number: pull.number, per_page: 100
+            });
+            const ownerLogin = owner.toLowerCase();
+            const waiverMarker = 'OWNER-APPROVED-REVIEW-WAIVER: ' + pull.head.sha;
+            const ownerAuthoredPull = pull.user?.login?.toLowerCase() === ownerLogin;
+            const ownerWaiver = ownerAuthoredPull && comments.some(comment =>
+              comment.user?.login?.toLowerCase() === ownerLogin &&
+              comment.body?.split(/\\r?\\n/).some(line => line.trim() === waiverMarker)
+            );
+
             core.info('Trust-boundary files: ' + changed.join(', '));
-            core.info('Independent approvals: ' + approvals.length);
-            if (approvals.length < 2) {
-              core.setFailed('Trust-boundary changes require two independent APPROVED reviews; found ' + approvals.length + '.');
+            core.info('Independent approvals on exact head: ' + approvals.length);
+            if (approvals.length >= 2) {
+              core.info('Two independent human approvals satisfy the default trust-boundary gate.');
+            } else if (ownerWaiver) {
+              core.warning('Owner-authorized exact-head waiver found. This is not a peer review and does not count as independent approval.');
+            } else {
+              core.setFailed('Trust-boundary changes require two independent APPROVED reviews or an exact-head repository-owner waiver; found ' + approvals.length + ' approvals and no valid waiver.');
             }
       - uses: actions/setup-python@v5
         with:
