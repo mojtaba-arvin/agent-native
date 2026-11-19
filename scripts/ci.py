@@ -169,6 +169,7 @@ def build_ci_summary(
         "source": {
             "repository": os.environ.get("GITHUB_REPOSITORY"),
             "commit_sha": source_sha or None,
+            "checkout_sha": os.environ.get("GITHUB_SHA") or source_sha or None,
             "branch": branch or None,
             "base_sha": base_sha,
             "event_name": os.environ.get("GITHUB_EVENT_NAME"),
