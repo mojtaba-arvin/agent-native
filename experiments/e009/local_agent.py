@@ -816,7 +816,6 @@ def _deduplicate_tool_outcomes(tool_outcomes: list[dict]) -> list[dict]:
         key = f"request:{request_id}" if isinstance(request_id, str) else f"outcome:{digest(outcome)}"
         if key not in positions:
             item = dict(outcome)
-            item["repeat_count"] = 1
             positions[key] = len(compacted)
             compacted.append(item)
             continue
