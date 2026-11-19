@@ -553,7 +553,7 @@
       "id": "M2-003",
       "title": "Generalize Agent Gateway proposals to explicit read/write effects while keeping apply separate",
       "milestone": "M2",
-      "status": "in_progress",
+      "status": "complete",
       "priority": 22,
       "depends_on": [
         "M2-002"
@@ -590,7 +590,11 @@
         "schemas/gateway-validation-v1.schema.json",
         "schemas/gateway-plan-v1.schema.json",
         "docs/gateway.md",
-        "tests/test_gateway.py"
+        "tests/test_gateway.py",
+        "PR-81",
+        "run:44489986238",
+        "run:44491048454",
+        "merge:1f6fd2545cf9b8d670669e84139ff4fe84f1b276"
       ],
       "execution": {
         "branch": "feat/m2-service-independent-gateway",
@@ -602,7 +606,7 @@
       "id": "M2-004",
       "title": "Prove a second service can be added without changing core code",
       "milestone": "M2",
-      "status": "pending",
+      "status": "complete",
       "priority": 23,
       "depends_on": [
         "M2-003"
@@ -638,13 +642,15 @@
         "docs/multi-service-gateway-proof.md",
         "PR-82",
         "M2-004-STACKED-CI-001",
-        "run:44464064586"
+        "run:44464064586",
+        "run:44490596646",
+        "run:44491048454",
+        "merge:0e8e8fe67f410add6d851584eeb7434f2f707aa8"
       ],
       "execution": {
         "branch": "feat/m2-second-service-proof",
-        "base_branch": "feat/m2-service-independent-gateway",
-        "integration_owner": "integrator",
-        "stacked_on": "M2-003"
+        "base_branch": "research/reboot-core",
+        "integration_owner": "integrator"
       }
     },
     {
@@ -821,8 +827,9 @@
         "project-control/BLOCKERS.json"
       ],
       "acceptance": [
-        "Owner approves a bounded GPU/API budget and credentials/runner",
-        "Strong/medium/weak model identities and versions are pinned",
+        "The execution cost ceiling is zero paid spend and is restricted to GitHub Actions free usage for this public repository; paid API/GPU use is prohibited",
+        "A qualifying isolated agent/evaluator execution path is implemented and independently verified",
+        "Strong/medium/weak model identities and immutable versions/digests are pinned",
         "Three representative tasks and the 2x2 proposal/disclosure design are preregistered with randomized repetitions and immutable hashes",
         "No-apply and external-oracle isolation are verified before dispatch"
       ],
@@ -834,13 +841,16 @@
       "max_unchanged_retries": 1,
       "replan_after_failures": 2,
       "stop_conditions": [
-        "Do not launch paid API/GPU workloads without explicit owner approval",
-        "Do not treat CPU-only Qwen3 diagnostics as M3 acceptance"
+        "Do not launch paid API/GPU workloads; the owner-approved ceiling is zero paid spend",
+        "Do not treat CPU-only Qwen3 diagnostics as M3 acceptance",
+        "Do not dispatch while the evaluator shares agent process, filesystem, or network trust zones"
       ],
       "evidence_ids": [
         "experiments/e007/evaluator/README.md",
         "experiments/e007/evaluator/boundary.py",
-        "experiments/e007/evaluator/test_boundary.py"
+        "experiments/e007/evaluator/test_boundary.py",
+        "PR-89",
+        "run:44489886038"
       ]
     },
     {
@@ -1155,7 +1165,11 @@
       "evidence_ids": [
         ".github/workflows/ci.yml#independent-review-gate",
         ".github/workflows/ci.yml#merge-base-freshness",
-        "PR-81"
+        "PR-81",
+        "PR-90",
+        "run:44489229689",
+        "run:44489986238",
+        "M2-OWNER-WAIVER-CI-001"
       ]
     }
   ]
