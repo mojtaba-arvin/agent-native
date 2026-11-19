@@ -168,6 +168,13 @@ class SchedulerPlanTests(unittest.TestCase):
         errors = CONTROL["validate_documents"](docs, ledger)
         self.assertTrue(any("duplicate branches" in error for error in errors))
 
+
+    def test_control_plane_rejects_workstream_ownership_drift_from_task_contract(self):
+        docs, ledger = CONTROL["load_documents"]()
+        docs["state"]["active_workstreams"][0]["integration_owner"] = "different-owner"
+        errors = CONTROL["validate_documents"](docs, ledger)
+        self.assertTrue(any("ownership does not match task contract" in error for error in errors))
+
     def test_control_plane_rejects_malformed_task_attempt_events(self):
         docs, ledger = CONTROL["load_documents"]()
         event = {
