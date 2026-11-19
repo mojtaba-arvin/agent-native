@@ -167,6 +167,9 @@ def main() -> int:
     manifests = read_json(Path(os.environ["MODEL_MANIFESTS"]))
     server_config = read_json(Path(os.environ["OLLAMA_SERVER_CONFIG"]))
     endpoint = os.environ.get("OLLAMA_URL", "http://127.0.0.1:11434")
+    ollama_version = os.environ.get("OLLAMA_VERSION", "")
+    if "0.40.15" not in ollama_version:
+        raise RuntimeError("ollama_runtime_version_not_pinned")
     if endpoint != "http://127.0.0.1:11434":
         raise RuntimeError("ollama_endpoint_must_be_loopback")
     validate_ollama_server_config(server_config)
