@@ -3,7 +3,7 @@
   "updated_at": "2026-11-19",
   "active_branch": "feat/m1-package-cli",
   "baseline_branch": "research/reboot-core",
-  "baseline_commit": "9f847b23d493150b1d578eba3b430a2d859f5371",
+  "baseline_commit": "24c799263efdda555b3413c3ee64d4143c7883e0",
   "current_milestone": "M1",
   "active_task_ids": [
     "M1-003"
@@ -11,7 +11,7 @@
   "last_completed_task_id": "M1-002",
   "last_known_green_revision": "2ce48625a2e27ff24296757e95dac69a9e5df406",
   "wip_limit": 2,
-  "next_action": "Implement the installed agent-native CLI with deterministic check, inspect, run, worker, and audit commands. Keep execution side effects disabled until a trusted service registry and handler runtime are available; make all service IDs, file paths, and input files explicit.",
+  "next_action": "Implement the installed CLI with deterministic check, inspect, run, worker, and audit commands. Preserve explicit paths and service IDs, machine-readable errors, and no credential inference. Execution/apply remain disabled until M2 provides trusted registry and handlers.",
   "recovery": {
     "unchanged_failure_limit": 2,
     "no_progress_attempt_limit": 3,
