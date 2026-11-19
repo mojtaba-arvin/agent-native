@@ -106,6 +106,18 @@ class SchedulerPlanTests(unittest.TestCase):
         self.assertEqual(plan["replan_required"][0]["reason"], "unchanged_failure_limit")
         self.assertEqual(plan["replan_required"][0]["required_action"], "stop_retries_record_root_cause_and_replan")
 
+
+    def test_repeated_failures_on_an_active_task_still_force_replan(self):
+        task = self._task("T1", status="in_progress")
+        ledger = self._events(
+            {"outcome": "failed", "failure_signature": "same-root-cause"},
+            {"outcome": "failed", "failure_signature": "same-root-cause"},
+        )
+        plan = CONTROL["build_schedule_plan"](self._docs(active=["T1"], tasks=[task]), ledger)
+        self.assertEqual(plan["selected_tasks"], [])
+        self.assertEqual(plan["replan_required"][0]["task_id"], "T1")
+        self.assertTrue(plan["replan_required"][0]["currently_active"])
+
     def test_changed_failure_signature_resets_unchanged_failure_streak(self):
         task = self._task("T1")
         ledger = self._events(
