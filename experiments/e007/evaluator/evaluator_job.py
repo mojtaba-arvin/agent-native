@@ -16,6 +16,7 @@ from typing import Any
 
 from agent_stub import SMOKE_PAYLOAD, canonical_json
 from boundary import EvaluatorBoundaryError, validate_candidate_continuity, verify_evaluator_boundary
+from sandbox_probe import SandboxProbeError, validate_sandbox_report, verify_sandbox
 
 
 def _write_synthetic_oracle(directory: Path) -> Path:
@@ -29,7 +30,7 @@ def _write_synthetic_oracle(directory: Path) -> Path:
     return oracle_path
 
 
-def evaluate_candidate(workspace: str | Path, candidate_path: str | Path, output_path: str | Path) -> dict[str, Any]:
+def evaluate_candidate(workspace: str | Path, candidate_path: str | Path, output_path: str | Path, sandbox_report: dict[str, Any] | None = None) -> dict[str, Any]:
     workspace_path = Path(workspace).resolve(strict=True)
     candidate_input = Path(candidate_path)
     candidate_for_size = candidate_input if candidate_input.is_absolute() else workspace_path / candidate_input
@@ -42,6 +43,15 @@ def evaluate_candidate(workspace: str | Path, candidate_path: str | Path, output
 
         candidate = json.loads(evidence.candidate_path.read_text(encoding="utf-8"))
         semantic_hash = validate_candidate_continuity(candidate)
+        trace_path = workspace_path / "trace.jsonl"
+        if sandbox_report is not None:
+            trace_records = [json.loads(line) for line in trace_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+            if len(trace_records) != 1 or not isinstance(trace_records[0].get("sandbox"), dict):
+                raise EvaluatorBoundaryError("agent sandbox attestation is missing from trace")
+            try:
+                validate_sandbox_report(trace_records[0]["sandbox"])
+            except SandboxProbeError as exc:
+                raise EvaluatorBoundaryError("agent sandbox attestation failed validation") from exc
         actual_hash = hashlib.sha256(canonical_json(candidate.get("candidate"))).hexdigest()
         if semantic_hash != actual_hash:
             raise EvaluatorBoundaryError("candidate payload does not match its phase hash")
@@ -61,6 +71,9 @@ def evaluate_candidate(workspace: str | Path, candidate_path: str | Path, output
             "oracle_path_disclosed": False,
             "oracle_contents_disclosed": False,
         }
+        if sandbox_report is not None:
+            summary["agent_sandbox"] = trace_records[0]["sandbox"]
+            summary["evaluator_sandbox"] = sandbox_report
 
     output_file = Path(output_path)
     output_file.parent.mkdir(parents=True, exist_ok=True)
@@ -76,7 +89,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--candidate", required=True)
     parser.add_argument("--output", required=True)
     args = parser.parse_args(argv)
-    evaluate_candidate(args.workspace, args.candidate, args.output)
+    sandbox_report = verify_sandbox(Path(args.output).parent)
+    evaluate_candidate(args.workspace, args.candidate, args.output, sandbox_report=sandbox_report)
     return 0
 
 
