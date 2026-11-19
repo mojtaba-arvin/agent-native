@@ -68,11 +68,35 @@ class Plan:
     apply_endpoint_exposed: bool = False
 
 
+def _freeze_json(value: Any) -> Any:
+    """Recursively freeze JSON containers exposed by proposal and plan objects."""
+    if isinstance(value, Mapping):
+        return MappingProxyType({key: _freeze_json(item) for key, item in value.items()})
+    if isinstance(value, (list, tuple)):
+        return tuple(_freeze_json(item) for item in value)
+    return value
+
+
+def _thaw_json(value: Any) -> Any:
+    """Return ordinary JSON containers from the immutable public representation."""
+    if isinstance(value, Mapping):
+        return {key: _thaw_json(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_thaw_json(item) for item in value]
+    return value
+
+
 def _canonical_hash(value: Mapping[str, Any]) -> str:
     try:
-        encoded = json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+        encoded = json.dumps(
+            _thaw_json(value),
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+            allow_nan=False,
+        )
     except (TypeError, ValueError) as error:
-        raise GatewayError("NON_CANONICAL_INPUT", "proposal inputs must be JSON-compatible") from error
+        raise GatewayError("NON_CANONICAL_INPUT", "proposal inputs must be finite JSON values") from error
     return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
 
 
@@ -185,7 +209,7 @@ class AgentGateway:
             operation_name=operation_name,
             method=operation["method"],
             resource=resource,
-            inputs=MappingProxyType(normalized_inputs),
+            inputs=_freeze_json(normalized_inputs),
             required_capability=capability,
             effects=effects,
             effect_mode=effect_mode,
@@ -201,7 +225,7 @@ class AgentGateway:
             raise GatewayError("SERVICE_IDENTITY_MISMATCH")
         operation = self._operation(service, proposal.operation_name)
         try:
-            inputs = validate_operation_inputs(service.ir, proposal.operation_name, dict(proposal.inputs))
+            inputs = validate_operation_inputs(service.ir, proposal.operation_name, _thaw_json(proposal.inputs))
         except (TypeError, ValueError) as error:
             raise GatewayError("INVALID_INPUT", str(error)) from error
         resource = _render_resource_path(operation["path"], inputs)
@@ -257,7 +281,7 @@ class AgentGateway:
             "operation_name": proposal.operation_name,
             "method": proposal.method,
             "resource": proposal.resource,
-            "inputs": dict(proposal.inputs),
+            "inputs": _thaw_json(proposal.inputs),
             "required_capability": proposal.required_capability,
             "effects": list(proposal.effects),
             "effect_mode": proposal.effect_mode,
@@ -272,7 +296,7 @@ class AgentGateway:
             operation_name=proposal.operation_name,
             method=proposal.method,
             resource=proposal.resource,
-            inputs=MappingProxyType(dict(proposal.inputs)),
+            inputs=_freeze_json(_thaw_json(proposal.inputs)),
             required_capability=proposal.required_capability,
             effects=proposal.effects,
             effect_mode=proposal.effect_mode,
