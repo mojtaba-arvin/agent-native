@@ -45,12 +45,12 @@
       "status": "open",
       "severity": "high",
       "title": "Decision-grade M3 evaluation lacks a qualifying zero-cost model and protected hidden-oracle path",
-      "description": "M3-000 is complete: the integrated synthetic topology smoke (run #44494715332) passed with separate ephemeral agent/evaluator jobs, allowlisted artifacts, and runtime attestations from both containers (UID 1001, read-only root, noexec /tmp, NoNewPrivs, zero CapEff, outbound network blocked, 2 GiB memory, 1 CPU, 64 PIDs). The smoke used a deterministic stub and synthetic oracle only. Remaining gates are a qualifying zero-paid-spend model cohort, actual protected m3-evaluator Environment rules, and evaluator-only hidden-oracle custody. The current GitHub integration cannot write Environment protection rules or secrets. Paid API/GPU execution is not authorized.",
+      "description": "M3-000 topology and runtime isolation are complete. M3-003 is now testing whether a suitable free/open-weight CPU model cohort can complete the E009 proposal/validate/plan flow. M3-001 remains blocked until model identities/digests are pinned and the protected m3-evaluator Environment plus evaluator-only hidden-oracle custody are configured. No paid API/GPU spend is authorized.",
       "owner_action_required": true,
       "unblocks": [
         "M3 decision-grade model evaluation"
       ],
-      "next_step": "Continue free/open-weight model feasibility and prepare the exact protected Environment/oracle setup. Do not dispatch a real cohort or incur paid API/GPU spend until model quality, oracle custody, sandbox isolation, and preregistration all pass."
+      "next_step": "Complete M3-003 free CPU model feasibility, pin immutable model/runtime digests, and prepare protected Environment/oracle custody. Do not run the hidden-oracle cohort until both gates pass."
     },
     {
       "id": "BLK-005",
