@@ -980,6 +980,11 @@ def run(args: argparse.Namespace) -> dict:
             else
             "This run uses the progressive tool-schema arm. Before each Gateway tool whose detailed schema has not yet been retrieved, call interface.describe with name set to that exact exposed Gateway tool name (for example, service.inspect or service.propose_delta), not the operation being added. Retrieve the service.inspect schema first. "
         )
+        first_tool_instruction = (
+            "Your first tool call must be interface.describe with name='service.inspect'; after receiving its schema, call service.inspect with service_id='catalog' and no operation argument. "
+            if args.arm == "progressive"
+            else "Your first tool call must be service.inspect with service_id='catalog' and no operation argument. "
+        )
         if proposal_mode == "snapshot":
             base_instruction = (
                 "The complete service base is disclosed one operation contract at a time. "
@@ -1011,7 +1016,7 @@ def run(args: argparse.Namespace) -> dict:
             "You are an engineering agent working on the live Agent Native E-009 service. "
             "Use only provider-native functions named exactly as the currently exposed Gateway tools. Each function is mapped to the same trusted agent.invoke Gateway envelope. "
             + disclosure_instruction
-            + "Your first tool call must be service.inspect with service_id='catalog' and no operation argument. "
+            + first_tool_instruction
             + base_instruction + inspection_instruction
             + "After a successful proposal, immediately call service.validate with the exact change_set_id; if result.valid=true, immediately call service.plan with the same hash. "
             + "The service identifier is exactly 'catalog'; service.inspect uses service_id, never name. Follow every exposed input schema. "
