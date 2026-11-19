@@ -31,7 +31,10 @@ def _has_immutable_reference(value: Any) -> bool:
                 if isinstance(item, str) and re.fullmatch(r"[0-9a-f]{40}", item):
                     return True
             if key in {"url", "artifact_url"}:
-                if isinstance(item, str) and item.startswith(("https://", "http://")):
+                if isinstance(item, str) and re.fullmatch(
+                    r"https://github\\.com/[^/]+/[^/]+/actions/runs/\\d+(?:/artifacts/\\d+)?",
+                    item,
+                ):
                     return True
             if _has_immutable_reference(item):
                 return True
