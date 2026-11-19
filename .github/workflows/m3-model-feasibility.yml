@@ -57,6 +57,7 @@ jobs:
             --name ollama-pull \
             --platform linux/amd64 \
             --network bridge \
+            -p 127.0.0.1:11434:11434 \
             --user "$RUNNER_UID:$RUNNER_GID" \
             --memory=4g --cpus=2 --pids-limit=128 \
             --read-only --cap-drop ALL --security-opt no-new-privileges \
@@ -65,7 +66,7 @@ jobs:
             --mount "type=bind,src=$OLLAMA_HOME,dst=/home/ollama" \
             -e HOME=/home/ollama \
             -e OLLAMA_MODELS=/models \
-            -e OLLAMA_HOST=127.0.0.1:11434 \
+            -e OLLAMA_HOST=0.0.0.0:11434 \
             "$OLLAMA_IMAGE" serve
           ready=false
           for attempt in $(seq 1 40); do
