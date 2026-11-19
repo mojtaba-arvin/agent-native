@@ -161,6 +161,7 @@ class M3ModelFeasibilityTests(unittest.TestCase):
 
     def test_model_smoke_disables_apply_and_uses_existing_e009_agent(self):
         smoke = (E007 / "m3_model_smoke.py").read_text(encoding="utf-8")
+        compile(smoke, str(E007 / "m3_model_smoke.py"), "exec")
         self.assertIn("local_agent.run(args)", smoke)
         self.assertIn("allow_sandbox_apply=False", smoke)
         self.assertIn('runtime_lock.get("version")', smoke)
