@@ -58,7 +58,8 @@ The main product risk is no longer lack of a runnable example. It is the gap bet
 
 ## Immediate next actions
 
-1. Reconcile `REPORT.md` and E-007 README with the latest completed evidence; retain old raw artifacts unchanged.
-2. Preserve `dispatch-request.json` as a historical record but clearly identify `dispatch.json` as the active manual factorial manifest and `.github/workflows/ci.yml` as the current workflow.
-3. Turn the M1/M2 gaps into small, independently verifiable task contracts after this audit is reviewed.
-4. Do not run paid API/GPU cohorts, select a runtime, enable apply, or merge the PR stack to main without the required owner authority.
+1. Execute M0-001: inventory research-only branches and verify every unique artifact remains reachable; do not prune or rewrite refs.
+2. Execute M0-002: lock benchmark cohort manifests and decision events so any post-dispatch change creates a new immutable cohort.
+3. Execute M0-003: generate scorecards and test counts from CI artifacts rather than hand-maintained report values.
+4. M1-001 through M2-004 are now decomposed into pending task contracts with explicit dependencies and acceptance commands; they must not start before their prerequisites.
+5. Do not run paid API/GPU cohorts, select a runtime, enable apply, or merge the PR stack to main without the required owner authority.
