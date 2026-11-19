@@ -386,9 +386,9 @@ def validate(root: Path, base_ref: str | None = None) -> list[str]:
                 errors.append(f"{label}: ready_for_manual_dispatch requires no_apply=true")
             if run_ids:
                 errors.append(f"{label}: ready_for_manual_dispatch must not already contain run IDs")
-        if kind == "cohort_manifest":
+        if kind in {"cohort_manifest", "performance_cohort_manifest"}:
             if record.get("no_apply") is not True:
-                errors.append(f"{label}: agent cohort manifests must remain no-apply")
+                errors.append(f"{label}: cohort manifests must remain no-apply")
             if path is not None:
                 manifest = _load_json(path, errors)
                 if manifest.get("no_apply") is not True:
