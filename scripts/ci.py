@@ -39,6 +39,7 @@ SUITES = (
     Suite("pilot-protocol", (sys.executable, "-m", "unittest", "discover", "-s", "experiments/pilot", "-p", "test*.py"), ("experiments/pilot/**",)),
     Suite("project-control", (sys.executable, "project_control.py", "validate"), ("project-control/**", "project_control.py")),
     Suite("ci-runner", (sys.executable, "-m", "unittest", "discover", "-s", "scripts", "-p", "test*.py"), ("scripts/**",)),
+    Suite("agent-native-package", (sys.executable, "-m", "unittest", "discover", "-s", "tests", "-p", "test_package.py"), ("src/agent_native/**", "tests/**", "pyproject.toml")),
 )
 DEPENDENCIES = {
     "experiments/e001/": {"e001-prototype", "pilot-protocol"},
@@ -71,6 +72,7 @@ def selected_suites(paths: list[str] | None) -> list[Suite]:
     return [suite for suite in SUITES if suite.name in selected]
 
 PRECHECKS = {
+    "agent-native-package": ((sys.executable, "-m", "pip", "install", "--no-deps", "."),),
     "e002-python": ((sys.executable, "-m", "py_compile",
         "experiments/e002/conformance.py", "experiments/e002/benchmark.py",
         "experiments/e002/run_matrix.py", "experiments/e002/measure_artifacts.py"),),
