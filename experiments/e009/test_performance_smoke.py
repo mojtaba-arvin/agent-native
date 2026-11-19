@@ -32,7 +32,13 @@ class E009CapacityGateTests(unittest.TestCase):
         repository_root = Path(__file__).resolve().parents[2]
         workflow = (repository_root / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
         section = workflow.split("  performance-confirmation:", 1)[1].split("\n  models:", 1)[0]
+        self.assertIn("Validate frozen preregistration and decision chain", section)
+        self.assertIn("python scripts/check_preregistrations.py", section)
         self.assertIn("--config experiments/e009/capacity-confirmation-v1.json", section)
+        self.assertLess(
+            section.index("python scripts/check_preregistrations.py"),
+            section.index("python experiments/e009/performance_smoke.py"),
+        )
         self.assertNotIn("--requests", section)
         self.assertNotIn("--repetitions", section)
 
