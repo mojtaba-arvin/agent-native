@@ -27,7 +27,7 @@ create secrets, configure GitHub settings, approve spending, or enable dispatch.
 
 ## 3. Runner and image
 
-- [x] The topology smoke uses separate ephemeral GitHub-hosted jobs/runners; do not reuse a persistent self-hosted runner shared with the agent job.
+- [ ] Run and verify the topology smoke's separate ephemeral GitHub-hosted jobs/runners; do not reuse a persistent self-hosted runner shared with the agent job.
 - [x] Pin the topology-smoke Python container image by immutable multi-platform digest.
 - [ ] Configure and verify actual protected Environment approval rules and evaluator-only oracle custody.
 - [ ] Pin the OS, Python/runtime versions, evaluator dependencies, and scoring
@@ -68,7 +68,8 @@ create secrets, configure GitHub settings, approve spending, or enable dispatch.
 - [ ] Run the boundary tests and verify the candidate hash is identical across
       proposal, semantic validation, and plan.
 - [ ] Verify `no_apply=true` and prove no apply endpoint or handler is invoked.
-- [x] Implement a synthetic-oracle topology smoke with no paid provider calls; run it after merge to research/reboot-core and preserve its score artifact.
+- [x] Implement a synthetic-oracle topology smoke with no paid provider calls.
+- [ ] Run it after merge to research/reboot-core and preserve its score artifact.
 - [ ] Verify protected environment configuration, oracle custody, and separate runner trust zones.
 - [ ] Have an independent reviewer inspect the workflow, environment boundary, artifact handling, and zero-cost controls.
 - [ ] Keep the real model cohort disabled until every required checkbox has evidence; paid execution is not authorized.
