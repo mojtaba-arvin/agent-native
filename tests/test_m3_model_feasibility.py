@@ -82,6 +82,8 @@ class M3ModelFeasibilityTests(unittest.TestCase):
         lock = json.loads((E007 / "model_lock.json").read_text(encoding="utf-8"))
         self.assertEqual(lock["status"], "provisional_pinned_not_qualified")
         self.assertEqual(lock["runtime"]["version"], "0.40.15")
+        self.assertEqual(lock["provenance"]["verification_run_id"], 44511342601)
+        self.assertEqual(lock["provenance"]["verification_artifact_id"], 14524351767)
         locked = {item["tag"]: item for item in lock["models"]}
         self.assertEqual(set(locked), {item["tag"] for item in candidates["models"]})
         for item in candidates["models"]:
@@ -93,7 +95,10 @@ class M3ModelFeasibilityTests(unittest.TestCase):
             self.assertTrue(item["manifest_sha256"])
             self.assertTrue(pin["layers"])
             self.assertEqual(item["last_feasibility_run_id"], 44509769849)
-            self.assertTrue(item["tool_call_smoke"].startswith("failed_"))
+            self.assertTrue(item["tool_call_smoke"].startswith("progressive_failed_"))
+            self.assertEqual(item["initial_bootstrap_run_id"], 44509769849)
+            self.assertEqual(item["last_feasibility_run_id"], 44511342601)
+            self.assertEqual(item["upfront_tool_call_smoke"], "pending")
             self.assertTrue(item["last_failure_code"])
         self.assertTrue(all(item["quantization_expected"] == "Q4_K_M" for item in candidates["models"]))
 
