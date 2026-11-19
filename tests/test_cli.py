@@ -56,6 +56,7 @@ class UnifiedCLITests(unittest.TestCase):
         checked = self.invoke("check", "--service", str(self.service))
         self.assertEqual(checked.returncode, 0, checked.stderr)
         self.assertEqual(json.loads(checked.stdout)["status"], "valid")
+        self.assertEqual(json.loads(checked.stdout)["service_path"], str(self.service))
         inspected = self.invoke("inspect", "--service", str(self.service))
         self.assertEqual(inspected.returncode, 0)
         self.assertEqual(json.loads(inspected.stdout)["service"]["name"], "catalog")
@@ -93,6 +94,23 @@ class UnifiedCLITests(unittest.TestCase):
         self.assertEqual(result.returncode, 0)
         payload = json.loads(result.stdout)
         self.assertEqual((payload["events"], payload["allow"], payload["deny"]), (2, 1, 1))
+
+    def test_missing_service_and_malformed_queue_return_machine_errors(self):
+        missing = self.invoke("check", "--service", str(self.root / "missing.an"))
+        self.assertEqual(missing.returncode, 3)
+        self.assertEqual(json.loads(missing.stderr)["error"]["code"], "service_file_unreadable")
+        queue = self.root / "bad.jsonl"
+        queue.write_text("{not-json}", encoding="utf-8")
+        malformed = self.invoke("worker", "--service-id", "catalog", "--queue", str(queue))
+        self.assertEqual(malformed.returncode, 3)
+        self.assertEqual(json.loads(malformed.stderr)["error"]["code"], "invalid_queue_json")
+
+    def test_malformed_audit_event_returns_machine_error(self):
+        events = self.root / "bad-audit.jsonl"
+        events.write_text('{"event_id":"x","decision":"maybe","reason_code":"UNKNOWN"}\\n', encoding="utf-8")
+        result = self.invoke("audit", "--events", str(events))
+        self.assertEqual(result.returncode, 3)
+        self.assertEqual(json.loads(result.stderr)["error"]["code"], "invalid_audit_decision")
 
     def test_argument_errors_are_machine_readable(self):
         result = self.invoke("check")
