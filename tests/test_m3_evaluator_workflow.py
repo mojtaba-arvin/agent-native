@@ -151,6 +151,8 @@ class M3WorkflowContractTests(unittest.TestCase):
         self.assertNotIn("oracle", agent_job.lower())
         self.assertIn("candidate.json", agent_job)
         self.assertIn("trace.jsonl", agent_job)
+        self.assertIn("dst=/evaluator,readonly", agent_job)
+        self.assertIn("python /evaluator/agent_stub.py", agent_job)
 
     def test_evaluator_is_separate_and_is_the_only_environment_job(self):
         evaluator_job = self._job_block("evaluator")
@@ -165,6 +167,7 @@ class M3WorkflowContractTests(unittest.TestCase):
         for required in ("--memory=2g", "--cpus=1", "--pids-limit=64", "--read-only", "--cap-drop ALL", "--security-opt no-new-privileges"):
             self.assertIn(required, self.workflow)
         self.assertIn("python:3.12-slim@sha256:5e2bdb1b0d542d5039cffb8181c65930093949194a65c365dfb1b0fe13a4fa5b", self.workflow)
+        self.assertIn("verify_sandbox", (EVALUATOR_DIR / "sandbox_probe.py").read_text(encoding="utf-8"))
 
     def test_workflow_artifacts_are_allowlisted_and_short_lived(self):
         self.assertIn("m3-agent-output", self.workflow)
