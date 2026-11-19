@@ -1322,7 +1322,7 @@
       "id": "M3-004",
       "title": "Expose progressive and upfront Gateway tool schemas as native provider functions",
       "milestone": "M3",
-      "status": "in_progress",
+      "status": "complete",
       "priority": 32,
       "depends_on": [
         "M3-003"
@@ -1362,13 +1362,66 @@
         "progressive 1B repeated interface.describe despite retained schema",
         "commit:20b5fb8565f24e3fe0d566dde3e3aa7120c38dc3",
         "commit:25d3a631c87cb02d5379df5710dc5024de9481cc",
-        "commit:2e7b19da53132600784dfd5a23921792d16667c8"
+        "commit:2e7b19da53132600784dfd5a23921792d16667c8",
+        "run:44538804299",
+        "commit:6ff4c3fbdd9978e304b31b5b8d4f9766660efe84",
+        "PR:#102 merged as 3ac47aeb0aa4c1ad8763396e5dffc956483a71e5",
+        "Layer 0: 143 E-009 tests passed",
+        "Layer 1: native/container/database and PostgreSQL parity passed"
       ],
       "execution": {
         "branch": "feat/e009-native-provider-tool-schemas",
         "base_branch": "research/reboot-core",
         "integration_owner": "integrator"
       }
+    },
+    {
+      "id": "M3-005",
+      "title": "Re-run the locked CPU feasibility matrix after provider-native schema delivery",
+      "milestone": "M3",
+      "status": "in_progress",
+      "priority": 31,
+      "depends_on": [
+        "M3-004"
+      ],
+      "owner": "core",
+      "scope": [
+        ".github/workflows/m3-model-feasibility.yml",
+        "experiments/e009/local_agent.py",
+        "experiments/e007/model-lock.json",
+        "research/M3_MODEL_FEASIBILITY.md"
+      ],
+      "acceptance": [
+        "Run the unchanged three-tier × progressive/upfront matrix on the integrated provider-native schema adapter",
+        "Verify the same pinned Ollama runtime, model manifest digests, and model-lock SHA-256 are used",
+        "Retain all six raw provider responses, tool traces, prompt states, model manifests, and runtime logs",
+        "Report whether any run completes inspect, proposal, semantic validation, and planning; do not equate a Gateway-accepted proposal with lifecycle completion",
+        "Keep the fixed token/time budgets, no-apply policy, no hidden oracle, and zero paid API/GPU spend unchanged",
+        "Do not select or preregister a model unless a full run passes the local verifier and the separate evaluator gate"
+      ],
+      "expected_outputs": [
+        "Fresh M3 CPU feasibility artifact",
+        "Per-cell failure/success classification",
+        "Updated M3 model feasibility report"
+      ],
+      "max_unchanged_retries": 1,
+      "replan_after_failures": 2,
+      "stop_conditions": [
+        "Do not increase token/time budgets or change cohort post hoc",
+        "Do not enable apply or hidden-oracle access",
+        "Do not claim model qualification from harness tests alone"
+      ],
+      "execution": {
+        "branch": "research/reboot-core",
+        "base_branch": "research/reboot-core",
+        "integration_owner": "integrator"
+      },
+      "evidence_ids": [
+        "PR:#102",
+        "run:44538804299",
+        "run:44539287065",
+        "model-lock SHA-256 8dd6e4e2acbea225dbd4fa2b4428f3691f11176be862539430aee0aced67bc17"
+      ]
     }
   ]
 }

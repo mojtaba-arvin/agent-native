@@ -5,16 +5,16 @@
   "baseline_commit": "de99c9929b8c1a8f0d5a11ad829c63bc8456e279",
   "current_milestone": "M3",
   "active_task_ids": [
-    "M3-004"
+    "M3-005"
   ],
-  "last_completed_task_id": "M3-003",
-  "last_known_green_revision": "61e29b03e60b5a6feaf53fa7b309eb4a82af63b3",
+  "last_completed_task_id": "M3-004",
+  "last_known_green_revision": "6ff4c3fbdd9978e304b31b5b8d4f9766660efe84",
   "wip_limit": 2,
-  "next_action": "Implement provider-native per-tool function schemas in E009: progressive mode must add each exact Gateway schema only after discovery; upfront mode must expose the full declared schema set. Preserve the trusted Gateway dispatch path, no-apply policy, raw traces, and no-network inference. Then rerun the locked CPU feasibility matrix; do not qualify a model unless the full inspect/propose/validate/plan flow and local verifier pass.",
+  "next_action": "Review the fresh locked CPU feasibility run triggered by merging PR #102. Inspect every raw trace and compare the three tiers × two arms against the pre-fix run. Preserve the fixed budgets and pinned model lock; no model is qualified until full inspect/propose/validate/plan and local verification pass.",
   "active_workstreams": [
     {
-      "task_id": "M3-004",
-      "branch": "feat/e009-native-provider-tool-schemas",
+      "task_id": "M3-005",
+      "branch": "research/reboot-core",
       "base_branch": "research/reboot-core",
       "integration_owner": "integrator"
     }

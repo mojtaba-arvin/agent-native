@@ -45,12 +45,12 @@
       "status": "open",
       "severity": "high",
       "title": "Decision-grade M3 evaluation lacks a qualifying zero-cost model and protected hidden-oracle path",
-      "description": "M3-000 topology and runtime isolation are complete. M3-003 completed its locked six-cell CPU feasibility evaluation on three pinned Granite tiers and two schema-disclosure arms; all six trials failed before the full inspect/propose/validate/plan lifecycle, so no model qualifies. M3-004 addresses a harness limitation found in provider telemetry: the model receives only one generic agent.invoke function schema while discovered Gateway schemas are carried as conversational state. M3-001 remains blocked until a qualifying zero-cost model path and protected evaluator-only hidden-oracle custody are both verified. No paid API/GPU spend is authorized.",
+      "description": "M3-000 topology, M3-003 bounded CPU feasibility evaluation, and M3-004 provider-native Gateway schema delivery are complete. M3-004 passed 143 E-009 tests plus Layer 1 native/container/database/PostgreSQL validation. M3-005 is rerunning the same pinned six-cell CPU feasibility matrix on the corrected adapter. M3-001 remains blocked until a qualifying zero-cost model path and protected evaluator-only hidden-oracle custody are both verified. No paid API/GPU spend is authorized.",
       "owner_action_required": true,
       "unblocks": [
         "M3 decision-grade model evaluation"
       ],
-      "next_step": "Complete M3-004 by exposing exact Gateway schemas as provider-native functions, then rerun the locked CPU matrix. In parallel, prepare the protected m3-evaluator Environment and evaluator-only oracle custody; do not dispatch the hidden-oracle cohort until both gates pass."
+      "next_step": "Inspect M3-005 run #44539287065 and its raw artifact. If no model completes the full lifecycle, keep M3-001 blocked and investigate a different zero-cost model/tool protocol without changing the preregistered budgets or acceptance threshold."
     },
     {
       "id": "BLK-005",

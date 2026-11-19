@@ -238,6 +238,14 @@
       "evidence_event_ids": [
         "M3-003-FEASIBILITY-2026-11-19-001"
       ]
+    },
+    {
+      "id": "CLAIM-M3-004-001",
+      "statement": "The E009 provider adapter now exposes exact discovered Gateway schemas as provider-native functions, preserves the trusted Gateway dispatch boundary, rejects undiscovered tools, and passes the 143-test Layer 0 suite plus Layer 1 native/container/database/PostgreSQL validation.",
+      "status": "verified",
+      "evidence_event_ids": [
+        "M3-004-IMPLEMENTATION-2026-11-19-001"
+      ]
     }
   ],
   "milestones": {
