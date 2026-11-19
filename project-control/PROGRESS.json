@@ -60,6 +60,16 @@
       "evidence_event_ids": [
         "CP-CI-RUN-952"
       ]
+    },
+    {
+      "id": "CLAIM-C1-003",
+      "statement": "The claims checker successfully validated all current verified milestone criteria against immutable ledger evidence.",
+      "status": "verified",
+      "milestone_id": "C1",
+      "criterion": "Claims checker enforces evidence mapping for verified milestone criteria",
+      "evidence_event_ids": [
+        "CP-CLAIMS-VALIDATION-001"
+      ]
     }
   ],
   "milestones": {
@@ -76,7 +86,8 @@
       "status": "in_progress",
       "verified_exit_criteria": [
         "Run ledger records successful and cancelled CI runs with immutable run IDs",
-        "CI executes validator negative self-tests and rejects malformed control-plane data"
+        "CI executes validator negative self-tests and rejects malformed control-plane data",
+        "Claims checker enforces evidence mapping for verified milestone criteria"
       ],
       "total_exit_criteria": 4
     },
