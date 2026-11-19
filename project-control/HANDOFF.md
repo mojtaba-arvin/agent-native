@@ -54,3 +54,10 @@ M3-006 is complete. If the active M3-005 Granite 4.0 rerun remains negative, a s
 CP-011 is complete. The expensive six-cell M3 workflow no longer triggers on edits to its own workflow YAML or the M3 report; executable harness, candidate, and sandbox inputs remain triggers, and `workflow_dispatch` remains available. The workflow-definition update commit `280b32e3` produced ordinary CI run [44541307333](https://github.com/mojtaba-arvin/agent-native/actions/runs/44541307333) without starting another M3 model run.
 
 One unplanned duplicate, [44541147095](https://github.com/mojtaba-arvin/agent-native/actions/runs/44541147095), had already started from the preceding report-only update before the filter was narrowed. Preserve it as an unplanned repeatability observation, not as part of the preregistered M3-005 cohort. Keep it separate from primary run [44539287065](https://github.com/mojtaba-arvin/agent-native/actions/runs/44539287065); do not pool their results.
+
+
+## M3-005 result and next harness fix — 19 November 2026
+
+M3-005 is complete as a bounded negative feasibility rerun. Primary run [44539287065](https://github.com/mojtaba-arvin/agent-native/actions/runs/44539287065), artifact #14538178152 (SHA-256 `94d2d6d3ddee3f5a11467601bacbbe5619a7dda95f603f9022846718c2f6c8d4`), produced 0/6 full lifecycle completions. Provider telemetry proves native tool definitions were exposed correctly. Progressive 1B/3B repeated `interface.describe`; upfront 3B reached successful validation but exceeded the fixed 12,000-token budget before planning. No model qualifies.
+
+M3-008 is active: add runner-side duplicate discovery/inspection handling and deduplicate compacted outcomes without changing budgets or the model lock. M3-007 (alternate model cohort) is deferred until M3-008 completes. The separate unplanned docs-triggered run #44541147095 is retained but not pooled.

@@ -80,3 +80,11 @@ secrets remain owner-controlled.
 - [x] Verify progressive discovery and upfront schema exposure with deterministic tests; verify undiscovered tools fail closed and disabled `service.apply` is not exposed.
 - [x] Pass exact PR-head Layer 0 (143 E-009 tests) and Layer 1 (native/container/database/PostgreSQL/cgroup-v2) CI: run #44538804299.
 - [ ] Inspect the fresh locked six-cell CPU feasibility artifact from run #44539287065; do not claim model qualification unless the full lifecycle and local verifier pass.
+
+
+## 19 November 2026 — M3-005 locked rerun
+
+- [x] Complete the unchanged six-cell provider-native schema rerun on the pinned Granite 4.0 model lock (run #44539287065).
+- [x] Preserve artifact #14538178152 and all six raw traces; record the negative result (0/6 full lifecycle completions).
+- [x] Keep the 12,000-token budget, model lock, no-network inference, no-apply, and zero-paid-spend boundary unchanged.
+- [ ] Implement M3-008 duplicate-discovery/inspection guard and compact-state deduplication before another model run.

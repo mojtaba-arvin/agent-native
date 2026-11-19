@@ -5,16 +5,16 @@
   "baseline_commit": "de99c9929b8c1a8f0d5a11ad829c63bc8456e279",
   "current_milestone": "M3",
   "active_task_ids": [
-    "M3-005"
+    "M3-008"
   ],
-  "last_completed_task_id": "CP-011",
+  "last_completed_task_id": "M3-005",
   "last_known_green_revision": "b05c142857ae71ae51ad6e8e789f7655c0a0811d",
   "wip_limit": 2,
-  "next_action": "Inspect primary M3-005 run #44539287065 and preserve the unplanned docs-triggered duplicate #44541147095 separately. Do not pool their results. After the primary artifact is available, compare provider-native tool definitions, schema progression, token use, and full lifecycle completion.",
+  "next_action": "Implement a deterministic duplicate-discovery/inspection guard and deduplicate identical successful tool outcomes in the compaction ledger. Preserve the exact discovered schema, base revision, and next_actions. Keep the 12,000 input-token budget and all preregistered limits unchanged; then rerun the locked matrix on the new adapter.",
   "active_workstreams": [
     {
-      "task_id": "M3-005",
-      "branch": "feat/m3-locked-cpu-rerun",
+      "task_id": "M3-008",
+      "branch": "feat/m3-progressive-deduplication",
       "base_branch": "research/reboot-core",
       "integration_owner": "integrator"
     }

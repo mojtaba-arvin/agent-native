@@ -151,3 +151,33 @@ Post-merge repository CI [44529847920](https://github.com/mojtaba-arvin/agent-na
 M3-006 completed a separate candidate-family review without changing the active Granite 4.0 lock. The proposed next cohort, if M3-005 remains negative, is `qwen3:1.7b` (1.4 GB, 40K), `granite4.2:3b` (2.2 GB, 128K), and `qwen3:4b` (2.5 GB, 256K). Ollama's official Qwen3 library advertises tool support; Granite 4.2 documents tool usage and function-calling tasks under Apache 2.0. `gemma4:e2b` (4.6–7.5 GB) is a reserve because it consumes more of the 10 GiB model-server memory budget. These are size-based candidate tiers, not capability rankings. See [the full shortlist](M3_ALTERNATIVE_MODEL_SHORTLIST.md).
 
 M3-007 is the separate preregistration/lock task and must not start until M3-005 closes. No current model lock or active trial was modified.
+
+
+## Provider-native schema rerun — 2026-11-19
+
+**Primary run:** [44539287065](https://github.com/mojtaba-arvin/agent-native/actions/runs/44539287065)  
+**Source revision:** `3ac47aeb0aa4c1ad8763396e5dffc956483a71e5`  
+**Artifact:** `14538178152`, SHA-256 `94d2d6d3ddee3f5a11467601bacbbe5619a7dda95f603f9022846718c2f6c8d4`  
+**Model-lock SHA-256:** `8dd6e4e2acbea225dbd4fa2b4428f3691f11176be862539430aee0aced67bc17`
+
+All six cells completed and retained raw evidence, but **0/6 completed the full inspect → propose → validate → plan lifecycle**:
+
+| Tier | Progressive | Upfront |
+|---|---|---|
+| Weak, 350M | `provider_final_content_missing`, 0 tool calls | malformed JSON (`JSONDecodeError`), 0 tool calls |
+| Medium, 1B | 6 repeated `interface.describe` calls; 13,340 input tokens | 4 repeated `service.inspect` calls; 14,377 input tokens |
+| Strong, 3B | 6 repeated `interface.describe` calls; 13,340 input tokens | inspect → accepted proposal → duplicate proposal rejected → successful validation; 15,040 input tokens, no plan |
+
+### What changed and what the traces prove
+
+Provider telemetry confirms the native schema adapter is working as designed: progressive mode exposed only `interface.describe` on turn 1, then exposed both `interface.describe` and `service.inspect` from turn 2 onward. Upfront mode exposed all five declared native functions from turn 1. Thus the provider was no longer limited to one generic `agent.invoke` definition.
+
+The medium and strong progressive models nevertheless repeated `interface.describe(name=service.inspect)` six times after `service.inspect` was already exposed. The repeated calls used the same stable request ID and returned the same schema; these duplicate outcomes accumulated in the compacted prompt state. This is now a model-selection loop plus avoidable harness/token amplification, not missing provider schema availability.
+
+The strongest upfront 3B model made the most progress: it inspected Catalog, submitted one accepted `service.propose_delta`, repeated the identical proposal, received `PROPOSAL_REQUIRES_VALIDATION` with an instruction to validate the existing `change_set_id`, and then successfully called `service.validate`. The Gateway duplicate-proposal guard and next-action guidance worked. The model did not call `service.plan` before exceeding the fixed 12,000-token input budget at 15,040 tokens. The medium upfront model repeated `service.inspect` four times and exceeded the same fixed budget. No candidate hash was produced or locally verified.
+
+### Next harness task
+
+M3-008 will intercept an already-satisfied identical `interface.describe` request with an explicit runner-origin `SCHEMA_ALREADY_DISCOVERED` response, avoid repeated full `service.inspect` payloads, and deduplicate identical outcomes in the compact state ledger. It must preserve the exact schema, base revision, next actions, raw provider request, and Gateway trust boundary. The 12,000-token budget and model lock remain unchanged. Only after deterministic tests pass will the same locked matrix be rerun.
+
+A second run [44541147095](https://github.com/mojtaba-arvin/agent-native/actions/runs/44541147095) was triggered unintentionally by the prior documentation path filter. It is retained as an **unplanned duplicate** and is not pooled with M3-005 or used to qualify a model.

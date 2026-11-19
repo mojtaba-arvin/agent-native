@@ -1379,7 +1379,7 @@
       "id": "M3-005",
       "title": "Re-run the locked CPU feasibility matrix after provider-native schema delivery",
       "milestone": "M3",
-      "status": "in_progress",
+      "status": "complete",
       "priority": 31,
       "depends_on": [
         "M3-004"
@@ -1420,7 +1420,13 @@
         "PR:#102",
         "run:44538804299",
         "run:44539287065",
-        "model-lock SHA-256 8dd6e4e2acbea225dbd4fa2b4428f3691f11176be862539430aee0aced67bc17"
+        "model-lock SHA-256 8dd6e4e2acbea225dbd4fa2b4428f3691f11176be862539430aee0aced67bc17",
+        "run:44539287065",
+        "artifact:14538178152",
+        "artifact-sha256:94d2d6d3ddee3f5a11467601bacbbe5619a7dda95f603f9022846718c2f6c8d4",
+        "source-commit:3ac47aeb0aa4c1ad8763396e5dffc956483a71e5",
+        "model-lock SHA-256 8dd6e4e2acbea225dbd4fa2b4428f3691f11176be862539430aee0aced67bc17",
+        "0/6 full lifecycle completions; no model qualified"
       ]
     },
     {
@@ -1476,7 +1482,8 @@
       "priority": 34,
       "depends_on": [
         "M3-005",
-        "M3-006"
+        "M3-006",
+        "M3-008"
       ],
       "owner": "research",
       "scope": [
@@ -1541,6 +1548,56 @@
         "commit:280b32e3ef42521880bd170c1c5c5a944d1a99d2",
         "run:44541307333",
         "duplicate-run:44541147095"
+      ]
+    },
+    {
+      "id": "M3-008",
+      "title": "Deduplicate repeated discovery and inspection calls under the fixed E009 token budget",
+      "milestone": "M3",
+      "status": "in_progress",
+      "priority": 30,
+      "depends_on": [
+        "M3-005",
+        "M3-004"
+      ],
+      "owner": "core",
+      "scope": [
+        "experiments/e009/local_agent.py",
+        "experiments/e009/test_local_agent.py",
+        "research/M3_MODEL_FEASIBILITY.md"
+      ],
+      "acceptance": [
+        "After a successful interface.describe for an exposed tool, an identical repeat is intercepted locally with a machine-readable SCHEMA_ALREADY_DISCOVERED result and a direct next action to call the now-exposed native function",
+        "Repeated identical read-only service.inspect calls do not cause repeated Gateway round trips or duplicate full inspection payloads in the compacted prompt state",
+        "The compaction ledger deduplicates identical successful tool outcomes by stable request identity while preserving the exact discovered schema, base revision, and latest next_actions",
+        "Raw traces distinguish runner-intercepted duplicate calls from Gateway-executed calls and retain the original provider request",
+        "Deterministic tests cover duplicate schema discovery, duplicate inspection, deduplicated compaction, exact schema retention, and continuation to propose/validate/plan",
+        "The preregistered 12,000 input-token budget, per-trial wall-clock budget, model lock, no-network/no-apply boundaries, and candidate cohort remain unchanged"
+      ],
+      "expected_outputs": [
+        "Runner-side duplicate discovery guard",
+        "Deduplicated compact state ledger",
+        "Regression tests and exact trace evidence",
+        "Fresh locked CPU feasibility rerun after deterministic tests pass"
+      ],
+      "max_unchanged_retries": 1,
+      "replan_after_failures": 2,
+      "stop_conditions": [
+        "Do not increase the token or wall-clock budget",
+        "Do not hide provider tool calls or fabricate Gateway success",
+        "Do not bypass the Gateway or expose service.apply",
+        "Do not alter the active model lock or merge duplicate-run evidence into the preregistered cohort"
+      ],
+      "execution": {
+        "branch": "feat/m3-progressive-deduplication",
+        "base_branch": "research/reboot-core",
+        "integration_owner": "integrator"
+      },
+      "evidence_ids": [
+        "run:44539287065",
+        "artifact:14538178152",
+        "progressive repeated interface.describe ×6 despite native service.inspect being exposed",
+        "upfront 3B repeated inspect and exceeded fixed input-token budget after successful validation"
       ]
     }
   ]

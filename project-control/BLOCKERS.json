@@ -45,12 +45,12 @@
       "status": "open",
       "severity": "high",
       "title": "Decision-grade M3 evaluation lacks a qualifying zero-cost model and protected hidden-oracle path",
-      "description": "M3-000 topology, M3-003 bounded CPU feasibility evaluation, M3-004 provider-native Gateway schema delivery, and M3-006 alternate model-family shortlist are complete. M3-005 is rerunning the unchanged pinned Granite 4.0 six-cell matrix on the corrected adapter. M3-001 remains blocked until a qualifying zero-cost model path and protected evaluator-only hidden-oracle custody are both verified. M3-007 is ready only after M3-005 closes and will use a separate preregistered lock. No paid API/GPU spend is authorized.",
+      "description": "M3-000 topology, M3-003 bounded feasibility, M3-004 provider-native schema delivery, M3-005 corrected-adapter CPU rerun, and M3-006 alternate model shortlist are complete. M3-005 produced 0/6 full lifecycle completions; the strongest 3B upfront run completed inspect, proposal, and validation but exhausted the fixed 12,000-token budget before plan. Progressive 1B/3B repeated interface.describe even though service.inspect was exposed natively. M3-008 is active to intercept duplicate discovery/inspection and deduplicate prompt-state outcomes without changing budgets. M3-001 remains blocked until a qualifying model and protected evaluator-only hidden-oracle custody are verified.",
       "owner_action_required": true,
       "unblocks": [
         "M3 decision-grade model evaluation"
       ],
-      "next_step": "Inspect M3-005 run #44539287065 and raw traces. If no model qualifies, start M3-007 with a separate lock for Qwen3 1.7B, Granite 4.2 3B, and Qwen3 4B; preserve the current Granite 4.0 lock and all prior evidence."
+      "next_step": "Complete M3-008 and rerun the same locked matrix under the unchanged budgets. If no model qualifies after the harness deduplication fix, proceed to M3-007 with a separately preregistered alternate cohort; keep the original Granite lock and the unplanned duplicate run separate."
     },
     {
       "id": "BLK-005",

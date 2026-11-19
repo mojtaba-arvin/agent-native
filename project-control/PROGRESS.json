@@ -262,6 +262,14 @@
       "evidence_event_ids": [
         "CP-011-M3-TRIGGER-OPTIMIZATION-2026-11-19-001"
       ]
+    },
+    {
+      "id": "CLAIM-M3-005-001",
+      "statement": "The locked six-cell CPU feasibility rerun completed on the provider-native schema adapter with all raw traces retained. No model completed inspect/propose/validate/plan; the strongest run reached successful proposal and validation but exceeded the unchanged input-token budget before planning.",
+      "status": "verified",
+      "evidence_event_ids": [
+        "M3-005-CPU-RERUN-2026-11-19-001"
+      ]
     }
   ],
   "milestones": {
