@@ -13,6 +13,16 @@ The Gateway is a proposal boundary, not an execution endpoint.
 6. Produce an immutable proposal with a candidate hash.
 7. Revalidate the proposal and produce a no-apply plan bound to the same hash.
 
+## Trusted host boundary
+
+`RequestContext` is trusted host-side input, not an authentication mechanism.
+The Gateway does not authenticate principals or mint grants. A host integration
+must derive the principal and tenant from an authenticated identity, load grants
+from a trusted policy source, and supply time from a trusted clock. Never
+construct this context from agent-controlled fields or an unverified request
+body. The current package exposes the policy contract; a production identity
+adapter and credential lifecycle remain separate work.
+
 ## Safety invariants
 
 - The manifest and IR define the operation, inputs, capability, and effects.
