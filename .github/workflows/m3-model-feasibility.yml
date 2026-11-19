@@ -10,6 +10,8 @@ on:
       - "experiments/e007/model_candidates.json"
       - "experiments/e009/local_agent.py"
       - "experiments/e009/agent_gateway.py"
+      - "experiments/e009/AGENT_TASK_DELTA.md"
+      - "experiments/e007/evaluator/sandbox_probe.py"
       - "research/M3_MODEL_FEASIBILITY.md"
   workflow_dispatch:
 
