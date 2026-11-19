@@ -14,7 +14,7 @@
   "active_workstreams": [
     {
       "task_id": "M3-005",
-      "branch": "research/reboot-core",
+      "branch": "feat/m3-locked-cpu-rerun",
       "base_branch": "research/reboot-core",
       "integration_owner": "integrator"
     }
