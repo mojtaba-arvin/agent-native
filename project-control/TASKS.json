@@ -1265,7 +1265,8 @@
         "project-control/STATE.json",
         "project-control/BLOCKERS.json",
         "project-control/HANDOFF.md",
-        "project-control/OWNER_ACTIONS.md"
+        "project-control/OWNER_ACTIONS.md",
+        "experiments/e007/model-lock.json"
       ],
       "acceptance": [
         "Candidate tiers use public open-weight models with explicit licenses, model tags, quantization, runtime version, and immutable manifest digests",
@@ -1280,7 +1281,8 @@
         "Candidate model-tier feasibility report with official model/license/runtime references",
         "Pinned Ollama image and per-model manifest digests",
         "No-network CPU-only real-agent feasibility workflow",
-        "Per-model raw traces and a comparative scorecard with failures preserved"
+        "Per-model raw traces and a comparative scorecard with failures preserved",
+        "Committed model-lock.json with full per-model manifest SHA-256 and config digests, verified on a second no-network run"
       ],
       "max_unchanged_retries": 1,
       "replan_after_failures": 2,
