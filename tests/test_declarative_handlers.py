@@ -40,6 +40,15 @@ class FakeRepository:
                 return dict(record)
         return None
 
+    def list(self, resource, filters, *, tenant_id):
+        self.calls.append(("list", resource, tenant_id))
+        return [
+            dict(record)
+            for (stored_resource, stored_tenant, _), record in self.records.items()
+            if stored_resource == resource and stored_tenant == tenant_id
+            and all(record.get(field) == value for field, value in filters.items())
+        ]
+
     def create(self, resource, payload, *, tenant_id, idempotency_key=None):
         self.calls.append(("create", resource, tenant_id, idempotency_key))
         key = ITEM_ID if resource == "items" else payload["sku"]
@@ -173,7 +182,7 @@ class DeclarativeHandlerTests(unittest.TestCase):
     def test_inventory_crud_and_event_handlers_need_no_service_specific_core_code(self):
         runtime = self.runtime("inventory")
         created = runtime.dispatch(
-            "POST", "/stock", {"sku": "SKU-1", "quantity": 7},
+            "POST", "/stock", {"sku": "SKU-1", "quantity": 7, "warehouse_id": "WH-1"},
             identity("tenant-a", "stock.write", "/stock"),
         )
         self.assertEqual(created.status_code, 201)
@@ -183,6 +192,13 @@ class DeclarativeHandlerTests(unittest.TestCase):
         )
         self.assertEqual(updated.status_code, 200)
         self.assertEqual(updated.body["data"]["quantity"], 9)
+
+        listed = runtime.dispatch(
+            "GET", "/stock?warehouse_id=WH-1", {},
+            identity("tenant-a", "stock.read", "/stock"),
+        )
+        self.assertEqual(listed.status_code, 200)
+        self.assertEqual(listed.body["data"][0]["quantity"], 9)
 
         event = runtime.dispatch(
             "POST", "/stock/events", {"sku": "SKU-1", "quantity": 9},
