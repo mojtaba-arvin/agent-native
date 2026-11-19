@@ -13,6 +13,7 @@ This directory is the versioned execution state for the Agent Native v0.1 progra
 - [RUN_LEDGER.jsonl](RUN_LEDGER.jsonl): append-only execution/evidence event stream.
 - [PROGRESS.json](PROGRESS.json): evidence-backed milestone assessment.
 - [POLICY.json](POLICY.json): autonomy, safety, retry, and integration rules.
+- [OWNER_ACTIONS.md](OWNER_ACTIONS.md): owner-only reviewer, branch-protection, main-integration, and M3 setup gates.
 - [HANDOFF.md](HANDOFF.md): deterministic resume instructions.
 - [CI_PORT_AUDIT.md](CI_PORT_AUDIT.md): reviewed risks and safe port sequence for the staging fast-CI candidate.
 - [CI_WORKFLOW_MIGRATION.md](CI_WORKFLOW_MIGRATION.md): responsibility map for the unified CI workflow.
