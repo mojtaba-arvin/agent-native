@@ -1354,7 +1354,7 @@ def run(args: argparse.Namespace) -> dict:
                     })
                     record["tool_calls"] = call_number
                     tool_sequence.append(tool_name if isinstance(tool_name, str) else "<invalid>")
-                    tool_outcomes.append(_compact_tool_outcome(tool_name, arguments, nested, request.get("request_id"))
+                    tool_outcomes.append(_compact_tool_outcome(tool_name, arguments, nested, request.get("request_id")))
                     if tool_name == "interface.describe" and nested.get("ok") is True:
                         described = nested.get("result") or {}
                         described_name = described.get("name")
