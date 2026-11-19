@@ -14,6 +14,52 @@ sys.path.insert(0, str(EVALUATOR_DIR))
 from agent_stub import write_candidate
 from boundary import EvaluatorBoundaryError
 from evaluator_job import evaluate_candidate
+from sandbox_probe import SandboxProbeError, parse_cpu_quota, parse_positive_limit, validate_sandbox_report
+
+
+class SandboxProbeUnitTests(unittest.TestCase):
+    def _valid_report(self):
+        return {
+            "effective_uid": 1001,
+            "root_read_only": True,
+            "tmp_noexec": True,
+            "no_new_privileges": True,
+            "effective_capabilities_hex": "0",
+            "outbound_network_blocked": True,
+            "memory_limit_bytes": 2 * 1024**3,
+            "cpu_quota_cores": 1.0,
+            "pids_limit": 64,
+            "output_mount_writable": True,
+        }
+
+    def test_parses_cgroup_limits(self):
+        self.assertEqual(parse_positive_limit("2147483648", "memory.max"), 2147483648)
+        self.assertEqual(parse_cpu_quota("50000 100000"), 0.5)
+
+    def test_rejects_unbounded_or_malformed_cgroup_limits(self):
+        with self.assertRaises(SandboxProbeError):
+            parse_positive_limit("max", "pids.max")
+        with self.assertRaises(SandboxProbeError):
+            parse_cpu_quota("max 100000")
+
+    def test_validates_runtime_sandbox_attestation_fail_closed(self):
+        report = self._valid_report()
+        validate_sandbox_report(report)
+        report["outbound_network_blocked"] = False
+        with self.assertRaises(SandboxProbeError):
+            validate_sandbox_report(report)
+
+    def test_evaluator_score_contains_both_sandbox_attestations(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            workspace = root / "agent-output"
+            output = root / "evaluator-output" / "score.json"
+            report = self._valid_report()
+            candidate_path, _ = write_candidate(workspace, report)
+            score = evaluate_candidate(workspace, candidate_path, output, sandbox_report=report)
+            self.assertEqual(score["agent_sandbox"], report)
+            self.assertEqual(score["evaluator_sandbox"], report)
+            self.assertNotIn("oracle_path", score)
 
 
 class M3EvaluatorTopologyTests(unittest.TestCase):
