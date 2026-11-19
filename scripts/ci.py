@@ -114,11 +114,18 @@ def run_suite(suite: Suite) -> tuple[str, int, float, str]:
     except subprocess.CalledProcessError as exc:
         return suite.name, exc.returncode, time.monotonic() - started, "\n".join(output) + (exc.stderr or "")
 
-def parse_test_counts(output: str) -> tuple[int, int]:
-    """Extract unittest counts from a suite's captured output without guessing."""
+def parse_test_counts(output: str) -> tuple[int | None, int | None]:
+    """Return None when unittest did not report counts; never turn unknown into zero."""
     test_runs = [int(value) for value in re.findall(r"Ran (\d+) tests?", output)]
+    if not test_runs:
+        return None, None
     skipped_runs = [int(value) for value in re.findall(r"\bskipped=(\d+)", output)]
     return sum(test_runs), sum(skipped_runs)
+
+
+def parse_negative_self_test_count(output: str) -> int | None:
+    values = [int(value) for value in re.findall(r"SELF-TEST PASS: (\d+) negative cases", output)]
+    return sum(values) if values else None
 
 
 def build_ci_summary(
@@ -141,6 +148,8 @@ def build_ci_summary(
             "elapsed_seconds": round(duration, 6),
             "test_count": tests,
             "skipped_test_count": skipped,
+            "negative_self_test_count": parse_negative_self_test_count(output),
+            "test_count_source": "unittest-output" if tests is not None else "not-reported",
             "output_sha256": hashlib.sha256(output.encode("utf-8")).hexdigest(),
         })
     passed = sum(item["status"] == "passed" for item in suite_records)
@@ -163,6 +172,10 @@ def build_ci_summary(
     )
     run_id = os.environ.get("GITHUB_RUN_ID")
     attempt = os.environ.get("GITHUB_RUN_ATTEMPT")
+    known_test_counts = [item["test_count"] for item in suite_records if item["test_count"] is not None]
+    known_skipped_counts = [item["skipped_test_count"] for item in suite_records if item["skipped_test_count"] is not None]
+    unknown_suites = [item["name"] for item in suite_records if item["test_count"] is None]
+    negative_self_tests = [item["negative_self_test_count"] for item in suite_records if item["negative_self_test_count"] is not None]
     return {
         "schema_version": 1,
         "generated_at_utc": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
@@ -188,12 +201,17 @@ def build_ci_summary(
             "elapsed_seconds": round(elapsed_seconds, 6),
         },
         "test_counts": {
-            "total": sum(item["test_count"] for item in suite_records),
-            "skipped": sum(item["skipped_test_count"] for item in suite_records),
+            "total_known": sum(known_test_counts),
+            "skipped_known": sum(known_skipped_counts),
+            "complete": not unknown_suites,
+            "unknown_suites": unknown_suites,
+            "negative_self_test_cases": sum(negative_self_tests) if negative_self_tests else None,
             "by_suite": {
                 item["name"]: {
                     "tests": item["test_count"],
                     "skipped": item["skipped_test_count"],
+                    "negative_self_test_cases": item["negative_self_test_count"],
+                    "source": item["test_count_source"],
                 }
                 for item in suite_records
             },
