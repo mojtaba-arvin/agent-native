@@ -195,6 +195,22 @@ def _validate_output(ir: dict, output_type: str, result: Any) -> bool:
     return all(_is_type(item["type"], result[item["name"]]) for item in fields)
 
 
+def validate_operation_inputs(ir: dict, operation_name: str, values: object) -> dict[str, Any]:
+    """Validate already-parsed proposal inputs against one operation's IR schema."""
+    if not isinstance(values, dict):
+        raise ValueError("operation_inputs_must_be_object")
+    operation = next((item for item in ir["operations"] if item["name"] == operation_name), None)
+    if operation is None:
+        raise ValueError("unknown_operation")
+    fields = {field["name"]: field["type"] for field in operation["input"]}
+    if set(values) != set(fields):
+        raise ValueError("operation_input_fields_mismatch")
+    for field_name, type_name in fields.items():
+        if not _validate_output(ir, type_name, values[field_name]):
+            raise ValueError(f"invalid_input_type:{field_name}")
+    return dict(values)
+
+
 class ServiceRuntime:
     """Framework-owned request lifecycle with injected application handlers."""
 
