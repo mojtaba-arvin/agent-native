@@ -8,7 +8,7 @@
     "M3-003"
   ],
   "last_completed_task_id": "M3-000",
-  "last_known_green_revision": "ec3975ff11f33516e0d98e349283cbf7b3f19789",
+  "last_known_green_revision": "de99c9929b8c1a8f0d5a11ad829c63bc8456e279",
   "wip_limit": 2,
   "next_action": "Run a no-cost CPU feasibility pilot using the existing E009 local agent harness and provisional IBM Granite 4.0 hybrid model tiers (350M-H, 1B-H, 7B-A1B-H). Pin Ollama runtime and model manifest digests, isolate inference from external networking, preserve all failures, and do not enable apply or hidden-oracle evaluation.",
   "active_workstreams": [
