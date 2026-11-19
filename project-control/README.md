@@ -16,6 +16,7 @@ This directory is the versioned execution state for the Agent Native v0.1 progra
 - [HANDOFF.md](HANDOFF.md): deterministic resume instructions.
 - [CI_PORT_AUDIT.md](CI_PORT_AUDIT.md): reviewed risks and safe port sequence for the staging fast-CI candidate.
 - [CI_WORKFLOW_MIGRATION.md](CI_WORKFLOW_MIGRATION.md): responsibility map for the unified CI workflow.
+- [check_claims.py](../scripts/check_claims.py): fail-closed validation for evidence-backed completion claims.
 
 ## Validate
 
@@ -24,9 +25,10 @@ Run:
 ```sh
 python project_control.py validate
 python project_control.py status
+python scripts/check_claims.py
 ```
 
-The validator uses only the Python standard library. It checks structural invariants and cross-file references; it does not certify the truth of evidence claims or replace tests, peer review, or GitHub branch protections.
+The control-plane validator checks structural invariants and cross-file references. The claims checker additionally requires verified completion claims to resolve to successful ledger events with immutable run, commit, or URL references. Neither tool replaces tests, peer review, or GitHub branch protections.
 
 ## Operating loop
 
