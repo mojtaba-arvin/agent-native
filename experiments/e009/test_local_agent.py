@@ -256,8 +256,11 @@ class LocalAgentRunnerTests(unittest.TestCase):
             for name in self.inspected_operations
         )
         calls.extend([
+            ("interface.describe", {"name": "service.propose"}),
             ("service.propose", proposal),
+            ("interface.describe", {"name": "service.validate"}),
             ("service.validate", {"change_set_id": change_set_id}),
+            ("interface.describe", {"name": "service.plan"}),
             ("service.plan", {"change_set_id": change_set_id}),
         ])
         responses = []
