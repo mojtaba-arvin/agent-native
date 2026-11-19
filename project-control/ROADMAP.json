@@ -19,7 +19,7 @@
     {
       "id": "C1",
       "name": "Evidence and progress integrity",
-      "status": "pending",
+      "status": "in_progress",
       "depends_on": [
         "C0"
       ],
@@ -75,7 +75,7 @@
     {
       "id": "M0",
       "name": "Research integrity and repository baseline",
-      "status": "pending",
+      "status": "in_progress",
       "depends_on": [
         "C0",
         "C1"
