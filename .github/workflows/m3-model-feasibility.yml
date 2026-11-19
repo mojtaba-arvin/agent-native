@@ -178,9 +178,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python3 - "$MODEL_DIR" "$GITHUB_WORKSPACE/experiments/e007/model_candidates.json" "$OUTPUT_DIR/model-manifests.json" <<'PY'
+          python3 - "$MODEL_DIR" "$GITHUB_WORKSPACE/experiments/e007/model_candidates.json" "$OUTPUT_DIR/model-manifests.json" "$GITHUB_WORKSPACE/experiments/e007/model_lock.json" <<'PY'
           import hashlib
           import json
+          import os
           import shutil
           import sys
           from pathlib import Path
@@ -188,11 +189,25 @@ jobs:
           model_dir = Path(sys.argv[1])
           candidates = json.loads(Path(sys.argv[2]).read_text(encoding="utf-8"))
           details_data = json.loads((Path(sys.argv[3]).parent / "model-details.json").read_text(encoding="utf-8"))
-          details_by_tag = {item["tag"]: item for item in details_data["models"]}
+          lock_path = Path(sys.argv[4])
+          lock = json.loads(lock_path.read_text(encoding="utf-8"))
           output = Path(sys.argv[3])
+          if lock.get("schema_version") != 1 or lock.get("status") != "provisional_pinned_not_qualified":
+              raise SystemExit("model_lock_schema_or_status_invalid")
+          runtime = lock.get("runtime", {})
+          if runtime.get("image") != os.environ.get("OLLAMA_IMAGE"):
+              raise SystemExit("ollama_runtime_image_lock_mismatch")
+          if runtime.get("python_image") != os.environ.get("PYTHON_IMAGE"):
+              raise SystemExit("python_runtime_image_lock_mismatch")
+          if runtime.get("platform") != "linux/amd64" or runtime.get("version") != "0.40.15":
+              raise SystemExit("model_lock_runtime_version_or_platform_invalid")
+          details_by_tag = {item["tag"]: item for item in details_data["models"]}
+          candidates_by_tag = {item["tag"]: item for item in candidates["models"]}
+          locked_by_tag = {item["tag"]: item for item in lock.get("models", [])}
+          if set(details_by_tag) != set(candidates_by_tag) or set(candidates_by_tag) != set(locked_by_tag):
+              raise SystemExit("model_lock_candidate_tag_set_mismatch")
           records = []
-          for item in candidates["models"]:
-              tag = item["tag"]
+          for tag, candidate in candidates_by_tag.items():
               namespace, model_and_tag = tag.split("/", 1)
               model_name, model_tag = model_and_tag.split(":", 1)
               manifest_path = (
@@ -203,7 +218,7 @@ jobs:
               manifest = json.loads(raw)
               layers = manifest.get("layers", [])
               model_details = details_by_tag[tag]
-              records.append({
+              record = {
                   "tag": tag,
                   "manifest_sha256": hashlib.sha256(raw).hexdigest(),
                   "quantization_level": model_details["quantization_level"],
@@ -219,11 +234,18 @@ jobs:
                       {"digest": layer.get("digest"), "size": layer.get("size"), "media_type": layer.get("mediaType")}
                       for layer in layers
                   ],
-              })
+              }
+              locked = locked_by_tag[tag]
+              for field in ("manifest_sha256", "config_digest", "quantization_level", "parameter_size", "model_size_bytes", "layers"):
+                  if record[field] != locked.get(field):
+                      raise SystemExit(f"model_lock_mismatch:{tag}:{field}")
+                  if candidate.get(field) != locked.get(field):
+                      raise SystemExit(f"model_candidate_lock_mismatch:{tag}:{field}")
+              records.append(record)
           disk = shutil.disk_usage(model_dir)
           disk_after_pull = {"total_bytes": disk.total, "used_bytes": disk.used, "free_bytes": disk.free, "model_layers_total_bytes": sum(item["model_size_bytes"] for item in records)}
-          output.write_text(json.dumps({"schema_version": 1, "disk_after_pull": disk_after_pull, "models": records}, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-          PY
+          lock_sha256 = hashlib.sha256(lock_path.read_bytes()).hexdigest()
+          output.write_text(json.dumps({"schema_version": 1, "model_lock_sha256": lock_sha256, "disk_after_pull": disk_after_pull, "models": records}, indent=2, sort_keys=True) + "\n", encoding="utf-8")          PY
 
       - name: Start isolated no-network Ollama model server
         shell: bash
