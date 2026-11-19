@@ -25,7 +25,6 @@ class EvaluatorBoundaryError(ValueError):
 @dataclass(frozen=True)
 class BoundaryEvidence:
     candidate_path: Path
-    oracle_path: Path
     candidate_sha256: str
 
     def public_summary(self) -> dict[str, Any]:
@@ -110,7 +109,7 @@ def verify_evaluator_boundary(
     _verify_oracle_custody(oracle)
 
     digest = hashlib.sha256(candidate.read_bytes()).hexdigest()
-    return BoundaryEvidence(candidate, oracle, digest)
+    return BoundaryEvidence(candidate, digest)
 
 
 def validate_candidate_continuity(candidate: object) -> str:
