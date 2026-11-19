@@ -92,6 +92,9 @@ class M3ModelFeasibilityTests(unittest.TestCase):
             self.assertEqual(item["quantization_expected"], pin["quantization_level"])
             self.assertTrue(item["manifest_sha256"])
             self.assertTrue(pin["layers"])
+            self.assertEqual(item["last_feasibility_run_id"], 44509769849)
+            self.assertTrue(item["tool_call_smoke"].startswith("failed_"))
+            self.assertTrue(item["last_failure_code"])
         self.assertTrue(all(item["quantization_expected"] == "Q4_K_M" for item in candidates["models"]))
 
     def test_tool_sequence_reads_gateway_operations(self):
@@ -165,6 +168,7 @@ class M3ModelFeasibilityTests(unittest.TestCase):
         self.assertIn('"paid_api_usd": 0', smoke)
         self.assertIn('MODEL_LOCK', smoke)
         self.assertIn('model_lock_sha256', smoke)
+        self.assertIn('expected_lock_sha256', smoke)
 
 
 if __name__ == "__main__":
