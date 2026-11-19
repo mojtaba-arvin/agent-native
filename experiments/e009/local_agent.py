@@ -636,6 +636,68 @@ def _proposal_attempt_gate(request: dict, attempts: int) -> tuple[int, dict | No
     return next_attempt, None
 
 
+def _proposal_replacement_gate(
+    response: dict,
+    successful_proposal: dict | None,
+    validation_result: dict | None,
+) -> dict | None:
+    """Redirect duplicate proposal attempts to the required validation or plan step."""
+    if not isinstance(response, dict) or not response.get("ok") or successful_proposal is None:
+        return None
+    previous_id = (successful_proposal.get("result") or {}).get("change_set_id")
+    if not isinstance(previous_id, str) or not previous_id:
+        return None
+
+    validation_valid = bool(
+        validation_result
+        and validation_result.get("ok")
+        and (validation_result.get("result") or {}).get("valid") is True
+    )
+    if validation_valid:
+        code = "PROPOSAL_ALREADY_VALIDATED"
+        message = "A proposal has already passed validation. Continue with its plan; do not submit another proposal."
+        next_actions = [f"service.plan with change_set_id={previous_id}"]
+        fix_hint = "Reuse the existing validated change_set_id. Do not create or submit another proposal."
+    elif validation_result is None:
+        code = "PROPOSAL_REQUIRES_VALIDATION"
+        message = "A proposal already exists. Validate that exact proposal before replacing or resubmitting it."
+        next_actions = [f"service.validate with change_set_id={previous_id}"]
+        fix_hint = "Call service.validate with the existing change_set_id; do not repeat service.propose_delta."
+    else:
+        current_id = (response.get("result") or {}).get("change_set_id")
+        if current_id != previous_id:
+            return None
+        diagnostics = (
+            (validation_result.get("result") or {}).get("diagnostics")
+            or validation_result.get("diagnostics")
+            or []
+        )
+        hints = [
+            item.get("fix_hint") or item.get("message")
+            for item in diagnostics
+            if isinstance(item, dict) and (item.get("fix_hint") or item.get("message"))
+        ]
+        code = "DUPLICATE_UNREPAIRED_PROPOSAL"
+        message = "This exact proposal was already rejected by validation. Do not resubmit it unchanged."
+        next_actions = [
+            "Use the previous service.validate diagnostics to correct the proposal, then submit one corrected proposal."
+        ]
+        fix_hint = " ".join(hints) if hints else "Make a substantive correction based on service.validate before proposing again."
+
+    return {
+        **response,
+        "ok": False,
+        "result": None,
+        "diagnostics": [{
+            "code": code,
+            "message": message,
+            "source_span": None,
+            "fix_hint": fix_hint,
+        }],
+        "next_actions": next_actions,
+    }
+
+
 def _is_proposal_budget_exhausted(response: dict) -> bool:
     """Treat the exhausted proposal-repair budget as a terminal run condition."""
     diagnostics = response.get("diagnostics")
@@ -1093,40 +1155,12 @@ def run(args: argparse.Namespace) -> dict:
                             if result.get("type") != "tool_result" or not isinstance(result.get("response"), dict):
                                 raise AgentRunError("gateway_tool_result_invalid")
                             nested = result["response"]
-                    if tool_name in {"service.propose", "service.propose_delta"} and nested.get("ok") and successful_proposal is not None:
-                        previous_valid = bool(
-                            validation_result
-                            and validation_result.get("ok")
-                            and (validation_result.get("result") or {}).get("valid") is True
+                    if tool_name in {"service.propose", "service.propose_delta"}:
+                        replacement_gate = _proposal_replacement_gate(
+                            nested, successful_proposal, validation_result
                         )
-                        previous_id = (successful_proposal.get("result") or {}).get("change_set_id")
-                        current_id = (nested.get("result") or {}).get("change_set_id")
-                        repair_code = None
-                        repair_message = None
-                        if previous_valid:
-                            repair_code = "PROPOSAL_ALREADY_VALIDATED"
-                            repair_message = "A proposal has already passed validation. Continue with its plan; do not submit another proposal."
-                        elif validation_result is None:
-                            repair_code = "PROPOSAL_REQUIRES_VALIDATION"
-                            repair_message = "Validate the current proposal before replacing it."
-                        elif current_id == previous_id:
-                            repair_code = "DUPLICATE_UNREPAIRED_PROPOSAL"
-                            repair_message = "This exact proposal was already rejected by validation. Change the IR structure; input must be an array such as [{name:'name',source:'path',type:'String'}], not an object map."
-                        if repair_code is not None:
-                            nested = {
-                                **nested,
-                                "ok": False,
-                                "result": None,
-                                "diagnostics": [{
-                                    "code": repair_code,
-                                    "message": repair_message,
-                                    "source_span": None,
-                                    "fix_hint": "Use the inspected get_item_by_name input declaration shape: an array of {name, source, type} objects.",
-                                }],
-                                "next_actions": [
-                                    "Correct the IR input array using {name, source, type}; then submit one new proposal."
-                                ],
-                            }
+                        if replacement_gate is not None:
+                            nested = replacement_gate
                     inspection_progression_exhausted = (
                         tool_name == "service.inspect"
                         and any(
