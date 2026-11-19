@@ -1080,6 +1080,54 @@
         "project_control.py#build_schedule_plan",
         "project_control.py#command_schedule"
       ]
+    },
+    {
+      "id": "CP-010",
+      "title": "Complete independent review and merge-base verification for trust-boundary integration",
+      "milestone": "C3",
+      "status": "blocked",
+      "priority": 10,
+      "depends_on": [
+        "CP-009",
+        "M2-003"
+      ],
+      "owner": "owner-approval",
+      "scope": [
+        ".github/workflows/ci.yml",
+        "project-control/POLICY.json",
+        "project-control/BLOCKERS.json",
+        "pull-request:81"
+      ],
+      "acceptance": [
+        "Peer review records are separate from implementation commits and are attributable to distinct reviewers",
+        "Trust-boundary implementation PRs require two latest APPROVED reviews from distinct non-author human reviewers",
+        "CI rejects trust-boundary PRs with fewer than two independent approvals",
+        "CI rejects PR heads that do not contain the latest target branch",
+        "M2-003 is integrated only after both independent approvals and fresh Layer 0/Layer 1 checks"
+      ],
+      "expected_outputs": [
+        "Independent review enforcement in CI",
+        "Merge-base freshness gate",
+        "Two independent review records on PR #81",
+        "Integrated M2-003 Gateway"
+      ],
+      "max_unchanged_retries": 1,
+      "replan_after_failures": 2,
+      "stop_conditions": [
+        "Do not self-approve or count bot reviews",
+        "Do not bypass the two-review trust-boundary requirement",
+        "Do not merge to main"
+      ],
+      "execution": {
+        "branch": "feat/control-plane-scheduler",
+        "base_branch": "research/reboot-core",
+        "integration_owner": "integrator"
+      },
+      "evidence_ids": [
+        ".github/workflows/ci.yml#independent-review-gate",
+        ".github/workflows/ci.yml#merge-base-freshness",
+        "PR-81"
+      ]
     }
   ]
 }
