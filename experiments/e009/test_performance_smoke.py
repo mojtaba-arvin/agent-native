@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import json
+import tempfile
 import unittest
+from pathlib import Path
 
-from performance_smoke import evaluate_capacity_gate
+from performance_smoke import DEFAULT_CAPACITY_THRESHOLDS, evaluate_capacity_gate, load_preregistration_config
 
 
 class E009CapacityGateTests(unittest.TestCase):
@@ -24,6 +27,34 @@ class E009CapacityGateTests(unittest.TestCase):
             "latency_ms": {"p99": 6.54},
             "failed_expectations": 0,
         }
+
+    def test_frozen_capacity_manifest_has_exact_parameters_and_blob_pin(self):
+        manifest_path = Path(__file__).with_name("capacity-confirmation-v1.json")
+        config, blob_sha1 = load_preregistration_config(manifest_path)
+        self.assertEqual(config["cohort_id"], "E009-CAPACITY-CONFIRMATION-2026-11-19-V1")
+        self.assertTrue(config["no_apply"])
+        self.assertEqual(config["parameters"]["repetitions"], 10)
+        self.assertEqual(config["parameters"]["audit_batch_delay_ms"], 1.0)
+        self.assertEqual(config["thresholds"]["maximum_aggregate_p99_ms"], 100)
+        self.assertRegex(blob_sha1, r"^[0-9a-f]{40}$")
+
+    def test_capacity_gate_uses_supplied_preregistered_thresholds(self):
+        thresholds = dict(DEFAULT_CAPACITY_THRESHOLDS)
+        thresholds["minimum_throughput_requests_per_second"] = 101.0
+        result = evaluate_capacity_gate(self.aggregate(), self.metrics(), thresholds)
+        self.assertFalse(result["passed"])
+        self.assertFalse(result["checks"]["throughput_at_least_100_rps"])
+        self.assertEqual(result["thresholds"]["minimum_throughput_requests_per_second"], 101.0)
+
+    def test_rejects_capacity_manifest_that_allows_apply(self):
+        manifest_path = Path(__file__).with_name("capacity-confirmation-v1.json")
+        config = json.loads(manifest_path.read_text(encoding="utf-8"))
+        config["no_apply"] = False
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "invalid.json"
+            path.write_text(json.dumps(config), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "no-apply"):
+                load_preregistration_config(path)
 
     def test_measured_product_path_passes_all_preregistered_limits(self):
         result = evaluate_capacity_gate(self.aggregate(), self.metrics())
