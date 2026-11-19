@@ -113,7 +113,6 @@ class M3ModelFeasibilityTests(unittest.TestCase):
         self.assertIn("--security-opt no-new-privileges", workflow)
         self.assertIn("/api/show", workflow)
         self.assertIn("runner-info.json", workflow)
-        self.assertIn("RUNNER_INFO", smoke if False else workflow)
         self.assertIn("manifest_sha256", workflow)
 
     def test_model_smoke_disables_apply_and_uses_existing_e009_agent(self):
@@ -122,6 +121,7 @@ class M3ModelFeasibilityTests(unittest.TestCase):
         self.assertIn("allow_sandbox_apply=False", smoke)
         self.assertIn("ollama_runtime_version_not_pinned", smoke)
         self.assertIn("model_quantization_mismatch", smoke)
+        self.assertIn("RUNNER_INFO", smoke)
         self.assertIn('"service.apply" in sequence', smoke)
         self.assertIn('"hidden_oracle_used": False', smoke)
         self.assertIn('"paid_api_usd": 0', smoke)
