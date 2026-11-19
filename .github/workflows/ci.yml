@@ -119,6 +119,49 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - name: Enforce independent reviews for trust-boundary changes
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const pull = context.payload.pull_request;
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner, repo, pull_number: pull.number, per_page: 100
+            });
+            const trustBoundary = (path) =>
+              path.startsWith('src/agent_native/auth/') ||
+              path.startsWith('src/agent_native/authz/') ||
+              path.startsWith('src/agent_native/identity/') ||
+              path.startsWith('src/agent_native/capability/') ||
+              path.startsWith('src/agent_native/gateway/') ||
+              path.startsWith('src/agent_native/apply/') ||
+              path.startsWith('src/agent_native/rollback/') ||
+              path === 'src/agent_native/security.py';
+            const changed = files.map(file => file.filename).filter(trustBoundary);
+            if (changed.length === 0) {
+              core.info('No trust-boundary implementation paths changed; independent-review gate not applicable.');
+              return;
+            }
+            const reviews = await github.paginate(github.rest.pulls.listReviews, {
+              owner, repo, pull_number: pull.number, per_page: 100
+            });
+            const latest = new Map();
+            for (const review of reviews.sort((a, b) =>
+              new Date(a.submitted_at || 0) - new Date(b.submitted_at || 0))) {
+              if (review.user?.login) latest.set(review.user.login, review.state);
+            }
+            const approvals = [...latest.entries()]
+              .filter(([login, state]) =>
+                state === 'APPROVED' &&
+                login !== pull.user.login &&
+                !login.endsWith('[bot]'))
+              .map(([login]) => login);
+            core.info('Trust-boundary files: ' + changed.join(', '));
+            core.info('Independent approvals: ' + approvals.length);
+            if (approvals.length < 2) {
+              core.setFailed('Trust-boundary changes require two independent APPROVED reviews; found ' + approvals.length + '.');
+            }
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11.18"
