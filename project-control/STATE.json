@@ -7,12 +7,13 @@
   "current_milestone": "C1",
   "active_task_ids": [
     "CP-007",
-    "M1-001"
+    "M1-001",
+    "M1-002"
   ],
   "last_completed_task_id": "M0-003",
   "last_known_green_revision": "8625e94eb1a285e9516d0e69048581ba6b240a1f",
   "wip_limit": 2,
-  "next_action": "Complete M1-001 package installation and import smoke on a clean CI environment; then proceed to M1-002 package-native import migration while CP-007 integration remains independently active. Keep the M1 branch stacked on the M0 evidence branch until its PR is integrated.",
+  "next_action": "Validate package install and runtime import isolation in fresh CI; continue moving the E-009 kernel/security path into the package namespace. Preserve E-009 scripts as legacy experiment entry points until compatibility wrappers and migration tests are in place.",
   "recovery": {
     "unchanged_failure_limit": 2,
     "no_progress_attempt_limit": 3,
