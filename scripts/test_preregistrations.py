@@ -196,6 +196,19 @@ class PreregistrationTests(unittest.TestCase):
             handle.write(json.dumps(third) + "\n")
         self.assertTrue(any("previous_run_ledger_blob_sha1 does not match" in error for error in validate(self.root)))
 
+    def test_rejects_unknown_decision_reference(self):
+        self.event["affected_decision_ids"] = ["D-MISSING"]
+        self.event["event_hash"] = event_hash(self.event)
+        self.events_path.write_text(json.dumps(self.event) + "\n", encoding="utf-8")
+        self.assertTrue(any("unknown decision IDs D-MISSING" in error for error in validate(self.root)))
+
+    def test_rejects_duplicate_decision_ids(self):
+        (self.root / "DECISIONS.json").write_text(
+            json.dumps({"decisions": [{"id": "D-1"}, {"id": "D-1"}]}) + "\n",
+            encoding="utf-8",
+        )
+        self.assertTrue(any("duplicate decision id D-1" in error for error in validate(self.root)))
+
     def test_rejects_invalid_status_type_without_crashing(self):
         self.registry["records"][0]["status"] = {"unexpected": "object"}
         self.refresh_baseline()
