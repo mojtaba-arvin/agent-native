@@ -75,7 +75,8 @@ PRECHECKS = {
     "e011-semantics": ((sys.executable, "-m", "py_compile",
         "experiments/e011/semantics.py", "experiments/e011/test_semantics.py"),),
     "project-control": ((sys.executable, "project_control.py", "status"),
-        (sys.executable, "project_control.py", "self-test")),
+        (sys.executable, "project_control.py", "self-test"),
+        (sys.executable, "scripts/check_claims.py")),
 }
 
 def run_suite(suite: Suite) -> tuple[str, int, float, str]:
