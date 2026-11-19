@@ -2,17 +2,16 @@
   "schema_version": 1,
   "updated_at": "2026-11-19",
   "active_branch": "feat/m1-package-cli",
-  "baseline_branch": "feat/generated-evidence-scorecards-v1",
-  "baseline_commit": "c14d3f2e6eda5963668217ba2ad5fb2d8a1de6b0",
-  "current_milestone": "C1",
+  "baseline_branch": "research/reboot-core",
+  "baseline_commit": "10ae594f405519344b1d654e9577bd78cb1f4985",
+  "current_milestone": "M1",
   "active_task_ids": [
-    "CP-007",
-    "M1-001"
+    "M1-002"
   ],
-  "last_completed_task_id": "M0-003",
+  "last_completed_task_id": "M1-001",
   "last_known_green_revision": "8625e94eb1a285e9516d0e69048581ba6b240a1f",
   "wip_limit": 2,
-  "next_action": "Complete and verify M1-001 package install/public API with a fresh green CI run. Package runtime/security modules are staged as early M1-002 work, but M1-002 remains pending until M1-001 passes its acceptance gate. Continue CP-007 independently.",
+  "next_action": "Complete M1-002 by migrating the supported E-009 kernel, Gateway, and service entry points into the package namespace without import-time sys.path mutation. Keep legacy experiment prototypes explicitly isolated and preserve their regression tests. Then implement M1-003 unified CLI.",
   "recovery": {
     "unchanged_failure_limit": 2,
     "no_progress_attempt_limit": 3,
