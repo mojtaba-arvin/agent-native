@@ -114,6 +114,7 @@ class M3ModelFeasibilityTests(unittest.TestCase):
         self.assertIn("/api/show", workflow)
         self.assertIn("runner-info.json", workflow)
         self.assertIn("manifest_sha256", workflow)
+        self.assertIn("disk_after_pull", workflow)
 
     def test_model_smoke_disables_apply_and_uses_existing_e009_agent(self):
         smoke = (E007 / "m3_model_smoke.py").read_text(encoding="utf-8")
@@ -122,6 +123,7 @@ class M3ModelFeasibilityTests(unittest.TestCase):
         self.assertIn("ollama_runtime_version_not_pinned", smoke)
         self.assertIn("model_quantization_mismatch", smoke)
         self.assertIn("RUNNER_INFO", smoke)
+        self.assertIn("model_store_disk_after_pull", smoke)
         self.assertIn('"service.apply" in sequence', smoke)
         self.assertIn('"hidden_oracle_used": False', smoke)
         self.assertIn('"paid_api_usd": 0', smoke)
