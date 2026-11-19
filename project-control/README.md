@@ -20,6 +20,7 @@ This directory is the versioned execution state for the Agent Native v0.1 progra
 - [BRANCH_INVENTORY.md](BRANCH_INVENTORY.md): current branch graph and preserved unique artifacts.
 - [PREREGISTRATIONS.json](PREREGISTRATIONS.json): frozen benchmark/evidence manifest registry.
 - [DECISION_EVENTS.jsonl](DECISION_EVENTS.jsonl): hash-chained append-only decision, preregistration, and run-ledger integrity events.
+- [E-009 capacity confirmation manifest](../experiments/e009/capacity-confirmation-v1.json): frozen ten-repetition workload and capacity thresholds consumed by the manual workflow.
 - [check_claims.py](../scripts/check_claims.py): fail-closed validation for evidence-backed completion claims.
 
 ## Validate
