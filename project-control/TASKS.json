@@ -1187,7 +1187,8 @@
         ".github/workflows/m3-evaluator.yml",
         "experiments/e007/evaluator/",
         "scripts/",
-        "tests/"
+        "tests/",
+        "experiments/e007/evaluator/sandbox_probe.py"
       ],
       "acceptance": [
         "The agent and evaluator run in separate ephemeral GitHub-hosted jobs/VMs with no shared process or filesystem namespace",
@@ -1196,14 +1197,16 @@
         "The agent and evaluator containers are non-root, resource-limited, read-only except for explicit output mounts, and have network disabled during untrusted execution/scoring",
         "The evaluator job alone references the m3-evaluator environment; the topology smoke uses a synthetic oracle only, and actual environment protection/hidden-oracle custody remains a separate owner setup gate",
         "The topology smoke runs only on research/reboot-core pushes affecting evaluator paths or by manual dispatch on that branch; real model cohort dispatch remains a separate manual-only workflow and is not enabled",
-        "Workflow and unit tests cover artifact allowlisting, oracle non-disclosure, separation, negative paths, and zero paid API/GPU usage"
+        "Workflow and unit tests cover artifact allowlisting, oracle non-disclosure, separation, negative paths, and zero paid API/GPU usage",
+        "Both containers emit runtime sandbox attestation proving non-root UID, read-only root, noexec /tmp, no-new-privileges, zero effective capabilities, blocked outbound network, and cgroup memory/CPU/PID limits"
       ],
       "expected_outputs": [
         "Research-branch synthetic evaluator topology-smoke workflow; the real model cohort remains a separate manual-only workflow",
         "Separate agent/evaluator GitHub-hosted job and allowlisted artifact contract",
         "Resource-limited no-network agent and evaluator containers",
         "Synthetic evaluator-only oracle for topology smoke; actual protected hidden-oracle custody remains a separate setup gate",
-        "Isolation and workflow contract regression tests"
+        "Isolation and workflow contract regression tests",
+        "Runtime sandbox attestation in the synthetic evaluator score without oracle path/content"
       ],
       "max_unchanged_retries": 2,
       "replan_after_failures": 2,
@@ -1218,10 +1221,13 @@
         "run:44489886038",
         "experiments/e007/evaluator/README.md",
         "experiments/e007/evaluator/boundary.py",
-        "experiments/e007/evaluator/test_boundary.py"
+        "experiments/e007/evaluator/test_boundary.py",
+        "run:44493638711",
+        "artifact:14514595444",
+        "artifact:14513633369"
       ],
       "execution": {
-        "branch": "feat/m3-evaluator-isolation",
+        "branch": "feat/m3-sandbox-runtime-probes",
         "base_branch": "research/reboot-core",
         "integration_owner": "integrator"
       }
