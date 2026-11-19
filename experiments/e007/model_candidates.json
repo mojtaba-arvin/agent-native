@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "status": "provisional_bootstrap",
+  "updated_at": "2026-11-19",
+  "runner": {
+    "label": "ubuntu-latest",
+    "os": "ubuntu",
+    "architecture": "x86_64",
+    "vcpus": 4,
+    "memory_gib": 16,
+    "ssd_gib": 14,
+    "public_repository_usage": "free"
+  },
+  "runtime": {
+    "name": "Ollama",
+    "version": "0.40.15",
+    "image": "ollama/ollama@sha256:a717bfc1c56acfc2e85d3109bd40a7646258ec9062c40cea83b9ed0927eb4223",
+    "platform": "linux/amd64",
+    "python_image": "python:3.12-slim@sha256:5e2bdb1b0d542d5039cffb8181c65930093949194a65c365dfb1b0fe13a4fa5b"
+  },
+  "family": {
+    "name": "IBM Granite 4.0 Hybrid",
+    "license": "Apache-2.0",
+    "quantization_default": "Q4_K_M",
+    "architecture": "hybrid Mamba2"
+  },
+  "models": [
+    {
+      "tier": "weak",
+      "tag": "ibm/granite4:350m-h",
+      "parameters_total": "350M",
+      "parameters_active": "350M",
+      "manifest_sha256": null,
+      "config_digest": null,
+      "model_size_bytes": null,
+      "tool_call_smoke": "pending"
+    },
+    {
+      "tier": "medium",
+      "tag": "ibm/granite4:1b-h",
+      "parameters_total": "1.46B",
+      "parameters_active": "1.46B",
+      "manifest_sha256": null,
+      "config_digest": null,
+      "model_size_bytes": null,
+      "tool_call_smoke": "pending"
+    },
+    {
+      "tier": "strong",
+      "tag": "ibm/granite4:7b-a1b-h",
+      "parameters_total": "6.94B",
+      "parameters_active": "1B",
+      "manifest_sha256": null,
+      "config_digest": null,
+      "model_size_bytes": null,
+      "tool_call_smoke": "pending"
+    }
+  ],
+  "smoke": {
+    "task_path": "experiments/e009/AGENT_TASK_DELTA.md",
+    "task_id_prefix": "m3-free-model-feasibility",
+    "proposal_mode": "delta",
+    "base_disclosure": "minimal",
+    "arm": "progressive",
+    "num_ctx": 16384,
+    "num_predict": 2048,
+    "max_input_tokens": 12000,
+    "max_output_tokens": 2048,
+    "max_tool_calls": 20,
+    "max_wall_seconds": 600,
+    "temperature": 0,
+    "top_p": 1,
+    "seed": 42,
+    "allow_sandbox_apply": false,
+    "retries": 0
+  },
+  "cost": {
+    "paid_api_usd_ceiling": 0,
+    "gpu_allowed": false,
+    "permitted_compute": "GitHub Actions public-repository hosted CPU runners"
+  },
+  "oracle": {
+    "hidden_oracle_enabled": false,
+    "synthetic_oracle_enabled": false
+  },
+  "external_network": {
+    "during_model_download": "allowed for public Ollama registry only",
+    "during_agent_inference": "blocked"
+  }
+}
