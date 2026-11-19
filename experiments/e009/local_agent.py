@@ -1139,6 +1139,7 @@ def run(args: argparse.Namespace) -> dict:
             + "For snapshot mode preserve the complete service object, types array, and all existing operation objects exactly, then append the requested operation. "
             + "For delta mode submit exactly one add_operation change containing that operation. Do not inspect the requested new operation. "
             + "Follow gateway next_actions and diagnostics; never propose while required inspection is missing. "
+            + "Never repeat a successful interface.describe or service.inspect call with identical arguments; use the exact schema and verified state already in the ledger to advance. "
             + "A service.validate response can have outer ok=true while result.valid=false. Do not plan unless valid=true. "
             + "If validation fails, read diagnostics and correct the proposal; never repeat an identical invalid call. "
             + "Call service.plan only after successful validation of the same change_set_id. "
