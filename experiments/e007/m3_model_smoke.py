@@ -181,8 +181,11 @@ def main() -> int:
     endpoint = os.environ.get("OLLAMA_URL", "http://127.0.0.1:11434")
     ollama_version = os.environ.get("OLLAMA_VERSION", "")
     runtime_lock = model_lock.get("runtime", {})
+    expected_lock_sha256 = hashlib.sha256(model_lock_path.read_bytes()).hexdigest()
     if (
-        model_lock.get("schema_version") != 1
+        candidates.get("status") != "provisional_manifest_pinned"
+        or manifests.get("model_lock_sha256") != expected_lock_sha256
+        or model_lock.get("schema_version") != 1
         or model_lock.get("status") != "provisional_pinned_not_qualified"
         or runtime_lock.get("version") not in ollama_version
         or runtime_lock.get("image") != os.environ.get("OLLAMA_IMAGE")
