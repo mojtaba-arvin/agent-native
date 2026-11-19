@@ -1,21 +1,14 @@
 {
-  "schema_version": 1,
   "updated_at": "2026-11-19",
-  "active_branch": "feat/m2-declarative-handlers",
-  "baseline_branch": "feat/m2-service-registry",
-  "baseline_commit": "08a9e433c8644807461793f0795e03b1adf29f92",
+  "active_branch": "feat/m2-service-independent-gateway",
+  "baseline_branch": "feat/m2-declarative-handlers",
+  "baseline_commit": "d3feaf3e358e7c7222337b2935fcc8e744abbac3",
   "current_milestone": "M2",
   "active_task_ids": [
-    "M2-002"
+    "M2-003"
   ],
-  "last_completed_task_id": "M2-001",
-  "last_known_green_revision": "8034fcdfe13958f8fb77906c71ca4d75f5006442",
+  "last_completed_task_id": "M2-002",
+  "last_known_green_revision": "d3feaf3e358e7c7222337b2935fcc8e744abbac3",
   "wip_limit": 2,
-  "next_action": "Implement M2-002 generic declarative CRUD/job/event handler dispatch. Bind manifest handler specs only to host-registered generic handlers; enforce declared effects, default-deny policy, and tenant identity from trusted RequestContext. Add adapter contract tests and preserve the full package/regression matrix.",
-  "recovery": {
-    "unchanged_failure_limit": 2,
-    "no_progress_attempt_limit": 3,
-    "on_limit": "stop_repeating; record_root_cause; split_or_change_approach; update_task_contract",
-    "blocked_task_policy": "record_blocker_and_continue_with_independent_ready_work"
-  }
+  "next_action": "Implement M2-003 Service-independent Agent Gateway: resolve registered services by service ID, expose explicit read/write proposal effects and capability mappings, enforce default-deny authorization, and keep apply unreachable from agent-facing APIs. Add negative tests for missing grants, cross-tenant scope, unsupported effects, and service identity mismatch."
 }

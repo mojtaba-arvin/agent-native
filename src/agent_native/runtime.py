@@ -178,6 +178,11 @@ def _valid_raw_encoding(value: str) -> bool:
 
 
 def _validate_output(ir: dict, output_type: str, result: Any) -> bool:
+    collection = re.fullmatch(r"List<([A-Za-z_][A-Za-z0-9_]*)>", output_type)
+    if collection:
+        return isinstance(result, list) and all(
+            _validate_output(ir, collection.group(1), item) for item in result
+        )
     custom = {item["name"]: item for item in ir["types"]}
     declaration = custom.get(output_type)
     if declaration is None:

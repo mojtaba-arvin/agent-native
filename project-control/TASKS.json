@@ -512,7 +512,7 @@
       "id": "M2-002",
       "title": "Drive declarative CRUD, job, and event handlers from service IR",
       "milestone": "M2",
-      "status": "in_progress",
+      "status": "complete",
       "priority": 21,
       "depends_on": [
         "M2-001"
@@ -539,13 +539,21 @@
       "stop_conditions": [
         "Do not allow agent-supplied Python or arbitrary handler code"
       ],
-      "evidence_ids": []
+      "evidence_ids": [
+        "run:44453671758",
+        "15/15 deterministic suites",
+        "78 installed-package tests",
+        "Layer 0 passed",
+        "Layer 1 native/container/database passed",
+        "typed List<StockItem> output validation",
+        "tenant-scoped CRUD, jobs, and event dispatch tests"
+      ]
     },
     {
       "id": "M2-003",
       "title": "Generalize Agent Gateway proposals to explicit read/write effects while keeping apply separate",
       "milestone": "M2",
-      "status": "pending",
+      "status": "in_progress",
       "priority": 22,
       "depends_on": [
         "M2-002"
