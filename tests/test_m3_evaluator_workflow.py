@@ -54,6 +54,16 @@ class M3EvaluatorTopologyTests(unittest.TestCase):
             with self.assertRaises(EvaluatorBoundaryError):
                 evaluate_candidate(workspace, candidate_path, root / "score.json")
 
+    def test_evaluator_rejects_symlink_candidate(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            workspace = root / "agent-output"
+            candidate_path, _ = write_candidate(workspace)
+            symlink = workspace / "candidate-link.json"
+            symlink.symlink_to(candidate_path)
+            with self.assertRaises(EvaluatorBoundaryError):
+                evaluate_candidate(workspace, symlink, root / "score.json")
+
     def test_evaluator_rejects_apply_invocation(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
