@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import concurrent.futures
+import hashlib
 import json
 import math
 import os
@@ -212,6 +213,88 @@ def sqlite_file_sizes(database_path):
         except FileNotFoundError:
             sizes[label] = 0
     return sizes
+
+
+DEFAULT_CAPACITY_THRESHOLDS = {
+    "minimum_throughput_requests_per_second": 100.0,
+    "maximum_aggregate_p99_ms": 100.0,
+    "maximum_one_core_cpu_percent": 50.0,
+    "maximum_peak_cgroup_memory_bytes": 1_073_741_824,
+    "required_server_cpu_quota_cores": 1.0,
+    "required_server_memory_limit_bytes": 1_073_741_824,
+    "maximum_unexpected_outcomes": 0,
+}
+
+
+def git_blob_sha1(data: bytes) -> str:
+    header = f"blob {len(data)}\0".encode("ascii")
+    return hashlib.sha1(header + data).hexdigest()
+
+
+def load_preregistration_config(path: Path) -> tuple[dict, str]:
+    raw_bytes = path.read_bytes()
+    config = json.loads(raw_bytes)
+    if not isinstance(config, dict):
+        raise ValueError("preregistration config must be a JSON object")
+    if set(config) != {"schema_version", "cohort_id", "no_apply", "purpose", "parameters", "thresholds"}:
+        raise ValueError("preregistration config has missing or unknown top-level fields")
+    if type(config["schema_version"]) is not int or config["schema_version"] != 1:
+        raise ValueError("preregistration schema_version must be 1")
+    if not isinstance(config["cohort_id"], str) or not config["cohort_id"].strip():
+        raise ValueError("preregistration cohort_id is required")
+    if config["no_apply"] is not True:
+        raise ValueError("performance cohort must be no-apply")
+    if not isinstance(config["purpose"], str) or not config["purpose"].strip():
+        raise ValueError("preregistration purpose is required")
+
+    parameters = config["parameters"]
+    parameter_keys = {
+        "requests_per_repetition", "repetitions", "client_concurrency", "target_rps",
+        "containerized", "enforce_capacity_gate", "audit_batch_delay_ms",
+        "job_batch_size", "job_batch_delay_ms",
+    }
+    if not isinstance(parameters, dict) or set(parameters) != parameter_keys:
+        raise ValueError("preregistration parameters have missing or unknown fields")
+    for key in ("requests_per_repetition", "repetitions", "client_concurrency", "job_batch_size"):
+        if type(parameters[key]) is not int:
+            raise ValueError(f"{key} must be an integer")
+    if parameters["requests_per_repetition"] < 100:
+        raise ValueError("requests_per_repetition must be at least 100")
+    if not 1 <= parameters["repetitions"] <= 10:
+        raise ValueError("repetitions must be between 1 and 10")
+    if not 1 <= parameters["client_concurrency"] <= 64:
+        raise ValueError("client_concurrency must be between 1 and 64")
+    if not 1 <= parameters["job_batch_size"] <= 1024:
+        raise ValueError("job_batch_size must be between 1 and 1024")
+    for key in ("target_rps", "audit_batch_delay_ms", "job_batch_delay_ms"):
+        value = parameters[key]
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+            raise ValueError(f"{key} must be a finite number")
+    if parameters["target_rps"] < 0:
+        raise ValueError("target_rps must be non-negative")
+    if not 0 <= parameters["audit_batch_delay_ms"] <= 50:
+        raise ValueError("audit_batch_delay_ms must be between 0 and 50")
+    if not 0 <= parameters["job_batch_delay_ms"] <= 50:
+        raise ValueError("job_batch_delay_ms must be between 0 and 50")
+    if parameters["containerized"] is not True or parameters["enforce_capacity_gate"] is not True:
+        raise ValueError("capacity confirmation requires containerized execution and an enforced gate")
+
+    thresholds = config["thresholds"]
+    if not isinstance(thresholds, dict) or set(thresholds) != set(DEFAULT_CAPACITY_THRESHOLDS):
+        raise ValueError("preregistration thresholds have missing or unknown fields")
+    for key in (
+        "minimum_throughput_requests_per_second", "maximum_aggregate_p99_ms",
+        "maximum_one_core_cpu_percent", "required_server_cpu_quota_cores",
+    ):
+        value = thresholds[key]
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value <= 0:
+            raise ValueError(f"{key} must be a finite positive number")
+    for key in ("maximum_peak_cgroup_memory_bytes", "required_server_memory_limit_bytes"):
+        if type(thresholds[key]) is not int or thresholds[key] <= 0:
+            raise ValueError(f"{key} must be a positive integer")
+    if type(thresholds["maximum_unexpected_outcomes"]) is not int or thresholds["maximum_unexpected_outcomes"] < 0:
+        raise ValueError("maximum_unexpected_outcomes must be a non-negative integer")
+    return config, git_blob_sha1(raw_bytes)
 
 
 def evaluate_capacity_gate(aggregate, resource_metrics):
