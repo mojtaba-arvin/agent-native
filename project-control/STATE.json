@@ -11,7 +11,7 @@
   "last_completed_task_id": "M2-001",
   "last_known_green_revision": "8034fcdfe13958f8fb77906c71ca4d75f5006442",
   "wip_limit": 2,
-  "next_action": "Implement M2-002 generic declarative CRUD/job/event handler dispatch. Bind manifest handler specs only to host-registered generic handlers; enforce declared effects, default-deny policy, and tenant identity from trusted RequestContext. Add adapter contract tests and preserve the full package/regression matrix.",
+  "next_action": "Run the fresh M2-002 package and Layer 1 CI matrix after typed List output support. Verify list/create/update/delete, jobs, events, tenant isolation, host effect declarations, and v1 manifest compatibility; then complete M2-002 and begin M2-003 Gateway proposals.",
   "recovery": {
     "unchanged_failure_limit": 2,
     "no_progress_attempt_limit": 3,
