@@ -43,30 +43,30 @@
     },
     {
       "id": "CLAIM-C1-001",
-      "statement": "The versioned ledger records successful and cancelled CI runs with immutable GitHub run IDs.",
+      "statement": "The append-only run ledger preserves successful, failed, cancelled, and ineligible executions with immutable run IDs, commit references, and evidence URLs.",
       "status": "verified",
       "milestone_id": "C1",
-      "criterion": "Run ledger records successful and cancelled CI runs with immutable run IDs",
+      "criterion": "Run ledger records successes and failures with immutable evidence references",
       "evidence_event_ids": [
         "CP-LEDGER-STRUCTURE-001"
       ]
     },
     {
       "id": "CLAIM-C1-002",
-      "statement": "CI executes control-plane validation and negative self-tests.",
+      "statement": "The unified CI runs the control-plane validator and negative self-tests, rejecting malformed statuses, broken references, invalid ledger events, and preregistration violations.",
       "status": "verified",
       "milestone_id": "C1",
-      "criterion": "CI executes validator negative self-tests and rejects malformed control-plane data",
+      "criterion": "CI rejects malformed control-plane state",
       "evidence_event_ids": [
         "CP-CI-RUN-952"
       ]
     },
     {
       "id": "CLAIM-C1-003",
-      "statement": "The claims checker successfully validated all current verified milestone criteria against immutable ledger evidence.",
+      "statement": "The claims checker requires every verified milestone criterion to map to exactly one completion claim backed by eligible immutable ledger evidence.",
       "status": "verified",
       "milestone_id": "C1",
-      "criterion": "Claims checker enforces evidence mapping for verified milestone criteria",
+      "criterion": "Progress claims resolve to evidence",
       "evidence_event_ids": [
         "CP-CLAIMS-VALIDATION-002"
       ]
