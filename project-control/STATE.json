@@ -6,12 +6,12 @@
   "baseline_commit": "24c799263efdda555b3413c3ee64d4143c7883e0",
   "current_milestone": "M1",
   "active_task_ids": [
-    "M1-003"
+    "M1-002"
   ],
-  "last_completed_task_id": "M1-002",
+  "last_completed_task_id": "M1-001",
   "last_known_green_revision": "2ce48625a2e27ff24296757e95dac69a9e5df406",
   "wip_limit": 2,
-  "next_action": "Implement the installed CLI with deterministic check, inspect, run, worker, and audit commands. Preserve explicit paths and service IDs, machine-readable errors, and no credential inference. Execution/apply remain disabled until M2 provides trusted registry and handlers.",
+  "next_action": "Run the existing E-009 kernel and E-004 security regression suites against the installed agent_native.runtime and agent_native.security modules through tests/test_runtime_parity.py. If parity passes, complete M1-002 and resume M1-003 CLI acceptance.",
   "recovery": {
     "unchanged_failure_limit": 2,
     "no_progress_attempt_limit": 3,
