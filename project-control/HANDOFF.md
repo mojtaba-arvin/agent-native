@@ -24,6 +24,7 @@
 - The manual Qwen3 CPU workflow remains exploratory only and cannot satisfy M3 acceptance. The cohort remains draft and non-executable.
 - BLK-001 (main branch protection/integration authority), BLK-004 (qualifying zero-cost isolated M3 path), and BLK-007 (C3 peer review) remain open; BLK-007 no longer blocks M2 or M3 preparation.
 - No main merge, production deployment, paid provider call, paid GPU evaluation, or destructive branch operation has been performed.
+
 ## Next actions
 
 1. Implement a genuinely isolated, no-cost agent/evaluator execution topology. The current preflight checks are defense-in-depth only and do not establish process, filesystem, or network isolation.
