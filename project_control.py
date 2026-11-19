@@ -259,6 +259,7 @@ def build_resume_checkpoint(
             "status": task.get("status"),
             "depends_on": task.get("depends_on", []),
             "acceptance": task.get("acceptance", []),
+            "execution": task.get("execution"),
         })
     return {
         "schema_version": 1,
@@ -393,6 +394,7 @@ def build_schedule_plan(docs: dict[str, dict[str, Any]], ledger_text: str) -> di
         "status": "ready",
         "wip_limit": limit,
         "active_task_ids": active_ids,
+        "active_workstreams": state.get("active_workstreams", []),
         "available_slots": slots,
         "selected_tasks": candidates[:slots],
         "replan_required": replan_required,
