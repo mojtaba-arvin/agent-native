@@ -5,7 +5,10 @@
     "bootstrap_run_id": 44509769849,
     "bootstrap_commit": "74974b93c50ecf71f356615accdc55db30f25de5",
     "artifact_id": 14521961180,
-    "artifact_sha256": "d968fe09cc1b89d5ca6e68cbc0f314bcfdb92144940e1150f0873d4d31e54974"
+    "artifact_sha256": "d968fe09cc1b89d5ca6e68cbc0f314bcfdb92144940e1150f0873d4d31e54974",
+    "verification_run_id": 44511342601,
+    "verification_artifact_id": 14524351767,
+    "verification_artifact_sha256": "27fc555bf4cbef4fba08001f7db9635fde4a09eec733009de7605568f3035e1b"
   },
   "runtime": {
     "name": "Ollama",
