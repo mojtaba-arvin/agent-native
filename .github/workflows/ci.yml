@@ -153,7 +153,11 @@ jobs:
               path.startsWith('src/agent_native/gateway/') ||
               path.startsWith('src/agent_native/apply/') ||
               path.startsWith('src/agent_native/rollback/') ||
-              path === 'src/agent_native/security.py';
+              path === 'src/agent_native/security.py' ||
+              path === 'src/agent_native/runtime.py' ||
+              path === 'src/agent_native/handlers.py' ||
+              path === 'src/agent_native/manifest.py' ||
+              path === 'src/agent_native/ir.py';
             const changed = files.map(file => file.filename).filter(trustBoundary);
             if (changed.length === 0) {
               core.info('No trust-boundary implementation paths changed; independent-review gate not applicable.');
