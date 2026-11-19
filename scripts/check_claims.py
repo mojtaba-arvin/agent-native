@@ -71,6 +71,11 @@ def validate_claims(progress: dict[str, Any], ledger_text: str) -> list[str]:
         events[event_id] = event
 
     claim_ids: set[str] = set()
+    criterion_claims: set[tuple[str, str]] = set()
+    milestones = progress.get("milestones")
+    if not isinstance(milestones, dict):
+        errors.append("PROGRESS.json: milestones must be an object")
+        milestones = {}
     for index, claim in enumerate(claims):
         prefix = f"completion_claims[{index}]"
         if not isinstance(claim, dict):
@@ -87,6 +92,21 @@ def validate_claims(progress: dict[str, Any], ledger_text: str) -> list[str]:
             errors.append(f"{prefix}: statement is required")
         if claim.get("status") not in {"verified", "accepted"}:
             errors.append(f"{prefix}: status must be verified or accepted")
+        milestone_id = claim.get("milestone_id")
+        criterion = claim.get("criterion")
+        if milestone_id is not None or criterion is not None:
+            if not isinstance(milestone_id, str) or not isinstance(criterion, str):
+                errors.append(f"{prefix}: milestone_id and criterion must be supplied together as strings")
+            else:
+                key = (milestone_id, criterion)
+                if key in criterion_claims:
+                    errors.append(f"{prefix}: duplicate claim for {milestone_id} criterion")
+                criterion_claims.add(key)
+                milestone = milestones.get(milestone_id)
+                if not isinstance(milestone, dict):
+                    errors.append(f"{prefix}: unknown milestone {milestone_id}")
+                elif criterion not in milestone.get("verified_exit_criteria", []):
+                    errors.append(f"{prefix}: claim maps to a criterion not marked verified")
         references = claim.get("evidence_event_ids")
         if not isinstance(references, list) or not references:
             errors.append(f"{prefix}: at least one evidence_event_id is required")
@@ -105,6 +125,20 @@ def validate_claims(progress: dict[str, Any], ledger_text: str) -> list[str]:
                 errors.append(f"{prefix}: evidence event {event_id} has non-acceptance outcome {event.get('outcome')!r}")
             if not _has_immutable_reference(event.get("evidence", [])):
                 errors.append(f"{prefix}: evidence event {event_id} has no immutable run, commit, or URL reference")
+
+    for milestone_id, milestone in milestones.items():
+        if not isinstance(milestone, dict):
+            errors.append(f"milestones.{milestone_id}: record must be an object")
+            continue
+        verified = milestone.get("verified_exit_criteria", [])
+        if not isinstance(verified, list):
+            errors.append(f"milestones.{milestone_id}: verified_exit_criteria must be an array")
+            continue
+        for criterion in verified:
+            if (milestone_id, criterion) not in criterion_claims:
+                errors.append(
+                    f"milestones.{milestone_id}: verified criterion lacks an evidence-backed completion claim: {criterion}"
+                )
 
     return errors
 
