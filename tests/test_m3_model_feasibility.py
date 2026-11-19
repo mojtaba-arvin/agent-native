@@ -131,7 +131,7 @@ class M3ModelFeasibilityTests(unittest.TestCase):
 
     def test_embedded_python_workflow_scripts_are_syntactically_valid(self):
         workflow = (ROOT / ".github" / "workflows" / "m3-model-feasibility.yml").read_text(encoding="utf-8")
-        scripts = re.findall(r"(?ms)^\\s*python3\\b[^\\n]*<<'PY'\\s*\\n(.*?)^\\s*PY\\s*$", workflow)
+        scripts = re.findall(r"(?ms)^\s*python3\b[^\n]*<<'PY'\s*\n(.*?)^\s*PY\s*$", workflow)
         self.assertGreaterEqual(len(scripts), 3, "expected all embedded Python heredocs to be discovered")
         for index, script in enumerate(scripts):
             with self.subTest(script=index):
