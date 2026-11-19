@@ -9,9 +9,9 @@
     "CP-007"
   ],
   "last_completed_task_id": "M0-003",
-  "last_known_green_revision": "10d7e8ee541a1ee08776e513158afeb034a77a79",
+  "last_known_green_revision": "8625e94eb1a285e9516d0e69048581ba6b240a1f",
   "wip_limit": 2,
-  "next_action": "M0's three exit criteria are verified, but the milestone remains blocked by its C1 dependency. PR #64 still requires owner review/integration into research/reboot-core before PR #65 can be retargeted. Keep PRs #68 and #69 stacked and unmerged. After CP-007 is integrated, begin M1-001 packaging.",
+  "next_action": "M0's three exit criteria are verified; the milestone is blocked only by C1/CP-007 integration. Owner review and integration of PR #64 into research/reboot-core is required before PR #65 can be retargeted and CP-007 completed. Keep PRs #68 and #69 stacked and unmerged. M1-001 package scaffolding can proceed on a separate stacked branch while this owner gate remains open.",
   "recovery": {
     "unchanged_failure_limit": 2,
     "no_progress_attempt_limit": 3,
