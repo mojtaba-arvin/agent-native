@@ -646,6 +646,14 @@ class AgentGatewayTests(unittest.TestCase):
         self.assertEqual(
             gateway._inspected_operations, gateway._required_inspection_operations
         )
+        repeated = self.call(
+            gateway, "full-delta-repeat-service", "service.inspect", {"service_id": "catalog"}
+        )
+        self.assertTrue(repeated["ok"])
+        self.assertEqual(
+            repeated["next_actions"],
+            ["service.propose_delta with the inspected base_revision and exactly one add_operation change"],
+        )
         forbidden = self.call(
             gateway, "full-delta-single-op", "service.inspect",
             {"service_id": "catalog", "operation": "get_item"},
@@ -671,6 +679,17 @@ class AgentGatewayTests(unittest.TestCase):
         operations = inspected["result"]["operations"]
         self.assertTrue(operations)
         self.assertTrue(all(set(item) == {"name", "method", "path"} for item in operations))
+        repeated = self.call(
+            gateway, "minimal-delta-repeat-service", "service.inspect", {"service_id": "catalog"}
+        )
+        self.assertTrue(repeated["ok"])
+        self.assertEqual(
+            repeated["next_actions"],
+            ["service.propose_delta with the inspected base_revision and exactly one add_operation change"],
+        )
+        self.assertTrue(
+            all(set(item) == {"name", "method", "path"} for item in repeated["result"]["operations"])
+        )
         forbidden = self.call(
             gateway, "minimal-delta-single-op", "service.inspect",
             {"service_id": "catalog", "operation": "get_item"},

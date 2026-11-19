@@ -114,8 +114,9 @@ def build_surface(arm: str, catalog: dict | None = None) -> dict:
             "tool": DISCOVERY_TOOL,
             "argument": "name",
             "instruction": (
-                "Call interface.describe with the requested tool name to obtain "
-                "its complete input schema."
+                "Call interface.describe with the exact exposed Gateway tool name "
+                "(for example, service.inspect or service.propose_delta) to obtain that "
+                "tool's complete input schema; never pass the operation being added."
             ),
         },
     }

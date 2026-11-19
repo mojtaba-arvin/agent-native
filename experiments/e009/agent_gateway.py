@@ -444,7 +444,7 @@ class AgentNativeGateway:
                         name for name in self._required_inspection_order
                         if name not in self._inspected_operations
                     ]
-                    if missing:
+                    if self.base_disclosure == "per_operation" and missing:
                         repair_key = tuple(missing)
                         if repair_key in self._service_inspection_repeat_attempts:
                             return self._error(
