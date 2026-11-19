@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import unittest
+import subprocess
+import sys
 
 from agent_native import ServiceRuntime, load_service_ir
 
@@ -41,6 +43,18 @@ class PackageSurfaceTests(unittest.TestCase):
         ir = load_service_ir(SERVICE)
         runtime = ServiceRuntime(ir, handlers={"check": lambda context: "ok"}, repository=None, trusted_effects=set())
         self.assertEqual(runtime.operations[0]["name"], "check")
+
+    def test_installed_import_does_not_mutate_sys_path(self):
+        code = (
+            "import json, sys; before=list(sys.path); "
+            "import agent_native, agent_native.runtime; "
+            "print(json.dumps(before == sys.path))"
+        )
+        result = subprocess.run(
+            [sys.executable, "-I", "-c", code],
+            check=True, capture_output=True, text=True, timeout=10,
+        )
+        self.assertEqual(result.stdout.strip(), "true")
 
     def test_invalid_source_has_stable_diagnostic(self):
         with self.assertRaises(agent_native.Diagnostic) as raised:
