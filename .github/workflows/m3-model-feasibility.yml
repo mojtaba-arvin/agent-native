@@ -205,6 +205,7 @@ jobs:
             --mount "type=bind,src=$OUTPUT_DIR,dst=/out" \
             -e PYTHONPATH=/repo/experiments/e009:/repo/experiments/e007/evaluator \
             -e PYTHONDONTWRITEBYTECODE=1 \
+            -e HOME=/tmp \
             -e MODEL_MANIFESTS=/out/model-manifests.json \
             -e OLLAMA_SERVER_CONFIG=/out/ollama-server-sandbox.json \
             -e OLLAMA_URL=http://127.0.0.1:11434 \
