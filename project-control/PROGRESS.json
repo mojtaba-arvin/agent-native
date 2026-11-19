@@ -70,6 +70,16 @@
       "evidence_event_ids": [
         "CP-CLAIMS-VALIDATION-002"
       ]
+    },
+    {
+      "id": "CLAIM-M0-002",
+      "statement": "Benchmark cohorts and thresholds are preregistered in Git-blob-pinned manifests; the manual E-009 capacity workflow consumes its frozen configuration and validates the decision chain before dispatch.",
+      "status": "verified",
+      "milestone_id": "M0",
+      "criterion": "Benchmark cohorts and thresholds are preregistered and immutable after start",
+      "evidence_event_ids": [
+        "CI-RUN-44441229102"
+      ]
     }
   ],
   "milestones": {
@@ -107,8 +117,10 @@
       "total_exit_criteria": 3
     },
     "M0": {
-      "status": "pending",
-      "verified_exit_criteria": [],
+      "status": "in_progress",
+      "verified_exit_criteria": [
+        "Benchmark cohorts and thresholds are preregistered and immutable after start"
+      ],
       "total_exit_criteria": 3
     },
     "M1": {

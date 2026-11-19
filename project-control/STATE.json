@@ -6,13 +6,12 @@
   "baseline_commit": "23f9c77d8ce9a8d55895c6c4903a4ff409ba5781",
   "current_milestone": "C1",
   "active_task_ids": [
-    "CP-007",
-    "M0-002"
+    "CP-007"
   ],
-  "last_completed_task_id": "M0-001",
-  "last_known_green_revision": "6df57bfe7ab62ee69c6edd9eb69c2b7f73a190c2",
+  "last_completed_task_id": "M0-002",
+  "last_known_green_revision": "b19768092c2db52409db4cf1f752137f5426be57",
   "wip_limit": 2,
-  "next_action": "Execute M0-002: inspect all preregistration/dispatch manifests and decision records, define a content-hash/append-only policy, add negative tests for post-dispatch mutation, and preserve historical manifests unchanged.",
+  "next_action": "CP-007 remains the integration dependency: PR #64 requires owner review/integration into research/reboot-core before PR #65 can be retargeted. Keep the stack unmerged until that review is complete. Once CP-007 is integrated, start M0-003 to generate scorecards and test counts from CI artifacts.",
   "recovery": {
     "unchanged_failure_limit": 2,
     "no_progress_attempt_limit": 3,

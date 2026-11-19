@@ -619,7 +619,7 @@
       "id": "M0-002",
       "title": "Enforce preregistration and append-only decision integrity",
       "milestone": "M0",
-      "status": "in_progress",
+      "status": "complete",
       "priority": 5,
       "depends_on": [
         "CP-003"
@@ -672,7 +672,11 @@
       "stop_conditions": [
         "Never rewrite historical run manifests or raw artifacts"
       ],
-      "evidence_ids": []
+      "evidence_ids": [
+        "CI-RUN-44441229102",
+        "DECISION-PREREG-E009-CAPACITY-2026-11-19",
+        "DECISION-RUN-LEDGER-PIN-2026-11-19-2"
+      ]
     },
     {
       "id": "M0-003",
