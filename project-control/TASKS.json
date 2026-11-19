@@ -147,9 +147,7 @@
         "project_control.py",
         "scripts/check_claims.py",
         "scripts/test_claims.py",
-        "scripts/ci.py",
-        "REPORT.md",
-        "research/"
+        "scripts/ci.py"
       ],
       "acceptance": [
         "Completion claims must reference one or more unique RUN_LEDGER event IDs",
@@ -157,7 +155,8 @@
         "Duplicate event IDs, malformed ledger lines, unknown references, failed outcomes, mutable source URLs, and path-only evidence are rejected",
         "Negative unit tests cover every rejection class",
         "Claims checker runs in the project-control fast-CI precheck",
-        "Each verified milestone exit criterion maps to exactly one evidence-backed completion claim"
+        "Each verified milestone exit criterion maps to exactly one evidence-backed completion claim",
+        "Every verified milestone exit criterion maps to exactly one evidence-backed completion claim"
       ],
       "expected_outputs": [
         "Standard-library claims validator",
@@ -170,7 +169,14 @@
       "stop_conditions": [
         "Never synthesize run IDs, hashes, or benchmark metrics"
       ],
-      "evidence_ids": []
+      "evidence_ids": [
+        "run:44430209027",
+        "15 claims-validator tests",
+        "14/14 fast suites",
+        "524 unit tests",
+        "6 completion claims validated",
+        "Layer 1 native/database success"
+      ]
     },
     {
       "id": "CP-006",
