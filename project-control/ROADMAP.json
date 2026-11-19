@@ -117,7 +117,7 @@
     {
       "id": "M3",
       "name": "Real-agent capability evaluation",
-      "status": "pending",
+      "status": "in_progress",
       "depends_on": [
         "M2"
       ],
