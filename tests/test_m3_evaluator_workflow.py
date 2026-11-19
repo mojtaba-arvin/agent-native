@@ -126,6 +126,11 @@ class M3WorkflowContractTests(unittest.TestCase):
         self.assertIn("retention-days: 1", self.workflow)
         self.assertNotIn("oracle.json", self.workflow)
 
+    def test_topology_smoke_has_no_provider_or_oracle_secrets(self):
+        for secret_name in ("M3_ORACLE_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "secrets."):
+            self.assertNotIn(secret_name, self.workflow)
+        self.assertEqual(self.workflow.count("environment:"), 1)
+
 
 if __name__ == "__main__":
     unittest.main()
