@@ -4,6 +4,8 @@ import unittest
 from dataclasses import replace
 from pathlib import Path
 
+from agent_native.gateway.core import GatewayError as CoreGatewayError, _canonical_hash, _freeze_json, _thaw_json
+
 from agent_native import (
     AgentGateway,
     GatewayError,
@@ -137,6 +139,24 @@ class AgentGatewayTests(unittest.TestCase):
         with self.assertRaises(GatewayError) as caught:
             self.gateway.plan(second, validation, identity("tenant-a", "stock.read", "/stock"))
         self.assertEqual(caught.exception.code, "VALIDATION_STALE")
+
+    def test_proposal_payload_freezing_is_recursive(self):
+        source = {"nested": {"items": [{"name": "original"}]}}
+        frozen = _freeze_json(source)
+
+        with self.assertRaises(TypeError):
+            frozen["nested"]["new"] = "value"
+        with self.assertRaises(TypeError):
+            frozen["nested"]["items"][0]["name"] = "tampered"
+        with self.assertRaises(AttributeError):
+            frozen["nested"]["items"].append({"name": "extra"})
+
+        self.assertEqual(_thaw_json(frozen), source)
+
+    def test_canonical_hash_rejects_non_finite_json_numbers(self):
+        with self.assertRaises(CoreGatewayError) as caught:
+            _canonical_hash({"nested": {"value": float("nan")}})
+        self.assertEqual(caught.exception.code, "NON_CANONICAL_INPUT")
 
     def test_unknown_effects_fail_closed(self):
         with self.assertRaises(ValueError):
