@@ -144,6 +144,15 @@ def build_scorecard(summary_raw: bytes, ledger_raw: bytes, progress_raw: bytes) 
             "output_sha256": output_sha,
         })
 
+    selection = summary.get("selection")
+    if not isinstance(selection, dict):
+        raise ValueError("CI summary selection must be an object")
+    if (
+        selection.get("selected_suite_count") != len(normalized_suites)
+        or selection.get("selected_suites") != [item["name"] for item in normalized_suites]
+    ):
+        raise ValueError("CI summary selected suites do not match suite result records")
+
     passed = sum(item["status"] == "passed" for item in normalized_suites)
     failed = len(normalized_suites) - passed
     total_tests = sum(item["test_count"] for item in normalized_suites)
