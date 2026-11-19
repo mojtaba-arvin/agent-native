@@ -45,12 +45,12 @@
       "status": "open",
       "severity": "high",
       "title": "Decision-grade M3 evaluation lacks a qualifying zero-cost model and protected hidden-oracle path",
-      "description": "M3-000 topology and runtime isolation are complete. M3-003 is now testing whether a suitable free/open-weight CPU model cohort can complete the E009 proposal/validate/plan flow. M3-001 remains blocked until model identities/digests are pinned and the protected m3-evaluator Environment plus evaluator-only hidden-oracle custody are configured. No paid API/GPU spend is authorized.",
+      "description": "M3-000 topology and runtime isolation are complete. M3-003 completed its locked six-cell CPU feasibility evaluation on three pinned Granite tiers and two schema-disclosure arms; all six trials failed before the full inspect/propose/validate/plan lifecycle, so no model qualifies. M3-004 addresses a harness limitation found in provider telemetry: the model receives only one generic agent.invoke function schema while discovered Gateway schemas are carried as conversational state. M3-001 remains blocked until a qualifying zero-cost model path and protected evaluator-only hidden-oracle custody are both verified. No paid API/GPU spend is authorized.",
       "owner_action_required": true,
       "unblocks": [
         "M3 decision-grade model evaluation"
       ],
-      "next_step": "Complete M3-003 free CPU model feasibility, pin immutable model/runtime digests, and prepare protected Environment/oracle custody. Do not run the hidden-oracle cohort until both gates pass."
+      "next_step": "Complete M3-004 by exposing exact Gateway schemas as provider-native functions, then rerun the locked CPU matrix. In parallel, prepare the protected m3-evaluator Environment and evaluator-only oracle custody; do not dispatch the hidden-oracle cohort until both gates pass."
     },
     {
       "id": "BLK-005",

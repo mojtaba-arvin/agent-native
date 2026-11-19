@@ -118,3 +118,29 @@ This pilot does not create hidden-oracle data, does not freeze the M3 cohort, an
 - No provider credentials or GitHub secrets are passed to the agent.
 - No external network during model inference.
 - No apply, deployment, hidden oracle, or production data.
+
+
+## Locked post-compaction feasibility run — 2026-11-19
+
+**Run:** [44529848174](https://github.com/mojtaba-arvin/agent-native/actions/runs/44529848174)  
+**Source revision:** `61e29b03e60b5a6feaf53fa7b309eb4a82af63b3`  
+**Artifact:** `14533985747`, SHA-256 `d6db65fb69faf7ce2ac35ae0ce484c833e7a59a954cfadda9cd18bf7513c73d6`  
+**Model-lock SHA-256:** `8dd6e4e2acbea225dbd4fa2b4428f3691f11176be862539430aee0aced67bc17`
+
+The locked run completed all six cells (three model tiers × progressive/upfront disclosure), with **0/6 full inspect → propose → validate → plan completions**:
+
+| Tier | Progressive | Upfront |
+|---|---|---|
+| Weak, 350M | `provider_final_content_missing`, 0 tool calls | `provider_final_content_missing`, 0 tool calls |
+| Medium, 1B | `repeated_invalid_tool_call`, 4 tool calls | `provider_final_content_missing`, 1 tool call |
+| Strong, 3B | `provider_final_content_missing`, 0 tool calls | `input_token_budget_exceeded`, 4 tool calls |
+
+The medium progressive trace retained the exact `service.inspect` input schema after compaction, but the model repeated `interface.describe` for the same tool and then attempted to describe the not-yet-exposed target operation. The strong upfront trace inspected the service, submitted one Gateway-accepted proposal, then repeated the same proposal. The Gateway rejected the duplicate with `PROPOSAL_REQUIRES_VALIDATION` and explicitly instructed the model to validate the existing `change_set_id`; the model did not complete validation or planning. The strong upfront run consumed 12,702 cumulative input tokens against the fixed 12,000-token limit. The weak tier and strong progressive tier returned no tool calls and no final candidate.
+
+### Harness finding: schema state is not provider-native tool availability
+
+Raw provider telemetry records `tool_definition_count=1` on every request. The provider receives only the generic `agent.invoke` function schema; discovered Gateway schemas are preserved in the conversational state ledger but are not exposed as individual native function definitions. Thus PR #100 fixed schema loss during compaction, but did not make those schemas part of the provider's structured tool contract. This is a separate harness limitation tracked as M3-004.
+
+The workflow completed its evidence and safety gates: the agent and Ollama containers remained non-root, no-network during inference, resource-limited, and no-apply. The artifact reports zero safety violations, zero paid API spend, no GPU, and no hidden-oracle use. The workflow's successful conclusion means the bounded feasibility protocol ran and retained its evidence; it does **not** mean any model passed.
+
+Post-merge repository CI [44529847920](https://github.com/mojtaba-arvin/agent-native/actions/runs/44529847920) passed Layer 0 and Layer 1 on the same source revision. No model is selected or frozen for the M3 cohort. M3-003 is complete as a bounded feasibility evaluation with a negative qualification result; M3-001 and M3-002 remain blocked/pending until a qualifying model path and protected evaluator-only oracle custody are both demonstrated.

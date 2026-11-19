@@ -230,6 +230,14 @@
       "evidence_event_ids": [
         "M2-INTEGRATION-2026-11-19-001"
       ]
+    },
+    {
+      "id": "CLAIM-M3-003-001",
+      "statement": "The locked zero-cost CPU feasibility evaluation completed on the pinned Granite model/runtime set, retained all six raw outcomes, and verified that no candidate completed the full E009 inspect/propose/validate/plan lifecycle.",
+      "status": "verified",
+      "evidence_event_ids": [
+        "M3-003-FEASIBILITY-2026-11-19-001"
+      ]
     }
   ],
   "milestones": {

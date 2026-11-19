@@ -243,7 +243,34 @@ def close_gateway(process: subprocess.Popen | None) -> str | None:
     return None
 
 
-def map_tool_call(call: Any, index: int) -> dict:
+def _build_provider_tool_definitions(surface: dict, discovered_tool_schemas: dict[str, dict]) -> list[dict]:
+    """Expose only currently discovered Gateway tools as native provider functions."""
+    exposed = surface.get("tools") if isinstance(surface, dict) else None
+    if not isinstance(exposed, list):
+        return []
+    definitions = []
+    for tool in exposed:
+        if not isinstance(tool, dict):
+            continue
+        name = tool.get("name")
+        schema = discovered_tool_schemas.get(name) if isinstance(name, str) else None
+        if tool.get("mode") == "disabled" or not isinstance(schema, dict):
+            continue
+        definitions.append({
+            "type": "function",
+            "function": {
+                "name": name,
+                "description": tool.get("summary") or f"Invoke the {name} Gateway operation.",
+                "parameters": schema,
+            },
+        })
+    return definitions
+
+
+def map_tool_call(
+    call: Any, index: int, available_tool_schemas: dict[str, dict] | None = None
+) -> dict:
+    """Map a provider-native Gateway function call to the trusted NDJSON envelope."""
     fallback = {
         "type": "tool_call",
         "request_id": f"invalid-call-{index}",
@@ -253,8 +280,9 @@ def map_tool_call(call: Any, index: int) -> dict:
     if not isinstance(call, dict):
         return fallback
     function = call.get("function")
-    if not isinstance(function, dict) or function.get("name") != "agent.invoke":
+    if not isinstance(function, dict):
         return fallback
+    function_name = function.get("name")
     arguments = function.get("arguments")
     if isinstance(arguments, str):
         try:
@@ -263,11 +291,16 @@ def map_tool_call(call: Any, index: int) -> dict:
             return fallback
     if not isinstance(arguments, dict):
         return fallback
+    if not isinstance(function_name, str) or not isinstance(available_tool_schemas, dict):
+        return fallback
+    if function_name not in available_tool_schemas:
+        return fallback
+    request_fingerprint = digest({"tool": function_name, "arguments": arguments})
     return {
         "type": "tool_call",
-        "request_id": arguments.get("request_id", ""),
-        "tool": arguments.get("tool", ""),
-        "arguments": arguments.get("arguments"),
+        "request_id": f"native-{request_fingerprint[:20]}",
+        "tool": function_name,
+        "arguments": arguments,
     }
 
 
@@ -947,6 +980,11 @@ def run(args: argparse.Namespace) -> dict:
             else
             "This run uses the progressive tool-schema arm. Before each Gateway tool whose detailed schema has not yet been retrieved, call interface.describe with name set to that exact exposed Gateway tool name (for example, service.inspect or service.propose_delta), not the operation being added. Retrieve the service.inspect schema first. "
         )
+        first_tool_instruction = (
+            "Your first tool call must be interface.describe with name='service.inspect'; after receiving its schema, call service.inspect with service_id='catalog' and no operation argument. "
+            if args.arm == "progressive"
+            else "Your first tool call must be service.inspect with service_id='catalog' and no operation argument. "
+        )
         if proposal_mode == "snapshot":
             base_instruction = (
                 "The complete service base is disclosed one operation contract at a time. "
@@ -976,9 +1014,9 @@ def run(args: argparse.Namespace) -> dict:
         )
         system_prompt = (
             "You are an engineering agent working on the live Agent Native E-009 service. "
-            "Use only the single agent.invoke function and the session surface. "
+            "Use only provider-native functions named exactly as the currently exposed Gateway tools. Each function is mapped to the same trusted agent.invoke Gateway envelope. "
             + disclosure_instruction
-            + "Your first tool call must be service.inspect with service_id='catalog' and no operation argument. "
+            + first_tool_instruction
             + base_instruction + inspection_instruction
             + "After a successful proposal, immediately call service.validate with the exact change_set_id; if result.valid=true, immediately call service.plan with the same hash. "
             + "The service identifier is exactly 'catalog'; service.inspect uses service_id, never name. Follow every exposed input schema. "
@@ -1003,13 +1041,13 @@ def run(args: argparse.Namespace) -> dict:
             },
         ]
         messages = list(base_messages)
-        tool_definition = {
-            "type": "function",
-            "function": {
-                "name": "agent.invoke",
-                "description": dispatch.get("summary", "Invoke one named Agent Native operation."),
-                "parameters": dispatch["input_schema"],
-            },
+        discovered_tool_schemas = {
+            item["name"]: item["input_schema"]
+            for item in surface.get("tools", [])
+            if isinstance(item, dict)
+            and isinstance(item.get("name"), str)
+            and item.get("mode") != "disabled"
+            and isinstance(item.get("input_schema"), dict)
         }
 
         inspected = None
@@ -1060,7 +1098,7 @@ def run(args: argparse.Namespace) -> dict:
             payload = {
                 "model": args.model,
                 "messages": messages,
-                "tools": [tool_definition],
+                "tools": _build_provider_tool_definitions(surface, discovered_tool_schemas),
                 "stream": False,
                 "keep_alive": "10m",
                 "options": {
@@ -1078,6 +1116,7 @@ def run(args: argparse.Namespace) -> dict:
                 "message_count": len(messages),
                 "message_roles": [item.get("role") for item in messages],
                 "tool_definition_count": len(payload["tools"]),
+                "tool_definition_names": [item["function"]["name"] for item in payload["tools"]],
                 "keep_alive": payload["keep_alive"],
                 "num_ctx": payload["options"]["num_ctx"],
                 "num_predict": payload["options"]["num_predict"],
@@ -1126,7 +1165,7 @@ def run(args: argparse.Namespace) -> dict:
                     call_number += 1
                     if call_number > args.max_tool_calls:
                         raise AgentRunError("tool_call_budget_exceeded")
-                    request = map_tool_call(provider_call, call_number)
+                    request = map_tool_call(provider_call, call_number, discovered_tool_schemas)
                     tool_name = request.get("tool")
                     arguments = request.get("arguments")
                     if tool_name == "service.plan":
@@ -1190,6 +1229,24 @@ def run(args: argparse.Namespace) -> dict:
                     record["tool_calls"] = call_number
                     tool_sequence.append(tool_name if isinstance(tool_name, str) else "<invalid>")
                     tool_outcomes.append(_compact_tool_outcome(tool_name, arguments, nested))
+                    if tool_name == "interface.describe" and nested.get("ok") is True:
+                        described = nested.get("result") or {}
+                        described_name = described.get("name")
+                        described_schema = described.get("input_schema")
+                        exposed_names = {
+                            item.get("name") for item in surface.get("tools", [])
+                            if isinstance(item, dict)
+                        }
+                        if (
+                            isinstance(described_name, str)
+                            and described_name in exposed_names
+                            and isinstance(described_schema, dict)
+                        ):
+                            discovered_tool_schemas[described_name] = described_schema
+                            for item in surface.get("tools", []):
+                                if isinstance(item, dict) and item.get("name") == described_name:
+                                    item["input_schema"] = described_schema
+                                    break
                     if _is_proposal_budget_exhausted(nested):
                         raise AgentRunError("proposal_repair_budget_exceeded")
                     if prevalidation_repair_exhausted:
@@ -1248,9 +1305,13 @@ def run(args: argparse.Namespace) -> dict:
                             raise AgentRunError("agent_attempted_apply")
                         apply_result = nested
                         record["apply_result"] = apply_result
+                    provider_function = provider_call.get("function") if isinstance(provider_call, dict) else None
+                    provider_function_name = (
+                        provider_function.get("name") if isinstance(provider_function, dict) else None
+                    )
                     messages.append({
                         "role": "tool",
-                        "tool_name": "agent.invoke",
+                        "tool_name": provider_function_name if isinstance(provider_function_name, str) else "<invalid>",
                         "content": json.dumps(nested, ensure_ascii=False, sort_keys=True, separators=(",", ":")),
                     })
                 messages = _compact_conversation(
