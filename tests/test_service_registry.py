@@ -57,7 +57,7 @@ class ServiceRegistryTests(unittest.TestCase):
         manifest["handlers"] = {name: spec["handler_id"] for name, spec in manifest["handlers"].items()}
         manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
         service = ServiceRegistry(root, trusted_handler_ids=TRUSTED).load("inventory")
-        self.assertEqual(service.handler_bindings["list_stock"], "crud.read_by_field")
+        self.assertEqual(service.handler_bindings["list_stock"], "crud.list")
         self.assertEqual(dict(service.handler_configs["list_stock"]), {})
 
     def test_unknown_service_fails_closed(self):
