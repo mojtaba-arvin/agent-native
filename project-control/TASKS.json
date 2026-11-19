@@ -711,7 +711,8 @@
         "Scorecard history includes successful, failed, cancelled, and ineligible ledger events without filtering negative outcomes",
         "Every verified completion claim in the scorecard resolves to existing immutable ledger evidence",
         "Negative tests reject manual edits to generated test counts, run IDs, source revisions, and claim evidence without changing the source artifacts",
-        "The fast workflow generates and uploads both the raw CI summary and validated machine-readable scorecard, including when a suite fails"
+        "The fast workflow generates and uploads both the raw CI summary and validated machine-readable scorecard, including when a suite fails",
+        "Suites without unittest count output retain null/unknown test counts; control-plane negative self-tests are reported as a separate metric"
       ],
       "expected_outputs": [
         "Machine-readable CI suite/test summary artifact",
