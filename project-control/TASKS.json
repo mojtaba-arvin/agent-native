@@ -61,7 +61,7 @@
       "id": "CP-003",
       "title": "Audit active v0.1 implementation against the roadmap and create evidence-backed task contracts",
       "milestone": "M0",
-      "status": "pending",
+      "status": "in_progress",
       "priority": 3,
       "depends_on": [
         "CP-001"
@@ -70,12 +70,17 @@
       "scope": [
         "experiments/",
         "research/",
-        "REPORT.md"
+        "REPORT.md",
+        "README.md",
+        "DECISIONS.json",
+        "project-control/"
       ],
       "acceptance": [
-        "Every milestone claim links to a current source revision or artifact",
-        "Open work is represented as independently verifiable tasks",
-        "Unknowns are recorded as blockers or hypotheses, not assumed facts"
+        "Every v0.1 milestone is audited against the current source revision, not a stale report snapshot",
+        "Each verified fact has a commit/run/artifact reference and explicit scope/limitations",
+        "Unresolved questions are classified as blockers or hypotheses",
+        "Research-only branch content and unique artifacts are inventoried without pruning or rewriting branches",
+        "Open implementation work is represented as independently verifiable tasks with dependencies and recovery limits"
       ],
       "expected_outputs": [
         "Current-state audit",
@@ -135,7 +140,7 @@
       "id": "CP-005",
       "title": "Establish evidence ledger and automated claims checks",
       "milestone": "C1",
-      "status": "in_progress",
+      "status": "complete",
       "priority": 5,
       "depends_on": [
         "CP-001"
@@ -175,7 +180,12 @@
         "14/14 fast suites",
         "524 unit tests",
         "6 completion claims validated",
-        "Layer 1 native/database success"
+        "Layer 1 native/database success",
+        "run:44430692124",
+        "7 completion claims validated",
+        "Layer 0 and Layer 1 passed",
+        "15 claims-validator regression tests",
+        "524 unit tests"
       ]
     },
     {
