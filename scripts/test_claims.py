@@ -65,6 +65,16 @@ class ClaimsValidationTests(unittest.TestCase):
         self.progress["completion_claims"][0]["evidence_event_ids"] = [{"event": "RUN-1"}]
         self.assertTrue(any("must contain non-empty strings" in e for e in validate_claims(self.progress, self.ledger)))
 
+    def test_accepts_immutable_github_actions_run_url(self):
+        self.event["evidence"] = [{"url": "https://github.com/owner/repo/actions/runs/12345"}]
+        self.ledger = json.dumps(self.event)
+        self.assertEqual(validate_claims(self.progress, self.ledger), [])
+
+    def test_rejects_boolean_as_run_id(self):
+        self.event["evidence"] = [{"run_id": True}]
+        self.ledger = json.dumps(self.event)
+        self.assertTrue(any("no immutable" in e for e in validate_claims(self.progress, self.ledger)))
+
     def test_rejects_duplicate_claim_ids(self):
         self.progress["completion_claims"].append(dict(self.progress["completion_claims"][0]))
         self.assertTrue(any("duplicate claim id" in e for e in validate_claims(self.progress, self.ledger)))
