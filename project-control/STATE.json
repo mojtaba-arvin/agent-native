@@ -1,14 +1,31 @@
 {
   "updated_at": "2026-11-19",
-  "active_branch": "feat/m2-service-independent-gateway",
-  "baseline_branch": "feat/m2-declarative-handlers",
-  "baseline_commit": "d3feaf3e358e7c7222337b2935fcc8e744abbac3",
-  "current_milestone": "M2",
+  "active_branch": "feat/control-plane-scheduler",
+  "baseline_branch": "research/reboot-core",
+  "baseline_commit": "a7ee807f10819ccf870fd3d1f119b242a37ad433",
+  "current_milestone": "C2",
   "active_task_ids": [
-    "M2-003"
+    "M2-003",
+    "CP-009"
   ],
-  "last_completed_task_id": "M2-002",
-  "last_known_green_revision": "d3feaf3e358e7c7222337b2935fcc8e744abbac3",
+  "last_completed_task_id": "CP-008",
+  "last_known_green_revision": "a7ee807f10819ccf870fd3d1f119b242a37ad433",
   "wip_limit": 2,
-  "next_action": "Implement M2-003 Service-independent Agent Gateway: resolve registered services by service ID, expose explicit read/write proposal effects and capability mappings, enforce default-deny authorization, and keep apply unreachable from agent-facing APIs. Add negative tests for missing grants, cross-tenant scope, unsupported effects, and service identity mismatch."
+  "next_action": "Validate the new schedule command, WIP/dependency selection, failure-signature recovery thresholds, and execution ownership metadata. Keep M2-003 blocked from merge until two independent reviews are recorded; continue M2-004 preparation on its stacked branch.",
+  "active_workstreams": [
+    {
+      "task_id": "M2-003",
+      "branch": "feat/m2-service-independent-gateway",
+      "base_branch": "research/reboot-core",
+      "integration_owner": "integrator",
+      "stacked_on": null
+    },
+    {
+      "task_id": "CP-009",
+      "branch": "feat/control-plane-scheduler",
+      "base_branch": "research/reboot-core",
+      "integration_owner": "integrator",
+      "stacked_on": null
+    }
+  ]
 }
