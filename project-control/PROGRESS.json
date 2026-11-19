@@ -10,6 +10,56 @@
       "evidence_event_ids": [
         "CP-UNIFIED-CI-RUN-026"
       ]
+    },
+    {
+      "id": "CLAIM-C0-001",
+      "statement": "Versioned project state documents exist in the reviewed PR head.",
+      "status": "verified",
+      "milestone_id": "C0",
+      "criterion": "Versioned project state exists",
+      "evidence_event_ids": [
+        "CP-CONTROL-STATE-001"
+      ]
+    },
+    {
+      "id": "CLAIM-C0-002",
+      "statement": "Task contracts define acceptance and recovery behavior.",
+      "status": "verified",
+      "milestone_id": "C0",
+      "criterion": "Task contracts define acceptance and recovery",
+      "evidence_event_ids": [
+        "CP-CONTROL-STATE-001"
+      ]
+    },
+    {
+      "id": "CLAIM-C0-003",
+      "statement": "The control-plane validator rejects malformed statuses and broken references in negative self-tests.",
+      "status": "verified",
+      "milestone_id": "C0",
+      "criterion": "Validator rejects malformed statuses and broken references",
+      "evidence_event_ids": [
+        "CP-CI-RUN-952"
+      ]
+    },
+    {
+      "id": "CLAIM-C1-001",
+      "statement": "The versioned ledger records successful and cancelled CI runs with immutable GitHub run IDs.",
+      "status": "verified",
+      "milestone_id": "C1",
+      "criterion": "Run ledger records successful and cancelled CI runs with immutable run IDs",
+      "evidence_event_ids": [
+        "CP-LEDGER-STRUCTURE-001"
+      ]
+    },
+    {
+      "id": "CLAIM-C1-002",
+      "statement": "CI executes control-plane validation and negative self-tests.",
+      "status": "verified",
+      "milestone_id": "C1",
+      "criterion": "CI executes validator negative self-tests and rejects malformed control-plane data",
+      "evidence_event_ids": [
+        "CP-CI-RUN-952"
+      ]
     }
   ],
   "milestones": {
