@@ -9,9 +9,9 @@
     "CP-007"
   ],
   "last_completed_task_id": "CP-006",
-  "last_known_green_revision": null,
+  "last_known_green_revision": "dc705e3e4beee2ed2e897be96e32bf6c993da86e",
   "wip_limit": 2,
-  "next_action": "Run the final unified workflow after the E-007 source-manifest fix and no-concurrency policy; require both Layer 0 and Layer 1 success in the same run before closing CP-007.",
+  "next_action": "PR #65 is fully green on its stacked head. After PR #64 is integrated into research/reboot-core, retarget PR #65 to research/reboot-core and require a fresh green run. In parallel, start CP-005 evidence/claims integrity work on a branch stacked on the verified PR head.",
   "recovery": {
     "unchanged_failure_limit": 2,
     "no_progress_attempt_limit": 3,
