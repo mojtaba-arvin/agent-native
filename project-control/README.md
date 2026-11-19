@@ -19,7 +19,7 @@ This directory is the versioned execution state for the Agent Native v0.1 progra
 - [M0_AUDIT.md](M0_AUDIT.md): current source/evidence audit and v0.1 gap assessment.
 - [BRANCH_INVENTORY.md](BRANCH_INVENTORY.md): current branch graph and preserved unique artifacts.
 - [PREREGISTRATIONS.json](PREREGISTRATIONS.json): frozen benchmark/evidence manifest registry.
-- [DECISION_EVENTS.jsonl](DECISION_EVENTS.jsonl): hash-chained append-only decision and registry baseline events.
+- [DECISION_EVENTS.jsonl](DECISION_EVENTS.jsonl): hash-chained append-only decision, preregistration, and run-ledger integrity events.
 - [check_claims.py](../scripts/check_claims.py): fail-closed validation for evidence-backed completion claims.
 
 ## Validate
@@ -30,6 +30,7 @@ Run:
 python project_control.py validate
 python project_control.py status
 python scripts/check_claims.py
+python scripts/check_preregistrations.py
 ```
 
 The control-plane validator checks structural invariants and cross-file references. The claims checker additionally requires verified completion claims to resolve to successful ledger events with immutable run, commit, or GitHub Actions run references, and requires every verified milestone criterion to map to exactly one such claim. Neither tool replaces tests, peer review, or GitHub branch protections.
