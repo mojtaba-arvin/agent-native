@@ -254,6 +254,14 @@
       "evidence_event_ids": [
         "M3-006-ALTERNATIVE-MODEL-SHORTLIST-2026-11-19-001"
       ]
+    },
+    {
+      "id": "CLAIM-CP-011-001",
+      "statement": "The expensive M3 CPU feasibility workflow no longer triggers on documentation-only report changes or on edits to its own workflow definition; executable harness/model inputs still trigger it and workflow_dispatch remains available.",
+      "status": "verified",
+      "evidence_event_ids": [
+        "CP-011-M3-TRIGGER-OPTIMIZATION-2026-11-19-001"
+      ]
     }
   ],
   "milestones": {

@@ -1504,6 +1504,42 @@
         "Do not dispatch without exact manifest verification",
         "Do not select a model without full local verification and evaluator gate"
       ]
+    },
+    {
+      "id": "CP-011",
+      "title": "Exclude documentation-only changes from the expensive M3 CPU feasibility workflow",
+      "milestone": "C4",
+      "status": "complete",
+      "priority": 12,
+      "depends_on": [
+        "CP-007"
+      ],
+      "owner": "ci",
+      "scope": [
+        ".github/workflows/m3-model-feasibility.yml"
+      ],
+      "acceptance": [
+        "The expensive model workflow triggers on executable harness, model candidate, and sandbox input changes",
+        "Documentation-only changes to the M3 report do not trigger a six-cell CPU model run",
+        "Changes to the workflow definition itself do not trigger an automatic model run; workflow_dispatch remains available",
+        "A docs-only workflow update is verified to run ordinary CI without starting M3 feasibility",
+        "No model lock, token budget, cohort, or acceptance threshold is changed"
+      ],
+      "expected_outputs": [
+        "Narrowed M3 workflow path filter",
+        "Evidence that docs-only workflow changes do not launch model trials"
+      ],
+      "max_unchanged_retries": 1,
+      "replan_after_failures": 2,
+      "stop_conditions": [
+        "Do not suppress runs caused by executable harness or model-lock changes",
+        "Do not add cancellation that discards in-flight raw evidence"
+      ],
+      "evidence_ids": [
+        "commit:280b32e3ef42521880bd170c1c5c5a944d1a99d2",
+        "run:44541307333",
+        "duplicate-run:44541147095"
+      ]
     }
   ]
 }

@@ -47,3 +47,10 @@
 ## Alternative CPU model research — 19 November 2026
 
 M3-006 is complete. If the active M3-005 Granite 4.0 rerun remains negative, a separate candidate pool is ready for M3-007: `qwen3:1.7b` (1.4 GB), `granite4.2:3b` (2.2 GB), and `qwen3:4b` (2.5 GB), with `gemma4:e2b` (4.6–7.5 GB) held as a higher-memory reserve. Official Ollama library metadata advertises tool support for Qwen3 and agentic/tool use for Gemma 4; Granite 4.2 explicitly lists function-calling tasks and Apache 2.0. The size labels are not performance rankings. No tags have been pulled, locked, preregistered, or executed in this research task. See `research/M3_ALTERNATIVE_MODEL_SHORTLIST.md`.
+
+
+## M3 workflow trigger optimization — 19 November 2026
+
+CP-011 is complete. The expensive six-cell M3 workflow no longer triggers on edits to its own workflow YAML or the M3 report; executable harness, candidate, and sandbox inputs remain triggers, and `workflow_dispatch` remains available. The workflow-definition update commit `280b32e3` produced ordinary CI run [44541307333](https://github.com/mojtaba-arvin/agent-native/actions/runs/44541307333) without starting another M3 model run.
+
+One unplanned duplicate, [44541147095](https://github.com/mojtaba-arvin/agent-native/actions/runs/44541147095), had already started from the preceding report-only update before the filter was narrowed. Preserve it as an unplanned repeatability observation, not as part of the preregistered M3-005 cohort. Keep it separate from primary run [44539287065](https://github.com/mojtaba-arvin/agent-native/actions/runs/44539287065); do not pool their results.

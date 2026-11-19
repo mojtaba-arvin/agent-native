@@ -7,10 +7,10 @@
   "active_task_ids": [
     "M3-005"
   ],
-  "last_completed_task_id": "M3-006",
+  "last_completed_task_id": "CP-011",
   "last_known_green_revision": "b05c142857ae71ae51ad6e8e789f7655c0a0811d",
   "wip_limit": 2,
-  "next_action": "Inspect M3-005 run #44539287065 and its raw traces. If no Granite tier completes the full lifecycle, use the completed M3-006 shortlist to prepare a separate, immutable alternate cohort under M3-007; do not alter the active lock or budgets.",
+  "next_action": "Inspect primary M3-005 run #44539287065 and preserve the unplanned docs-triggered duplicate #44541147095 separately. Do not pool their results. After the primary artifact is available, compare provider-native tool definitions, schema progression, token use, and full lifecycle completion.",
   "active_workstreams": [
     {
       "task_id": "M3-005",
