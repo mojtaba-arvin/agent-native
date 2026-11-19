@@ -7,7 +7,6 @@ name a Python module, callable, or import path.
 from __future__ import annotations
 
 import re
-import time
 from dataclasses import dataclass
 from typing import Any, Callable, Mapping
 
@@ -352,6 +351,6 @@ def build_service_runtime(
         handlers=operation_handlers,
         repository=adapters,
         trusted_effects=set(service.policy["effects"]),
-        clock=clock or time.time,
+        clock=clock,
         audit_sink=audit_sink,
     )
