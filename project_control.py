@@ -103,6 +103,15 @@ def validate_documents(docs: dict[str, dict[str, Any]], ledger_text: str = "") -
         for dep in graph[tid]:
             if dep not in task_set:
                 errors.append(f"{tid}: unknown task dependency {dep}")
+        if task.get("status") in {"ready", "in_progress"}:
+            execution = task.get("execution")
+            if not isinstance(execution, dict) or not all(
+                isinstance(execution.get(key), str) and execution[key].strip()
+                for key in ("branch", "base_branch", "integration_owner")
+            ):
+                errors.append(f"{tid}: executable task requires branch, base_branch, and integration_owner")
+            elif execution["branch"] == execution["base_branch"]:
+                errors.append(f"{tid}: execution branch must differ from base branch")
 
     # Detect dependency cycles without recursion-depth dependence.
     visiting: set[str] = set()
@@ -131,6 +140,23 @@ def validate_documents(docs: dict[str, dict[str, Any]], ledger_text: str = "") -
         errors.append("state.current_milestone references an unknown milestone")
     if state.get("wip_limit", 0) < len(state.get("active_task_ids", [])):
         errors.append("active task count exceeds state.wip_limit")
+    workstreams = state.get("active_workstreams")
+    if workstreams is not None:
+        if not isinstance(workstreams, list):
+            errors.append("state.active_workstreams must be an array")
+        else:
+            workstream_ids = [item.get("task_id") for item in workstreams if isinstance(item, dict)]
+            workstream_branches = [item.get("branch") for item in workstreams if isinstance(item, dict)]
+            if set(workstream_ids) != set(state.get("active_task_ids", [])):
+                errors.append("state.active_workstreams must map every active task exactly once")
+            if len(workstream_branches) != len(set(workstream_branches)):
+                errors.append("state.active_workstreams contains duplicate branches")
+            for item in workstreams:
+                if not isinstance(item, dict) or not all(
+                    isinstance(item.get(key), str) and item[key].strip()
+                    for key in ("task_id", "branch", "base_branch", "integration_owner")
+                ):
+                    errors.append("state.active_workstreams entries require task_id, branch, base_branch, and integration_owner")
 
     progress_milestones = progress.get("milestones", {})
     for milestone in milestones:
@@ -166,6 +192,13 @@ def validate_documents(docs: dict[str, dict[str, Any]], ledger_text: str = "") -
             errors.append(f"RUN_LEDGER.jsonl:{line_no}: missing fields {', '.join(sorted(missing))}")
         elif event["task_id"] not in task_set:
             errors.append(f"RUN_LEDGER.jsonl:{line_no}: unknown task {event['task_id']}")
+        elif event.get("kind") == "task_attempt":
+            if event.get("outcome") not in {"failed", "no_progress", "progress", "completed"}:
+                errors.append(f"RUN_LEDGER.jsonl:{line_no}: invalid task_attempt outcome")
+            if event.get("outcome") == "failed" and (
+                not isinstance(event.get("failure_signature"), str) or not event["failure_signature"].strip()
+            ):
+                errors.append(f"RUN_LEDGER.jsonl:{line_no}: failed task_attempt requires failure_signature")
 
     if not isinstance(policy.get("autonomy"), dict) or not isinstance(policy.get("recovery"), dict):
         errors.append("policy must define autonomy and recovery objects")
