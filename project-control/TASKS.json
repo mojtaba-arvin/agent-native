@@ -229,7 +229,8 @@
         "CPU-only model runs are explicitly non-acceptance diagnostics",
         "No workflow concurrency groups can cancel in-flight evidence",
         "E-009 PR smoke is labelled as a product-path smoke, not a capacity claim",
-        "After PR #64 is integrated, PR #65 is retargeted to research/reboot-core and passes a fresh run"
+        "After PR #64 is integrated, PR #65 is retargeted to research/reboot-core and passes a fresh run",
+        "Always-on E-009 smoke enforces functional expectations only; capacity thresholds remain in the manual ten-repetition confirmation"
       ],
       "expected_outputs": [
         "Unified CI workflow",
