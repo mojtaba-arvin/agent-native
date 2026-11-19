@@ -7,12 +7,12 @@
   "current_milestone": "C1",
   "active_task_ids": [
     "CP-007",
-    "CP-003"
+    "M0-001"
   ],
-  "last_completed_task_id": "CP-005",
+  "last_completed_task_id": "CP-003",
   "last_known_green_revision": "6df57bfe7ab62ee69c6edd9eb69c2b7f73a190c2",
   "wip_limit": 2,
-  "next_action": "Complete CP-003 by checking the reconciled REPORT/E-007/E-009 docs against their source artifacts, updating any remaining stale claims, and recording exact evidence. Then turn the M1/M2 gaps into independently verifiable tasks. PR #68's docs-only update must pass its current CI run.",
+  "next_action": "Execute M0-001 non-destructively: inventory the four known research-only branches and nine snapshot branches, compare their histories/trees to research/reboot-core, verify each unique artifact remains retrievable, and propose no deletion.",
   "recovery": {
     "unchanged_failure_limit": 2,
     "no_progress_attempt_limit": 3,
