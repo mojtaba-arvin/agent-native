@@ -1,17 +1,18 @@
 {
   "schema_version": 1,
   "updated_at": "2026-11-19",
-  "active_branch": "feat/project-control-plane",
+  "active_branch": "feat/evidence-claims-gates-v2",
   "baseline_branch": "research/reboot-core",
   "baseline_commit": "23f9c77d8ce9a8d55895c6c4903a4ff409ba5781",
   "current_milestone": "C1",
   "active_task_ids": [
-    "CP-007"
+    "CP-007",
+    "CP-005"
   ],
   "last_completed_task_id": "CP-006",
   "last_known_green_revision": "dc705e3e4beee2ed2e897be96e32bf6c993da86e",
   "wip_limit": 2,
-  "next_action": "PR #65 is fully green on its stacked head. After PR #64 is integrated into research/reboot-core, retarget PR #65 to research/reboot-core and require a fresh green run. In parallel, start CP-005 evidence/claims integrity work on a branch stacked on the verified PR head.",
+  "next_action": "Complete CP-005 claims validator and negative tests; verify fast CI. PR #66 was stacked on an outdated base and is superseded; use this clean branch stacked on the current PR #65 head.",
   "recovery": {
     "unchanged_failure_limit": 2,
     "no_progress_attempt_limit": 3,
