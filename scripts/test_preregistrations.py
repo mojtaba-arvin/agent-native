@@ -16,6 +16,7 @@ class PreregistrationTests(unittest.TestCase):
         self.root = Path(self.temp.name)
         (self.root / "project-control").mkdir()
         (self.root / "research").mkdir()
+        (self.root / "project-control" / "RUN_LEDGER.jsonl").write_text('{"event_id": "RUN-1"}\\n', encoding="utf-8")
         (self.root / "DECISIONS.json").write_text('{"decisions": []}\n', encoding="utf-8")
         (self.root / "research" / "design-decisions.md").write_text("# Decisions\n", encoding="utf-8")
         (self.root / "manifest.json").write_text('{"no_apply": true}\n', encoding="utf-8")
@@ -66,6 +67,27 @@ class PreregistrationTests(unittest.TestCase):
         self.event["preregistrations_blob_sha1"] = git_blob_sha1(self.registry_path)
         self.event["event_hash"] = event_hash(self.event)
         self.events_path.write_text(json.dumps(self.event) + "\n", encoding="utf-8")
+
+    def append_run_ledger_pin(self):
+        second = dict(self.event)
+        second.update({
+            "event_id": "DECISION-RUN-LEDGER-PIN",
+            "timestamp": "2026-11-19T01:00:00Z",
+            "previous_event_hash": self.event["event_hash"],
+            "previous_decision_file_blob_sha1": self.event["decision_file_blob_sha1"],
+            "previous_decision_log_blob_sha1": self.event["decision_log_blob_sha1"],
+            "previous_preregistrations_blob_sha1": self.event["preregistrations_blob_sha1"],
+            "previous_run_ledger_blob_sha1": None,
+            "run_ledger_blob_sha1": git_blob_sha1(self.root / "project-control" / "RUN_LEDGER.jsonl"),
+            "rationale": "Pin the append-only run ledger baseline.",
+            "evidence_ids": ["RUN_LEDGER.jsonl"],
+        })
+        second["event_hash"] = event_hash(second)
+        self.events_path.write_text(
+            json.dumps(self.event) + "\n" + json.dumps(second) + "\n",
+            encoding="utf-8",
+        )
+        return second
 
     def test_accepts_frozen_manifest_and_baseline_chain(self):
         self.assertEqual(validate(self.root), [])
@@ -148,6 +170,31 @@ class PreregistrationTests(unittest.TestCase):
             encoding="utf-8",
         )
         self.assertTrue(any("broken previous_event_hash chain" in error for error in validate(self.root)))
+
+    def test_accepts_run_ledger_pin_chain(self):
+        self.append_run_ledger_pin()
+        self.assertEqual(validate(self.root), [])
+
+    def test_rejects_modified_run_ledger_after_pin(self):
+        self.append_run_ledger_pin()
+        with (self.root / "project-control" / "RUN_LEDGER.jsonl").open("a", encoding="utf-8") as handle:
+            handle.write('{"event_id": "RUN-2"}\n')
+        self.assertTrue(any("RUN_LEDGER.jsonl" in error and "not pinned" in error for error in validate(self.root)))
+
+    def test_rejects_broken_run_ledger_previous_hash(self):
+        second = self.append_run_ledger_pin()
+        third = dict(second)
+        third.update({
+            "event_id": "DECISION-RUN-LEDGER-PIN-2",
+            "timestamp": "2026-11-19T02:00:00Z",
+            "previous_event_hash": second["event_hash"],
+            "previous_run_ledger_blob_sha1": "0" * 40,
+            "rationale": "Deliberately broken run-ledger chain.",
+        })
+        third["event_hash"] = event_hash(third)
+        with self.events_path.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(third) + "\n")
+        self.assertTrue(any("previous_run_ledger_blob_sha1 does not match" in error for error in validate(self.root)))
 
     def test_rejects_invalid_status_type_without_crashing(self):
         self.registry["records"][0]["status"] = {"unexpected": "object"}
