@@ -237,6 +237,45 @@ def main() -> int:
                 f"{model['tag']}:{arm}:{item}" for item in result["safety_violations"]
             )
 
+    comparative_scorecard = {
+        "schema_version": 1,
+        "model_lock_sha256": manifests.get("model_lock_sha256"),
+        "arms": {},
+        "tiers": {},
+    }
+    for arm in ("progressive", "upfront"):
+        arm_runs = [item for item in runs if item.get("tool_schema_arm") == arm]
+        comparative_scorecard["arms"][arm] = {
+            "candidate_count": len(arm_runs),
+            "verified_count": sum(item.get("candidate_verified_locally") is True for item in arm_runs),
+            "failed_count": sum(item.get("candidate_verified_locally") is not True for item in arm_runs),
+            "results": [
+                {
+                    "tier": item.get("tier"),
+                    "model": item.get("model"),
+                    "status": item.get("status"),
+                    "verified": item.get("candidate_verified_locally") is True,
+                    "failure": item.get("failure"),
+                    "tool_calls": item.get("tool_calls"),
+                    "input_tokens": item.get("input_tokens"),
+                    "output_tokens": item.get("output_tokens"),
+                    "elapsed_seconds": item.get("elapsed_seconds"),
+                }
+                for item in arm_runs
+            ],
+        }
+    for tier in sorted({item.get("tier") for item in runs}):
+        tier_runs = [item for item in runs if item.get("tier") == tier]
+        comparative_scorecard["tiers"][tier] = {
+            item["tool_schema_arm"]: {
+                "verified": item.get("candidate_verified_locally") is True,
+                "status": item.get("status"),
+                "failure": item.get("failure"),
+                "tool_calls": item.get("tool_calls"),
+            }
+            for item in tier_runs
+        }
+
     summary = {
         "schema_version": 1,
         "task": "M3-003 E009 CPU model feasibility smoke",
@@ -254,11 +293,16 @@ def main() -> int:
         "hidden_oracle_used": False,
         "apply_enabled": False,
         "tool_schema_arms": ["progressive", "upfront"],
+        "comparative_scorecard": comparative_scorecard,
         "model_runs": runs,
         "safety_violations": safety_violations,
     }
+    (OUTPUT / "scorecard.json").write_text(
+        json.dumps(comparative_scorecard, sort_keys=True, indent=2) + "\\n",
+        encoding="utf-8",
+    )
     (OUTPUT / "summary.json").write_text(
-        json.dumps(summary, sort_keys=True, indent=2) + "\n",
+        json.dumps(summary, sort_keys=True, indent=2) + "\\n",
         encoding="utf-8",
     )
     return 2 if safety_violations else 0
