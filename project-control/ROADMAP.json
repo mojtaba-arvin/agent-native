@@ -89,7 +89,7 @@
     {
       "id": "M1",
       "name": "Package and single-command developer workflow",
-      "status": "in_progress",
+      "status": "complete",
       "depends_on": [
         "M0"
       ],
@@ -103,7 +103,7 @@
     {
       "id": "M2",
       "name": "Service-independent Gateway and declarative handlers",
-      "status": "pending",
+      "status": "in_progress",
       "depends_on": [
         "M1"
       ],
