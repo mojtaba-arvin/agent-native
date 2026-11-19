@@ -159,6 +159,14 @@ def validate_documents(docs: dict[str, dict[str, Any]], ledger_text: str = "") -
                     errors.append("state.active_workstreams entries require task_id, branch, base_branch, and integration_owner")
                 elif item["branch"] == item["base_branch"]:
                     errors.append("state.active_workstreams branch must differ from base_branch")
+                else:
+                    task = next((candidate for candidate in tasks if candidate.get("id") == item["task_id"]), None)
+                    execution = task.get("execution") if isinstance(task, dict) else None
+                    if not isinstance(execution, dict) or any(
+                        execution.get(key) != item.get(key)
+                        for key in ("branch", "base_branch", "integration_owner")
+                    ):
+                        errors.append(f"state.active_workstreams ownership does not match task contract: {item['task_id']}")
 
     progress_milestones = progress.get("milestones", {})
     for milestone in milestones:
