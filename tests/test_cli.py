@@ -107,7 +107,7 @@ class UnifiedCLITests(unittest.TestCase):
 
     def test_malformed_audit_event_returns_machine_error(self):
         events = self.root / "bad-audit.jsonl"
-        events.write_text('{"event_id":"x","decision":"maybe","reason_code":"UNKNOWN"}\\n', encoding="utf-8")
+        events.write_text('{"event_id":"x","decision":"maybe","reason_code":"UNKNOWN"}', encoding="utf-8")
         result = self.invoke("audit", "--events", str(events))
         self.assertEqual(result.returncode, 3)
         self.assertEqual(json.loads(result.stderr)["error"]["code"], "invalid_audit_decision")
