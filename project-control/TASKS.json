@@ -1125,7 +1125,9 @@
         "Trust-boundary implementation PRs require two latest APPROVED reviews from distinct non-author human reviewers",
         "CI rejects trust-boundary PRs with fewer than two independent approvals",
         "CI rejects PR heads that do not contain the latest target branch",
-        "M2-003 is integrated only after both independent approvals and fresh Layer 0/Layer 1 checks"
+        "M2-003 is integrated only after both independent approvals and fresh Layer 0/Layer 1 checks",
+        "Approvals are bound to the current PR head SHA; stale approvals after a new commit do not count",
+        "Review submission or dismissal events rerun the review gate and applicable CI layers"
       ],
       "expected_outputs": [
         "Independent review enforcement in CI",
