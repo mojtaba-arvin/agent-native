@@ -115,6 +115,7 @@ class M3ModelFeasibilityTests(unittest.TestCase):
         smoke = (E007 / "m3_model_smoke.py").read_text(encoding="utf-8")
         self.assertIn("local_agent.run(args)", smoke)
         self.assertIn("allow_sandbox_apply=False", smoke)
+        self.assertIn("ollama_runtime_version_not_pinned", smoke)
         self.assertIn('"service.apply" in sequence', smoke)
         self.assertIn('"hidden_oracle_used": False', smoke)
         self.assertIn('"paid_api_usd": 0', smoke)
