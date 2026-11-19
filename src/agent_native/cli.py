@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import math
 import re
 import sys
 from pathlib import Path
@@ -30,7 +29,6 @@ def _emit(value: dict) -> None:
 
 
 def _error(error: CLIError) -> int:
-    _emit({"error": {"code": error.code, "message": str(error)}} if False else {})
     print(
         json.dumps(
             {"error": {"code": error.code, "message": str(error)}},
