@@ -507,7 +507,7 @@ class LocalAgentRunnerTests(unittest.TestCase):
                     "INSPECTION_ALREADY_COMPLETED",
                 )
                 self.assertEqual(events[2]["execution_origin"], "runner_duplicate_guard")
-                self.assertIn("service.propose_delta", events[1]["response"]["next_actions"][0])
+                self.assertIn("service.inspect", events[1]["response"]["next_actions"][0])
         finally:
             server.shutdown()
             server.server_close()
