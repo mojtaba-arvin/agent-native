@@ -160,8 +160,8 @@ class EvidenceScorecardTests(unittest.TestCase):
         self.assertEqual(summary["source"]["commit_sha"], "a" * 40)
         self.assertEqual(summary["source"]["checkout_sha"], "b" * 40)
         self.assertEqual(summary["source"]["workflow_run_id"], 888)
-        self.assertEqual(summary["test_counts"]["total"], 3)
-        self.assertEqual(summary["test_counts"]["skipped"], 1)
+        self.assertEqual(summary["test_counts"]["total_known"], 3)
+        self.assertEqual(summary["test_counts"]["skipped_known"], 1)
 
     def test_unreported_counts_remain_unknown_and_self_tests_are_separate(self):
         self.assertEqual(parse_test_counts("project control precheck completed"), (None, None))
@@ -198,7 +198,7 @@ class EvidenceScorecardTests(unittest.TestCase):
 
     def test_rejects_manual_edits_to_generated_test_counts(self):
         scorecard = build_scorecard(self.summary_raw, self.ledger_raw, self.progress_raw)
-        scorecard["test_counts"]["total"] = 999
+        scorecard["test_counts"]["total_known"] = 999
         with self.assertRaisesRegex(ValueError, "differs from metrics derived"):
             validate_scorecard(scorecard, self.summary_raw, self.ledger_raw, self.progress_raw)
 
@@ -229,7 +229,7 @@ class EvidenceScorecardTests(unittest.TestCase):
     def test_rejects_summary_test_count_mismatch(self):
         self.summary["test_counts"]["total_known"] = 100
         summary_raw = json.dumps(self.summary, sort_keys=True).encode()
-        with self.assertRaisesRegex(ValueError, "test totals do not match"):
+        with self.assertRaisesRegex(ValueError, "test totals or unknown-count markers"):
             build_scorecard(summary_raw, self.ledger_raw, self.progress_raw)
 
     def test_rejects_duplicate_run_ledger_event_ids(self):
