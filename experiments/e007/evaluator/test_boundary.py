@@ -22,6 +22,7 @@ class EvaluatorBoundaryTests(unittest.TestCase):
         self.oracle = self.external / "oracle.json"
         self.oracle.write_text('{"expected":"private"}', encoding="utf-8")
         if os.name == "posix":
+            self.external.chmod(0o700)
             self.oracle.chmod(0o600)
 
     def test_external_owner_only_oracle_and_workspace_candidate_are_accepted(self):
@@ -32,7 +33,7 @@ class EvaluatorBoundaryTests(unittest.TestCase):
 
     def test_oracle_inside_agent_workspace_is_rejected(self):
         oracle = self.workspace / "oracle.json"
-        oracle.write_text("{}", encoding="utf-8")
+        oracle.write_text("{}" , encoding="utf-8")
         if os.name == "posix":
             oracle.chmod(0o600)
         with self.assertRaises(EvaluatorBoundaryError):
@@ -48,11 +49,41 @@ class EvaluatorBoundaryTests(unittest.TestCase):
             with self.assertRaises(EvaluatorBoundaryError):
                 verify_evaluator_boundary(self.workspace, self.candidate, self.oracle)
 
+    def test_oracle_in_group_or_world_accessible_directory_is_rejected(self):
+        if os.name == "posix":
+            self.external.chmod(0o755)
+            with self.assertRaises(EvaluatorBoundaryError):
+                verify_evaluator_boundary(self.workspace, self.candidate, self.oracle)
+
+    def test_oracle_with_additional_hard_link_is_rejected(self):
+        if os.name == "posix":
+            alias = self.workspace / "oracle-alias.json"
+            try:
+                os.link(self.oracle, alias)
+            except (OSError, NotImplementedError):
+                self.skipTest("hard links are unavailable on this filesystem")
+            with self.assertRaises(EvaluatorBoundaryError):
+                verify_evaluator_boundary(self.workspace, self.candidate, self.oracle)
+
+    def test_oracle_owned_by_another_user_is_rejected(self):
+        if os.name == "posix":
+            from unittest.mock import patch
+
+            with patch("evaluator.boundary.os.geteuid", return_value=self.oracle.stat().st_uid + 1):
+                with self.assertRaises(EvaluatorBoundaryError):
+                    verify_evaluator_boundary(self.workspace, self.candidate, self.oracle)
+
     def test_symlink_oracle_is_rejected(self):
         link = self.external / "oracle-link.json"
         link.symlink_to(self.oracle)
         with self.assertRaises(EvaluatorBoundaryError):
             verify_evaluator_boundary(self.workspace, self.candidate, link)
+
+    def test_symlink_candidate_is_rejected(self):
+        link = self.workspace / "candidate-link.json"
+        link.symlink_to(self.candidate)
+        with self.assertRaises(EvaluatorBoundaryError):
+            verify_evaluator_boundary(self.workspace, link, self.oracle)
 
     def test_proposal_validation_and_plan_must_share_candidate_hash(self):
         digest = "a" * 64
