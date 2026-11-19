@@ -748,6 +748,17 @@ def _compact_tool_outcome(tool_name: str, arguments: Any, response: dict) -> dic
             for key in ("proposal_mode", "intent_digest", "materialized_ir_digest"):
                 if key in result:
                     outcome[key] = result[key]
+    elif tool_name == "interface.describe":
+        if isinstance(arguments, dict):
+            outcome["name"] = arguments.get("name")
+        result = response.get("result")
+        if isinstance(result, dict):
+            # Progressive discovery is only useful if the exact schema survives
+            # conversation compaction and remains available to the next turn.
+            outcome["description"] = result.get("summary")
+            outcome["mode"] = result.get("mode")
+            if isinstance(result.get("input_schema"), dict):
+                outcome["input_schema"] = result["input_schema"]
     elif isinstance(arguments, dict):
         outcome["arguments"] = arguments
     diagnostics = response.get("diagnostics")
