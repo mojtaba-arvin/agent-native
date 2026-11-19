@@ -135,27 +135,34 @@
       "id": "CP-005",
       "title": "Establish evidence ledger and automated claims checks",
       "milestone": "C1",
-      "status": "pending",
+      "status": "in_progress",
       "priority": 5,
       "depends_on": [
         "CP-001"
       ],
       "owner": "verification",
       "scope": [
-        "project-control/",
+        "project-control/PROGRESS.json",
+        "project-control/RUN_LEDGER.jsonl",
         "project_control.py",
-        "research/",
-        "REPORT.md"
+        "scripts/check_claims.py",
+        "scripts/test_claims.py",
+        "scripts/ci.py",
+        "REPORT.md",
+        "research/"
       ],
       "acceptance": [
-        "Evidence IDs resolve to immutable source/artifact references",
-        "Claims lint rejects unsupported pass/accepted claims",
-        "Run records include canceled and ineligible states"
+        "Completion claims must reference one or more unique RUN_LEDGER event IDs",
+        "Referenced events must have an eligible success outcome and immutable run/commit/URL evidence",
+        "Duplicate event IDs, malformed ledger lines, unknown references, failed outcomes, and mutable path-only evidence are rejected",
+        "Negative unit tests cover every rejection class",
+        "Claims checker runs in the project-control fast-CI precheck"
       ],
       "expected_outputs": [
-        "Evidence schema",
-        "Claims checker",
-        "Run ledger tests"
+        "Standard-library claims validator",
+        "Negative regression tests",
+        "Evidence-backed completion claim schema",
+        "CI enforcement and run-ledger evidence"
       ],
       "max_unchanged_retries": 2,
       "replan_after_failures": 2,
