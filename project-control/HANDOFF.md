@@ -42,3 +42,8 @@
 - M3-004 is complete. M3-005 is running as [workflow 44539287065](https://github.com/mojtaba-arvin/agent-native/actions/runs/44539287065), rerunning the unchanged six-cell CPU matrix on the provider-native schema adapter. Preserve all raw outcomes; do not qualify a model unless it completes inspect/propose/validate/plan and local verification.
 - M3-001 remains blocked until a qualifying model and protected evaluator-only oracle custody are demonstrated. No paid API/GPU, apply, or hidden oracle is used.
 - Storage note: the repository already has a PostgreSQL 16.4 reference adapter and conformance tests; cross-engine trace, rollback, and crash-reconciliation evidence exists. Oracle Database is not a current E-002 candidate and has no demonstrated requirement. Keep PostgreSQL as the primary storage candidate; final product selection remains evidence-gated against the product workload.
+
+
+## Alternative CPU model research — 19 November 2026
+
+M3-006 is complete. If the active M3-005 Granite 4.0 rerun remains negative, a separate candidate pool is ready for M3-007: `qwen3:1.7b` (1.4 GB), `granite4.2:3b` (2.2 GB), and `qwen3:4b` (2.5 GB), with `gemma4:e2b` (4.6–7.5 GB) held as a higher-memory reserve. Official Ollama library metadata advertises tool support for Qwen3 and agentic/tool use for Gemma 4; Granite 4.2 explicitly lists function-calling tasks and Apache 2.0. The size labels are not performance rankings. No tags have been pulled, locked, preregistered, or executed in this research task. See `research/M3_ALTERNATIVE_MODEL_SHORTLIST.md`.

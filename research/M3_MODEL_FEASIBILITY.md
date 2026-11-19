@@ -144,3 +144,10 @@ Raw provider telemetry records `tool_definition_count=1` on every request. The p
 The workflow completed its evidence and safety gates: the agent and Ollama containers remained non-root, no-network during inference, resource-limited, and no-apply. The artifact reports zero safety violations, zero paid API spend, no GPU, and no hidden-oracle use. The workflow's successful conclusion means the bounded feasibility protocol ran and retained its evidence; it does **not** mean any model passed.
 
 Post-merge repository CI [44529847920](https://github.com/mojtaba-arvin/agent-native/actions/runs/44529847920) passed Layer 0 and Layer 1 on the same source revision. No model is selected or frozen for the M3 cohort. M3-003 is complete as a bounded feasibility evaluation with a negative qualification result; M3-001 and M3-002 remain blocked/pending until a qualifying model path and protected evaluator-only oracle custody are both demonstrated.
+
+
+## Alternative CPU model shortlist (research only)
+
+M3-006 completed a separate candidate-family review without changing the active Granite 4.0 lock. The proposed next cohort, if M3-005 remains negative, is `qwen3:1.7b` (1.4 GB, 40K), `granite4.2:3b` (2.2 GB, 128K), and `qwen3:4b` (2.5 GB, 256K). Ollama's official Qwen3 library advertises tool support; Granite 4.2 documents tool usage and function-calling tasks under Apache 2.0. `gemma4:e2b` (4.6–7.5 GB) is a reserve because it consumes more of the 10 GiB model-server memory budget. These are size-based candidate tiers, not capability rankings. See [the full shortlist](M3_ALTERNATIVE_MODEL_SHORTLIST.md).
+
+M3-007 is the separate preregistration/lock task and must not start until M3-005 closes. No current model lock or active trial was modified.

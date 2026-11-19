@@ -45,12 +45,12 @@
       "status": "open",
       "severity": "high",
       "title": "Decision-grade M3 evaluation lacks a qualifying zero-cost model and protected hidden-oracle path",
-      "description": "M3-000 topology, M3-003 bounded CPU feasibility evaluation, and M3-004 provider-native Gateway schema delivery are complete. M3-004 passed 143 E-009 tests plus Layer 1 native/container/database/PostgreSQL validation. M3-005 is rerunning the same pinned six-cell CPU feasibility matrix on the corrected adapter. M3-001 remains blocked until a qualifying zero-cost model path and protected evaluator-only hidden-oracle custody are both verified. No paid API/GPU spend is authorized.",
+      "description": "M3-000 topology, M3-003 bounded CPU feasibility evaluation, M3-004 provider-native Gateway schema delivery, and M3-006 alternate model-family shortlist are complete. M3-005 is rerunning the unchanged pinned Granite 4.0 six-cell matrix on the corrected adapter. M3-001 remains blocked until a qualifying zero-cost model path and protected evaluator-only hidden-oracle custody are both verified. M3-007 is ready only after M3-005 closes and will use a separate preregistered lock. No paid API/GPU spend is authorized.",
       "owner_action_required": true,
       "unblocks": [
         "M3 decision-grade model evaluation"
       ],
-      "next_step": "Inspect M3-005 run #44539287065 and its raw artifact. If no model completes the full lifecycle, keep M3-001 blocked and investigate a different zero-cost model/tool protocol without changing the preregistered budgets or acceptance threshold."
+      "next_step": "Inspect M3-005 run #44539287065 and raw traces. If no model qualifies, start M3-007 with a separate lock for Qwen3 1.7B, Granite 4.2 3B, and Qwen3 4B; preserve the current Granite 4.0 lock and all prior evidence."
     },
     {
       "id": "BLK-005",

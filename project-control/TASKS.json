@@ -1422,6 +1422,88 @@
         "run:44539287065",
         "model-lock SHA-256 8dd6e4e2acbea225dbd4fa2b4428f3691f11176be862539430aee0aced67bc17"
       ]
+    },
+    {
+      "id": "M3-006",
+      "title": "Research a cross-family shortlist of small CPU tool-calling models",
+      "milestone": "M3",
+      "status": "complete",
+      "priority": 33,
+      "depends_on": [
+        "M3-003",
+        "M3-004"
+      ],
+      "owner": "research",
+      "scope": [
+        "research/M3_ALTERNATIVE_MODEL_SHORTLIST.md",
+        "research/M3_MODEL_FEASIBILITY.md"
+      ],
+      "acceptance": [
+        "Shortlist at least two independent open model families with official Ollama tool/function-calling support",
+        "Record exact Ollama tags, published download sizes, context metadata, and license claims only where official sources state them",
+        "Select nominal weak/medium/strong candidates by model size without claiming a quality ranking",
+        "Record at least one resource-heavier reserve candidate and explain its fit risk against the 10 GiB model-server limit",
+        "Do not alter the current pinned model lock, candidate manifest, token budgets, or active M3-005 run",
+        "Explicitly state that model capability and qualification require the preregistered no-network trial and local verifier"
+      ],
+      "expected_outputs": [
+        "Alternative CPU model shortlist with official source links",
+        "Separate follow-up task for a new immutable cohort lock"
+      ],
+      "max_unchanged_retries": 1,
+      "replan_after_failures": 2,
+      "stop_conditions": [
+        "Do not change or replace the active M3-005 cohort post hoc",
+        "Do not claim tool-capability badges prove multi-step agent competence",
+        "Do not use paid APIs or GPU"
+      ],
+      "evidence_ids": [
+        "https://ollama.com/library/qwen3",
+        "https://ollama.com/library/granite4.2",
+        "https://ollama.com/library/gemma4",
+        "Qwen3 1.7b 1.4GB / 4b 2.5GB",
+        "Granite4.2 3b 2.2GB",
+        "Gemma4 e2b 4.6–7.5GB"
+      ]
+    },
+    {
+      "id": "M3-007",
+      "title": "Freeze and verify a separate alternate CPU model cohort",
+      "milestone": "M3",
+      "status": "pending",
+      "priority": 34,
+      "depends_on": [
+        "M3-005",
+        "M3-006"
+      ],
+      "owner": "research",
+      "scope": [
+        "experiments/e007/model_candidates_v2.json",
+        "experiments/e007/model-lock-v2.json",
+        "project-control/PREREGISTRATIONS.json",
+        "research/M3_MODEL_FEASIBILITY.md"
+      ],
+      "acceptance": [
+        "Do not start until M3-005 is complete and the alternate cohort is separately preregistered",
+        "Pin exact model tags, immutable manifest digests, config digests, quantization, and runtime image digest",
+        "Keep the zero-paid-spend CPU-only boundary, no-network inference, no-apply, fixed resource limits, and raw artifact retention",
+        "Run a second no-network verification of the exact model-lock bytes before treating the cohort as executable",
+        "Preserve the original Granite 4.0 cohort and all its failed traces unchanged",
+        "Report the new cohort independently; do not pool it with prior runs or relax success thresholds"
+      ],
+      "expected_outputs": [
+        "Versioned alternate candidate manifest",
+        "Versioned immutable model lock",
+        "New preregistration and decision-event pin",
+        "Separate CPU feasibility artifact"
+      ],
+      "max_unchanged_retries": 1,
+      "replan_after_failures": 2,
+      "stop_conditions": [
+        "Do not modify the original model-lock or preregistered cohort",
+        "Do not dispatch without exact manifest verification",
+        "Do not select a model without full local verification and evaluator gate"
+      ]
     }
   ]
 }
