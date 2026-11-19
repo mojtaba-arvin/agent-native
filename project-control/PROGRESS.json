@@ -68,7 +68,7 @@
       "milestone_id": "C1",
       "criterion": "Claims checker enforces evidence mapping for verified milestone criteria",
       "evidence_event_ids": [
-        "CP-CLAIMS-VALIDATION-001"
+        "CP-CLAIMS-VALIDATION-002"
       ]
     }
   ],
