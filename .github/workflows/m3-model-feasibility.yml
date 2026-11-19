@@ -178,7 +178,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python3 - "$MODEL_DIR" "$GITHUB_WORKSPACE/experiments/e007/model_candidates.json" "$OUTPUT_DIR/model-manifests.json" "$GITHUB_WORKSPACE/experiments/e007/model_lock.json" <<'PY'
+          python3 - "$MODEL_DIR" "$GITHUB_WORKSPACE/experiments/e007/model_candidates.json" "$OUTPUT_DIR/model-manifests.json" "$GITHUB_WORKSPACE/experiments/e007/model-lock.json" <<'PY'
           import hashlib
           import json
           import os
@@ -325,7 +325,7 @@ jobs:
             -e PYTHONDONTWRITEBYTECODE=1 \
             -e HOME=/tmp \
             -e MODEL_MANIFESTS=/out/model-manifests.json \
-            -e MODEL_LOCK=/repo/experiments/e007/model_lock.json \
+            -e MODEL_LOCK=/repo/experiments/e007/model-lock.json \
             -e RUNNER_INFO=/out/runner-info.json \
             -e OLLAMA_SERVER_CONFIG=/out/ollama-server-sandbox.json \
             -e OLLAMA_URL=http://127.0.0.1:11434 \
