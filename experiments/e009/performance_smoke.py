@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import concurrent.futures
+import hashlib
 import json
 import math
 import os
@@ -214,51 +215,127 @@ def sqlite_file_sizes(database_path):
     return sizes
 
 
-def evaluate_capacity_gate(aggregate, resource_metrics):
+DEFAULT_CAPACITY_THRESHOLDS = {
+    "minimum_throughput_requests_per_second": 100.0,
+    "maximum_aggregate_p99_ms": 100.0,
+    "maximum_one_core_cpu_percent": 50.0,
+    "maximum_peak_cgroup_memory_bytes": 1_073_741_824,
+    "required_server_cpu_quota_cores": 1.0,
+    "required_server_memory_limit_bytes": 1_073_741_824,
+    "maximum_unexpected_outcomes": 0,
+}
+
+
+def git_blob_sha1(data: bytes) -> str:
+    header = f"blob {len(data)}\0".encode("ascii")
+    return hashlib.sha1(header + data).hexdigest()
+
+
+def load_preregistration_config(path: Path) -> tuple[dict, str]:
+    raw_bytes = path.read_bytes()
+    config = json.loads(raw_bytes)
+    if not isinstance(config, dict):
+        raise ValueError("preregistration config must be a JSON object")
+    if set(config) != {"schema_version", "cohort_id", "no_apply", "purpose", "parameters", "thresholds"}:
+        raise ValueError("preregistration config has missing or unknown top-level fields")
+    if type(config["schema_version"]) is not int or config["schema_version"] != 1:
+        raise ValueError("preregistration schema_version must be 1")
+    if not isinstance(config["cohort_id"], str) or not config["cohort_id"].strip():
+        raise ValueError("preregistration cohort_id is required")
+    if config["no_apply"] is not True:
+        raise ValueError("performance cohort must be no-apply")
+    if not isinstance(config["purpose"], str) or not config["purpose"].strip():
+        raise ValueError("preregistration purpose is required")
+
+    parameters = config["parameters"]
+    parameter_keys = {
+        "requests_per_repetition", "repetitions", "client_concurrency", "target_rps",
+        "containerized", "enforce_capacity_gate", "audit_batch_delay_ms",
+        "job_batch_size", "job_batch_delay_ms",
+    }
+    if not isinstance(parameters, dict) or set(parameters) != parameter_keys:
+        raise ValueError("preregistration parameters have missing or unknown fields")
+    for key in ("requests_per_repetition", "repetitions", "client_concurrency", "job_batch_size"):
+        if type(parameters[key]) is not int:
+            raise ValueError(f"{key} must be an integer")
+    if parameters["requests_per_repetition"] < 100:
+        raise ValueError("requests_per_repetition must be at least 100")
+    if not 1 <= parameters["repetitions"] <= 10:
+        raise ValueError("repetitions must be between 1 and 10")
+    if not 1 <= parameters["client_concurrency"] <= 64:
+        raise ValueError("client_concurrency must be between 1 and 64")
+    if not 1 <= parameters["job_batch_size"] <= 1024:
+        raise ValueError("job_batch_size must be between 1 and 1024")
+    for key in ("target_rps", "audit_batch_delay_ms", "job_batch_delay_ms"):
+        value = parameters[key]
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+            raise ValueError(f"{key} must be a finite number")
+    if parameters["target_rps"] < 0:
+        raise ValueError("target_rps must be non-negative")
+    if not 0 <= parameters["audit_batch_delay_ms"] <= 50:
+        raise ValueError("audit_batch_delay_ms must be between 0 and 50")
+    if not 0 <= parameters["job_batch_delay_ms"] <= 50:
+        raise ValueError("job_batch_delay_ms must be between 0 and 50")
+    if parameters["containerized"] is not True or parameters["enforce_capacity_gate"] is not True:
+        raise ValueError("capacity confirmation requires containerized execution and an enforced gate")
+
+    thresholds = config["thresholds"]
+    if not isinstance(thresholds, dict) or set(thresholds) != set(DEFAULT_CAPACITY_THRESHOLDS):
+        raise ValueError("preregistration thresholds have missing or unknown fields")
+    for key in (
+        "minimum_throughput_requests_per_second", "maximum_aggregate_p99_ms",
+        "maximum_one_core_cpu_percent", "required_server_cpu_quota_cores",
+    ):
+        value = thresholds[key]
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value <= 0:
+            raise ValueError(f"{key} must be a finite positive number")
+    for key in ("maximum_peak_cgroup_memory_bytes", "required_server_memory_limit_bytes"):
+        if type(thresholds[key]) is not int or thresholds[key] <= 0:
+            raise ValueError(f"{key} must be a positive integer")
+    if type(thresholds["maximum_unexpected_outcomes"]) is not int or thresholds["maximum_unexpected_outcomes"] < 0:
+        raise ValueError("maximum_unexpected_outcomes must be a non-negative integer")
+    return config, git_blob_sha1(raw_bytes)
+
+
+def evaluate_capacity_gate(aggregate, resource_metrics, thresholds=None):
     """Evaluate the preregistered single-node E-009 target using server cgroup metrics."""
+    thresholds = dict(DEFAULT_CAPACITY_THRESHOLDS if thresholds is None else thresholds)
     cgroup = resource_metrics.get("cgroup_v2_limits") or {}
     checks = {
-        "throughput_at_least_100_rps": (
-            aggregate.get("throughput_requests_per_second", 0) >= 100.0
+        "throughput_meets_preregistered_minimum": (
+            aggregate.get("throughput_requests_per_second", 0) >= thresholds["minimum_throughput_requests_per_second"]
         ),
-        "aggregate_p99_at_most_100_ms": (
-            (aggregate.get("latency_ms") or {}).get("p99", float("inf")) <= 100.0
+        "aggregate_p99_within_preregistered_maximum": (
+            (aggregate.get("latency_ms") or {}).get("p99", float("inf")) <= thresholds["maximum_aggregate_p99_ms"]
         ),
-        "server_cpu_at_most_50_percent_of_one_core": (
-            resource_metrics.get("server_cpu_percent_of_one_core_during_load", float("inf")) <= 50.0
+        "server_cpu_within_preregistered_maximum": (
+            resource_metrics.get("server_cpu_percent_of_one_core_during_load", float("inf")) <= thresholds["maximum_one_core_cpu_percent"]
         ),
-        "peak_cgroup_memory_at_most_1_gib": (
+        "peak_cgroup_memory_within_preregistered_maximum": (
             resource_metrics.get("server_peak_cgroup_memory_bytes") is not None
-            and resource_metrics["server_peak_cgroup_memory_bytes"] <= 1_073_741_824
+            and resource_metrics["server_peak_cgroup_memory_bytes"] <= thresholds["maximum_peak_cgroup_memory_bytes"]
         ),
-        "server_cgroup_is_one_cpu": (
+        "server_cgroup_matches_preregistered_cpu_quota": (
             resource_metrics.get("server_containerized") is True
-            and resource_metrics.get("server_cpu_quota_cores") == 1.0
+            and resource_metrics.get("server_cpu_quota_cores") == thresholds["required_server_cpu_quota_cores"]
             and cgroup.get("cpu_max") == "100000 100000"
         ),
-        "server_cgroup_memory_limit_is_1_gib": (
-            cgroup.get("memory_max") == "1073741824"
+        "server_cgroup_matches_preregistered_memory_limit": (
+            cgroup.get("memory_max") == str(thresholds["required_server_memory_limit_bytes"])
         ),
-        "zero_unexpected_outcomes": aggregate.get("failed_expectations") == 0,
+        "unexpected_outcomes_within_preregistered_maximum": aggregate.get("failed_expectations") <= thresholds["maximum_unexpected_outcomes"],
     }
     return {
         "enabled": True,
         "passed": all(checks.values()),
-        "thresholds": {
-            "minimum_throughput_requests_per_second": 100.0,
-            "maximum_aggregate_p99_ms": 100.0,
-            "maximum_one_core_cpu_percent": 50.0,
-            "maximum_peak_cgroup_memory_bytes": 1_073_741_824,
-            "required_server_cpu_quota_cores": 1.0,
-            "required_server_memory_limit_bytes": 1_073_741_824,
-            "maximum_unexpected_outcomes": 0,
-        },
+        "thresholds": thresholds,
         "checks": checks,
     }
 
 
 def main():
     parser = argparse.ArgumentParser()
+    parser.add_argument("--config", type=Path, help="load all cohort parameters and thresholds from a frozen JSON manifest")
     parser.add_argument("--requests", type=int, default=1000, help="measured requests per repetition")
     parser.add_argument("--repetitions", type=int, default=5)
     parser.add_argument("--concurrency", type=int, default=32)
@@ -273,6 +350,23 @@ def main():
     parser.add_argument("--job-batch-delay-ms", type=float, default=0.5)
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
+    preregistration = None
+    preregistration_sha1 = None
+    if args.config is not None:
+        try:
+            preregistration, preregistration_sha1 = load_preregistration_config(args.config)
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
+            parser.error(f"invalid preregistration config: {exc}")
+        parameters = preregistration["parameters"]
+        args.requests = parameters["requests_per_repetition"]
+        args.repetitions = parameters["repetitions"]
+        args.concurrency = parameters["client_concurrency"]
+        args.target_rps = parameters["target_rps"]
+        args.containerized = parameters["containerized"]
+        args.enforce_capacity_gate = parameters["enforce_capacity_gate"]
+        args.audit_batch_delay_ms = parameters["audit_batch_delay_ms"]
+        args.job_batch_size = parameters["job_batch_size"]
+        args.job_batch_delay_ms = parameters["job_batch_delay_ms"]
     if args.requests < 100 or not 1 <= args.repetitions <= 10:
         parser.error("requests must be >=100 and repetitions must be 1..10")
     if not 1 <= args.concurrency <= 64:
@@ -563,9 +657,18 @@ def main():
                     "not a 10-repetition controlled cross-runtime capacity comparison",
                 ],
             }
+            if preregistration is not None:
+                summary["preregistration"] = {
+                    "cohort_id": preregistration["cohort_id"],
+                    "config_path": args.config.as_posix(),
+                    "git_blob_sha1": preregistration_sha1,
+                    "thresholds": preregistration["thresholds"],
+                }
             if args.enforce_capacity_gate:
                 summary["capacity_gate"] = evaluate_capacity_gate(
-                    summary["aggregate"], summary["resource_metrics"]
+                    summary["aggregate"],
+                    summary["resource_metrics"],
+                    preregistration["thresholds"] if preregistration is not None else None,
                 )
             rendered = json.dumps(summary, indent=2, sort_keys=True)
             print(rendered)

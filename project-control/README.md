@@ -16,6 +16,12 @@ This directory is the versioned execution state for the Agent Native v0.1 progra
 - [HANDOFF.md](HANDOFF.md): deterministic resume instructions.
 - [CI_PORT_AUDIT.md](CI_PORT_AUDIT.md): reviewed risks and safe port sequence for the staging fast-CI candidate.
 - [CI_WORKFLOW_MIGRATION.md](CI_WORKFLOW_MIGRATION.md): responsibility map for the unified CI workflow.
+- [M0_AUDIT.md](M0_AUDIT.md): current source/evidence audit and v0.1 gap assessment.
+- [BRANCH_INVENTORY.md](BRANCH_INVENTORY.md): current branch graph and preserved unique artifacts.
+- [PREREGISTRATIONS.json](PREREGISTRATIONS.json): frozen benchmark/evidence manifest registry.
+- [DECISION_EVENTS.jsonl](DECISION_EVENTS.jsonl): hash-chained append-only decision, preregistration, and run-ledger integrity events.
+- [E-009 capacity confirmation manifest](../experiments/e009/capacity-confirmation-v1.json): frozen ten-repetition workload and capacity thresholds consumed by the manual workflow.
+- [check_claims.py](../scripts/check_claims.py): fail-closed validation for evidence-backed completion claims.
 
 ## Validate
 
@@ -24,9 +30,11 @@ Run:
 ```sh
 python project_control.py validate
 python project_control.py status
+python scripts/check_claims.py
+python scripts/check_preregistrations.py
 ```
 
-The validator uses only the Python standard library. It checks structural invariants and cross-file references; it does not certify the truth of evidence claims or replace tests, peer review, or GitHub branch protections.
+The control-plane validator checks structural invariants and cross-file references. The claims checker additionally requires verified completion claims to resolve to successful ledger events with immutable run, commit, or GitHub Actions run references, and requires every verified milestone criterion to map to exactly one such claim. The preregistration checker pins frozen manifests and decision inputs by Git blob SHA, validates the hash-chained decision events and no-apply cohort manifests, and—when `scripts/ci.py --base` is used—rejects rewrites or truncation of the narrative design-decision log, decision-event log, and run ledger relative to the PR base. Neither tool replaces tests, peer review, or GitHub branch protections.
 
 ## Operating loop
 

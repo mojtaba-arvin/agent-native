@@ -75,7 +75,9 @@ PRECHECKS = {
     "e011-semantics": ((sys.executable, "-m", "py_compile",
         "experiments/e011/semantics.py", "experiments/e011/test_semantics.py"),),
     "project-control": ((sys.executable, "project_control.py", "status"),
-        (sys.executable, "project_control.py", "self-test")),
+        (sys.executable, "project_control.py", "self-test"),
+        (sys.executable, "scripts/check_claims.py"),
+        (sys.executable, "scripts/check_preregistrations.py")),
 }
 
 def run_suite(suite: Suite) -> tuple[str, int, float, str]:
@@ -114,6 +116,8 @@ def main() -> int:
     parser.add_argument("--base", help="base git ref; only affected suites run")
     parser.add_argument("--jobs", type=int, default=min(8, os.cpu_count() or 2))
     args = parser.parse_args()
+    if args.base:
+        os.environ["AGENT_NATIVE_BASE_SHA"] = args.base
     paths = changed_paths(args.base) if args.base else None
     suites = selected_suites(paths)
     if paths is not None:
