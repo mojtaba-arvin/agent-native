@@ -1258,7 +1258,14 @@
         "experiments/e007/m3_model_smoke.py",
         "experiments/e007/model_candidates.json",
         ".github/workflows/m3-model-feasibility.yml",
-        "experiments/e009/local_agent.py"
+        "experiments/e009/local_agent.py",
+        "tests/test_m3_model_feasibility.py",
+        "research/M3_PREFLIGHT.md",
+        "project-control/TASKS.json",
+        "project-control/STATE.json",
+        "project-control/BLOCKERS.json",
+        "project-control/HANDOFF.md",
+        "project-control/OWNER_ACTIONS.md"
       ],
       "acceptance": [
         "Candidate tiers use public open-weight models with explicit licenses, model tags, quantization, runtime version, and immutable manifest digests",
@@ -1289,7 +1296,12 @@
         "https://docs.github.com/en/actions/reference/runners/github-hosted-runners",
         "https://ollama.com/ibm/granite4",
         "https://github.com/ollama/ollama/issues/19694"
-      ]
+      ],
+      "execution": {
+        "branch": "feat/m3-model-feasibility",
+        "base_branch": "research/reboot-core",
+        "integration_owner": "integrator"
+      }
     }
   ]
 }
