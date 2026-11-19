@@ -645,7 +645,11 @@
         "Agent factorial cohorts remain no-apply and ready-for-manual-dispatch records cannot already contain run IDs",
         "Negative tests cover changed frozen manifests, changed decision/registry files, duplicate IDs, missing run IDs, bad event chains, invalid statuses, and path traversal",
         "Validator runs in the project-control fast-CI precheck",
-        "Factorial cells that are not started due to infrastructure or budget abort remain explicit in the raw cohort artifact with a reason and ineligible classification"
+        "Factorial cells that are not started due to infrastructure or budget abort remain explicit in the raw cohort artifact with a reason and ineligible classification",
+        "Every affected decision ID in an event resolves to a unique decision in DECISIONS.json",
+        "Every cohort_manifest is no-apply in both registry metadata and the referenced manifest body, including draft records",
+        "Decision event timestamps include an explicit timezone",
+        "Run-ledger content is pinned by the latest decision event and every later ledger revision advances the hash chain"
       ],
       "expected_outputs": [
         "Git-blob-pinned preregistration registry",
