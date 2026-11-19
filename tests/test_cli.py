@@ -54,7 +54,7 @@ class UnifiedCLITests(unittest.TestCase):
 
     def test_check_and_inspect_use_explicit_service_path(self):
         checked = self.invoke("check", "--service", str(self.service))
-        self.assertEqual(checked.returncode, 0)
+        self.assertEqual(checked.returncode, 0, checked.stderr)
         self.assertEqual(json.loads(checked.stdout)["status"], "valid")
         inspected = self.invoke("inspect", "--service", str(self.service))
         self.assertEqual(inspected.returncode, 0)
@@ -62,7 +62,7 @@ class UnifiedCLITests(unittest.TestCase):
 
     def test_run_is_dry_run_only_until_handlers_are_registered(self):
         planned = self.invoke("run", "--service", str(self.service), "--method", "GET", "--path", "/items/42", "--dry-run")
-        self.assertEqual(planned.returncode, 0)
+        self.assertEqual(planned.returncode, 0, planned.stderr)
         result = json.loads(planned.stdout)
         self.assertFalse(result["execution_started"])
         self.assertEqual(result["path_parameters"], {"id": "42"})
