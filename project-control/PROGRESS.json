@@ -1,8 +1,17 @@
 {
   "schema_version": 1,
   "as_of": "2026-11-19",
-  "overall_status": "bootstrap",
-  "completion_claims": [],
+  "overall_status": "in_progress",
+  "completion_claims": [
+    {
+      "id": "CLAIM-CI-001",
+      "statement": "The unified CI workflow passed its configured Layer 0 and Layer 1 checks on the PR head; this does not assert a capacity benchmark or M3 model acceptance.",
+      "status": "verified",
+      "evidence_event_ids": [
+        "CP-UNIFIED-CI-RUN-026"
+      ]
+    }
+  ],
   "milestones": {
     "C0": {
       "status": "in_progress",
