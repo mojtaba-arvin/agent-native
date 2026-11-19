@@ -107,8 +107,8 @@ jobs:
         run: |
           set -euo pipefail
           for model in \
-            ibm/granite4:350m-h \
-            ibm/granite4:1b-h \
+            ibm/granite4:350m-h-q4_K_M \
+            ibm/granite4:1b-h-q4_K_M \
             ibm/granite4:3b-h
           do
             echo "Pulling public model $model"
