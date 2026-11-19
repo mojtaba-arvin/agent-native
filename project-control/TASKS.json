@@ -1412,7 +1412,7 @@
         "Do not claim model qualification from harness tests alone"
       ],
       "execution": {
-        "branch": "research/reboot-core",
+        "branch": "feat/m3-locked-cpu-rerun",
         "base_branch": "research/reboot-core",
         "integration_owner": "integrator"
       },
