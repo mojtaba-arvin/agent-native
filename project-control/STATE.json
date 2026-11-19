@@ -8,9 +8,9 @@
     "M3-005"
   ],
   "last_completed_task_id": "M3-004",
-  "last_known_green_revision": "6ff4c3fbdd9978e304b31b5b8d4f9766660efe84",
+  "last_known_green_revision": "b05c142857ae71ae51ad6e8e789f7655c0a0811d",
   "wip_limit": 2,
-  "next_action": "Review the fresh locked CPU feasibility run triggered by merging PR #102. Inspect every raw trace and compare the three tiers × two arms against the pre-fix run. Preserve the fixed budgets and pinned model lock; no model is qualified until full inspect/propose/validate/plan and local verification pass.",
+  "next_action": "Inspect workflow #44539287065 and its six raw CPU feasibility traces. Compare tool-definition names, schema-discovery steps, token use, and lifecycle completion against the pre-fix run. Keep the pinned model set and budgets unchanged; no model qualifies until full inspect/propose/validate/plan and local verification pass.",
   "active_workstreams": [
     {
       "task_id": "M3-005",
