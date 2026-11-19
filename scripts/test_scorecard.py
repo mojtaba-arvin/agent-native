@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import json
+import os
 import unittest
+from unittest.mock import patch
 
-from ci import parse_test_counts
+from ci import Suite, build_ci_summary, parse_test_counts
 from generate_scorecard import build_scorecard, validate_scorecard
 
 
@@ -127,6 +129,31 @@ class EvidenceScorecardTests(unittest.TestCase):
             for event in self.ledger_events
         )
         self.progress_raw = json.dumps(self.progress, sort_keys=True).encode()
+
+    def test_ci_summary_binds_run_head_checkout_and_parsed_counts(self):
+        suite = Suite("unit", ("python", "-m", "unittest"), ("scripts/**",))
+        output = "Ran 3 tests in 0.01s\n\nOK (skipped=1)\n"
+        with patch.dict(os.environ, {
+            "AGENT_NATIVE_SOURCE_SHA": "a" * 40,
+            "GITHUB_SHA": "b" * 40,
+            "AGENT_NATIVE_SOURCE_BRANCH": "feat/example",
+            "GITHUB_RUN_ID": "888",
+            "GITHUB_RUN_ATTEMPT": "2",
+            "GITHUB_EVENT_NAME": "pull_request",
+            "GITHUB_REPOSITORY": "mojtaba-arvin/agent-native",
+        }, clear=True):
+            summary = build_ci_summary(
+                suites=[suite],
+                results=[("unit", 0, 0.01, output)],
+                paths=["scripts/test_scorecard.py"],
+                base_sha="c" * 40,
+                elapsed_seconds=0.02,
+            )
+        self.assertEqual(summary["source"]["commit_sha"], "a" * 40)
+        self.assertEqual(summary["source"]["checkout_sha"], "b" * 40)
+        self.assertEqual(summary["source"]["workflow_run_id"], 888)
+        self.assertEqual(summary["test_counts"]["total"], 3)
+        self.assertEqual(summary["test_counts"]["skipped"], 1)
 
     def test_ci_runner_parses_reported_test_and_skip_counts(self):
         output = "Ran 12 tests in 0.05s\n\nOK (skipped=3)\n"
