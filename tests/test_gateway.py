@@ -116,6 +116,16 @@ class AgentGatewayTests(unittest.TestCase):
             self.gateway.propose("catalog", "get_item", {"id": "not-a-uuid"}, context)
         self.assertEqual(caught.exception.code, "INVALID_INPUT")
 
+    def test_ir_non_empty_validation_rules_are_enforced_for_proposals(self):
+        context = identity("tenant-a", "items.create", "/items")
+        with self.assertRaises(GatewayError) as caught:
+            self.gateway.propose(
+                "catalog", "create_item",
+                {"name": "   ", "idempotency_key": "idem-1"},
+                context,
+            )
+        self.assertEqual(caught.exception.code, "INVALID_INPUT")
+
     def test_stale_validation_cannot_be_used_to_plan_another_proposal(self):
         context = identity("tenant-a", "items.read", "/items")
         first = self.gateway.propose("catalog", "get_item", {"id": ITEM_ID}, context)
