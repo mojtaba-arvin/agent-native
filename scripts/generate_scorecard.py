@@ -116,11 +116,26 @@ def build_scorecard(summary_raw: bytes, ledger_raw: bytes, progress_raw: bytes) 
         status = suite.get("status")
         if not isinstance(status, str) or status not in {"passed", "failed"}:
             raise ValueError(f"CI suite {name} has an unsupported status")
-        for field in ("test_count", "skipped_test_count", "exit_code"):
-            if type(suite.get(field)) is not int or suite[field] < 0:
-                raise ValueError(f"CI suite {name} has invalid {field}")
-        if suite["skipped_test_count"] > suite["test_count"]:
-            raise ValueError(f"CI suite {name} skipped count exceeds total tests")
+        tests = suite.get("test_count")
+        skipped = suite.get("skipped_test_count")
+        count_source = suite.get("test_count_source")
+        if type(suite.get("exit_code")) is not int or suite["exit_code"] < 0:
+            raise ValueError(f"CI suite {name} has invalid exit_code")
+        if tests is None:
+            if skipped is not None or count_source != "not-reported":
+                raise ValueError(f"CI suite {name} must preserve unreported test counts as null")
+        else:
+            if type(tests) is not int or tests < 0:
+                raise ValueError(f"CI suite {name} has invalid test_count")
+            if type(skipped) is not int or skipped < 0 or skipped > tests:
+                raise ValueError(f"CI suite {name} has invalid skipped_test_count")
+            if count_source != "unittest-output":
+                raise ValueError(f"CI suite {name} has an invalid test_count_source")
+        negative_self_tests = suite.get("negative_self_test_count")
+        if negative_self_tests is not None and (
+            type(negative_self_tests) is not int or negative_self_tests < 0
+        ):
+            raise ValueError(f"CI suite {name} has invalid negative_self_test_count")
         if (status == "passed") != (suite["exit_code"] == 0):
             raise ValueError(f"CI suite {name} status does not match its exit code")
         duration = suite.get("elapsed_seconds")
@@ -139,8 +154,10 @@ def build_scorecard(summary_raw: bytes, ledger_raw: bytes, progress_raw: bytes) 
             "status": status,
             "exit_code": suite["exit_code"],
             "elapsed_seconds": duration,
-            "test_count": suite["test_count"],
-            "skipped_test_count": suite["skipped_test_count"],
+            "test_count": tests,
+            "skipped_test_count": skipped,
+            "negative_self_test_count": negative_self_tests,
+            "test_count_source": count_source,
             "output_sha256": output_sha,
         })
 
@@ -155,8 +172,12 @@ def build_scorecard(summary_raw: bytes, ledger_raw: bytes, progress_raw: bytes) 
 
     passed = sum(item["status"] == "passed" for item in normalized_suites)
     failed = len(normalized_suites) - passed
-    total_tests = sum(item["test_count"] for item in normalized_suites)
-    skipped_tests = sum(item["skipped_test_count"] for item in normalized_suites)
+    known_test_counts = [item["test_count"] for item in normalized_suites if item["test_count"] is not None]
+    known_skipped_counts = [item["skipped_test_count"] for item in normalized_suites if item["skipped_test_count"] is not None]
+    total_tests = sum(known_test_counts)
+    skipped_tests = sum(known_skipped_counts)
+    unknown_suites = [item["name"] for item in normalized_suites if item["test_count"] is None]
+    negative_self_tests = [item["negative_self_test_count"] for item in normalized_suites if item["negative_self_test_count"] is not None]
     result = summary.get("result")
     counts = summary.get("test_counts")
     if not isinstance(result, dict) or not isinstance(counts, dict):
@@ -180,17 +201,22 @@ def build_scorecard(summary_raw: bytes, ledger_raw: bytes, progress_raw: bytes) 
     ):
         raise ValueError("CI summary suite totals do not match individual suite results")
     if (
-        type(counts.get("total")) is not int
-        or type(counts.get("skipped")) is not int
-        or counts.get("total") != total_tests
-        or counts.get("skipped") != skipped_tests
+        type(counts.get("total_known")) is not int
+        or type(counts.get("skipped_known")) is not int
+        or counts.get("total_known") != total_tests
+        or counts.get("skipped_known") != skipped_tests
+        or counts.get("complete") is not (not unknown_suites)
+        or counts.get("unknown_suites") != unknown_suites
+        or counts.get("negative_self_test_cases") != (sum(negative_self_tests) if negative_self_tests else None)
     ):
-        raise ValueError("CI summary test totals do not match individual suite counts")
+        raise ValueError("CI summary test totals or unknown-count markers do not match individual suite records")
     by_suite = counts.get("by_suite")
     expected_by_suite = {
         item["name"]: {
             "tests": item["test_count"],
             "skipped": item["skipped_test_count"],
+            "negative_self_test_cases": item["negative_self_test_count"],
+            "source": item["test_count_source"],
         }
         for item in normalized_suites
     }
@@ -262,8 +288,11 @@ def build_scorecard(summary_raw: bytes, ledger_raw: bytes, progress_raw: bytes) 
             "elapsed_seconds": result.get("elapsed_seconds"),
         },
         "test_counts": {
-            "total": total_tests,
-            "skipped": skipped_tests,
+            "total_known": total_tests,
+            "skipped_known": skipped_tests,
+            "complete": not unknown_suites,
+            "unknown_suites": unknown_suites,
+            "negative_self_test_cases": sum(negative_self_tests) if negative_self_tests else None,
             "by_suite": expected_by_suite,
         },
         "suites": normalized_suites,
