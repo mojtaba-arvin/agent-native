@@ -10,9 +10,9 @@
     "CP-005"
   ],
   "last_completed_task_id": "CP-006",
-  "last_known_green_revision": "4aa880054ffd624eecd5239877a0f04685333a9a",
+  "last_known_green_revision": "6df57bfe7ab62ee69c6edd9eb69c2b7f73a190c2",
   "wip_limit": 2,
-  "next_action": "Complete CP-005 claims validator and negative tests; verify fast CI. PR #65 has the shared-runner threshold correction and a fresh all-green run in progress; this branch is based on its latest head.",
+  "next_action": "Run the updated claims gate against the newly added C1 criterion and seven completion claims. If Layer 0 and Layer 1 pass, close CP-005 and proceed to CP-003/M0 research integrity audit.",
   "recovery": {
     "unchanged_failure_limit": 2,
     "no_progress_attempt_limit": 3,
