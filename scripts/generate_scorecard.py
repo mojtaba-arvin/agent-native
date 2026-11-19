@@ -205,7 +205,7 @@ def build_scorecard(summary_raw: bytes, ledger_raw: bytes, progress_raw: bytes) 
         or type(counts.get("skipped_known")) is not int
         or counts.get("total_known") != total_tests
         or counts.get("skipped_known") != skipped_tests
-        or counts.get("complete") is not (not unknown_suites)
+        or counts.get("complete") != (not unknown_suites)
         or counts.get("unknown_suites") != unknown_suites
         or counts.get("negative_self_test_cases") != (sum(negative_self_tests) if negative_self_tests else None)
     ):
