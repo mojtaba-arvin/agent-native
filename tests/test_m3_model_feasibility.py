@@ -68,6 +68,14 @@ class M3ModelFeasibilityTests(unittest.TestCase):
             [item["tier"] for item in candidates["models"]],
             ["weak", "medium", "strong"],
         )
+        self.assertEqual(
+            [item["tag"] for item in candidates["models"]],
+            [
+                "ibm/granite4:350m-h-q4_K_M",
+                "ibm/granite4:1b-h-q4_K_M",
+                "ibm/granite4:3b-h",
+            ],
+        )
         self.assertTrue(all(item["manifest_sha256"] is None for item in candidates["models"]))
         self.assertTrue(all(item["quantization_expected"] == "Q4_K_M" for item in candidates["models"]))
 
