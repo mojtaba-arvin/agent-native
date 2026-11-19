@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "service_id": "catalog",
+  "service_name": "Catalog",
+  "version": "1",
+  "source": "service.an",
+  "handlers": {
+    "get_item": "catalog.get_item",
+    "create_item": "catalog.create_item",
+    "get_item_by_name": "catalog.get_item_by_name",
+    "submit_rebuild": "catalog.submit_rebuild",
+    "get_job": "catalog.get_job",
+    "cancel_job": "catalog.cancel_job"
+  },
+  "policy": "policy.json"
+}
