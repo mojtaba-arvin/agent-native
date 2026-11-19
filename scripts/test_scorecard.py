@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 from ci import Suite, build_ci_summary, parse_test_counts
@@ -160,7 +161,7 @@ class EvidenceScorecardTests(unittest.TestCase):
         self.assertEqual(parse_test_counts(output), (12, 3))
 
     def test_fast_workflow_generates_and_uploads_scorecard_even_after_failure(self):
-        root = __import__("pathlib").Path(__file__).resolve().parents[1]
+        root = Path(__file__).resolve().parents[1]
         workflow = (root / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
         fast_job = workflow.split("  fast:\n", 1)[1].split("\n  extended:", 1)[0]
         self.assertIn("--json-summary", fast_job)
