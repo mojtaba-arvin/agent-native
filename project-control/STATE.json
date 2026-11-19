@@ -2,12 +2,21 @@
   "updated_at": "2026-11-19",
   "active_branch": "research/reboot-core",
   "baseline_branch": "research/reboot-core",
-  "baseline_commit": "0e8e8fe67f410add6d851584eeb7434f2f707aa8",
+  "baseline_commit": "99c119f6048b3422ede01a152b26eabfe6a84ab7",
   "current_milestone": "M3",
-  "active_task_ids": [],
+  "active_task_ids": [
+    "M3-000"
+  ],
   "last_completed_task_id": "M2-004",
-  "last_known_green_revision": "0e8e8fe67f410add6d851584eeb7434f2f707aa8",
+  "last_known_green_revision": "b68f4dd108d18b1ea05e1e594c5d5fa74e6b84c4",
   "wip_limit": 2,
-  "next_action": "M3-001 is unblocked by M2 but remains blocked on a qualifying zero-cost isolated agent/evaluator path. Continue evaluator isolation and free-tier model feasibility work; keep the cohort non-executable, do not treat CPU-only Qwen3 diagnostics as M3 acceptance, and do not incur paid API/GPU spend. C3 independent peer review remains open but does not block M3 preparation.",
-  "active_workstreams": []
+  "next_action": "Implement M3-000 on feat/m3-evaluator-isolation: separate ephemeral agent/evaluator jobs, no-oracle agent artifact contract, resource-limited no-network agent container, evaluator-only protected environment, and negative tests. Use GitHub Actions free usage only; do not dispatch a real model cohort or incur paid API/GPU spend.",
+  "active_workstreams": [
+    {
+      "task_id": "M3-000",
+      "branch": "feat/m3-evaluator-isolation",
+      "base_branch": "research/reboot-core",
+      "integration_owner": "integrator"
+    }
+  ]
 }
