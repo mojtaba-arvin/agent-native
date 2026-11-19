@@ -148,6 +148,17 @@ def _validate_events(
             value = event.get(field)
             if not isinstance(value, str) or not SHA1_RE.fullmatch(value):
                 errors.append(f"decision event {event_id}: {field} must be a Git blob SHA-1")
+        if "run_ledger_blob_sha1" in event or "previous_run_ledger_blob_sha1" in event:
+            if "run_ledger_blob_sha1" not in event or "previous_run_ledger_blob_sha1" not in event:
+                errors.append(f"decision event {event_id}: run-ledger pin fields must be supplied together")
+            current_ledger_hash = event.get("run_ledger_blob_sha1")
+            previous_ledger_hash = event.get("previous_run_ledger_blob_sha1")
+            if not isinstance(current_ledger_hash, str) or not SHA1_RE.fullmatch(current_ledger_hash):
+                errors.append(f"decision event {event_id}: run_ledger_blob_sha1 must be a Git blob SHA-1")
+            if previous_ledger_hash is not None and (
+                not isinstance(previous_ledger_hash, str) or not SHA1_RE.fullmatch(previous_ledger_hash)
+            ):
+                errors.append(f"decision event {event_id}: previous_run_ledger_blob_sha1 must be null or a Git blob SHA-1")
         digest = event.get("event_hash")
         if not isinstance(digest, str) or not SHA256_RE.fullmatch(digest):
             errors.append(f"decision event {event_id}: event_hash must be SHA-256")
@@ -163,6 +174,8 @@ def _validate_events(
             ):
                 if event.get(field) is not None:
                     errors.append(f"decision event {event_id}: first event {field} must be null")
+            if "run_ledger_blob_sha1" in event and event.get("previous_run_ledger_blob_sha1") is not None:
+                errors.append(f"decision event {event_id}: first run-ledger pin must have a null previous hash")
         else:
             if event.get("previous_event_hash") != previous.get("event_hash"):
                 errors.append(f"decision event {event_id}: broken previous_event_hash chain")
@@ -173,6 +186,11 @@ def _validate_events(
             ):
                 if event.get(previous_field) != previous.get(current_field):
                     errors.append(f"decision event {event_id}: {previous_field} does not match prior event")
+            if "run_ledger_blob_sha1" in event:
+                if event.get("previous_run_ledger_blob_sha1") != previous.get("run_ledger_blob_sha1"):
+                    errors.append(f"decision event {event_id}: previous_run_ledger_blob_sha1 does not match prior event")
+            elif "run_ledger_blob_sha1" in previous:
+                errors.append(f"decision event {event_id}: run-ledger pin was dropped from the event chain")
         previous = event
 
     if not events:
@@ -195,6 +213,17 @@ def _validate_events(
             errors.append(
                 f"{path}: current Git blob SHA-1 {actual} is not pinned by the latest decision event"
             )
+    if "run_ledger_blob_sha1" in latest:
+        run_ledger_path = root / "project-control" / "RUN_LEDGER.jsonl"
+        try:
+            actual = git_blob_sha1(run_ledger_path)
+        except OSError as exc:
+            errors.append(f"{run_ledger_path}: cannot hash pinned run ledger: {exc}")
+        else:
+            if latest.get("run_ledger_blob_sha1") != actual:
+                errors.append(
+                    f"{run_ledger_path}: current Git blob SHA-1 {actual} is not pinned by the latest decision event"
+                )
     return by_id
 
 
