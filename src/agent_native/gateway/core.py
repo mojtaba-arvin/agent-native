@@ -38,6 +38,10 @@ class Proposal:
     proposal_sha256: str
     no_apply: bool = True
 
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "inputs", _freeze_json(self.inputs))
+        object.__setattr__(self, "effects", tuple(self.effects))
+
 
 @dataclass(frozen=True)
 class ValidationResult:
@@ -49,6 +53,9 @@ class ValidationResult:
     effects: tuple[str, ...]
     effect_mode: str
     allowed: bool = True
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "effects", tuple(self.effects))
 
 
 @dataclass(frozen=True)
@@ -66,6 +73,10 @@ class Plan:
     plan_sha256: str
     no_apply: bool = True
     apply_endpoint_exposed: bool = False
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "inputs", _freeze_json(self.inputs))
+        object.__setattr__(self, "effects", tuple(self.effects))
 
 
 def _freeze_json(value: Any) -> Any:
@@ -147,6 +158,8 @@ class AgentGateway:
         resource: str,
         identity: RequestContext,
     ) -> tuple[str, tuple[str, ...], str]:
+        if not isinstance(identity, RequestContext):
+            raise GatewayError("INVALID_REQUEST_CONTEXT")
         effects = tuple(sorted(operation["effects"]))
         try:
             effect_mode = classify_effects(effects)
@@ -209,7 +222,7 @@ class AgentGateway:
             operation_name=operation_name,
             method=operation["method"],
             resource=resource,
-            inputs=_freeze_json(normalized_inputs),
+            inputs=normalized_inputs,
             required_capability=capability,
             effects=effects,
             effect_mode=effect_mode,
@@ -274,8 +287,11 @@ class AgentGateway:
         if not isinstance(validation, ValidationResult) or not validation.allowed:
             raise GatewayError("VALIDATION_REQUIRED")
         fresh = self.validate(proposal, identity)
-        if fresh.proposal_sha256 != validation.proposal_sha256:
+        if fresh != validation:
             raise GatewayError("VALIDATION_STALE")
+        # Build the plan only from the freshly revalidated immutable contract;
+        # never carry mutable or forged validation/proposal containers forward.
+        effects = fresh.effects
         plan_payload = {
             "service_id": proposal.service_id,
             "operation_name": proposal.operation_name,
@@ -283,7 +299,7 @@ class AgentGateway:
             "resource": proposal.resource,
             "inputs": _thaw_json(proposal.inputs),
             "required_capability": proposal.required_capability,
-            "effects": list(proposal.effects),
+            "effects": list(effects),
             "effect_mode": proposal.effect_mode,
             "candidate_sha256": proposal.candidate_sha256,
             "proposal_sha256": proposal.proposal_sha256,
@@ -296,9 +312,9 @@ class AgentGateway:
             operation_name=proposal.operation_name,
             method=proposal.method,
             resource=proposal.resource,
-            inputs=_freeze_json(_thaw_json(proposal.inputs)),
+            inputs=_thaw_json(proposal.inputs),
             required_capability=proposal.required_capability,
-            effects=proposal.effects,
+            effects=effects,
             effect_mode=proposal.effect_mode,
             candidate_sha256=proposal.candidate_sha256,
             proposal_sha256=proposal.proposal_sha256,

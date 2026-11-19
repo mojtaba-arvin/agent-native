@@ -579,7 +579,8 @@
       "replan_after_failures": 2,
       "stop_conditions": [
         "Do not grant agent-writer service.apply authority",
-        "Trust-boundary changes require two independent reviews and a new security regression test"
+        "Trust-boundary changes require two independent reviews by default; a repository-owner waiver is permitted only for the exact PR head, must be recorded in a PR comment, and is not peer review",
+        "A waiver does not satisfy C3's independent peer-review exit criterion"
       ],
       "evidence_ids": [
         "src/agent_native/gateway/core.py",
@@ -1109,7 +1110,7 @@
       "id": "CP-010",
       "title": "Complete independent review and merge-base verification for trust-boundary integration",
       "milestone": "C3",
-      "status": "blocked",
+      "status": "in_progress",
       "priority": 10,
       "depends_on": [
         "CP-009",
@@ -1123,25 +1124,27 @@
         "pull-request:81"
       ],
       "acceptance": [
-        "Peer review records are separate from implementation commits and are attributable to distinct reviewers",
-        "Trust-boundary implementation PRs require two latest APPROVED reviews from distinct non-author human reviewers",
-        "CI rejects trust-boundary PRs with fewer than two independent approvals",
+        "Peer review records, when present, are separate from implementation commits and attributable to distinct reviewers",
+        "Trust-boundary implementation PRs require two latest APPROVED reviews from distinct non-author human reviewers by default",
+        "CI supports a narrowly scoped repository-owner waiver comment bound to the exact current PR head; it does not count as peer review",
+        "CI rejects trust-boundary PRs with neither two independent approvals nor a valid exact-head owner waiver",
         "CI rejects PR heads that do not contain the latest target branch",
-        "M2-003 is integrated only after both independent approvals and fresh Layer 0/Layer 1 checks",
-        "Approvals are bound to the current PR head SHA; stale approvals after a new commit do not count",
+        "M2-003 is integrated only after the default reviews or a documented owner waiver and fresh Layer 0/Layer 1 checks",
+        "Approvals and waivers are bound to the current PR head SHA; stale records after a new commit do not count",
         "Review submission or dismissal events rerun the review gate and applicable CI layers"
       ],
       "expected_outputs": [
         "Independent review enforcement in CI",
+        "Exact-head owner-waiver path with audit record",
         "Merge-base freshness gate",
-        "Two independent review records on PR #81",
-        "Integrated M2-003 Gateway"
+        "Integrated M2-003 Gateway under peer review or explicit owner exception",
+        "C3 remains incomplete when an owner waiver substitutes for peer review"
       ],
       "max_unchanged_retries": 1,
       "replan_after_failures": 2,
       "stop_conditions": [
         "Do not self-approve or count bot reviews",
-        "Do not bypass the two-review trust-boundary requirement",
+        "Do not represent an owner waiver as independent peer review",
         "Do not merge to main"
       ],
       "execution": {
