@@ -28,6 +28,9 @@ contains no oracle fixtures, provider credentials, or hidden expected answers.
 
 ## Owner setup still required
 
+See [OWNER_SETUP.md](OWNER_SETUP.md) for the complete security, runner, model-budget, preregistration, and preflight checklist.
+
+
 - Configure a protected GitHub Environment named m3-evaluator.
 - Provision the oracle decryption key only to that environment (never to the
   agent job).
