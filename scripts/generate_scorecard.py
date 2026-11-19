@@ -89,6 +89,9 @@ def build_scorecard(summary_raw: bytes, ledger_raw: bytes, progress_raw: bytes) 
         raise ValueError("CI scorecards require a positive workflow run attempt")
     if not isinstance(commit_sha, str) or not SHA1_RE.fullmatch(commit_sha):
         raise ValueError("CI scorecards require the exact 40-character source commit SHA")
+    checkout_sha = source.get("checkout_sha", commit_sha)
+    if not isinstance(checkout_sha, str) or not SHA1_RE.fullmatch(checkout_sha):
+        raise ValueError("CI scorecards require the exact 40-character workflow checkout SHA")
     if not isinstance(source.get("branch"), str) or not source["branch"]:
         raise ValueError("CI scorecards require a source branch")
     if not isinstance(summary.get("generated_at_utc"), str):
@@ -218,6 +221,7 @@ def build_scorecard(summary_raw: bytes, ledger_raw: bytes, progress_raw: bytes) 
             "workflow_run_id": run_id,
             "workflow_run_attempt": attempt,
             "commit_sha": commit_sha,
+            "checkout_sha": checkout_sha,
             "branch": source["branch"],
             "base_sha": source.get("base_sha"),
             "event_name": source.get("event_name"),
