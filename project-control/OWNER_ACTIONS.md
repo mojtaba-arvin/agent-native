@@ -62,3 +62,12 @@ authorized. The existing Qwen3 CPU workflow remains diagnostic only.
 No additional ChatGPT/GitHub code permission is required for ordinary branch,
 file, PR, and CI work. Administrative settings, reviewer invitations, and
 secrets remain owner-controlled.
+
+
+## M3-003 — zero-cost model feasibility
+
+- [ ] Run the existing E009 local agent harness against provisional open-weight CPU model tiers on the public-repository GitHub Actions runner.
+- [ ] Pin Ollama runtime image and immutable model manifest digests after the bootstrap smoke.
+- [ ] Preserve all model failures, tool traces, token usage, and wall-clock measurements; do not retry selectively.
+- [ ] Keep model execution no-network, no-apply, and free of hidden-oracle data.
+- [ ] Do not dispatch the M3 hidden-oracle cohort until model selection and protected Environment custody are verified.

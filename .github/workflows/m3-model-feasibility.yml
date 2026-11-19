@@ -1,0 +1,330 @@
+name: M3 Free CPU Model Feasibility
+
+on:
+  push:
+    branches:
+      - research/reboot-core
+    paths:
+      - ".github/workflows/m3-model-feasibility.yml"
+      - "experiments/e007/m3_model_smoke.py"
+      - "experiments/e007/model_candidates.json"
+      - "experiments/e009/local_agent.py"
+      - "experiments/e009/agent_gateway.py"
+      - "experiments/e009/AGENT_TASK_DELTA.md"
+      - "experiments/e007/evaluator/sandbox_probe.py"
+      - "research/M3_MODEL_FEASIBILITY.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    outputs:
+      allowed: ${{ steps.guard.outputs.allowed }}
+    steps:
+      - id: guard
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" == "refs/heads/research/reboot-core" && ( "$GITHUB_EVENT_NAME" == "push" || "$GITHUB_EVENT_NAME" == "workflow_dispatch" ) ]]; then
+            echo "allowed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "allowed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  feasibility:
+    needs: guard
+    if: needs.guard.outputs.allowed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      OLLAMA_IMAGE: ollama/ollama@sha256:a717bfc1c56acfc2e85d3109bd40a7646258ec9062c40cea83b9ed0927eb4223
+      PYTHON_IMAGE: python:3.12-slim@sha256:5e2bdb1b0d542d5039cffb8181c65930093949194a65c365dfb1b0fe13a4fa5b
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 1
+
+      - name: Prepare isolated model cache and output
+        shell: bash
+        run: |
+          set -euo pipefail
+          MODEL_DIR="$RUNNER_TEMP/ollama-models"
+          OLLAMA_HOME="$RUNNER_TEMP/ollama-home"
+          OUTPUT_DIR="$RUNNER_TEMP/m3-model-output"
+          printf 'MODEL_DIR=%s\n' "$MODEL_DIR" >> "$GITHUB_ENV"
+          printf 'OLLAMA_HOME=%s\n' "$OLLAMA_HOME" >> "$GITHUB_ENV"
+          printf 'OUTPUT_DIR=%s\n' "$OUTPUT_DIR" >> "$GITHUB_ENV"
+          mkdir -p "$MODEL_DIR" "$OLLAMA_HOME" "$OUTPUT_DIR"
+          chmod 700 "$MODEL_DIR" "$OLLAMA_HOME" "$OUTPUT_DIR"
+          printf 'RUNNER_UID=%s\n' "$(id -u)" >> "$GITHUB_ENV"
+          printf 'RUNNER_GID=%s\n' "$(id -g)" >> "$GITHUB_ENV"
+          python3 - "$OUTPUT_DIR/runner-info.json" "$MODEL_DIR" <<'PY'
+          import json
+          import os
+          import platform
+          import shutil
+          import sys
+          from pathlib import Path
+
+          mem_total = None
+          for line in Path("/proc/meminfo").read_text(encoding="utf-8").splitlines():
+              if line.startswith("MemTotal:"):
+                  mem_total = int(line.split()[1]) * 1024
+                  break
+          disk = shutil.disk_usage(sys.argv[2])
+          record = {
+              "os": platform.platform(),
+              "architecture": platform.machine(),
+              "logical_cpu_count": os.cpu_count(),
+              "memory_total_bytes": mem_total,
+              "model_disk_total_bytes": disk.total,
+              "model_disk_free_bytes": disk.free,
+          }
+          Path(sys.argv[1]).write_text(json.dumps(record, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+          PY
+
+      - name: Pull pinned Ollama runtime image
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker pull --platform linux/amd64 "$OLLAMA_IMAGE"
+          docker pull --platform linux/amd64 "$PYTHON_IMAGE"
+
+      - name: Start temporary networked pull service
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run -d \
+            --name ollama-pull \
+            --platform linux/amd64 \
+            --network bridge \
+            -p 127.0.0.1:11434:11434 \
+            --user "$RUNNER_UID:$RUNNER_GID" \
+            --memory=4g --cpus=2 --pids-limit=128 \
+            --read-only --cap-drop ALL --security-opt no-new-privileges \
+            --tmpfs "/tmp:rw,noexec,nosuid,nodev,size=1g,uid=$RUNNER_UID,gid=$RUNNER_GID" \
+            --mount "type=bind,src=$MODEL_DIR,dst=/models" \
+            --mount "type=bind,src=$OLLAMA_HOME,dst=/home/ollama" \
+            -e HOME=/home/ollama \
+            -e OLLAMA_MODELS=/models \
+            -e OLLAMA_HOST=0.0.0.0:11434 \
+            "$OLLAMA_IMAGE" serve
+          ready=false
+          for attempt in $(seq 1 40); do
+            if docker exec -e OLLAMA_HOST=127.0.0.1:11434 ollama-pull ollama list >/dev/null 2>&1; then
+              ready=true
+              break
+            fi
+            sleep 2
+          done
+          test "$ready" = true
+
+      - name: Download public Granite model weights
+        shell: bash
+        run: |
+          set -euo pipefail
+          for model in \
+            ibm/granite4:350m-h-q4_K_M \
+            ibm/granite4:1b-h-q4_K_M \
+            ibm/granite4:3b-h
+          do
+            echo "Pulling public model $model"
+            docker exec -e OLLAMA_HOST=127.0.0.1:11434 ollama-pull ollama pull "$model"
+          done
+          python3 - "$GITHUB_WORKSPACE/experiments/e007/model_candidates.json" "$OUTPUT_DIR/model-details.json" <<'PY'
+          import json
+          import sys
+          import urllib.request
+          from pathlib import Path
+
+          candidates = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+          records = []
+          for model in candidates["models"]:
+              payload = json.dumps({"name": model["tag"]}).encode("utf-8")
+              request = urllib.request.Request(
+                  "http://127.0.0.1:11434/api/show",
+                  data=payload,
+                  headers={"Content-Type": "application/json"},
+                  method="POST",
+              )
+              with urllib.request.urlopen(request, timeout=60) as response:
+                  details = json.loads(response.read())
+              model_details = details.get("details", {})
+              quantization = model_details.get("quantization_level")
+              if quantization != model["quantization_expected"]:
+                  raise SystemExit(
+                      f"unexpected quantization for {model['tag']}: {quantization!r}"
+                  )
+              records.append({
+                  "tag": model["tag"],
+                  "format": model_details.get("format"),
+                  "family": model_details.get("family"),
+                  "families": model_details.get("families"),
+                  "parameter_size": model_details.get("parameter_size"),
+                  "quantization_level": quantization,
+              })
+          Path(sys.argv[2]).write_text(
+              json.dumps({"schema_version": 1, "models": records}, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+          PY
+          docker stop ollama-pull
+          docker rm ollama-pull
+
+      - name: Record immutable model manifests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - "$MODEL_DIR" "$GITHUB_WORKSPACE/experiments/e007/model_candidates.json" "$OUTPUT_DIR/model-manifests.json" <<'PY'
+          import hashlib
+          import json
+          import shutil
+          import sys
+          from pathlib import Path
+
+          model_dir = Path(sys.argv[1])
+          candidates = json.loads(Path(sys.argv[2]).read_text(encoding="utf-8"))
+          details_data = json.loads((Path(sys.argv[3]).parent / "model-details.json").read_text(encoding="utf-8"))
+          details_by_tag = {item["tag"]: item for item in details_data["models"]}
+          output = Path(sys.argv[3])
+          records = []
+          for item in candidates["models"]:
+              tag = item["tag"]
+              namespace, model_and_tag = tag.split("/", 1)
+              model_name, model_tag = model_and_tag.split(":", 1)
+              manifest_path = (
+                  model_dir / "manifests" / "registry.ollama.ai"
+                  / namespace / model_name / model_tag
+              )
+              raw = manifest_path.read_bytes()
+              manifest = json.loads(raw)
+              layers = manifest.get("layers", [])
+              model_details = details_by_tag[tag]
+              records.append({
+                  "tag": tag,
+                  "manifest_sha256": hashlib.sha256(raw).hexdigest(),
+                  "quantization_level": model_details["quantization_level"],
+                  "parameter_size": model_details.get("parameter_size"),
+                  "format": model_details.get("format"),
+                  "family": model_details.get("family"),
+                  "config_digest": manifest["config"]["digest"],
+                  "model_size_bytes": sum(
+                      layer.get("size", 0) for layer in layers
+                      if "model" in layer.get("mediaType", "")
+                  ),
+                  "layers": [
+                      {"digest": layer.get("digest"), "size": layer.get("size"), "media_type": layer.get("mediaType")}
+                      for layer in layers
+          disk = shutil.disk_usage(model_dir)
+          disk_after_pull = {"total_bytes": disk.total, "used_bytes": disk.used, "free_bytes": disk.free, "model_layers_total_bytes": sum(item["model_size_bytes"] for item in records)}
+          output.write_text(json.dumps({"schema_version": 1, "disk_after_pull": disk_after_pull, "models": records}, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+          PY
+
+      - name: Start isolated no-network Ollama model server
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run -d \
+            --name ollama-smoke \
+            --platform linux/amd64 \
+            --network none \
+            --user "$RUNNER_UID:$RUNNER_GID" \
+            --memory=10g --cpus=3 --pids-limit=128 \
+            --read-only \
+            --cap-drop ALL \
+            --security-opt no-new-privileges \
+            --tmpfs "/tmp:rw,noexec,nosuid,nodev,size=512m,uid=$RUNNER_UID,gid=$RUNNER_GID" \
+            --tmpfs "/home/ollama:rw,noexec,nosuid,nodev,size=64m,uid=$RUNNER_UID,gid=$RUNNER_GID" \
+            --mount "type=bind,src=$MODEL_DIR,dst=/models,readonly" \
+            -e HOME=/home/ollama \
+            -e OLLAMA_MODELS=/models \
+            -e OLLAMA_HOST=127.0.0.1:11434 \
+            -e OLLAMA_NUM_PARALLEL=1 \
+            -e OLLAMA_MAX_LOADED_MODELS=1 \
+            "$OLLAMA_IMAGE" serve
+          ready=false
+          for attempt in $(seq 1 40); do
+            if docker exec ollama-smoke ollama list >/dev/null 2>&1; then
+              ready=true
+              break
+            fi
+            sleep 2
+          done
+          test "$ready" = true
+          ollama_version="$(docker exec ollama-smoke ollama --version 2>&1 | tail -n 1)"
+          printf '%s\n' "$ollama_version" > "$OUTPUT_DIR/ollama-version.txt"
+          docker inspect ollama-smoke | python3 -c '
+          import json,sys
+          c=json.load(sys.stdin)[0]
+          h=c["HostConfig"]
+          mounts={m["Destination"]:m for m in c.get("Mounts",[])}
+          out={
+            "user":c["Config"].get("User"),
+            "network_mode":h.get("NetworkMode"),
+            "memory_bytes":h.get("Memory"),
+            "nano_cpus":h.get("NanoCpus"),
+            "pids_limit":h.get("PidsLimit"),
+            "readonly_rootfs":h.get("ReadonlyRootfs"),
+            "cap_drop":h.get("CapDrop") or [],
+            "security_opt":h.get("SecurityOpt") or [],
+            "tmp_noexec":"noexec" in h.get("Tmpfs",{}).get("/tmp",""),
+            "model_mount_read_only":bool(mounts.get("/models") and not mounts["/models"].get("RW",True)),
+          }
+          open("'"$OUTPUT_DIR"'/ollama-server-sandbox.json","w",encoding="utf-8").write(json.dumps(out,indent=2,sort_keys=True)+"\n")
+          '
+
+      - name: Run real E009 agent feasibility trials (no apply, no external network)
+        shell: bash
+        run: |
+          set -euo pipefail
+          ollama_version="$(cat "$OUTPUT_DIR/ollama-version.txt")"
+          docker run --rm \
+            --name m3-model-agent \
+            --platform linux/amd64 \
+            --network container:ollama-smoke \
+            --user "$RUNNER_UID:$RUNNER_GID" \
+            --memory=2g --cpus=1 --pids-limit=64 \
+            --read-only \
+            --cap-drop ALL \
+            --security-opt no-new-privileges \
+            --tmpfs "/tmp:rw,noexec,nosuid,nodev,size=512m,uid=$RUNNER_UID,gid=$RUNNER_GID" \
+            --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/repo,readonly" \
+            --mount "type=bind,src=$OUTPUT_DIR,dst=/out" \
+            -e PYTHONPATH=/repo/experiments/e009:/repo/experiments/e007/evaluator \
+            -e PYTHONDONTWRITEBYTECODE=1 \
+            -e HOME=/tmp \
+            -e MODEL_MANIFESTS=/out/model-manifests.json \
+            -e RUNNER_INFO=/out/runner-info.json \
+            -e OLLAMA_SERVER_CONFIG=/out/ollama-server-sandbox.json \
+            -e OLLAMA_URL=http://127.0.0.1:11434 \
+            -e OLLAMA_VERSION="$ollama_version" \
+            -e OLLAMA_IMAGE="$OLLAMA_IMAGE" \
+            -e PYTHON_IMAGE="$PYTHON_IMAGE" \
+            "$PYTHON_IMAGE" python /repo/experiments/e007/m3_model_smoke.py
+
+      - name: Capture Ollama server logs
+        if: always()
+        shell: bash
+        run: |
+          docker logs ollama-smoke > "$OUTPUT_DIR/ollama-server.log" 2>&1 || true
+
+      - name: Stop model server
+        if: always()
+        shell: bash
+        run: |
+          docker stop ollama-smoke >/dev/null 2>&1 || true
+          docker rm ollama-smoke >/dev/null 2>&1 || true
+          docker stop ollama-pull >/dev/null 2>&1 || true
+          docker rm ollama-pull >/dev/null 2>&1 || true
+
+      - name: Upload raw feasibility evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: m3-model-feasibility-${{ github.run_id }}
+          path: ${{ runner.temp }}/m3-model-output/
+          if-no-files-found: warn
+          retention-days: 30
