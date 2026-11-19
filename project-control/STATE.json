@@ -10,5 +10,5 @@
   "last_completed_task_id": "M2-002",
   "last_known_green_revision": "d3feaf3e358e7c7222337b2935fcc8e744abbac3",
   "wip_limit": 2,
-  "next_action": "Implement M2-003 Service-independent Agent Gateway: resolve registered services by service ID, expose explicit read/write proposal effects and capability mappings, enforce default-deny authorization, and keep apply unreachable from agent-facing APIs. Add negative tests for missing grants, cross-tenant scope, unsupported effects, and service identity mismatch."
+  "next_action": "Run the M2-003 Gateway and package regression suites. Verify service-ID resolution, typed input validation, read/write effect classification, explicit capability authorization, cross-tenant denial, unsupported-effect rejection, proposal hash integrity, stale validation rejection, and the absence of any apply API."
 }
