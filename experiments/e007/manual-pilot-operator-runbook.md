@@ -1,7 +1,7 @@
 # E-007 — Manual factorial pilot operator runbook
 
 **Status:** one-shot marker-gated push dispatch is implemented; manual workflow_dispatch remains available.  
-**Workflow:** [E-007 matched proposal-surface factorial pilot](../../.github/workflows/e007-real-agent-eval.yml)  
+**Workflow:** [Agent Native CI](../../.github/workflows/ci.yml) — manual `workflow_dispatch`, select `model_suite=e007`.  
 **Branch gate:** research/reboot-core only.
 
 ## Why dispatch is manual
