@@ -87,6 +87,54 @@ class ServiceRegistryTests(unittest.TestCase):
             ServiceRegistry(root, trusted_handler_ids=TRUSTED).load_all()
         self.assertEqual(raised.exception.code, "handler_binding_mismatch")
 
+    def test_windows_style_manifest_path_is_rejected(self):
+        temporary, root = self.temporary_registry()
+        self.addCleanup(temporary.cleanup)
+        folder = self.copy_service(root)
+        manifest_path = folder / "service.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["source"] = r"..\\outside.an"
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+        with self.assertRaises(ServiceRegistryError) as raised:
+            ServiceRegistry(root, trusted_handler_ids=TRUSTED).load_all()
+        self.assertEqual(raised.exception.code, "invalid_manifest_path")
+
+    def test_boolean_manifest_schema_version_is_rejected(self):
+        temporary, root = self.temporary_registry()
+        self.addCleanup(temporary.cleanup)
+        folder = self.copy_service(root)
+        manifest_path = folder / "service.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["schema_version"] = True
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+        with self.assertRaises(ServiceRegistryError) as raised:
+            ServiceRegistry(root, trusted_handler_ids=TRUSTED).load_all()
+        self.assertEqual(raised.exception.code, "unsupported_manifest_version")
+
+    def test_manifest_service_name_must_match_ir(self):
+        temporary, root = self.temporary_registry()
+        self.addCleanup(temporary.cleanup)
+        folder = self.copy_service(root)
+        manifest_path = folder / "service.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["service_name"] = "OtherService"
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+        with self.assertRaises(ServiceRegistryError) as raised:
+            ServiceRegistry(root, trusted_handler_ids=TRUSTED).load_all()
+        self.assertEqual(raised.exception.code, "service_name_mismatch")
+
+    def test_policy_must_cover_declared_effects(self):
+        temporary, root = self.temporary_registry()
+        self.addCleanup(temporary.cleanup)
+        folder = self.copy_service(root)
+        policy_path = folder / "policy.json"
+        policy = json.loads(policy_path.read_text(encoding="utf-8"))
+        policy["effects"] = []
+        policy_path.write_text(json.dumps(policy), encoding="utf-8")
+        with self.assertRaises(ServiceRegistryError) as raised:
+            ServiceRegistry(root, trusted_handler_ids=TRUSTED).load_all()
+        self.assertEqual(raised.exception.code, "policy_effect_missing")
+
     def test_manifest_path_traversal_is_rejected(self):
         temporary, root = self.temporary_registry()
         self.addCleanup(temporary.cleanup)
