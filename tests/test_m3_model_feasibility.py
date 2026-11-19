@@ -69,6 +69,7 @@ class M3ModelFeasibilityTests(unittest.TestCase):
             ["weak", "medium", "strong"],
         )
         self.assertTrue(all(item["manifest_sha256"] is None for item in candidates["models"]))
+        self.assertTrue(all(item["quantization_expected"] == "Q4_K_M" for item in candidates["models"]))
 
     def test_tool_sequence_reads_gateway_operations(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -110,12 +111,15 @@ class M3ModelFeasibilityTests(unittest.TestCase):
         self.assertIn("--read-only", workflow)
         self.assertIn("--cap-drop ALL", workflow)
         self.assertIn("--security-opt no-new-privileges", workflow)
+        self.assertIn("/api/show", workflow)
+        self.assertIn("manifest_sha256", workflow)
 
     def test_model_smoke_disables_apply_and_uses_existing_e009_agent(self):
         smoke = (E007 / "m3_model_smoke.py").read_text(encoding="utf-8")
         self.assertIn("local_agent.run(args)", smoke)
         self.assertIn("allow_sandbox_apply=False", smoke)
         self.assertIn("ollama_runtime_version_not_pinned", smoke)
+        self.assertIn("model_quantization_mismatch", smoke)
         self.assertIn('"service.apply" in sequence', smoke)
         self.assertIn('"hidden_oracle_used": False', smoke)
         self.assertIn('"paid_api_usd": 0', smoke)
