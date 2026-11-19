@@ -123,13 +123,15 @@ def _validate_config_inputs(config: Mapping[str, Any], operation: Mapping[str, A
                 raise ConfigurationError(f"{key} must be an input field name")
             referenced.add(value)
     fields = config.get("input_fields", [])
-    if isinstance(fields, (list, tuple)):
-        referenced.update(fields)
+    if not isinstance(fields, (list, tuple)) or any(not isinstance(field, str) or not field for field in fields):
+        raise ConfigurationError("handler config input_fields must be a string array")
+    referenced.update(fields)
     filters = config.get("filters", {})
-    if isinstance(filters, Mapping):
-        referenced.update(filters.values())
+    if not isinstance(filters, Mapping) or any(not isinstance(value, str) or not value for value in filters.values()):
+        raise ConfigurationError("handler config filters must map fields to input names")
+    referenced.update(filters.values())
     if not referenced.issubset(declared):
-        unknown = sorted(referenced - declared)
+        unknown = sorted(str(value) for value in referenced - declared)
         raise ConfigurationError(f"handler config references undeclared operation inputs: {', '.join(unknown)}")
 
 
@@ -263,11 +265,12 @@ def _factory_jobs_submit(config: Mapping[str, Any]):
         idem = _value(context, idem_input) if idem_input else None
         if context.audit_receipt is not None:
             transactional = _adapter(context, "jobs", "submit_with_audit")
-            return transactional(
+            result = transactional(
                 queue, _payload(context, fields), tenant_id=tenant_id,
                 idempotency_key=idem, request_id=context.request_id,
                 audit_event=context.audit_event, audit_receipt=context.audit_receipt,
             )
+            return result if isinstance(result, HandlerResult) else HandlerResult(result, status_code=202)
         submit = _adapter(context, "jobs", "submit")
         return HandlerResult(
             submit(queue, _payload(context, fields), tenant_id=tenant_id, idempotency_key=idem, request_id=context.request_id),
