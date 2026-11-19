@@ -136,6 +136,24 @@ class SchedulerPlanTests(unittest.TestCase):
         self.assertEqual(json.dumps(docs, sort_keys=True), before)
         self.assertFalse(first["mutates_repository_state"])
 
+
+    def test_scheduler_rejects_a_working_branch_already_owned_by_an_active_task(self):
+        docs = self._docs(tasks=[self._task("T1")])
+        docs["state"]["active_workstreams"] = [
+            {"task_id": "ACTIVE", "branch": "feat/t1", "base_branch": "research/reboot-core",
+             "integration_owner": "integrator"}
+        ]
+        plan = CONTROL["build_schedule_plan"](docs, "")
+        self.assertEqual(plan["selected_tasks"], [])
+        self.assertEqual(plan["deferred_tasks"][0]["reason"], "working_branch_already_active")
+
+    def test_scheduler_rejects_using_the_base_as_the_working_branch(self):
+        task = self._task("T1")
+        task["execution"]["branch"] = task["execution"]["base_branch"]
+        plan = CONTROL["build_schedule_plan"](self._docs(tasks=[task]), "")
+        self.assertEqual(plan["selected_tasks"], [])
+        self.assertEqual(plan["deferred_tasks"][0]["reason"], "working_branch_must_differ_from_base")
+
     def test_schedule_command_emits_machine_readable_checkpoint(self):
         result = subprocess.run(
             [sys.executable, str(ROOT / "project_control.py"), "schedule"],
