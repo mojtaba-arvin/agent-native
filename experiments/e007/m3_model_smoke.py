@@ -227,6 +227,7 @@ def main() -> int:
         "runner": runner_info,
         "agent_sandbox": sandbox,
         "ollama_server_sandbox": server_config,
+        "model_store_disk_after_pull": manifests.get("disk_after_pull"),
         "paid_api_usd": 0,
         "gpu_used": False,
         "hidden_oracle_used": False,
