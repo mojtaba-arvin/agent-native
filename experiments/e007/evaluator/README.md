@@ -19,19 +19,21 @@ contains no oracle fixtures, provider credentials, or hidden expected answers.
 
 ## What is implemented here
 
-- boundary.py rejects oracle paths inside the workspace, symlinks, non-regular
-  files, non-owner-only oracle permissions, and candidate artifacts outside the
-  agent workspace.
+- `boundary.py` rejects oracle paths inside the workspace, symlinks, non-regular
+  files, additional hard links, wrong file/directory ownership, group/world
+  accessible oracle files or parent directories, and candidate artifacts
+  outside the agent workspace.
 - It validates that proposal, semantic validation, and safe plan use one
   candidate hash and that apply was not invoked.
-- It deliberately does not read oracle contents or claim process isolation.
+- These checks are defense-in-depth preflight checks only. They do not provide
+  process, filesystem, network, container, or VM isolation and do not claim
+  that the evaluator is safe to run against an untrusted agent on the same host.
 
 ## Owner setup still required
 
 See [OWNER_SETUP.md](OWNER_SETUP.md) for the complete security, runner, model-budget, preregistration, and preflight checklist.
 
-
-- Configure a protected GitHub Environment named m3-evaluator.
+- Configure a protected GitHub Environment named `m3-evaluator`.
 - Provision the oracle decryption key only to that environment (never to the
   agent job).
 - Select an isolated ephemeral runner/container image and pin its digest.
@@ -39,5 +41,5 @@ See [OWNER_SETUP.md](OWNER_SETUP.md) for the complete security, runner, model-bu
   before freezing the preregistration.
 
 Until those controls are configured and independently verified,
-evaluator_isolation.implemented remains false and the M3 cohort remains a
+`evaluator_isolation.implemented` remains false and the M3 cohort remains a
 non-executable draft.
