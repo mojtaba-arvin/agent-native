@@ -581,7 +581,12 @@
         "Do not grant agent-writer service.apply authority",
         "Trust-boundary changes require two independent reviews and a new security regression test"
       ],
-      "evidence_ids": []
+      "evidence_ids": [],
+      "execution": {
+        "branch": "feat/m2-service-independent-gateway",
+        "base_branch": "research/reboot-core",
+        "integration_owner": "integrator"
+      }
     },
     {
       "id": "M2-004",
@@ -614,7 +619,13 @@
       "stop_conditions": [
         "Do not treat a fixture-only demonstration as production readiness"
       ],
-      "evidence_ids": []
+      "evidence_ids": [],
+      "execution": {
+        "branch": "feat/m2-second-service-proof",
+        "base_branch": "feat/m2-service-independent-gateway",
+        "integration_owner": "integrator",
+        "stacked_on": "M2-003"
+      }
     },
     {
       "id": "M0-001",
@@ -1022,6 +1033,52 @@
         "resume command: machine-readable checkpoint",
         "negative dependency test passed",
         "Layer 0 and Layer 1 passed"
+      ]
+    },
+    {
+      "id": "CP-009",
+      "title": "Add dependency-aware scheduling, WIP enforcement, and retry recovery planning",
+      "milestone": "C2",
+      "status": "in_progress",
+      "priority": 9,
+      "depends_on": [
+        "CP-008"
+      ],
+      "owner": "integrator",
+      "scope": [
+        "project_control.py",
+        "scripts/test_project_control.py",
+        "project-control/TASKS.json",
+        "project-control/STATE.json",
+        "project-control/HANDOFF.md"
+      ],
+      "acceptance": [
+        "Scheduler emits only pending/ready tasks whose dependencies are complete and whose milestone is ready or in_progress",
+        "Scheduler never selects work beyond the configured WIP limit",
+        "Repeated identical task-attempt failures and no-progress attempts produce a replan-required result and are not retried automatically",
+        "A scheduled task must declare its working branch, base branch, and integration owner",
+        "Scheduling is deterministic, machine-readable, and does not mutate repository state"
+      ],
+      "expected_outputs": [
+        "project_control.py schedule command",
+        "scheduler and recovery unit tests",
+        "branch/integration ownership metadata",
+        "updated handoff"
+      ],
+      "max_unchanged_retries": 2,
+      "replan_after_failures": 2,
+      "stop_conditions": [
+        "Do not auto-merge, rewrite shared history, or change protected repository settings",
+        "Do not reset a failed task without a recorded replan"
+      ],
+      "execution": {
+        "branch": "feat/control-plane-scheduler",
+        "base_branch": "research/reboot-core",
+        "integration_owner": "integrator"
+      },
+      "evidence_ids": [
+        "project_control.py#build_schedule_plan",
+        "project_control.py#command_schedule"
       ]
     }
   ]
