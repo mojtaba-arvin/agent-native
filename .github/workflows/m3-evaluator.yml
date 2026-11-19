@@ -81,9 +81,9 @@ jobs:
             --user "$(id -u):$(id -g)" \
             --tmpfs "/tmp:rw,noexec,nosuid,nodev,size=64m,uid=$(id -u),gid=$(id -g)" \
             -e PYTHONDONTWRITEBYTECODE=1 \
-            --mount "type=bind,src=$GITHUB_WORKSPACE/experiments/e007/evaluator/agent_stub.py,dst=/agent_stub.py,readonly" \
+            --mount "type=bind,src=$GITHUB_WORKSPACE/experiments/e007/evaluator,dst=/evaluator,readonly" \
             --mount "type=bind,src=$OUTPUT_DIR,dst=/out" \
-            "$M3_SMOKE_IMAGE" python /agent_stub.py --output /out
+            "$M3_SMOKE_IMAGE" python /evaluator/agent_stub.py --output /out
 
       - name: Upload only candidate and trace
         uses: actions/upload-artifact@v4

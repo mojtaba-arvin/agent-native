@@ -14,6 +14,58 @@ sys.path.insert(0, str(EVALUATOR_DIR))
 from agent_stub import write_candidate
 from boundary import EvaluatorBoundaryError
 from evaluator_job import evaluate_candidate
+from sandbox_probe import SandboxProbeError, parse_cpu_quota, parse_positive_limit, validate_sandbox_report
+
+
+class SandboxProbeUnitTests(unittest.TestCase):
+    def _valid_report(self):
+        return {
+            "effective_uid": 1001,
+            "root_read_only": True,
+            "tmp_noexec": True,
+            "no_new_privileges": True,
+            "effective_capabilities_hex": "0",
+            "outbound_network_blocked": True,
+            "memory_limit_bytes": 2 * 1024**3,
+            "cpu_quota_cores": 1.0,
+            "pids_limit": 64,
+            "output_mount_writable": True,
+        }
+
+    def test_parses_cgroup_limits(self):
+        self.assertEqual(parse_positive_limit("2147483648", "memory.max"), 2147483648)
+        self.assertEqual(parse_cpu_quota("50000 100000"), 0.5)
+
+    def test_rejects_unbounded_or_malformed_cgroup_limits(self):
+        with self.assertRaises(SandboxProbeError):
+            parse_positive_limit("max", "pids.max")
+        with self.assertRaises(SandboxProbeError):
+            parse_cpu_quota("max 100000")
+
+    def test_validates_runtime_sandbox_attestation_fail_closed(self):
+        report = self._valid_report()
+        validate_sandbox_report(report)
+        report["outbound_network_blocked"] = False
+        with self.assertRaises(SandboxProbeError):
+            validate_sandbox_report(report)
+
+    def test_rejects_boolean_cgroup_limits(self):
+        report = self._valid_report()
+        report["memory_limit_bytes"] = True
+        with self.assertRaises(SandboxProbeError):
+            validate_sandbox_report(report)
+
+    def test_evaluator_score_contains_both_sandbox_attestations(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            workspace = root / "agent-output"
+            output = root / "evaluator-output" / "score.json"
+            report = self._valid_report()
+            candidate_path, _ = write_candidate(workspace, report)
+            score = evaluate_candidate(workspace, candidate_path, output, sandbox_report=report)
+            self.assertEqual(score["agent_sandbox"], report)
+            self.assertEqual(score["evaluator_sandbox"], report)
+            self.assertNotIn("oracle_path", score)
 
 
 class M3EvaluatorTopologyTests(unittest.TestCase):
@@ -105,6 +157,8 @@ class M3WorkflowContractTests(unittest.TestCase):
         self.assertNotIn("oracle", agent_job.lower())
         self.assertIn("candidate.json", agent_job)
         self.assertIn("trace.jsonl", agent_job)
+        self.assertIn("dst=/evaluator,readonly", agent_job)
+        self.assertIn("python /evaluator/agent_stub.py", agent_job)
 
     def test_evaluator_is_separate_and_is_the_only_environment_job(self):
         evaluator_job = self._job_block("evaluator")
@@ -119,6 +173,7 @@ class M3WorkflowContractTests(unittest.TestCase):
         for required in ("--memory=2g", "--cpus=1", "--pids-limit=64", "--read-only", "--cap-drop ALL", "--security-opt no-new-privileges"):
             self.assertIn(required, self.workflow)
         self.assertIn("python:3.12-slim@sha256:5e2bdb1b0d542d5039cffb8181c65930093949194a65c365dfb1b0fe13a4fa5b", self.workflow)
+        self.assertIn("verify_sandbox", (EVALUATOR_DIR / "sandbox_probe.py").read_text(encoding="utf-8"))
 
     def test_workflow_artifacts_are_allowlisted_and_short_lived(self):
         self.assertIn("m3-agent-output", self.workflow)
