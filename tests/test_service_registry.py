@@ -93,7 +93,7 @@ class ServiceRegistryTests(unittest.TestCase):
         folder = self.copy_service(root)
         manifest_path = folder / "service.json"
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        manifest["source"] = r"..\\outside.an"
+        manifest["source"] = r"..\outside.an"
         manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
         with self.assertRaises(ServiceRegistryError) as raised:
             ServiceRegistry(root, trusted_handler_ids=TRUSTED).load_all()
