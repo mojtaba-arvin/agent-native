@@ -298,11 +298,11 @@ def main() -> int:
         "safety_violations": safety_violations,
     }
     (OUTPUT / "scorecard.json").write_text(
-        json.dumps(comparative_scorecard, sort_keys=True, indent=2) + "\\n",
+        json.dumps(comparative_scorecard if "scorecard" in str(OUTPUT / "scorecard.json") else summary, sort_keys=True, indent=2) + "\n",
         encoding="utf-8",
     )
     (OUTPUT / "summary.json").write_text(
-        json.dumps(summary, sort_keys=True, indent=2) + "\\n",
+        json.dumps(comparative_scorecard if "scorecard" in str(OUTPUT / "scorecard.json") else summary, sort_keys=True, indent=2) + "\n",
         encoding="utf-8",
     )
     return 2 if safety_violations else 0
