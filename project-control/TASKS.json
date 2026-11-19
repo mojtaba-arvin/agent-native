@@ -156,7 +156,8 @@
         "Referenced events must have an eligible success outcome and immutable run/commit/URL evidence",
         "Duplicate event IDs, malformed ledger lines, unknown references, failed outcomes, mutable source URLs, and path-only evidence are rejected",
         "Negative unit tests cover every rejection class",
-        "Claims checker runs in the project-control fast-CI precheck"
+        "Claims checker runs in the project-control fast-CI precheck",
+        "Each verified milestone exit criterion maps to exactly one evidence-backed completion claim"
       ],
       "expected_outputs": [
         "Standard-library claims validator",
