@@ -21,6 +21,7 @@
 - Working branch: feat/evidence-claims-gates-v3.
 - Current milestones: C1 and M0 in progress.
 - Completed tasks: CP-005 (claims integrity) and CP-003 (source/evidence audit).
-- Active tasks: CP-007 (final retarget/revalidation after PR #64), M0-001 (non-destructive research branch/artifact inventory).
+- Active tasks: CP-007 (final retarget/revalidation after PR #64), M0-002 (preregistration and append-only decision integrity).
+- Completed: CP-003 source/evidence audit, CP-005 claims integrity, M0-001 branch/artifact inventory.
 - Next: verify all research-only refs and unique artifacts remain reachable. Do not delete or rewrite branches/tags.
 - Do not merge to main, alter repository security settings, run paid GPU/API workloads, or delete research branches/tags without owner authorization.
