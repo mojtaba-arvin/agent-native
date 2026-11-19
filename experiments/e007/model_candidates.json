@@ -33,7 +33,8 @@
       "manifest_sha256": null,
       "config_digest": null,
       "model_size_bytes": null,
-      "tool_call_smoke": "pending"
+      "tool_call_smoke": "pending",
+      "quantization_expected": "Q4_K_M"
     },
     {
       "tier": "medium",
@@ -43,7 +44,8 @@
       "manifest_sha256": null,
       "config_digest": null,
       "model_size_bytes": null,
-      "tool_call_smoke": "pending"
+      "tool_call_smoke": "pending",
+      "quantization_expected": "Q4_K_M"
     },
     {
       "tier": "strong",
@@ -53,7 +55,8 @@
       "manifest_sha256": null,
       "config_digest": null,
       "model_size_bytes": null,
-      "tool_call_smoke": "pending"
+      "tool_call_smoke": "pending",
+      "quantization_expected": "Q4_K_M"
     }
   ],
   "smoke": {
