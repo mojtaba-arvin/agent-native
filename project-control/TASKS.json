@@ -353,7 +353,7 @@
       "id": "M1-002",
       "title": "Remove import-time sys.path mutation from the packaged core and entry points",
       "milestone": "M1",
-      "status": "complete",
+      "status": "in_progress",
       "priority": 11,
       "depends_on": [
         "M1-001"
@@ -383,17 +383,17 @@
         "Do not break reproducible historical experiment entry points without a migration path"
       ],
       "evidence_ids": [
-        "run:44447460958",
-        "package sys.path static scan passed",
-        "isolated import test passed",
-        "experiments/README.md legacy isolation contract"
+        "src/agent_native/runtime.py",
+        "src/agent_native/security.py",
+        "tests/test_package.py",
+        "tests/test_runtime_parity.py"
       ]
     },
     {
       "id": "M1-003",
       "title": "Add a unified developer CLI for check, run, inspect, worker, and audit",
       "milestone": "M1",
-      "status": "in_progress",
+      "status": "pending",
       "priority": 12,
       "depends_on": [
         "M1-001",
