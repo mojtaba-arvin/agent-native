@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-native.dev/schemas/gateway-validation-v1.schema.json",
+  "title": "Agent Native Gateway Validation v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "service_id",
+    "operation_name",
+    "proposal_sha256",
+    "candidate_sha256",
+    "required_capability",
+    "effects",
+    "effect_mode",
+    "allowed"
+  ],
+  "properties": {
+    "service_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "operation_name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "proposal_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "candidate_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "required_capability": {
+      "type": "string",
+      "minLength": 1
+    },
+    "effects": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "effect_mode": {
+      "enum": [
+        "read",
+        "write"
+      ]
+    },
+    "allowed": {
+      "const": true
+    }
+  }
+}
