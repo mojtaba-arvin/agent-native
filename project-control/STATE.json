@@ -2,21 +2,12 @@
   "updated_at": "2026-11-19",
   "active_branch": "research/reboot-core",
   "baseline_branch": "research/reboot-core",
-  "baseline_commit": "b65b53329fd3164a2a1abd470250ac35cdec0bcd",
-  "current_milestone": "M2",
-  "active_task_ids": [
-    "M2-003"
-  ],
-  "last_completed_task_id": "CP-009",
-  "last_known_green_revision": "a7ee807f10819ccf870fd3d1f119b242a37ad433",
+  "baseline_commit": "0e8e8fe67f410add6d851584eeb7434f2f707aa8",
+  "current_milestone": "M3",
+  "active_task_ids": [],
+  "last_completed_task_id": "M2-004",
+  "last_known_green_revision": "0e8e8fe67f410add6d851584eeb7434f2f707aa8",
   "wip_limit": 2,
-  "next_action": "BLK-007 remains an owner action: obtain two independent human APPROVED reviews on PR #81's current head. Keep M2-003 unmerged until both approvals and fresh Layer 0/Layer 1 checks pass. Then integrate M2-003 into research/reboot-core, retarget PR #82, rerun CI, and integrate M2-004. M3/oracle evaluation remains skipped; no provider calls, GPU spend, or oracle execution.",
-  "active_workstreams": [
-    {
-      "task_id": "M2-003",
-      "branch": "feat/m2-service-independent-gateway",
-      "base_branch": "research/reboot-core",
-      "integration_owner": "integrator"
-    }
-  ]
+  "next_action": "M3-001 is unblocked by M2 but remains blocked on a qualifying zero-cost isolated agent/evaluator path. Continue evaluator isolation and free-tier model feasibility work; keep the cohort non-executable, do not treat CPU-only Qwen3 diagnostics as M3 acceptance, and do not incur paid API/GPU spend. C3 independent peer review remains open but does not block M3 preparation.",
+  "active_workstreams": []
 }
