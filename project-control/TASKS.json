@@ -1192,10 +1192,10 @@
       "acceptance": [
         "The agent and evaluator run in separate ephemeral GitHub-hosted jobs/VMs with no shared process or filesystem namespace",
         "The agent job receives no oracle file, oracle path, oracle key, or evaluator-only environment secret",
-        "The agent job exports only an allowlisted candidate artifact and raw telemetry; the evaluator never executes candidate content as code",
-        "The agent execution container is non-root, resource-limited, read-only except for an explicit output mount, and has network disabled during untrusted execution",
-        "The evaluator job alone uses the protected m3-evaluator environment for oracle custody and never uploads oracle contents or paths",
-        "The workflow is manual-only, restricted to research/reboot-core, validates no_apply and candidate-hash continuity, and fails closed on missing manifests or credentials",
+        "The agent job exports only an allowlisted candidate artifact and raw telemetry; the evaluator reads candidate JSON as data and never executes candidate content as code",
+        "The agent and evaluator containers are non-root, resource-limited, read-only except for explicit output mounts, and have network disabled during untrusted execution/scoring",
+        "The evaluator job alone references the m3-evaluator environment; the topology smoke uses a synthetic oracle only, and actual environment protection/hidden-oracle custody remains a separate owner setup gate",
+        "The topology smoke runs only on research/reboot-core pushes affecting evaluator paths or by manual dispatch on that branch; real model cohort dispatch remains a separate manual-only workflow and is not enabled",
         "Workflow and unit tests cover artifact allowlisting, oracle non-disclosure, separation, negative paths, and zero paid API/GPU usage"
       ],
       "expected_outputs": [
@@ -1209,8 +1209,8 @@
       "replan_after_failures": 2,
       "stop_conditions": [
         "Do not incur paid API/GPU spend; use only GitHub Actions free usage for this public repository",
-        "Do not place plaintext oracle data in the repository, agent workspace, or shared artifacts",
-        "Do not dispatch a real model cohort or execute hidden-oracle scoring in this task",
+        "Do not place plaintext hidden-oracle data in the repository, agent workspace, or shared artifacts",
+        "Do not dispatch a real model cohort or execute hidden-oracle scoring in this task; the synthetic topology smoke is not M3 acceptance",
         "Do not claim filesystem preflight checks alone establish process/container/network isolation"
       ],
       "evidence_ids": [
