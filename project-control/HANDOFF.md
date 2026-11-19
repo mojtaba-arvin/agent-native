@@ -32,3 +32,13 @@
 3. Keep the M3 cohort non-executable until hidden-oracle custody, sandbox separation, model identity, task fixtures, and preregistration hashes are verified.
 4. Pursue genuine independent human reviews for C3 in parallel; do not represent the owner waiver as peer review.
 5. Do not merge to `main`, deploy production, or incur paid API/GPU spend.
+
+
+## 19 November 2026 — M3 provider-schema integration
+
+- PR #102 merged as `3ac47aeb0aa4c1ad8763396e5dffc956483a71e5`. The provider now receives each discovered Gateway tool as a native function with its exact schema. Progressive discovery starts with `interface.describe`; upfront mode exposes the complete declared schema set. Native calls still map through the trusted Gateway envelope; disabled apply is not exposed.
+- Exact PR-head CI run [44538804299](https://github.com/mojtaba-arvin/agent-native/actions/runs/44538804299) passed Layer 0 (143 E-009 tests) and Layer 1 (Go, Rust, WASI P2, BEAM, PostgreSQL/cross-engine parity, and cgroup-v2 smoke).
+- M3-003 is complete as a bounded negative feasibility evaluation: the pre-fix locked run [44529848174](https://github.com/mojtaba-arvin/agent-native/actions/runs/44529848174) had 0/6 full lifecycle completions; no Granite tier was qualified.
+- M3-004 is complete. M3-005 is running as [workflow 44539287065](https://github.com/mojtaba-arvin/agent-native/actions/runs/44539287065), rerunning the unchanged six-cell CPU matrix on the provider-native schema adapter. Preserve all raw outcomes; do not qualify a model unless it completes inspect/propose/validate/plan and local verification.
+- M3-001 remains blocked until a qualifying model and protected evaluator-only oracle custody are demonstrated. No paid API/GPU, apply, or hidden oracle is used.
+- Storage note: the repository already has a PostgreSQL 16.4 reference adapter and conformance tests; cross-engine trace, rollback, and crash-reconciliation evidence exists. Oracle Database is not a current E-002 candidate and has no demonstrated requirement. Keep PostgreSQL as the primary storage candidate; final product selection remains evidence-gated against the product workload.

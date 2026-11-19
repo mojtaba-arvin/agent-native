@@ -57,7 +57,8 @@ authorized. The existing Qwen3 CPU workflow remains diagnostic only.
 - [x] Implement and verify separate ephemeral agent/evaluator jobs, no-network containers, and runtime sandbox attestations in run #44494715332.
 - [ ] Pin model identities, repetitions, and immutable cohort manifests using
       a qualifying free-tier execution path.
-- [ ] Keep the cohort draft and non-executable until all evidence is frozen.
+- [x] Keep the cohort draft and non-executable; no candidate model qualified (0/6 full lifecycle completions).
+- [ ] Revisit model cohort selection only after M3-005's corrected provider-native schema run and protected evaluator setup.
 
 No additional ChatGPT/GitHub code permission is required for ordinary branch,
 file, PR, and CI work. Administrative settings, reviewer invitations, and
@@ -66,8 +67,16 @@ secrets remain owner-controlled.
 
 ## M3-003 — zero-cost model feasibility
 
-- [ ] Run the existing E009 local agent harness against provisional open-weight CPU model tiers on the public-repository GitHub Actions runner.
-- [ ] Pin Ollama runtime image and immutable model manifest digests after the bootstrap smoke.
-- [ ] Preserve all model failures, tool traces, token usage, and wall-clock measurements; do not retry selectively.
+- [x] Run the existing E009 local agent harness against three provisional open-weight CPU model tiers and both schema-disclosure arms on the public-repository GitHub Actions runner (run #44529848174).
+- [x] Pin the Ollama runtime image and immutable per-model manifest/config digests in `experiments/e007/model-lock.json`; verify them again in the locked run.
+- [x] Preserve all six model outcomes, tool traces, token usage, wall-clock measurements, and failures in artifact #14533985747; no selective retries.
 - [ ] Keep model execution no-network, no-apply, and free of hidden-oracle data.
 - [ ] Do not dispatch the M3 hidden-oracle cohort until model selection and protected Environment custody are verified.
+
+
+## 19 November 2026 — provider-native tool schema implementation
+
+- [x] Replace the provider-facing generic tool wrapper with provider-native Gateway functions while retaining the trusted Gateway dispatch envelope (PR #102).
+- [x] Verify progressive discovery and upfront schema exposure with deterministic tests; verify undiscovered tools fail closed and disabled `service.apply` is not exposed.
+- [x] Pass exact PR-head Layer 0 (143 E-009 tests) and Layer 1 (native/container/database/PostgreSQL/cgroup-v2) CI: run #44538804299.
+- [ ] Inspect the fresh locked six-cell CPU feasibility artifact from run #44539287065; do not claim model qualification unless the full lifecycle and local verifier pass.
