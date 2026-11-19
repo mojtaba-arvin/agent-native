@@ -174,7 +174,8 @@ jobs:
               if (review.user?.login) {
                 latest.set(review.user.login, {
                   state: review.state,
-                  user_type: review.user.type
+                  user_type: review.user.type,
+                  commit_id: review.commit_id
                 });
               }
             }
@@ -182,6 +183,7 @@ jobs:
               .filter(([login, review]) =>
                 review.state === 'APPROVED' &&
                 review.user_type !== 'Bot' &&
+                review.commit_id === pull.head.sha &&
                 login !== pull.user.login &&
                 !login.endsWith('[bot]'))
               .map(([login]) => login);
