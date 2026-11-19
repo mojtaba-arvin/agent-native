@@ -33,11 +33,11 @@ The runtime image and model manifest digests are recorded in every run artifact.
 
 The first candidate family is IBM Granite 4.0 Hybrid, distributed through the [official Ollama library](https://ollama.com/ibm/granite4). The family advertises code-related and function-calling tasks and Apache 2.0 licensing. The `-h` variants use a hybrid Mamba2 architecture. To avoid quantization confounding, the initial tiers explicitly use Q4_K_M variants for all three model sizes; H-350M, H-1B, and H-Micro are all dense `granitehybrid` models.
 
-| Tier | Provisional model tag | Approximate capacity | Purpose |
+| Tier | Provisional model tag | Parameters | Ollama page size | Purpose |
 |---|---|---:|---|
-| Weak | `ibm/granite4:350m-h-q4_K_M` | 340M parameters | Lower-capability baseline |
-| Medium | `ibm/granite4:1b-h-q4_K_M` | 1.46B parameters | Small CPU model |
-| Strong | `ibm/granite4:3b-h` | 3.19B parameters | Larger dense hybrid candidate |
+| Weak | `ibm/granite4:350m-h-q4_K_M` | 340M | 223 MB | Lower-capability baseline |
+| Medium | `ibm/granite4:1b-h-q4_K_M` | 1.46B | 901 MB | Small CPU model |
+| Strong | `ibm/granite4:3b-h` | 3.19B | 1.9 GB | Larger dense hybrid candidate |
 
 These are candidate labels, not a claim that the 3B model will pass. The per-tag Ollama details report 340M, 1.46B, and 3.19B parameters respectively. The explicit Q4_K_M tags avoid the Q8_0 defaults exposed by the unqualified H-350M and H-1B tags. Exact quantization, size, configuration digest, and manifest SHA-256 are read from the pulled manifests and retained per run. No model is considered pinned until those values are verified and committed.
 
