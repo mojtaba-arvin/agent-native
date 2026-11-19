@@ -42,6 +42,8 @@ from local_agent import (
     _compact_conversation,
     _build_compaction_ledger,
     _compact_tool_outcome,
+    _build_provider_tool_definitions,
+    map_tool_call,
 )
 
 
@@ -266,12 +268,8 @@ class LocalAgentRunnerTests(unittest.TestCase):
                     "content": "",
                     "tool_calls": [{
                         "function": {
-                            "name": "agent.invoke",
-                            "arguments": {
-                                "request_id": f"mock-request-{index}",
-                                "tool": tool,
-                                "arguments": arguments,
-                            },
+                            "name": tool,
+                            "arguments": arguments,
                         },
                     }],
                 },
@@ -428,12 +426,8 @@ class LocalAgentRunnerTests(unittest.TestCase):
                     "content": "",
                     "tool_calls": [{
                         "function": {
-                            "name": "agent.invoke",
-                            "arguments": {
-                                "request_id": request_id,
-                                "tool": "service.inspect",
-                                "arguments": {"service_id": "catalog"},
-                            },
+                            "name": "service.inspect",
+                            "arguments": {"service_id": "catalog"},
                         },
                     }],
                 },
@@ -513,12 +507,8 @@ class LocalAgentRunnerTests(unittest.TestCase):
     def test_runner_stops_after_repeating_an_identical_invalid_tool_call(self):
         invalid_call = {
             "function": {
-                "name": "agent.invoke",
-                "arguments": {
-                    "request_id": "same-invalid-request",
-                    "tool": "service.inspect",
-                    "arguments": {},
-                },
+                "name": "service.inspect",
+                "arguments": {},
             },
         }
         responses = [
@@ -638,7 +628,7 @@ class LocalAgentRunnerTests(unittest.TestCase):
                 "role": "assistant",
                 "content": "",
                 "tool_calls": [{
-                    "function": {"name": "agent.invoke", "arguments": call}
+                    "function": {"name": call["tool"], "arguments": call["arguments"]}
                 }],
             },
             "prompt_eval_count": 30 + index,
@@ -792,6 +782,96 @@ class LocalAgentRunnerTests(unittest.TestCase):
         self.assertEqual(ledger["recent_tool_outcomes"][-1]["next_actions"], ["Correct the complete IR"])
         self.assertNotIn("assistant", [item["role"] for item in compacted])
         self.assertNotIn("tool_calls", compacted[3]["content"])
+
+    def test_provider_tool_definitions_expand_with_progressive_discovery(self):
+        describe_schema = {
+            "type": "object",
+            "properties": {"name": {"type": "string"}},
+            "required": ["name"],
+        }
+        inspect_schema = {
+            "type": "object",
+            "properties": {"service_id": {"type": "string"}},
+            "required": ["service_id"],
+        }
+        surface = {
+            "tools": [
+                {"name": "interface.describe", "summary": "Discover a schema", "mode": "read_only"},
+                {"name": "service.inspect", "summary": "Inspect a service", "mode": "read_only"},
+                {"name": "service.apply", "summary": "Disabled apply", "mode": "disabled"},
+            ]
+        }
+        progressive = _build_provider_tool_definitions(
+            surface, {"interface.describe": describe_schema}
+        )
+        self.assertEqual(
+            [item["function"]["name"] for item in progressive],
+            ["interface.describe"],
+        )
+        expanded = _build_provider_tool_definitions(
+            surface,
+            {
+                "interface.describe": describe_schema,
+                "service.inspect": inspect_schema,
+            },
+        )
+        self.assertEqual(
+            [item["function"]["name"] for item in expanded],
+            ["interface.describe", "service.inspect"],
+        )
+        self.assertEqual(expanded[1]["function"]["parameters"], inspect_schema)
+        self.assertNotIn("service.apply", [item["function"]["name"] for item in expanded])
+
+    def test_upfront_provider_tool_definitions_use_all_available_exact_schemas(self):
+        inspect_schema = {
+            "type": "object",
+            "properties": {"service_id": {"type": "string"}},
+            "required": ["service_id"],
+        }
+        plan_schema = {
+            "type": "object",
+            "properties": {"change_set_id": {"type": "string"}},
+            "required": ["change_set_id"],
+        }
+        surface = {
+            "tools": [
+                {"name": "service.inspect", "summary": "Inspect", "mode": "read_only"},
+                {"name": "service.plan", "summary": "Plan", "mode": "read_only"},
+            ]
+        }
+        definitions = _build_provider_tool_definitions(
+            surface,
+            {"service.inspect": inspect_schema, "service.plan": plan_schema},
+        )
+        self.assertEqual(
+            [item["function"]["name"] for item in definitions],
+            ["service.inspect", "service.plan"],
+        )
+        self.assertEqual(definitions[0]["function"]["parameters"], inspect_schema)
+        self.assertEqual(definitions[1]["function"]["parameters"], plan_schema)
+
+    def test_native_provider_tool_calls_map_only_discovered_tools(self):
+        schema = {
+            "type": "object",
+            "properties": {"service_id": {"type": "string"}},
+            "required": ["service_id"],
+        }
+        call = {
+            "function": {
+                "name": "service.inspect",
+                "arguments": {"service_id": "catalog"},
+            }
+        }
+        mapped = map_tool_call(call, 1, {"service.inspect": schema})
+        self.assertEqual(mapped["tool"], "service.inspect")
+        self.assertEqual(mapped["arguments"], {"service_id": "catalog"})
+        self.assertTrue(mapped["request_id"].startswith("native-"))
+        self.assertEqual(
+            mapped["request_id"],
+            map_tool_call(call, 9, {"service.inspect": schema})["request_id"],
+        )
+        unknown = map_tool_call(call, 1, {"interface.describe": schema})
+        self.assertEqual(unknown["tool"], "<invalid>")
 
     def test_progressive_schema_discovery_survives_compaction(self):
         schema = {
