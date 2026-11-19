@@ -43,7 +43,7 @@ The first candidate family is IBM Granite 4.0 Hybrid, distributed through the [o
 | Medium | `ibm/granite4:1b-h-q4_K_M` | 1.46B | 901 MB | Small CPU model |
 | Strong | `ibm/granite4:3b-h` | 3.19B | 1.9 GB | Larger dense hybrid candidate |
 
-These are candidate labels, not a claim that the 3B model will pass. The per-tag Ollama details report 340M, 1.46B, and 3.19B parameters respectively. The explicit Q4_K_M tags avoid the Q8_0 defaults exposed by the unqualified H-350M and H-1B tags. Exact quantization, size, configuration digest, and manifest SHA-256 are read from the pulled manifests and retained per run. The model identity is now pinned in `model_lock.json`; model capability remains unqualified until the fresh feasibility gate passes.
+These are candidate labels, not a claim that the 3B model will pass. The bootstrap `/api/show` metadata reported parameter sizes of 340.33M, 1.5B, and 3.2B respectively; the model-card totals in the table remain 340M, 1.46B, and 3.19B. The explicit Q4_K_M tags avoid the Q8_0 defaults exposed by the unqualified H-350M and H-1B tags. Exact quantization, size, configuration digest, and manifest SHA-256 are read from the pulled manifests and retained per run. The model identity is now pinned in `model_lock.json`; model capability remains unqualified until the fresh feasibility gate passes.
 
 Official model references:
 - [IBM Granite 4.0 Ollama model family](https://ollama.com/ibm/granite4)
