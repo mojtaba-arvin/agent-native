@@ -212,6 +212,18 @@ class EvidenceScorecardTests(unittest.TestCase):
         self.assertEqual(scorecard["ci_result"]["passed_suites"], 2)
         self.assertEqual(scorecard["verified_claims"][0]["evidence_event_ids"], ["RUN-OK"])
 
+    def test_failed_ci_run_still_produces_a_failed_scorecard(self):
+        summary = json.loads(self.summary_raw)
+        summary["suites"][0]["status"] = "failed"
+        summary["suites"][0]["exit_code"] = 1
+        summary["result"]["status"] = "failed"
+        summary["result"]["passed_suites"] = 1
+        summary["result"]["failed_suites"] = 1
+        summary_raw = json.dumps(summary, sort_keys=True).encode()
+        scorecard = build_scorecard(summary_raw, self.ledger_raw, self.progress_raw)
+        self.assertEqual(scorecard["ci_result"]["status"], "failed")
+        self.assertEqual(scorecard["ci_result"]["failed_suites"], 1)
+
     def test_preserves_failed_cancelled_and_ineligible_runs(self):
         scorecard = build_scorecard(self.summary_raw, self.ledger_raw, self.progress_raw)
         outcomes = {item["outcome"] for item in scorecard["run_history"]}
