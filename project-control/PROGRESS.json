@@ -184,7 +184,7 @@
       "total_exit_criteria": 4
     },
     "C2": {
-      "status": "pending",
+      "status": "in_progress",
       "verified_exit_criteria": [],
       "total_exit_criteria": 3
     },
