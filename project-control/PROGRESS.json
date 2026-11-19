@@ -160,6 +160,36 @@
       "evidence_event_ids": [
         "M1-PACKAGE-CLI-001"
       ]
+    },
+    {
+      "id": "CLAIM-C2-001",
+      "statement": "The dependency-aware scheduler emits only dependency-ready tasks and respects the configured WIP limit.",
+      "status": "verified",
+      "milestone_id": "C2",
+      "criterion": "Scheduler selects only ready tasks within WIP limits",
+      "evidence_event_ids": [
+        "CP-009-SCHEDULER-CI-001"
+      ]
+    },
+    {
+      "id": "CLAIM-C2-002",
+      "statement": "Repeated identical task failures and no-progress attempts trigger a stop-and-replan result rather than automatic unchanged retries.",
+      "status": "verified",
+      "milestone_id": "C2",
+      "criterion": "Repeated failures force a documented replan",
+      "evidence_event_ids": [
+        "CP-009-SCHEDULER-CI-001"
+      ]
+    },
+    {
+      "id": "CLAIM-C2-003",
+      "statement": "Active and scheduled workstreams carry explicit, distinct working branches, base branches, and integration ownership.",
+      "status": "verified",
+      "milestone_id": "C2",
+      "criterion": "Independent task branches and integration ownership are explicit",
+      "evidence_event_ids": [
+        "CP-009-SCHEDULER-CI-001"
+      ]
     }
   ],
   "milestones": {
@@ -184,8 +214,12 @@
       "total_exit_criteria": 4
     },
     "C2": {
-      "status": "in_progress",
-      "verified_exit_criteria": [],
+      "status": "complete",
+      "verified_exit_criteria": [
+        "Scheduler selects only ready tasks within WIP limits",
+        "Repeated failures force a documented replan",
+        "Independent task branches and integration ownership are explicit"
+      ],
       "total_exit_criteria": 3
     },
     "C3": {
