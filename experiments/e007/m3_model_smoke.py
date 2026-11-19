@@ -174,29 +174,47 @@ def run_one(model: dict[str, Any], endpoint: str, results_root: Path) -> dict[st
 def main() -> int:
     candidates = read_json(ROOT / "experiments" / "e007" / "model_candidates.json")
     manifests = read_json(Path(os.environ["MODEL_MANIFESTS"]))
+    model_lock_path = Path(os.environ["MODEL_LOCK"])
+    model_lock = read_json(model_lock_path)
     server_config = read_json(Path(os.environ["OLLAMA_SERVER_CONFIG"]))
     runner_info = read_json(Path(os.environ["RUNNER_INFO"]))
     endpoint = os.environ.get("OLLAMA_URL", "http://127.0.0.1:11434")
     ollama_version = os.environ.get("OLLAMA_VERSION", "")
-    if "0.40.15" not in ollama_version:
-        raise RuntimeError("ollama_runtime_version_not_pinned")
+    runtime_lock = model_lock.get("runtime", {})
+    expected_lock_sha256 = hashlib.sha256(model_lock_path.read_bytes()).hexdigest()
+    if (
+        candidates.get("status") != "provisional_manifest_pinned"
+        or manifests.get("model_lock_sha256") != expected_lock_sha256
+        or model_lock.get("schema_version") != 1
+        or model_lock.get("status") != "provisional_pinned_not_qualified"
+        or runtime_lock.get("version") not in ollama_version
+        or runtime_lock.get("image") != os.environ.get("OLLAMA_IMAGE")
+        or runtime_lock.get("python_image") != os.environ.get("PYTHON_IMAGE")
+        or runtime_lock.get("platform") != "linux/amd64"
+    ):
+        raise RuntimeError("model_lock_runtime_mismatch")
     if endpoint != "http://127.0.0.1:11434":
         raise RuntimeError("ollama_endpoint_must_be_loopback")
     validate_ollama_server_config(server_config)
 
     models = candidates.get("models")
     manifest_models = manifests.get("models")
-    if not isinstance(models, list) or not isinstance(manifest_models, list):
+    locked_models = model_lock.get("models")
+    if not isinstance(models, list) or not isinstance(manifest_models, list) or not isinstance(locked_models, list):
         raise RuntimeError("model_manifest_schema_invalid")
     manifest_by_tag = {item.get("tag"): item for item in manifest_models if isinstance(item, dict)}
-    if {item.get("tag") for item in models} != set(manifest_by_tag):
+    lock_by_tag = {item.get("tag"): item for item in locked_models if isinstance(item, dict)}
+    if {item.get("tag") for item in models} != set(manifest_by_tag) or set(manifest_by_tag) != set(lock_by_tag):
         raise RuntimeError("candidate_manifest_tag_set_mismatch")
     for model in models:
-        manifest = manifest_by_tag[model["tag"]]
-        if not manifest.get("manifest_sha256") or not manifest.get("config_digest"):
-            raise RuntimeError(f"model_manifest_digest_missing:{model['tag']}")
-        if manifest.get("quantization_level") != model.get("quantization_expected"):
-            raise RuntimeError(f"model_quantization_mismatch:{model['tag']}")
+        tag = model["tag"]
+        manifest = manifest_by_tag[tag]
+        locked = lock_by_tag[tag]
+        for field in ("manifest_sha256", "config_digest", "model_size_bytes"):
+            if model.get(field) != locked.get(field) or manifest.get(field) != locked.get(field):
+                raise RuntimeError(f"model_lock_mismatch:{tag}:{field}")
+        if manifest.get("quantization_level") != model.get("quantization_expected") or manifest.get("quantization_level") != locked.get("quantization_level"):
+            raise RuntimeError(f"model_quantization_mismatch:{tag}")
         model.update(manifest)
 
     available = ollama_tags(endpoint)
@@ -228,6 +246,7 @@ def main() -> int:
         "agent_sandbox": sandbox,
         "ollama_server_sandbox": server_config,
         "model_store_disk_after_pull": manifests.get("disk_after_pull"),
+        "model_lock_sha256": manifests.get("model_lock_sha256"),
         "paid_api_usd": 0,
         "gpu_used": False,
         "hidden_oracle_used": False,
