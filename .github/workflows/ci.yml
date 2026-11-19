@@ -58,6 +58,11 @@ jobs:
             const needsExtended = (path) =>
               path.startsWith('.github/workflows/') ||
               path.startsWith('scripts/') ||
+              path.startsWith('src/') ||
+              path.startsWith('tests/') ||
+              path.startsWith('schemas/') ||
+              path.startsWith('services/') ||
+              path.startsWith('project-control/') ||
               path.startsWith('experiments/e001/baselines/') ||
               path.startsWith('experiments/e002/') ||
               path.startsWith('experiments/e009/');
