@@ -2,7 +2,7 @@
 
 **As of:** 2026-11-19  
 **Task:** M3-003  
-**Status:** Provisional candidate pool only. No cohort model is selected or preregistered.
+**Status:** Provisional candidate pool with immutable model manifests pinned. No cohort model is selected or preregistered.
 
 ## Objective and non-goals
 
@@ -27,7 +27,11 @@ The initial plan is CPU-only:
 - During inference, the Ollama server has `--network none`; the Python agent shares only that isolated network namespace to reach Ollama over loopback. No external network is available.
 - Agent and model server have separate cgroup limits. The agent has no apply capability and no access to hidden-oracle data.
 
-The runtime image and model manifest digests are recorded in every run artifact. Model tags are mutable; the first smoke is a bootstrap to obtain the full manifest digests. The cohort remains blocked until those digests are committed to a lock file and verified on a fresh run.
+The runtime image and model manifest digests are recorded in every run artifact. The bootstrap run produced the immutable manifest, config, model-layer, quantization, and model-size digests now committed in [model_lock.json](../experiments/e007/model_lock.json). The workflow compares every freshly pulled tag against this lock and fails closed on any mismatch. The candidate registry mirrors the key pins; the lock SHA-256 is also included in each run summary.
+
+The lock records identity, not capability. The bootstrap run [44509769849](https://github.com/mojtaba-arvin/agent-native/actions/runs/44509769849) completed with all three models safely isolated but **0/3 completed the E009 agent loop**. The 350M model returned no tool call or final candidate; the 1B model passed the target operation name to `interface.describe`; the 3B model repeated service inspection and attempted to inspect the operation it was supposed to add. No apply was attempted, no hidden oracle was used, and no sandbox safety violations were recorded. These failures remain in the raw artifact (artifact ID `14521961180`, SHA-256 `d968fe09cc1b89d5ca6e68cbc0f314bcfdb92144940e1150f0873d4d31e54974`).
+
+The 3B trace also exposed an inconsistency in the Gateway's `minimal` disclosure flow; the corrective change is tracked in PR #97. The candidate cohort remains unselected until a fresh locked run after that repair produces reproducible results.
 
 ## Provisional same-family model tiers
 
@@ -39,7 +43,7 @@ The first candidate family is IBM Granite 4.0 Hybrid, distributed through the [o
 | Medium | `ibm/granite4:1b-h-q4_K_M` | 1.46B | 901 MB | Small CPU model |
 | Strong | `ibm/granite4:3b-h` | 3.19B | 1.9 GB | Larger dense hybrid candidate |
 
-These are candidate labels, not a claim that the 3B model will pass. The per-tag Ollama details report 340M, 1.46B, and 3.19B parameters respectively. The explicit Q4_K_M tags avoid the Q8_0 defaults exposed by the unqualified H-350M and H-1B tags. Exact quantization, size, configuration digest, and manifest SHA-256 are read from the pulled manifests and retained per run. No model is considered pinned until those values are verified and committed.
+These are candidate labels, not a claim that the 3B model will pass. The per-tag Ollama details report 340M, 1.46B, and 3.19B parameters respectively. The explicit Q4_K_M tags avoid the Q8_0 defaults exposed by the unqualified H-350M and H-1B tags. Exact quantization, size, configuration digest, and manifest SHA-256 are read from the pulled manifests and retained per run. The model identity is now pinned in `model_lock.json`; model capability remains unqualified until the fresh feasibility gate passes.
 
 Official model references:
 - [IBM Granite 4.0 Ollama model family](https://ollama.com/ibm/granite4)
