@@ -27,6 +27,7 @@ class M3ModelFeasibilityTests(unittest.TestCase):
             "readonly_rootfs": True,
             "cap_drop": ["ALL"],
             "security_opt": ["no-new-privileges"],
+            "tmp_noexec": True,
             "model_mount_read_only": True,
         }
 
@@ -48,6 +49,12 @@ class M3ModelFeasibilityTests(unittest.TestCase):
     def test_rejects_writable_model_mount(self):
         config = self._valid_server_config()
         config["model_mount_read_only"] = False
+        with self.assertRaises(RuntimeError):
+            validate_ollama_server_config(config)
+
+    def test_rejects_exec_enabled_server_tmpfs(self):
+        config = self._valid_server_config()
+        config["tmp_noexec"] = False
         with self.assertRaises(RuntimeError):
             validate_ollama_server_config(config)
 
