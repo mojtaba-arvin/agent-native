@@ -89,12 +89,12 @@ def candidate_sha256(record: dict[str, Any]) -> str | None:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def run_one(model: dict[str, Any], endpoint: str, results_root: Path) -> dict[str, Any]:
+def run_one(model: dict[str, Any], endpoint: str, results_root: Path, arm: str) -> dict[str, Any]:
     tag = model["tag"]
     args = SimpleNamespace(
         model=tag,
         ollama_url=endpoint,
-        arm="progressive",
+        arm=arm,
         proposal_mode="delta",
         base_disclosure="minimal",
         results_dir=results_root,
@@ -149,6 +149,7 @@ def run_one(model: dict[str, Any], endpoint: str, results_root: Path) -> dict[st
     return {
         "tier": model["tier"],
         "model": tag,
+        "tool_schema_arm": arm,
         "manifest_sha256": model.get("manifest_sha256"),
         "config_digest": model.get("config_digest"),
         "model_size_bytes": model.get("model_size_bytes"),
@@ -174,29 +175,47 @@ def run_one(model: dict[str, Any], endpoint: str, results_root: Path) -> dict[st
 def main() -> int:
     candidates = read_json(ROOT / "experiments" / "e007" / "model_candidates.json")
     manifests = read_json(Path(os.environ["MODEL_MANIFESTS"]))
+    model_lock_path = Path(os.environ["MODEL_LOCK"])
+    model_lock = read_json(model_lock_path)
     server_config = read_json(Path(os.environ["OLLAMA_SERVER_CONFIG"]))
     runner_info = read_json(Path(os.environ["RUNNER_INFO"]))
     endpoint = os.environ.get("OLLAMA_URL", "http://127.0.0.1:11434")
     ollama_version = os.environ.get("OLLAMA_VERSION", "")
-    if "0.40.15" not in ollama_version:
-        raise RuntimeError("ollama_runtime_version_not_pinned")
+    runtime_lock = model_lock.get("runtime", {})
+    expected_lock_sha256 = hashlib.sha256(model_lock_path.read_bytes()).hexdigest()
+    if (
+        candidates.get("status") != "provisional_manifest_pinned"
+        or manifests.get("model_lock_sha256") != expected_lock_sha256
+        or model_lock.get("schema_version") != 1
+        or model_lock.get("status") != "provisional_pinned_not_qualified"
+        or runtime_lock.get("version") not in ollama_version
+        or runtime_lock.get("image") != os.environ.get("OLLAMA_IMAGE")
+        or runtime_lock.get("python_image") != os.environ.get("PYTHON_IMAGE")
+        or runtime_lock.get("platform") != "linux/amd64"
+    ):
+        raise RuntimeError("model_lock_runtime_mismatch")
     if endpoint != "http://127.0.0.1:11434":
         raise RuntimeError("ollama_endpoint_must_be_loopback")
     validate_ollama_server_config(server_config)
 
     models = candidates.get("models")
     manifest_models = manifests.get("models")
-    if not isinstance(models, list) or not isinstance(manifest_models, list):
+    locked_models = model_lock.get("models")
+    if not isinstance(models, list) or not isinstance(manifest_models, list) or not isinstance(locked_models, list):
         raise RuntimeError("model_manifest_schema_invalid")
     manifest_by_tag = {item.get("tag"): item for item in manifest_models if isinstance(item, dict)}
-    if {item.get("tag") for item in models} != set(manifest_by_tag):
+    lock_by_tag = {item.get("tag"): item for item in locked_models if isinstance(item, dict)}
+    if {item.get("tag") for item in models} != set(manifest_by_tag) or set(manifest_by_tag) != set(lock_by_tag):
         raise RuntimeError("candidate_manifest_tag_set_mismatch")
     for model in models:
-        manifest = manifest_by_tag[model["tag"]]
-        if not manifest.get("manifest_sha256") or not manifest.get("config_digest"):
-            raise RuntimeError(f"model_manifest_digest_missing:{model['tag']}")
-        if manifest.get("quantization_level") != model.get("quantization_expected"):
-            raise RuntimeError(f"model_quantization_mismatch:{model['tag']}")
+        tag = model["tag"]
+        manifest = manifest_by_tag[tag]
+        locked = lock_by_tag[tag]
+        for field in ("manifest_sha256", "config_digest", "model_size_bytes"):
+            if model.get(field) != locked.get(field) or manifest.get(field) != locked.get(field):
+                raise RuntimeError(f"model_lock_mismatch:{tag}:{field}")
+        if manifest.get("quantization_level") != model.get("quantization_expected") or manifest.get("quantization_level") != locked.get("quantization_level"):
+            raise RuntimeError(f"model_quantization_mismatch:{tag}")
         model.update(manifest)
 
     available = ollama_tags(endpoint)
@@ -210,12 +229,52 @@ def main() -> int:
     results_root.mkdir(parents=True, exist_ok=True)
     runs = []
     safety_violations = []
-    for model in models:
-        result = run_one(model, endpoint, results_root)
-        runs.append(result)
-        safety_violations.extend(
-            f"{model['tag']}:{item}" for item in result["safety_violations"]
-        )
+    for arm in ("progressive", "upfront"):
+        for model in models:
+            result = run_one(model, endpoint, results_root, arm)
+            runs.append(result)
+            safety_violations.extend(
+                f"{model['tag']}:{arm}:{item}" for item in result["safety_violations"]
+            )
+
+    comparative_scorecard = {
+        "schema_version": 1,
+        "model_lock_sha256": manifests.get("model_lock_sha256"),
+        "arms": {},
+        "tiers": {},
+    }
+    for arm in ("progressive", "upfront"):
+        arm_runs = [item for item in runs if item.get("tool_schema_arm") == arm]
+        comparative_scorecard["arms"][arm] = {
+            "candidate_count": len(arm_runs),
+            "verified_count": sum(item.get("candidate_verified_locally") is True for item in arm_runs),
+            "failed_count": sum(item.get("candidate_verified_locally") is not True for item in arm_runs),
+            "results": [
+                {
+                    "tier": item.get("tier"),
+                    "model": item.get("model"),
+                    "status": item.get("status"),
+                    "verified": item.get("candidate_verified_locally") is True,
+                    "failure": item.get("failure"),
+                    "tool_calls": item.get("tool_calls"),
+                    "input_tokens": item.get("input_tokens"),
+                    "output_tokens": item.get("output_tokens"),
+                    "elapsed_seconds": item.get("elapsed_seconds"),
+                }
+                for item in arm_runs
+            ],
+        }
+    for tier in sorted({item.get("tier") for item in runs}):
+        tier_runs = [item for item in runs if item.get("tier") == tier]
+        comparative_scorecard["tiers"][tier] = {
+            item["tool_schema_arm"]: {
+                "verified": item.get("candidate_verified_locally") is True,
+                "status": item.get("status"),
+                "failure": item.get("failure"),
+                "tool_calls": item.get("tool_calls"),
+            }
+            for item in tier_runs
+        }
 
     summary = {
         "schema_version": 1,
@@ -228,13 +287,20 @@ def main() -> int:
         "agent_sandbox": sandbox,
         "ollama_server_sandbox": server_config,
         "model_store_disk_after_pull": manifests.get("disk_after_pull"),
+        "model_lock_sha256": manifests.get("model_lock_sha256"),
         "paid_api_usd": 0,
         "gpu_used": False,
         "hidden_oracle_used": False,
         "apply_enabled": False,
+        "tool_schema_arms": ["progressive", "upfront"],
+        "comparative_scorecard": comparative_scorecard,
         "model_runs": runs,
         "safety_violations": safety_violations,
     }
+    (OUTPUT / "scorecard.json").write_text(
+        json.dumps(comparative_scorecard, sort_keys=True, indent=2) + "\n",
+        encoding="utf-8",
+    )
     (OUTPUT / "summary.json").write_text(
         json.dumps(summary, sort_keys=True, indent=2) + "\n",
         encoding="utf-8",

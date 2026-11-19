@@ -63,7 +63,7 @@ class M3ModelFeasibilityTests(unittest.TestCase):
 
     def test_model_candidates_are_provisional_and_zero_paid(self):
         candidates = json.loads((E007 / "model_candidates.json").read_text(encoding="utf-8"))
-        self.assertEqual(candidates["status"], "provisional_bootstrap")
+        self.assertEqual(candidates["status"], "provisional_manifest_pinned")
         self.assertEqual(candidates["cost"]["paid_api_usd_ceiling"], 0)
         self.assertFalse(candidates["cost"]["gpu_allowed"])
         self.assertFalse(candidates["oracle"]["hidden_oracle_enabled"])
@@ -79,7 +79,26 @@ class M3ModelFeasibilityTests(unittest.TestCase):
                 "ibm/granite4:3b-h",
             ],
         )
-        self.assertTrue(all(item["manifest_sha256"] is None for item in candidates["models"]))
+        lock = json.loads((E007 / "model-lock.json").read_text(encoding="utf-8"))
+        self.assertEqual(lock["status"], "provisional_pinned_not_qualified")
+        self.assertEqual(lock["runtime"]["version"], "0.40.15")
+        self.assertEqual(lock["provenance"]["verification_run_id"], 44511342601)
+        self.assertEqual(lock["provenance"]["verification_artifact_id"], 14524351767)
+        locked = {item["tag"]: item for item in lock["models"]}
+        self.assertEqual(set(locked), {item["tag"] for item in candidates["models"]})
+        for item in candidates["models"]:
+            pin = locked[item["tag"]]
+            self.assertEqual(item["manifest_sha256"], pin["manifest_sha256"])
+            self.assertEqual(item["config_digest"], pin["config_digest"])
+            self.assertEqual(item["model_size_bytes"], pin["model_size_bytes"])
+            self.assertEqual(item["quantization_expected"], pin["quantization_level"])
+            self.assertTrue(item["manifest_sha256"])
+            self.assertTrue(pin["layers"])
+            self.assertTrue(item["tool_call_smoke"].startswith("progressive_failed_"))
+            self.assertEqual(item["initial_bootstrap_run_id"], 44509769849)
+            self.assertEqual(item["last_feasibility_run_id"], 44511342601)
+            self.assertEqual(item["upfront_tool_call_smoke"], "pending")
+            self.assertTrue(item["last_failure_code"])
         self.assertTrue(all(item["quantization_expected"] == "Q4_K_M" for item in candidates["models"]))
 
     def test_tool_sequence_reads_gateway_operations(self):
@@ -128,6 +147,9 @@ class M3ModelFeasibilityTests(unittest.TestCase):
         self.assertIn("runner-info.json", workflow)
         self.assertIn("manifest_sha256", workflow)
         self.assertIn("disk_after_pull", workflow)
+        self.assertIn("model-lock.json", workflow)
+        self.assertIn("model_lock_mismatch", workflow)
+        self.assertIn("model_lock_sha256", workflow)
 
     def test_embedded_python_workflow_scripts_are_syntactically_valid(self):
         workflow = (ROOT / ".github" / "workflows" / "m3-model-feasibility.yml").read_text(encoding="utf-8")
@@ -139,15 +161,25 @@ class M3ModelFeasibilityTests(unittest.TestCase):
 
     def test_model_smoke_disables_apply_and_uses_existing_e009_agent(self):
         smoke = (E007 / "m3_model_smoke.py").read_text(encoding="utf-8")
+        compile(smoke, str(E007 / "m3_model_smoke.py"), "exec")
         self.assertIn("local_agent.run(args)", smoke)
         self.assertIn("allow_sandbox_apply=False", smoke)
-        self.assertIn("ollama_runtime_version_not_pinned", smoke)
+        self.assertIn('runtime_lock.get("version")', smoke)
+        self.assertIn("model_lock_runtime_mismatch", smoke)
         self.assertIn("model_quantization_mismatch", smoke)
         self.assertIn("RUNNER_INFO", smoke)
         self.assertIn("model_store_disk_after_pull", smoke)
         self.assertIn('"service.apply" in sequence', smoke)
         self.assertIn('"hidden_oracle_used": False', smoke)
         self.assertIn('"paid_api_usd": 0', smoke)
+        self.assertIn('MODEL_LOCK', smoke)
+        self.assertIn('model_lock_sha256', smoke)
+        self.assertIn('expected_lock_sha256', smoke)
+        self.assertIn('for arm in ("progressive", "upfront")', smoke)
+        self.assertIn('"tool_schema_arm": arm', smoke)
+        self.assertIn('"tool_schema_arms": ["progressive", "upfront"]', smoke)
+        self.assertIn('"comparative_scorecard": comparative_scorecard', smoke)
+        self.assertIn('"scorecard.json"', smoke)
 
 
 if __name__ == "__main__":
