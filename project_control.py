@@ -392,18 +392,21 @@ def build_schedule_plan(docs: dict[str, dict[str, Any]], ledger_text: str) -> di
     deferred: list[dict[str, str]] = []
     for task in sorted(tasks, key=lambda item: (item.get("priority", 999), item["id"])):
         task_id = task["id"]
-        if task_id in active_ids or task.get("status") in {"complete", "cancelled", "blocked", "in_progress"}:
+        if task.get("status") in {"complete", "cancelled", "blocked"}:
             continue
         unchanged, no_progress, signature = _task_attempt_streaks(ledger_text, task_id)
         if unchanged >= unchanged_limit or no_progress >= no_progress_limit:
             replan_required.append({
                 "task_id": task_id,
+                "currently_active": task_id in active_ids or task.get("status") == "in_progress",
                 "reason": "unchanged_failure_limit" if unchanged >= unchanged_limit else "no_progress_attempt_limit",
                 "unchanged_failure_streak": unchanged,
                 "no_progress_streak": no_progress,
                 "failure_signature": signature,
                 "required_action": "stop_retries_record_root_cause_and_replan",
             })
+            continue
+        if task_id in active_ids or task.get("status") == "in_progress":
             continue
         unsatisfied = [
             dependency for dependency in task.get("depends_on", [])
