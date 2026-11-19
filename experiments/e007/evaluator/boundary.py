@@ -2,7 +2,8 @@
 
 This module deliberately does not load or score oracle contents. It verifies
 that an evaluator invocation receives an agent-visible candidate artifact and
-an owner-provisioned oracle file outside the candidate workspace.
+an owner-provisioned oracle file outside the candidate workspace. These checks
+are defense-in-depth preflight checks, not an OS/container isolation boundary.
 """
 
 from __future__ import annotations
@@ -57,6 +58,31 @@ def _resolve_without_symlinks(path: Path, label: str) -> Path:
     return resolved
 
 
+def _verify_oracle_custody(oracle: Path) -> None:
+    """Require a singly-linked, owner-owned file in an owner-only directory."""
+    if os.name != "posix":
+        return
+
+    oracle_stat = oracle.stat()
+    if oracle_stat.st_uid != os.geteuid():
+        raise EvaluatorBoundaryError("oracle file must be owned by the evaluator user")
+    if oracle_stat.st_nlink != 1:
+        raise EvaluatorBoundaryError("oracle file must not have additional hard links")
+
+    file_mode = stat.S_IMODE(oracle_stat.st_mode)
+    if file_mode & 0o077 or not file_mode & stat.S_IRUSR:
+        raise EvaluatorBoundaryError("oracle file must be owner-readable and inaccessible to group/other")
+
+    parent = oracle.parent
+    parent_stat = parent.stat()
+    if not stat.S_ISDIR(parent_stat.st_mode):
+        raise EvaluatorBoundaryError("oracle parent must be a directory")
+    if parent_stat.st_uid != os.geteuid():
+        raise EvaluatorBoundaryError("oracle parent directory must be owned by the evaluator user")
+    if stat.S_IMODE(parent_stat.st_mode) & 0o077:
+        raise EvaluatorBoundaryError("oracle parent directory must be owner-only (0700)")
+
+
 def verify_evaluator_boundary(
     workspace: str | Path,
     candidate_path: str | Path,
@@ -81,10 +107,7 @@ def verify_evaluator_boundary(
     if _inside(oracle, workspace_path):
         raise EvaluatorBoundaryError("oracle file must be outside the agent workspace")
 
-    if os.name == "posix":
-        permissions = stat.S_IMODE(oracle.stat().st_mode)
-        if permissions & 0o077:
-            raise EvaluatorBoundaryError("oracle file permissions must be owner-only (0600)")
+    _verify_oracle_custody(oracle)
 
     digest = hashlib.sha256(candidate.read_bytes()).hexdigest()
     return BoundaryEvidence(candidate, oracle, digest)
