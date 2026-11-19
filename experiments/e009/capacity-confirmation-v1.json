@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "cohort_id": "E009-CAPACITY-CONFIRMATION-2026-11-19-V1",
+  "no_apply": true,
+  "purpose": "Ten-repetition, single-node E-009 capacity confirmation under an explicitly bounded one-CPU/1-GiB server container. This is a prototype-specific reference gate, not a production SLO or cross-runtime certification.",
+  "parameters": {
+    "requests_per_repetition": 1000,
+    "repetitions": 10,
+    "client_concurrency": 32,
+    "target_rps": 100,
+    "containerized": true,
+    "enforce_capacity_gate": true,
+    "audit_batch_delay_ms": 1,
+    "job_batch_size": 32,
+    "job_batch_delay_ms": 2
+  },
+  "thresholds": {
+    "minimum_throughput_requests_per_second": 100,
+    "maximum_aggregate_p99_ms": 100,
+    "maximum_one_core_cpu_percent": 50,
+    "maximum_peak_cgroup_memory_bytes": 1073741824,
+    "required_server_cpu_quota_cores": 1,
+    "required_server_memory_limit_bytes": 1073741824,
+    "maximum_unexpected_outcomes": 0
+  }
+}
