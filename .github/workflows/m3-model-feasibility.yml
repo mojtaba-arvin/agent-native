@@ -114,7 +114,7 @@ jobs:
             "$OLLAMA_IMAGE" serve
           ready=false
           for attempt in $(seq 1 40); do
-            if docker exec ollama-pull ollama list >/dev/null 2>&1; then
+            if docker exec -e OLLAMA_HOST=127.0.0.1:11434 ollama-pull ollama list >/dev/null 2>&1; then
               ready=true
               break
             fi
@@ -132,7 +132,7 @@ jobs:
             ibm/granite4:3b-h
           do
             echo "Pulling public model $model"
-            docker exec ollama-pull ollama pull "$model"
+            docker exec -e OLLAMA_HOST=127.0.0.1:11434 ollama-pull ollama pull "$model"
           done
           python3 - "$GITHUB_WORKSPACE/experiments/e007/model_candidates.json" "$OUTPUT_DIR/model-details.json" <<'PY'
           import json
