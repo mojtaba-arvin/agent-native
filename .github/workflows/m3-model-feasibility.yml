@@ -218,6 +218,8 @@ jobs:
                   "layers": [
                       {"digest": layer.get("digest"), "size": layer.get("size"), "media_type": layer.get("mediaType")}
                       for layer in layers
+                  ],
+              })
           disk = shutil.disk_usage(model_dir)
           disk_after_pull = {"total_bytes": disk.total, "used_bytes": disk.used, "free_bytes": disk.free, "model_layers_total_bytes": sum(item["model_size_bytes"] for item in records)}
           output.write_text(json.dumps({"schema_version": 1, "disk_after_pull": disk_after_pull, "models": records}, indent=2, sort_keys=True) + "\n", encoding="utf-8")
