@@ -107,13 +107,18 @@ def build_scorecard(summary_raw: bytes, ledger_raw: bytes, progress_raw: bytes) 
             raise ValueError(f"CI suite {index} has a missing or duplicate name")
         suite_names.add(name)
         status = suite.get("status")
-        if status not in {"passed", "failed"}:
+        if not isinstance(status, str) or status not in {"passed", "failed"}:
             raise ValueError(f"CI suite {name} has an unsupported status")
         for field in ("test_count", "skipped_test_count", "exit_code"):
             if type(suite.get(field)) is not int or suite[field] < 0:
                 raise ValueError(f"CI suite {name} has invalid {field}")
         if suite["skipped_test_count"] > suite["test_count"]:
             raise ValueError(f"CI suite {name} skipped count exceeds total tests")
+        if (status == "passed") != (suite["exit_code"] == 0):
+            raise ValueError(f"CI suite {name} status does not match its exit code")
+        duration = suite.get("elapsed_seconds")
+        if isinstance(duration, bool) or not isinstance(duration, (int, float)) or duration < 0:
+            raise ValueError(f"CI suite {name} has invalid elapsed_seconds")
         output_sha = suite.get("output_sha256")
         if not isinstance(output_sha, str) or not SHA256_RE.fullmatch(output_sha):
             raise ValueError(f"CI suite {name} has invalid output_sha256")
@@ -121,7 +126,7 @@ def build_scorecard(summary_raw: bytes, ledger_raw: bytes, progress_raw: bytes) 
             "name": name,
             "status": status,
             "exit_code": suite["exit_code"],
-            "elapsed_seconds": suite.get("elapsed_seconds"),
+            "elapsed_seconds": duration,
             "test_count": suite["test_count"],
             "skipped_test_count": suite["skipped_test_count"],
             "output_sha256": output_sha,
@@ -138,9 +143,19 @@ def build_scorecard(summary_raw: bytes, ledger_raw: bytes, progress_raw: bytes) 
     expected_status = "passed" if failed == 0 else "failed"
     if result.get("status") != expected_status:
         raise ValueError("CI summary result status does not match suite outcomes")
-    if result.get("passed_suites") != passed or result.get("failed_suites") != failed:
+    if (
+        type(result.get("passed_suites")) is not int
+        or type(result.get("failed_suites")) is not int
+        or result.get("passed_suites") != passed
+        or result.get("failed_suites") != failed
+    ):
         raise ValueError("CI summary suite totals do not match individual suite results")
-    if counts.get("total") != total_tests or counts.get("skipped") != skipped_tests:
+    if (
+        type(counts.get("total")) is not int
+        or type(counts.get("skipped")) is not int
+        or counts.get("total") != total_tests
+        or counts.get("skipped") != skipped_tests
+    ):
         raise ValueError("CI summary test totals do not match individual suite counts")
     by_suite = counts.get("by_suite")
     expected_by_suite = {
@@ -164,7 +179,12 @@ def build_scorecard(summary_raw: bytes, ledger_raw: bytes, progress_raw: bytes) 
             continue
         claim_id = claim.get("id")
         evidence_ids = claim.get("evidence_event_ids")
-        if not isinstance(claim_id, str) or not isinstance(evidence_ids, list) or not evidence_ids:
+        if (
+            not isinstance(claim_id, str)
+            or not isinstance(evidence_ids, list)
+            or not evidence_ids
+            or not all(isinstance(item, str) and item for item in evidence_ids)
+        ):
             raise ValueError("verified progress claims require an ID and evidence event IDs")
         missing = [item for item in evidence_ids if item not in ledger_by_id]
         if missing:
