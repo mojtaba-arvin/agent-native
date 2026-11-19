@@ -12,7 +12,7 @@
   "last_completed_task_id": "CP-005",
   "last_known_green_revision": "6df57bfe7ab62ee69c6edd9eb69c2b7f73a190c2",
   "wip_limit": 2,
-  "next_action": "Begin CP-003/M0 current-state audit: reconcile REPORT.md and README status claims with E-001 through E-011 source/tests/artifacts, inventory research-only branches and artifacts, and create evidence-backed implementation task contracts. Keep PR #64/#65/#68 stacked and do not merge without the required review/owner authority.",
+  "next_action": "Complete CP-003 by checking the reconciled REPORT/E-007/E-009 docs against their source artifacts, updating any remaining stale claims, and recording exact evidence. Then turn the M1/M2 gaps into independently verifiable tasks. PR #68's docs-only update must pass its current CI run.",
   "recovery": {
     "unchanged_failure_limit": 2,
     "no_progress_attempt_limit": 3,
