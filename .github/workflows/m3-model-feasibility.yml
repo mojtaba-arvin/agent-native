@@ -59,7 +59,8 @@ jobs:
             --network bridge \
             --user "$RUNNER_UID:$RUNNER_GID" \
             --memory=4g --cpus=2 --pids-limit=128 \
-            --tmpfs "/tmp:rw,nosuid,nodev,size=1g,uid=$RUNNER_UID,gid=$RUNNER_GID" \
+            --read-only --cap-drop ALL --security-opt no-new-privileges \
+            --tmpfs "/tmp:rw,noexec,nosuid,nodev,size=1g,uid=$RUNNER_UID,gid=$RUNNER_GID" \
             --mount "type=bind,src=$MODEL_DIR,dst=/models" \
             --mount "type=bind,src=$OLLAMA_HOME,dst=/home/ollama" \
             -e HOME=/home/ollama \
