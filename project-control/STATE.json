@@ -7,12 +7,12 @@
   "current_milestone": "C1",
   "active_task_ids": [
     "CP-007",
-    "M0-001"
+    "M0-002"
   ],
-  "last_completed_task_id": "CP-003",
+  "last_completed_task_id": "M0-001",
   "last_known_green_revision": "6df57bfe7ab62ee69c6edd9eb69c2b7f73a190c2",
   "wip_limit": 2,
-  "next_action": "Execute M0-001 non-destructively: inventory the four known research-only branches and nine snapshot branches, compare their histories/trees to research/reboot-core, verify each unique artifact remains retrievable, and propose no deletion.",
+  "next_action": "Execute M0-002: inspect all preregistration/dispatch manifests and decision records, define a content-hash/append-only policy, add negative tests for post-dispatch mutation, and preserve historical manifests unchanged.",
   "recovery": {
     "unchanged_failure_limit": 2,
     "no_progress_attempt_limit": 3,
