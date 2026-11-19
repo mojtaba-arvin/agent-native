@@ -179,6 +179,7 @@ jobs:
             "readonly_rootfs":h.get("ReadonlyRootfs"),
             "cap_drop":h.get("CapDrop") or [],
             "security_opt":h.get("SecurityOpt") or [],
+            "tmp_noexec":"noexec" in h.get("Tmpfs",{}).get("/tmp",""),
             "model_mount_read_only":bool(mounts.get("/models") and not mounts["/models"].get("RW",True)),
           }
           open("'"$OUTPUT_DIR"'/ollama-server-sandbox.json","w",encoding="utf-8").write(json.dumps(out,indent=2,sort_keys=True)+"\n")
