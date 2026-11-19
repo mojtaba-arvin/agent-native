@@ -224,6 +224,79 @@ def command_status() -> int:
     return 1 if errors else 0
 
 
+def build_resume_checkpoint(
+    docs: dict[str, dict[str, Any]], handoff_text: str
+) -> dict[str, Any]:
+    """Build a stateless resume checkpoint from committed repository state."""
+    state = docs["state"]
+    tasks = docs["tasks"].get("tasks", [])
+    blockers = docs["blockers"].get("blockers", [])
+    by_id = {task.get("id"): task for task in tasks if isinstance(task, dict)}
+    active_ids = state.get("active_task_ids", [])
+    limit = state.get("wip_limit", 0)
+    if not isinstance(active_ids, list) or len(active_ids) > limit:
+        raise ControlPlaneError("active task set exceeds the configured WIP limit")
+    if not isinstance(handoff_text, str) or "## Resume protocol" not in handoff_text:
+        raise ControlPlaneError("HANDOFF.md is missing its resume protocol")
+    active = []
+    for task_id in active_ids:
+        task = by_id.get(task_id)
+        if task is None:
+            raise ControlPlaneError(f"active task does not exist: {task_id}")
+        if task.get("status") not in {"ready", "in_progress"}:
+            raise ControlPlaneError(f"active task is not executable: {task_id}")
+        unsatisfied = [
+            dependency for dependency in task.get("depends_on", [])
+            if by_id.get(dependency, {}).get("status") != "complete"
+        ]
+        if unsatisfied:
+            raise ControlPlaneError(
+                f"active task {task_id} has incomplete dependencies: {', '.join(unsatisfied)}"
+            )
+        active.append({
+            "id": task_id,
+            "title": task.get("title"),
+            "status": task.get("status"),
+            "depends_on": task.get("depends_on", []),
+            "acceptance": task.get("acceptance", []),
+        })
+    return {
+        "schema_version": 1,
+        "status": "ready",
+        "active_branch": state.get("active_branch"),
+        "baseline_branch": state.get("baseline_branch"),
+        "baseline_commit": state.get("baseline_commit"),
+        "current_milestone": state.get("current_milestone"),
+        "active_tasks": active,
+        "wip_limit": limit,
+        "next_action": state.get("next_action"),
+        "open_blockers": [
+            {
+                "id": item.get("id"),
+                "title": item.get("title"),
+                "next_step": item.get("next_step"),
+            }
+            for item in blockers if item.get("status") == "open"
+        ],
+    }
+
+
+def command_resume() -> int:
+    """Print a machine-readable checkpoint sufficient for a fresh agent handoff."""
+    try:
+        docs, ledger = load_documents()
+        errors = validate_documents(docs, ledger)
+        if errors:
+            raise ControlPlaneError("control-plane validation failed: " + "; ".join(errors))
+        handoff = (CONTROL / "HANDOFF.md").read_text(encoding="utf-8")
+        checkpoint = build_resume_checkpoint(docs, handoff)
+    except (ControlPlaneError, OSError) as exc:
+        print(json.dumps({"status": "blocked", "error": str(exc)}, sort_keys=True), file=sys.stderr)
+        return 1
+    print(json.dumps(checkpoint, ensure_ascii=False, sort_keys=True, indent=2))
+    return 0
+
+
 def command_self_test() -> int:
     """Exercise representative negative cases without modifying repository files."""
     try:
@@ -262,12 +335,14 @@ def command_self_test() -> int:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("command", choices=("validate", "status", "self-test"))
+    parser.add_argument("command", choices=("validate", "status", "self-test", "resume"))
     args = parser.parse_args()
     if args.command == "validate":
         return command_validate()
     if args.command == "status":
         return command_status()
+    if args.command == "resume":
+        return command_resume()
     return command_self_test()
 
 
