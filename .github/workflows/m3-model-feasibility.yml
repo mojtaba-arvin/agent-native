@@ -248,7 +248,8 @@ jobs:
           disk = shutil.disk_usage(model_dir)
           disk_after_pull = {"total_bytes": disk.total, "used_bytes": disk.used, "free_bytes": disk.free, "model_layers_total_bytes": sum(item["model_size_bytes"] for item in records)}
           lock_sha256 = hashlib.sha256(lock_path.read_bytes()).hexdigest()
-          output.write_text(json.dumps({"schema_version": 1, "model_lock_sha256": lock_sha256, "disk_after_pull": disk_after_pull, "models": records}, indent=2, sort_keys=True) + "\n", encoding="utf-8")          PY
+          output.write_text(json.dumps({"schema_version": 1, "model_lock_sha256": lock_sha256, "disk_after_pull": disk_after_pull, "models": records}, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+          PY
 
       - name: Start isolated no-network Ollama model server
         shell: bash
