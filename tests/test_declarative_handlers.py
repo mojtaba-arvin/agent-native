@@ -212,6 +212,22 @@ class DeclarativeHandlerTests(unittest.TestCase):
         )
         self.assertEqual(deleted.status_code, 204)
 
+    def test_list_output_is_validated_against_the_declared_item_schema(self):
+        class InvalidListRepository(FakeRepository):
+            def list(self, resource, filters, *, tenant_id):
+                return [{"sku": "SKU-1", "quantity": 5}]
+
+        invalid_adapters = RuntimeAdapters(InvalidListRepository(), self.jobs, self.events)
+        service = REGISTRY.load("inventory")
+        runtime = build_service_runtime(
+            service, handlers=self.handlers, adapters=invalid_adapters, clock=lambda: NOW
+        )
+        response = runtime.dispatch(
+            "GET", "/stock?warehouse_id=WH-1", {},
+            identity("tenant-a", "stock.read", "/stock"),
+        )
+        self.assertEqual(response.status_code, 500)
+
     def test_missing_tenant_identity_is_denied_before_handler_execution(self):
         runtime = self.runtime("catalog")
         anonymous = RequestContext(principal_id="user-1", tenant_id=None, now=NOW, grants=())
