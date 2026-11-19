@@ -4,15 +4,28 @@ This checklist is intentionally owner-operated. The agent may prepare branches,
 tests, and reviewable PRs, but must not alter repository security settings,
 merge to `main`, provision secrets, or authorize paid model workloads.
 
-## A. M2-003 independent review
+## A. M2-003 independent review or owner-authorized exception
 
-- [ ] Add two independent human reviewers to the repository (read access or
-      higher is sufficient to review).
-- [ ] Request both reviewers on [PR #81](https://github.com/mojtaba-arvin/agent-native/pull/81).
-- [ ] Each reviewer inspects the Gateway/authz diff and the security regression
-      tests, then submits an APPROVED review.
-- [ ] Do not count the PR author or bot accounts.
-- [ ] After approvals, confirm the review gate and current-base CI checks pass.
+The default policy remains two independent human APPROVED reviews on the exact
+PR head. The repository owner may explicitly waive that requirement for one
+exact head when external reviewers are unavailable. A waiver is not a peer
+review, does not complete C3's independent-review criterion, and must never be
+reported as two approvals.
+
+For PR #81, the owner authorized a narrow waiver for head
+`8f6ea008ef80cf0a1ef0d29ac503f5214ad5497e`. The exact marker is recorded in
+the PR conversation:
+
+`OWNER-APPROVED-REVIEW-WAIVER: 8f6ea008ef80cf0a1ef0d29ac503f5214ad5497e`
+
+CI accepts this exception only when the PR author is the repository owner and
+a comment authored by that same repository owner contains the exact current
+head marker. Any new commit invalidates the waiver automatically.
+
+- [x] Record owner authorization on PR #81's exact current head.
+- [ ] Confirm the owner-waiver gate and fresh Layer 0/Layer 1 checks pass.
+- [ ] Complete a source-level security audit and preserve its findings.
+- [ ] Keep C3 pending until genuine independent peer reviews are obtained.
 
 ## B. Branch protection and main integration
 
