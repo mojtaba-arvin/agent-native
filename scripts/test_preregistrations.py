@@ -16,7 +16,7 @@ class PreregistrationTests(unittest.TestCase):
         self.root = Path(self.temp.name)
         (self.root / "project-control").mkdir()
         (self.root / "research").mkdir()
-        (self.root / "project-control" / "RUN_LEDGER.jsonl").write_text('{"event_id": "RUN-1"}\\n', encoding="utf-8")
+        (self.root / "project-control" / "RUN_LEDGER.jsonl").write_text('{"event_id": "RUN-1"}\n', encoding="utf-8")
         (self.root / "DECISIONS.json").write_text('{"decisions": []}\n', encoding="utf-8")
         (self.root / "research" / "design-decisions.md").write_text("# Decisions\n", encoding="utf-8")
         (self.root / "manifest.json").write_text('{"no_apply": true}\n', encoding="utf-8")
