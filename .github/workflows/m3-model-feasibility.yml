@@ -24,9 +24,6 @@ jobs:
     env:
       OLLAMA_IMAGE: ollama/ollama@sha256:a717bfc1c56acfc2e85d3109bd40a7646258ec9062c40cea83b9ed0927eb4223
       PYTHON_IMAGE: python:3.12-slim@sha256:5e2bdb1b0d542d5039cffb8181c65930093949194a65c365dfb1b0fe13a4fa5b
-      MODEL_DIR: ${{ runner.temp }}/ollama-models
-      OLLAMA_HOME: ${{ runner.temp }}/ollama-home
-      OUTPUT_DIR: ${{ runner.temp }}/m3-model-output
     steps:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -37,6 +34,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          MODEL_DIR="$RUNNER_TEMP/ollama-models"
+          OLLAMA_HOME="$RUNNER_TEMP/ollama-home"
+          OUTPUT_DIR="$RUNNER_TEMP/m3-model-output"
+          printf 'MODEL_DIR=%s\n' "$MODEL_DIR" >> "$GITHUB_ENV"
+          printf 'OLLAMA_HOME=%s\n' "$OLLAMA_HOME" >> "$GITHUB_ENV"
+          printf 'OUTPUT_DIR=%s\n' "$OUTPUT_DIR" >> "$GITHUB_ENV"
           mkdir -p "$MODEL_DIR" "$OLLAMA_HOME" "$OUTPUT_DIR"
           chmod 700 "$MODEL_DIR" "$OLLAMA_HOME" "$OUTPUT_DIR"
           printf 'RUNNER_UID=%s\n' "$(id -u)" >> "$GITHUB_ENV"
