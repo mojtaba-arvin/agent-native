@@ -39,7 +39,7 @@ SUITES = (
     Suite("pilot-protocol", (sys.executable, "-m", "unittest", "discover", "-s", "experiments/pilot", "-p", "test*.py"), ("experiments/pilot/**",)),
     Suite("project-control", (sys.executable, "project_control.py", "validate"), ("project-control/**", "project_control.py")),
     Suite("ci-runner", (sys.executable, "-m", "unittest", "discover", "-s", "scripts", "-p", "test*.py"), ("scripts/**",)),
-    Suite("agent-native-package", (sys.executable, "scripts/package_install_smoke.py"), ("src/agent_native/**", "tests/**", "pyproject.toml", "scripts/package_install_smoke.py", "services/**", "schemas/service-manifest-v1.schema.json")),
+    Suite("agent-native-package", (sys.executable, "scripts/package_install_smoke.py"), ("src/agent_native/**", "tests/**", "pyproject.toml", "scripts/package_install_smoke.py", "services/**", "schemas/service-manifest-v1.schema.json", "schemas/service-manifest-v2.schema.json")),
 )
 DEPENDENCIES = {
     "experiments/e001/": {"e001-prototype", "pilot-protocol"},
