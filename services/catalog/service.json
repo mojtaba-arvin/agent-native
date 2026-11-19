@@ -1,16 +1,57 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "service_id": "catalog",
   "service_name": "Catalog",
   "version": "1",
   "source": "service.an",
   "handlers": {
-    "get_item": "catalog.get_item",
-    "create_item": "catalog.create_item",
-    "get_item_by_name": "catalog.get_item_by_name",
-    "submit_rebuild": "catalog.submit_rebuild",
-    "get_job": "catalog.get_job",
-    "cancel_job": "catalog.cancel_job"
+    "get_item": {
+      "handler_id": "crud.read",
+      "config": {
+        "resource": "items",
+        "key_input": "id"
+      }
+    },
+    "create_item": {
+      "handler_id": "crud.create",
+      "config": {
+        "resource": "items",
+        "input_fields": [
+          "name"
+        ],
+        "idempotency_input": "idempotency_key"
+      }
+    },
+    "get_item_by_name": {
+      "handler_id": "crud.read_by_field",
+      "config": {
+        "resource": "items",
+        "field": "name",
+        "input": "name"
+      }
+    },
+    "submit_rebuild": {
+      "handler_id": "jobs.submit",
+      "config": {
+        "queue": "rebuild",
+        "input_fields": [],
+        "idempotency_input": "idempotency_key"
+      }
+    },
+    "get_job": {
+      "handler_id": "jobs.get",
+      "config": {
+        "queue": "rebuild",
+        "key_input": "id"
+      }
+    },
+    "cancel_job": {
+      "handler_id": "jobs.cancel",
+      "config": {
+        "queue": "rebuild",
+        "key_input": "id"
+      }
+    }
   },
   "policy": "policy.json"
 }

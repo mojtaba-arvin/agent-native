@@ -539,7 +539,15 @@
       "stop_conditions": [
         "Do not allow agent-supplied Python or arbitrary handler code"
       ],
-      "evidence_ids": []
+      "evidence_ids": [
+        "src/agent_native/handlers.py",
+        "src/agent_native/manifest.py",
+        "schemas/service-manifest-v2.schema.json",
+        "services/catalog/service.json",
+        "services/inventory/service.json",
+        "tests/test_declarative_handlers.py",
+        "tests/test_service_registry.py"
+      ]
     },
     {
       "id": "M2-003",

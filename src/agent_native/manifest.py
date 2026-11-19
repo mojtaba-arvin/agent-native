@@ -32,6 +32,7 @@ class RegisteredService:
     source_path: Path
     ir: Mapping[str, Any]
     handler_bindings: Mapping[str, str]
+    handler_configs: Mapping[str, Mapping[str, Any]]
     policy: Mapping[str, Any]
 
 
@@ -105,8 +106,8 @@ class ServiceRegistry:
         expected_keys = {"schema_version", "service_id", "service_name", "version", "source", "handlers", "policy"}
         if not isinstance(manifest, dict) or set(manifest) != expected_keys:
             raise ServiceRegistryError("invalid_service_manifest", "manifest has missing or unknown properties")
-        if not isinstance(manifest["schema_version"], int) or isinstance(manifest["schema_version"], bool) or manifest["schema_version"] != 1:
-            raise ServiceRegistryError("unsupported_manifest_version", "service manifest schema_version must be 1")
+        if not isinstance(manifest["schema_version"], int) or isinstance(manifest["schema_version"], bool) or manifest["schema_version"] not in {1, 2}:
+            raise ServiceRegistryError("unsupported_manifest_version", "service manifest schema_version must be 1 or 2")
         service_id = manifest["service_id"]
         if not isinstance(service_id, str) or not re.fullmatch(r"[a-z][a-z0-9_-]{0,63}", service_id):
             raise ServiceRegistryError("invalid_service_id", "manifest service_id must be a lowercase identifier")
@@ -127,16 +128,36 @@ class ServiceRegistry:
         if ir["service"]["version"] != manifest["version"]:
             raise ServiceRegistryError("service_version_mismatch", "manifest version does not match the service IR")
 
-        handlers = manifest["handlers"]
-        if not isinstance(handlers, dict) or any(
-            not isinstance(operation, str) or not isinstance(handler_id, str) or not handler_id
-            for operation, handler_id in handlers.items()
-        ):
-            raise ServiceRegistryError("invalid_handler_bindings", "handlers must map operation names to handler IDs")
+        raw_handlers = manifest["handlers"]
+        if not isinstance(raw_handlers, dict):
+            raise ServiceRegistryError("invalid_handler_bindings", "handlers must be an object")
         operation_names = {operation["name"] for operation in ir["operations"]}
-        if set(handlers) != operation_names:
+        if set(raw_handlers) != operation_names:
             raise ServiceRegistryError("handler_binding_mismatch", "handler bindings must cover every operation exactly once")
-        unknown_handlers = sorted(set(handlers.values()) - self.trusted_handler_ids)
+        handler_bindings: dict[str, str] = {}
+        handler_configs: dict[str, Mapping[str, Any]] = {}
+        for operation_name, specification in raw_handlers.items():
+            if not isinstance(operation_name, str):
+                raise ServiceRegistryError("invalid_handler_bindings", "operation names must be strings")
+            if manifest["schema_version"] == 1:
+                if not isinstance(specification, str) or not specification:
+                    raise ServiceRegistryError("invalid_handler_bindings", "v1 handler bindings must be non-empty handler IDs")
+                handler_id, config = specification, {}
+            else:
+                if (
+                    not isinstance(specification, dict)
+                    or set(specification) != {"handler_id", "config"}
+                    or not isinstance(specification.get("handler_id"), str)
+                    or not specification["handler_id"]
+                    or not isinstance(specification.get("config"), dict)
+                ):
+                    raise ServiceRegistryError("invalid_handler_bindings", "v2 handler bindings require handler_id and object config")
+                handler_id, config = specification["handler_id"], specification["config"]
+                if any(not isinstance(key, str) for key in config):
+                    raise ServiceRegistryError("invalid_handler_config", "handler config keys must be strings")
+            handler_bindings[operation_name] = handler_id
+            handler_configs[operation_name] = MappingProxyType(dict(config))
+        unknown_handlers = sorted(set(handler_bindings.values()) - self.trusted_handler_ids)
         if unknown_handlers:
             raise ServiceRegistryError("untrusted_handler_id", f"handler IDs are not host-registered: {', '.join(unknown_handlers)}")
 
@@ -169,6 +190,7 @@ class ServiceRegistry:
             version=manifest["version"],
             source_path=source_path,
             ir=ir,
-            handler_bindings=MappingProxyType(dict(handlers)),
+            handler_bindings=MappingProxyType(dict(handler_bindings)),
+            handler_configs=MappingProxyType(dict(handler_configs)),
             policy=MappingProxyType(dict(policy)),
         )
