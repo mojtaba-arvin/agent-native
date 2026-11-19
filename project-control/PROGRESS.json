@@ -220,7 +220,7 @@
     "M2": {
       "status": "in_progress",
       "verified_exit_criteria": [],
-      "total_exit_criteria": 3
+      "total_exit_criteria": 4
     },
     "M3": {
       "status": "pending",
