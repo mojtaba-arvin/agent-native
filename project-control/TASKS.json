@@ -590,7 +590,12 @@
         "schemas/gateway-plan-v1.schema.json",
         "docs/gateway.md",
         "tests/test_gateway.py"
-      ]
+      ],
+      "execution": {
+        "branch": "feat/m2-service-independent-gateway",
+        "base_branch": "research/reboot-core",
+        "integration_owner": "integrator"
+      }
     },
     {
       "id": "M2-004",
@@ -623,7 +628,21 @@
       "stop_conditions": [
         "Do not treat a fixture-only demonstration as production readiness"
       ],
-      "evidence_ids": []
+      "evidence_ids": [
+        "run:44461727908",
+        "94 package tests",
+        "Layer 0 passed",
+        "Layer 1 native/container/database passed",
+        "tests/test_gateway_integration.py",
+        "docs/multi-service-gateway-proof.md",
+        "PR-82"
+      ],
+      "execution": {
+        "branch": "feat/m2-second-service-proof",
+        "base_branch": "feat/m2-service-independent-gateway",
+        "integration_owner": "integrator",
+        "stacked_on": "M2-003"
+      }
     },
     {
       "id": "M0-001",
@@ -1031,6 +1050,103 @@
         "resume command: machine-readable checkpoint",
         "negative dependency test passed",
         "Layer 0 and Layer 1 passed"
+      ]
+    },
+    {
+      "id": "CP-009",
+      "title": "Add dependency-aware scheduling, WIP enforcement, and retry recovery planning",
+      "milestone": "C2",
+      "status": "in_progress",
+      "priority": 9,
+      "depends_on": [
+        "CP-008"
+      ],
+      "owner": "integrator",
+      "scope": [
+        "project_control.py",
+        "scripts/test_project_control.py",
+        "project-control/TASKS.json",
+        "project-control/STATE.json",
+        "project-control/HANDOFF.md"
+      ],
+      "acceptance": [
+        "Scheduler emits only pending/ready tasks whose dependencies are complete and whose milestone is ready or in_progress",
+        "Scheduler never selects work beyond the configured WIP limit",
+        "Repeated identical task-attempt failures and no-progress attempts produce a replan-required result and are not retried automatically",
+        "A scheduled task must declare its working branch, base branch, and integration owner",
+        "Scheduling is deterministic, machine-readable, and does not mutate repository state",
+        "Recovery thresholds are evaluated for active tasks as well as pending tasks; a threshold breach emits a stop-and-replan result"
+      ],
+      "expected_outputs": [
+        "project_control.py schedule command",
+        "scheduler and recovery unit tests",
+        "branch/integration ownership metadata",
+        "updated handoff"
+      ],
+      "max_unchanged_retries": 2,
+      "replan_after_failures": 2,
+      "stop_conditions": [
+        "Do not auto-merge, rewrite shared history, or change protected repository settings",
+        "Do not reset a failed task without a recorded replan"
+      ],
+      "execution": {
+        "branch": "feat/control-plane-scheduler",
+        "base_branch": "research/reboot-core",
+        "integration_owner": "integrator"
+      },
+      "evidence_ids": [
+        "project_control.py#build_schedule_plan",
+        "project_control.py#command_schedule"
+      ]
+    },
+    {
+      "id": "CP-010",
+      "title": "Complete independent review and merge-base verification for trust-boundary integration",
+      "milestone": "C3",
+      "status": "blocked",
+      "priority": 10,
+      "depends_on": [
+        "CP-009",
+        "M2-003"
+      ],
+      "owner": "owner-approval",
+      "scope": [
+        ".github/workflows/ci.yml",
+        "project-control/POLICY.json",
+        "project-control/BLOCKERS.json",
+        "pull-request:81"
+      ],
+      "acceptance": [
+        "Peer review records are separate from implementation commits and are attributable to distinct reviewers",
+        "Trust-boundary implementation PRs require two latest APPROVED reviews from distinct non-author human reviewers",
+        "CI rejects trust-boundary PRs with fewer than two independent approvals",
+        "CI rejects PR heads that do not contain the latest target branch",
+        "M2-003 is integrated only after both independent approvals and fresh Layer 0/Layer 1 checks",
+        "Approvals are bound to the current PR head SHA; stale approvals after a new commit do not count",
+        "Review submission or dismissal events rerun the review gate and applicable CI layers"
+      ],
+      "expected_outputs": [
+        "Independent review enforcement in CI",
+        "Merge-base freshness gate",
+        "Two independent review records on PR #81",
+        "Integrated M2-003 Gateway"
+      ],
+      "max_unchanged_retries": 1,
+      "replan_after_failures": 2,
+      "stop_conditions": [
+        "Do not self-approve or count bot reviews",
+        "Do not bypass the two-review trust-boundary requirement",
+        "Do not merge to main"
+      ],
+      "execution": {
+        "branch": "feat/control-plane-scheduler",
+        "base_branch": "research/reboot-core",
+        "integration_owner": "integrator"
+      },
+      "evidence_ids": [
+        ".github/workflows/ci.yml#independent-review-gate",
+        ".github/workflows/ci.yml#merge-base-freshness",
+        "PR-81"
       ]
     }
   ]
