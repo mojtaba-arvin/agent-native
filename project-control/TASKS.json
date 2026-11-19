@@ -658,7 +658,8 @@
         "CI compares the narrative design-decision log, decision-event log, and run ledger byte prefixes to the PR base and rejects rewrites or truncation",
         "E-009 ten-repetition capacity parameters and all acceptance thresholds are stored in a frozen manifest",
         "The manual E-009 workflow consumes that manifest instead of duplicating CLI values and the result records the manifest Git blob SHA-1",
-        "The capacity gate evaluates thresholds supplied by the manifest and regression tests prove configuration overrides are honored"
+        "The capacity gate evaluates thresholds supplied by the manifest and regression tests prove configuration overrides are honored",
+        "The manual E-009 capacity workflow validates the frozen registry and decision chain before starting a run"
       ],
       "expected_outputs": [
         "Git-blob-pinned preregistration registry",
