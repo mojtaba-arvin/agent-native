@@ -1322,7 +1322,7 @@
       "id": "M3-004",
       "title": "Expose progressive and upfront Gateway tool schemas as native provider functions",
       "milestone": "M3",
-      "status": "pending",
+      "status": "in_progress",
       "priority": 32,
       "depends_on": [
         "M3-003"
@@ -1359,7 +1359,10 @@
         "run:44529848174",
         "artifact:14533985747",
         "provider telemetry: tool_definition_count=1",
-        "progressive 1B repeated interface.describe despite retained schema"
+        "progressive 1B repeated interface.describe despite retained schema",
+        "commit:20b5fb8565f24e3fe0d566dde3e3aa7120c38dc3",
+        "commit:25d3a631c87cb02d5379df5710dc5024de9481cc",
+        "commit:2e7b19da53132600784dfd5a23921792d16667c8"
       ],
       "execution": {
         "branch": "feat/e009-native-provider-tool-schemas",
