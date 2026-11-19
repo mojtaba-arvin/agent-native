@@ -80,7 +80,7 @@ class ServiceRegistry:
         if not isinstance(relative, str) or not relative:
             raise ServiceRegistryError("invalid_manifest_path", f"{label} path must be a non-empty relative string")
         posix = PurePosixPath(relative)
-        if posix.is_absolute() or PureWindowsPath(relative).is_absolute() or "\\\\" in relative or any(part in {"", ".", ".."} for part in posix.parts):
+        if posix.is_absolute() or PureWindowsPath(relative).is_absolute() or "\\" in relative or any(part in {"", ".", ".."} for part in posix.parts):
             raise ServiceRegistryError("invalid_manifest_path", f"{label} path must not escape its service directory")
         candidate = directory
         for part in posix.parts:
