@@ -171,7 +171,7 @@ class PairedAnalysisTests(unittest.TestCase):
                 -1,
             )
             saved = json.loads(output.read_text(encoding="utf-8"))
-            self.assertEqual(saved["analysis_output"], str(output))
+            self.assertEqual(saved["analysis_output"], str(output.resolve()))
             self.assertEqual(len(saved["trace_sha256"]), 4)
 
     def test_infrastructure_exclusion_removes_entire_pair_from_primary_paired_stats(self):
