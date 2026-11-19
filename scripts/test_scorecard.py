@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import unittest
 
+from ci import parse_test_counts
 from generate_scorecard import build_scorecard, validate_scorecard
 
 
@@ -126,6 +127,10 @@ class EvidenceScorecardTests(unittest.TestCase):
             for event in self.ledger_events
         )
         self.progress_raw = json.dumps(self.progress, sort_keys=True).encode()
+
+    def test_ci_runner_parses_reported_test_and_skip_counts(self):
+        output = "Ran 12 tests in 0.05s\n\nOK (skipped=3)\n"
+        self.assertEqual(parse_test_counts(output), (12, 3))
 
     def test_generates_counts_bound_to_exact_run_and_commit(self):
         scorecard = build_scorecard(self.summary_raw, self.ledger_raw, self.progress_raw)
