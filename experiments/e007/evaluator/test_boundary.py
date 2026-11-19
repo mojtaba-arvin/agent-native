@@ -30,6 +30,7 @@ class EvaluatorBoundaryTests(unittest.TestCase):
         self.assertEqual(len(evidence.candidate_sha256), 64)
         self.assertTrue(evidence.public_summary()["oracle_external_to_workspace"])
         self.assertFalse(evidence.public_summary()["oracle_path_disclosed"])
+        self.assertFalse(hasattr(evidence, "oracle_path"))
 
     def test_oracle_inside_agent_workspace_is_rejected(self):
         oracle = self.workspace / "oracle.json"
