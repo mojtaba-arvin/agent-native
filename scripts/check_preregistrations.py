@@ -6,6 +6,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -73,6 +74,46 @@ def _load_jsonl(path: Path, errors: list[str]) -> list[dict[str, Any]]:
             continue
         events.append(value)
     return events
+
+
+def is_append_only(current: bytes, previous: bytes) -> bool:
+    """Return whether current content preserves the exact historical byte prefix."""
+    return current.startswith(previous)
+
+
+def _validate_append_only_history(root: Path, base_ref: str, errors: list[str]) -> None:
+    commit = subprocess.run(
+        ["git", "rev-parse", "--verify", f"{base_ref}^{{commit}}"],
+        cwd=root, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False,
+    )
+    if commit.returncode:
+        errors.append(f"append-only history: base ref is not available: {base_ref}")
+        return
+    for relative in (
+        "project-control/DECISION_EVENTS.jsonl",
+        "project-control/RUN_LEDGER.jsonl",
+    ):
+        prior = subprocess.run(
+            ["git", "show", f"{base_ref}:{relative}"],
+            cwd=root, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False,
+        )
+        if prior.returncode:
+            exists = subprocess.run(
+                ["git", "cat-file", "-e", f"{base_ref}:{relative}"],
+                cwd=root, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False,
+            )
+            if exists.returncode == 0:
+                errors.append(f"{relative}: unable to read append-only base content")
+            continue
+        try:
+            current = (root / relative).read_bytes()
+        except OSError as exc:
+            errors.append(f"{relative}: cannot read current append-only file: {exc}")
+            continue
+        if not is_append_only(current, prior.stdout):
+            errors.append(
+                f"{relative}: historical bytes differ from base {base_ref}; append-only files may only be extended"
+            )
 
 
 def _safe_repo_path(root: Path, raw_path: Any, errors: list[str], label: str) -> Path | None:
@@ -229,9 +270,11 @@ def _validate_events(
     return by_id
 
 
-def validate(root: Path) -> list[str]:
+def validate(root: Path, base_ref: str | None = None) -> list[str]:
     root = root.resolve()
     errors: list[str] = []
+    if base_ref:
+        _validate_append_only_history(root, base_ref, errors)
     registry_path = root / "project-control" / "PREREGISTRATIONS.json"
     event_path = root / "project-control" / "DECISION_EVENTS.jsonl"
     decision_path = root / "DECISIONS.json"
@@ -363,7 +406,7 @@ def validate(root: Path) -> list[str]:
 
 def main() -> int:
     root = Path(__file__).resolve().parents[1]
-    errors = validate(root)
+    errors = validate(root, base_ref=__import__('os').environ.get('AGENT_NATIVE_BASE_SHA'))
     if errors:
         for error in errors:
             print(f"INVALID: {error}")
