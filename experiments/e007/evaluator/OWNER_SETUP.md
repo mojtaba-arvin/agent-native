@@ -40,12 +40,9 @@ create secrets, configure GitHub settings, approve spending, or enable dispatch.
 
 ## 4. Model and spend approval
 
-- [ ] Select exact provider/model identifiers and immutable model versions for
-      strong, medium, and weak tiers.
-- [ ] Record provider API version, region, endpoint, sampling parameters,
-      context limits, and tool configuration.
 - [x] Record the owner-approved zero-paid-spend ceiling: GitHub Actions free usage for this public repository only.
-- [ ] Pin model identities and versions for strong, medium, and weak tiers using a qualifying free/open-weight route.
+- [ ] Select exact open-weight model identifiers and immutable model versions for strong, medium, and weak tiers using a qualifying free route.
+- [ ] Record inference runtime version, quantization, sampling parameters, context limits, and tool configuration.
 - [ ] Set token, tool-call, wall-time, retry, and concurrency budgets for the selected free route.
 - [ ] Ensure any future agent credential cannot access the oracle.
 - [ ] If no free model path meets the preregistered quality threshold, do not run a decision-grade cohort; do not substitute a paid provider.
