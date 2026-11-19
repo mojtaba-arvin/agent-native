@@ -13,6 +13,8 @@ import os
 from pathlib import Path
 from typing import Any
 
+from sandbox_probe import verify_sandbox
+
 SMOKE_PAYLOAD: dict[str, Any] = {
     "operation": "inventory.topology_smoke",
     "resource": "/inventory/items/smoke",
@@ -39,7 +41,7 @@ def build_candidate() -> dict[str, Any]:
     }
 
 
-def write_candidate(output_dir: str | Path) -> tuple[Path, Path]:
+def write_candidate(output_dir: str | Path, sandbox_report: dict[str, Any] | None = None) -> tuple[Path, Path]:
     directory = Path(output_dir)
     directory.mkdir(parents=True, exist_ok=True)
     candidate = build_candidate()
@@ -47,14 +49,15 @@ def write_candidate(output_dir: str | Path) -> tuple[Path, Path]:
     trace_path = directory / "trace.jsonl"
     candidate_path.write_text(json.dumps(candidate, sort_keys=True, indent=2) + "\n", encoding="utf-8")
     digest = candidate["phases"]["proposal"]["candidate_sha256"]
-    trace_path.write_text(
-        json.dumps(
-            {"event": "candidate_created", "mode": "deterministic_topology_smoke",
-             "candidate_sha256": digest, "apply_invoked": False},
-            sort_keys=True,
-        ) + "\n",
-        encoding="utf-8",
-    )
+    trace_record = {
+        "event": "candidate_created",
+        "mode": "deterministic_topology_smoke",
+        "candidate_sha256": digest,
+        "apply_invoked": False,
+    }
+    if sandbox_report is not None:
+        trace_record["sandbox"] = sandbox_report
+    trace_path.write_text(json.dumps(trace_record, sort_keys=True) + "\n", encoding="utf-8")
     if os.name == "posix":
         candidate_path.chmod(0o600)
         trace_path.chmod(0o600)
@@ -65,7 +68,8 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Write the deterministic M3 agent topology-smoke artifact")
     parser.add_argument("--output", required=True)
     args = parser.parse_args(argv)
-    write_candidate(args.output)
+    sandbox_report = verify_sandbox(args.output)
+    write_candidate(args.output, sandbox_report)
     return 0
 
 
