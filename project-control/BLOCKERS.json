@@ -29,16 +29,40 @@
     },
     {
       "id": "BLK-003",
-      "status": "open",
+      "status": "resolved",
       "severity": "high",
       "title": "Unified CI candidate needs safety and cost corrections before port",
-      "description": "Static review found deleted-file selection gaps, missing project-control suite mapping, duplicate push/PR execution risk, a scheduled expensive benchmark matrix, and CPU-only Qwen3 execution in the model job. The divergent candidate branch must not be merged wholesale.",
+      "description": "The unified workflow's PR-head run 44424340406 completed with Layer 0 and Layer 1 successful. The stale E-007 source-manifest path is fixed, all 15 legacy workflow responsibilities are mapped, manual expensive jobs remain opt-in, and the workflow has no concurrency groups. The E-009 shared-runner smoke passed but explicitly does not constitute a capacity claim. A fresh run is still required after PR #64 is integrated and PR #65 is retargeted.",
       "owner_action_required": false,
       "unblocks": [
         "CP-006",
         "CP-007"
       ],
-      "next_step": "Apply the corrections documented in CI_PORT_AUDIT.md on a fresh branch from reboot-core and verify them with tests."
+      "next_step": "After PR #64 is integrated into research/reboot-core, retarget PR #65 and verify a fresh all-green run before merge."
+    },
+    {
+      "id": "BLK-004",
+      "status": "open",
+      "severity": "high",
+      "title": "Decision-grade M3 model evaluation needs an approved GPU or API execution path",
+      "description": "The unified workflow retains the existing Ollama/Qwen3 CPU job only as a manual diagnostic. It cannot be used to satisfy the v0.1 M3 acceptance gate, which requires a strong model and representative stochastic cohorts on an approved GPU or API path.",
+      "owner_action_required": true,
+      "unblocks": [
+        "M3 decision-grade model evaluation"
+      ],
+      "next_step": "Obtain owner approval for a bounded API/GPU budget and credentials/runner before enabling the decision-grade cohort."
+    },
+    {
+      "id": "BLK-005",
+      "status": "resolved",
+      "severity": "medium",
+      "title": "Shared-runner E-009 smoke incorrectly enforced capacity thresholds",
+      "description": "Removed --enforce-capacity-gate from the always-on E-009 product-path smoke while preserving it in the manual ten-repetition capacity confirmation. Run 44428892897 passed Layer 0 and Layer 1, and the E-009 smoke had zero failed expectations.",
+      "owner_action_required": false,
+      "unblocks": [
+        "Stable unified Layer 1 CI"
+      ],
+      "next_step": "No further action on the shared-runner smoke. Review the raw artifact only for product-path diagnostics; use the manual ten-run confirmation for capacity claims."
     }
   ]
 }
