@@ -17,6 +17,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -51,6 +52,10 @@ type observation struct {
 	Operation   operation `json:"operation"`
 	Method      string    `json:"method"`
 	Path        string    `json:"path"`
+	TenantID    string    `json:"tenant_id"`
+	AuthProfile string    `json:"auth_profile"`
+	IdempotencyKey string `json:"idempotency_key,omitempty"`
+	RequestBody string    `json:"request_body,omitempty"`
 	Status      int       `json:"status"`
 	Expected    int       `json:"expected_status"`
 	LatencyMS   float64   `json:"latency_ms"`
@@ -149,7 +154,7 @@ func buildRequest(ctx context.Context, cfg settings, runID string, index int, op
 		return nil, 0, fmt.Errorf("unknown workload operation %q", op)
 	}
 	requestID := fmt.Sprintf("%s-%05d", runID, index)
-	request, err := http.NewRequestWithContext(ctx, method, cfg.target+path, stringsReader(body))
+	request, err := http.NewRequestWithContext(ctx, method, cfg.target+path, strings.NewReader(body))
 	if err != nil {
 		return nil, 0, err
 	}
@@ -164,22 +169,6 @@ func buildRequest(ctx context.Context, cfg settings, runID string, index int, op
 		request.Header.Set("Idempotency-Key", requestID)
 	}
 	return request, expected, nil
-}
-
-// stringsReader avoids allocating an intermediate byte slice for small fixed JSON bodies.
-func stringsReader(value string) io.Reader {
-	return &stringReader{value: value}
-}
-
-type stringReader struct{ value string }
-
-func (r *stringReader) Read(p []byte) (int, error) {
-	if len(r.value) == 0 {
-		return 0, io.EOF
-	}
-	n := copy(p, r.value)
-	r.value = r.value[n:]
-	return n, nil
 }
 
 func newClient(timeout time.Duration, concurrency int) *http.Client {
@@ -204,6 +193,18 @@ func sendOne(client *http.Client, cfg settings, runID string, index int, op oper
 		return item
 	}
 	item.Method, item.Path = request.Method, request.URL.Path
+	item.TenantID = cfg.tenant
+	if op == expectedDenial {
+		item.AuthProfile = "insufficient_capability"
+	} else {
+		item.AuthProfile = "authorized_benchmark_principal"
+	}
+	item.IdempotencyKey = request.Header.Get("Idempotency-Key")
+	if bodyReader, bodyErr := request.GetBody(); bodyErr == nil {
+		if requestBody, readErr := io.ReadAll(bodyReader); readErr == nil {
+			item.RequestBody = string(requestBody)
+		}
+	}
 	response, err := client.Do(request)
 	if err != nil {
 		item.Error = err.Error()
