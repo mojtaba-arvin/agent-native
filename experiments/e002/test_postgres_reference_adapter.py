@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import os
+import signal
 import subprocess
 import sys
+import tempfile
+import time
 import unittest
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -74,16 +77,19 @@ class PostgresReferenceAdapterTests(unittest.TestCase):
                     "e002_idempotency_records": 0, "e002_audit": 0,
                 })
 
-    def test_commit_then_process_crash_before_response_reconciles(self):
+    def test_sigkill_after_commit_before_response_reconciles(self):
         child = """
-import os, sys
+import sys, time
+from pathlib import Path
 from postgres_reference_adapter import PostgresReferenceAdapter
 
-def terminate_after_commit(stage):
+def pause_after_commit(stage):
     if stage == "after_commit":
-        os._exit(77)
+        Path(sys.argv[2]).write_text("committed", encoding="utf-8")
+        while True:
+            time.sleep(1)
 
-adapter = PostgresReferenceAdapter(sys.argv[1], _fault_hook=terminate_after_commit)
+adapter = PostgresReferenceAdapter(sys.argv[1], _fault_hook=pause_after_commit)
 adapter.admit_job(
     tenant_id="tenant-a", operation_id="jobs.create", idempotency_key="key-1",
     payload={"name": "lamp"}, outbox_payload={"topic": "job.created"},
@@ -92,11 +98,22 @@ adapter.admit_job(
 """
         env = dict(os.environ)
         env["PYTHONPATH"] = str(Path(__file__).parent)
-        crashed = subprocess.run(
-            [sys.executable, "-c", child, self.dsn],
-            env=env, check=False, timeout=20,
-        )
-        self.assertEqual(crashed.returncode, 77)
+        with tempfile.TemporaryDirectory() as directory:
+            marker = Path(directory) / "committed.marker"
+            process = subprocess.Popen(
+                [sys.executable, "-c", child, self.dsn, str(marker)],
+                env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+            )
+            deadline = time.monotonic() + 20
+            while not marker.exists() and process.poll() is None and time.monotonic() < deadline:
+                time.sleep(0.05)
+            if not marker.exists():
+                if process.poll() is None:
+                    process.kill()
+                stdout, stderr = process.communicate(timeout=5)
+                self.fail("child did not reach post-commit pause: " + stdout + stderr)
+            process.send_signal(signal.SIGKILL)
+            self.assertEqual(process.wait(timeout=10), -signal.SIGKILL)
         status, outcome = self.admit(request_id="retry-after-process-crash")
         self.assertEqual(status, "replayed")
         self.assertEqual(outcome["state"], "queued")
