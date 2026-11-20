@@ -52,12 +52,20 @@ jobs:
       pull-requests: read
     outputs:
       extended: ${{ steps.detect.outputs.extended }}
+      t09: ${{ steps.detect.outputs.t09 }}
     steps:
       - id: detect
         uses: actions/github-script@v7
         with:
           script: |
             const { owner, repo } = context.repo;
+            core.setOutput('t09', 'false');
+            const isT09Measurement = (path) =>
+              path === 'experiments/e002/controlled_host_matrix.py' ||
+              path === 'experiments/e002/test_controlled_host_matrix.py' ||
+              path === 'experiments/e002/T09-evidence.md' ||
+              path.startsWith('experiments/e002/loadgen/') ||
+              path.startsWith('experiments/e002/controlled-host/');
             const needsExtended = (path) =>
               path.startsWith('.github/') ||
               path.startsWith('scripts/') ||
@@ -110,6 +118,7 @@ jobs:
                 core.setOutput('extended', 'false');
                 return;
               }
+              core.setOutput('t09', String(paths.some(isT09Measurement)));
               core.setOutput('extended', String(paths.some(needsExtended)));
             } catch (error) {
               core.warning('Could not classify extended-check impact; failing safe by running Layer 1: ' + error.message);
@@ -343,6 +352,41 @@ jobs:
           python experiments/e009/performance_smoke.py \
             --requests 1000 --repetitions 2 --concurrency 32 --target-rps 100 \
             --containerized --output "$RUNNER_TEMP/e009-cgroup-smoke.json"
+      - name: E-002 controlled one-vCPU ten-repetition matrix
+        if: github.event_name == 'pull_request' && needs.changes.outputs.t09 == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          BUNDLE="$RUNNER_TEMP/e002-t09-bundle"
+          OUTPUT="$RUNNER_TEMP/e002-t09-matrix"
+          mkdir -p "$BUNDLE" "$OUTPUT"
+
+          (cd experiments/e002/loadgen && go test ./... && go vet ./... && go build -o "$RUNNER_TEMP/e002-loadgen" .)
+          python -m unittest discover -s experiments/e002 -p "test_controlled_host_matrix.py" -v
+          (cd experiments/e002/beam && MIX_ENV=prod mix release --overwrite)
+
+          cp "$RUNNER_TEMP/e002-go" "$BUNDLE/e002-go"
+          cp experiments/e002/rust/target/release/agent-native-e002-rust "$BUNDLE/e002-rust"
+          cp experiments/e002/wasi-p2/target/wasm32-wasip2/release/agent_native_e002_wasi_p2.wasm "$BUNDLE/agent_native_e002_wasi_p2.wasm"
+          WASMTIME_BIN="$(find "$RUNNER_TEMP" -type f -name wasmtime -perm -111 -print -quit)"
+          test -n "$WASMTIME_BIN"
+          cp "$WASMTIME_BIN" "$BUNDLE/wasmtime"
+          cp -a experiments/e002/beam/_build/prod/rel/agent_native_e002_beam "$BUNDLE/beam-release"
+          chmod 0755 "$BUNDLE/e002-go" "$BUNDLE/e002-rust" "$BUNDLE/wasmtime"
+
+          python experiments/e002/controlled_host_matrix.py \
+            --bundle "$BUNDLE" \
+            --loadgen "$RUNNER_TEMP/e002-loadgen" \
+            --output "$OUTPUT" \
+            --source-sha "${{ github.event.pull_request.head.sha }}"
+      - name: Upload T09 raw request and cgroup evidence
+        if: always() && github.event_name == 'pull_request' && needs.changes.outputs.t09 == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: e002-controlled-cgroup-matrix-${{ github.run_id }}
+          path: ${{ runner.temp }}/e002-t09-matrix/
+          if-no-files-found: warn
+          retention-days: 90
       - uses: actions/upload-artifact@v4
         if: always()
         with:
