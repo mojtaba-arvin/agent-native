@@ -204,7 +204,7 @@ func sendOne(client *http.Client, cfg settings, runID string, index int, op oper
 	if err != nil {
 		item.Error = err.Error()
 		item.FinishedAt = time.Now().UTC().Format(time.RFC3339Nano)
-		item.LatencyMS = float64(time.Since(started).Nanoseconds()) / 1e6
+		item.LatencyMS = float64(time.Since(offered).Nanoseconds()) / 1e6
 		return item
 	}
 	item.Method, item.Path = request.Method, request.URL.Path
@@ -224,7 +224,7 @@ func sendOne(client *http.Client, cfg settings, runID string, index int, op oper
 	if err != nil {
 		item.Error = err.Error()
 		item.FinishedAt = time.Now().UTC().Format(time.RFC3339Nano)
-		item.LatencyMS = float64(time.Since(started).Nanoseconds()) / 1e6
+		item.LatencyMS = float64(time.Since(offered).Nanoseconds()) / 1e6
 		return item
 	}
 	defer response.Body.Close()
@@ -237,7 +237,7 @@ func sendOne(client *http.Client, cfg settings, runID string, index int, op oper
 	item.ResponseBody = string(body)
 	item.Functional = item.Completed && item.Status == expected && validateResponse(op, item.RequestID, item.ResponseBody)
 	item.FinishedAt = time.Now().UTC().Format(time.RFC3339Nano)
-	item.LatencyMS = float64(time.Since(started).Nanoseconds()) / 1e6
+	item.LatencyMS = float64(time.Since(offered).Nanoseconds()) / 1e6
 	return item
 }
 
