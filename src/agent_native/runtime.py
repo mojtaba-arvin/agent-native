@@ -597,3 +597,5 @@ class RuntimeRegistry:
             snapshot = RuntimeSnapshot(revision=revision, runtime=runtime)
             self._snapshot = snapshot
             return snapshot
+
+# T00 gate probe: implementation change without acceptance/T07.sh on base.
