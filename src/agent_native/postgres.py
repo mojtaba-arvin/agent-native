@@ -12,6 +12,8 @@ import re
 import uuid
 from typing import Any, Mapping
 
+from .runtime import DomainFault
+
 
 _SCHEMA = re.compile(r"^[a-z_][a-z0-9_]{0,62}$")
 _RESOURCES = {
@@ -180,55 +182,84 @@ class PostgresResourceRepository:
         if set(payload) != expected:
             raise ValueError("resource_payload_fields_mismatch")
         for name, expected_type in spec["types"].items():
-            if name in payload and (type(payload[name]) is not expected_type):
+            if name in payload and type(payload[name]) is not expected_type:
                 raise ValueError("invalid_resource_field:" + name)
         if resource == "stock" and payload["quantity"] < 0:
             raise ValueError("invalid_resource_field:quantity")
 
-        canonical = json.dumps(dict(payload), sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+        canonical = json.dumps(
+            dict(payload), sort_keys=True, separators=(",", ":"), ensure_ascii=False
+        )
         digest = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
-        key = spec["key"]
-        if resource == "items":
-            result = {"id": str(uuid.uuid4()), "name": payload["name"]}
-        else:
-            result = dict(payload)
+        result = (
+            {"id": str(uuid.uuid4()), "name": payload["name"]}
+            if resource == "items"
+            else dict(payload)
+        )
 
-        with self._connect() as connection:
-            with connection.transaction():
-                if idempotency_key is not None:
-                    if not isinstance(idempotency_key, str) or not idempotency_key.strip():
-                        raise ValueError("invalid_idempotency_key")
-                    lock = json.dumps([tenant_id, resource, idempotency_key], separators=(",", ":"))
-                    connection.execute(
-                        "SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))", (lock,)
-                    )
-                    previous = connection.execute(
-                        "SELECT request_sha256, response_json FROM "
-                        + self.schema + ".idempotency_keys "
-                        "WHERE tenant_id = %s AND resource = %s AND idempotency_key = %s",
-                        (tenant_id, resource, idempotency_key),
-                    ).fetchone()
-                    if previous:
-                        if previous["request_sha256"] != digest:
-                            raise ValueError("idempotency_key_reused_with_different_request")
-                        return previous["response_json"]
-                if resource == "items":
-                    connection.execute(
-                        "INSERT INTO " + self.schema + ".items (tenant_id, id, name) VALUES (%s, %s, %s)",
-                        (tenant_id, result["id"], result["name"]),
-                    )
-                else:
-                    connection.execute(
-                        "INSERT INTO " + self.schema + ".stock (tenant_id, sku, quantity, warehouse_id) VALUES (%s, %s, %s, %s)",
-                        (tenant_id, result["sku"], result["quantity"], result["warehouse_id"]),
-                    )
-                if idempotency_key is not None:
-                    connection.execute(
-                        "INSERT INTO " + self.schema + ".idempotency_keys "
-                        "(tenant_id, resource, idempotency_key, request_sha256, response_json) "
-                        "VALUES (%s, %s, %s, %s, %s::jsonb)",
-                        (tenant_id, resource, idempotency_key, digest, json.dumps(result)),
-                    )
+        psycopg, _sql, _row = self._driver()
+        try:
+            with self._connect() as connection:
+                with connection.transaction():
+                    if idempotency_key is not None:
+                        if not isinstance(idempotency_key, str) or not idempotency_key.strip():
+                            raise ValueError("invalid_idempotency_key")
+                        lock = json.dumps(
+                            [tenant_id, resource, idempotency_key],
+                            separators=(",", ":"),
+                        )
+                        connection.execute(
+                            "SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))",
+                            (lock,),
+                        )
+                        previous = connection.execute(
+                            "SELECT request_sha256, response_json FROM "
+                            + self.schema + ".idempotency_keys "
+                            "WHERE tenant_id = %s AND resource = %s AND idempotency_key = %s",
+                            (tenant_id, resource, idempotency_key),
+                        ).fetchone()
+                        if previous:
+                            if previous["request_sha256"] != digest:
+                                raise DomainFault(
+                                    "Conflict",
+                                    "idempotency_key_reused_with_different_request",
+                                )
+                            return previous["response_json"]
+
+                    if resource == "items":
+                        connection.execute(
+                            "INSERT INTO " + self.schema
+                            + ".items (tenant_id, id, name) VALUES (%s, %s, %s)",
+                            (tenant_id, result["id"], result["name"]),
+                        )
+                    else:
+                        connection.execute(
+                            "INSERT INTO " + self.schema
+                            + ".stock (tenant_id, sku, quantity, warehouse_id) "
+                            "VALUES (%s, %s, %s, %s)",
+                            (
+                                tenant_id,
+                                result["sku"],
+                                result["quantity"],
+                                result["warehouse_id"],
+                            ),
+                        )
+
+                    if idempotency_key is not None:
+                        connection.execute(
+                            "INSERT INTO " + self.schema + ".idempotency_keys "
+                            "(tenant_id, resource, idempotency_key, request_sha256, response_json) "
+                            "VALUES (%s, %s, %s, %s, %s::jsonb)",
+                            (
+                                tenant_id,
+                                resource,
+                                idempotency_key,
+                                digest,
+                                json.dumps(result),
+                            ),
+                        )
+        except psycopg.errors.UniqueViolation as error:
+            raise DomainFault("Conflict", "resource_conflict") from error
         return result
 
     def update(self, resource: str, key_value: Any, payload: Mapping[str, Any], *, tenant_id: str):
