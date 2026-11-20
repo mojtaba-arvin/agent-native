@@ -330,7 +330,8 @@ def markdown_report(source_sha: str, prereg_hash: str, records: list[dict], host
         "Every row is a separate container run with a one-vCPU/one-GiB cgroup-v2 candidate allocation. "
         "The load generator and PostgreSQL dependency use separate CPU allocations and cgroups. "
         "The 60/20/10/10 product workload includes authorized reads, plan validation, durable job admission, "
-        "and expected capability denials. Expected 403 denials count as completed responses.",
+        "and expected capability denials. Expected 403 denials count as completed responses. "
+        "Completed throughput is divided by the fixed 50-second offer window; post-window completion drain is reported separately.",
         "",
         "Physical-host exclusivity is an explicit operator attestation. Shared GitHub-hosted runner data is not used.",
         "",
@@ -434,7 +435,7 @@ def main() -> int:
             raise RuntimeError("preregistration content does not match its SHA-256")
         if prereg.get("task") != "T16" or prereg.get("repetitions_per_candidate") != REPETITIONS or prereg.get("requests_per_repetition") != REQUESTS or prereg.get("concurrency") != CONCURRENCY or prereg.get("warmup_requests") != WARMUP or prereg.get("target_completed_rps") != TARGET_RPS:
             raise RuntimeError("preregistration workload parameters differ from the executable matrix")
-        if protocol.get("request_mix") != {"authorized_read": 60, "validate_plan": 20, "job_admission": 10, "expected_denial": 10} or protocol.get("storage_engine") != "PostgreSQL" or protocol.get("arrival_model") != "open_loop":
+        if protocol.get("request_mix") != {"authorized_read": 60, "validate_plan": 20, "job_admission": 10, "expected_denial": 10} or protocol.get("storage_engine") != "PostgreSQL" or protocol.get("arrival_model") != "open_loop" or protocol.get("arrival_schedule") != "fixed_rate_100_rps" or protocol.get("throughput_measurement") != "completed responses divided by the fixed 5000/100-second offer window; completion drain is reported separately":
             raise RuntimeError("protocol differs from the T16 product workload contract")
         ledger_path = output / "ledger.jsonl"
         ledger_path.write_text("", encoding="utf-8")
@@ -523,6 +524,9 @@ def main() -> int:
                     violations = integrity_violations(args.postgres_dsn)
                     metrics = {
                         "completed_requests": int(summary["completed_requests"]),
+                        "measurement_window_seconds": float(summary["measurement_window_seconds"]),
+                        "elapsed_seconds": float(summary["elapsed_seconds"]),
+                        "drain_seconds": float(summary["drain_seconds"]),
                         "completed_requests_per_second": float(summary["completed_requests_per_second"]),
                         "p99_ms": float(summary["latency_ms"]["p99"]),
                         "cpu_seconds": (cpu_after["usage_usec"] - cpu_before["usage_usec"]) / 1_000_000,
