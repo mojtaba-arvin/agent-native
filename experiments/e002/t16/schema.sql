@@ -101,7 +101,7 @@ BEGIN
     IF v_operation_id = 'expected_denial' THEN
         outcome := jsonb_build_object('request_id', request_id,
             'error', jsonb_build_object('code', reason_code));
-        INSERT INTO t16_audit(event_id, request_id, principal_id, tenant_id,
+        INSERT INTO t16_audit(event_id, request_id, principal_id, v_tenant_id,
             operation_id, decision, reason_code, outcome)
         VALUES (gen_random_uuid(), request_id, principal_id, v_tenant_id,
             'jobs.create', 'deny', reason_code, outcome);
@@ -131,7 +131,7 @@ BEGIN
             'operations.validate', 'allow', 'PLAN_VALIDATED', outcome);
         RETURN outcome;
     ELSIF v_operation_id = 'job_admission' THEN
-        IF body->>'contract_version' <> 'v1' OR body->>'operation' IS DISTINCT FROM 'jobs.create'
+        IF body->>'contract_version' IS DISTINCT FROM 'v1' OR body->>'operation' IS DISTINCT FROM 'jobs.create'
            OR jsonb_typeof(body->'payload') IS DISTINCT FROM 'object'
            OR v_idempotency_key IS NULL OR v_idempotency_key = '' THEN
             RAISE EXCEPTION 't16_job_contract_invalid';
