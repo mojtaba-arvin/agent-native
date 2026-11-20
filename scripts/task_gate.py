@@ -109,7 +109,11 @@ def evaluate(ctx: dict[str, Any]) -> list[str]:
         bad = sorted(path for path, file_class in classes.items() if file_class not in allowed and file_class != "state")
         if bad:
             violations.append(f"kind:{kind} may not change: " + ", ".join(bad))
-        if not (set(classes.values()) & required):
+        rules_only_process_pr = (
+            kind == "process"
+            and files == ["docs/V1_PLAN.md"]
+        )
+        if not (set(classes.values()) & required) and not rules_only_process_pr:
             violations.append(
                 f"kind:{kind} PR must change at least one of: "
                 + ", ".join(sorted(required)) + " files."
