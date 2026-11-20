@@ -9,6 +9,7 @@ from .gateway import AgentGateway, GatewayError, Plan, Proposal, ValidationResul
 from .authz import EFFECT_ACCESS_MODE, classify_effects
 from .postgres import PostgresResourceRepository
 from .host import ServiceHost
+from .operations import OperationalHTTPServer, OperationalMetrics, create_operational_server
 
 __version__ = "0.1.0.dev0"
 
@@ -22,6 +23,9 @@ __all__ = [
     "RuntimeResponse",
     "RegisteredService",
     "ServiceHost",
+    "OperationalHTTPServer",
+    "OperationalMetrics",
+    "create_operational_server",
     "ServiceRegistry",
     "ServiceRegistryError",
     "RuntimeAdapters",
