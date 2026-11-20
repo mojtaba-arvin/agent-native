@@ -74,6 +74,15 @@ def container_cgroup(name: str) -> Path:
     return cgroup_for_pid(container_pid(name))
 
 
+
+def physical_core_key(cpu: int) -> tuple[int, int]:
+    topology = Path(f"/sys/devices/system/cpu/cpu{cpu}/topology")
+    return (
+        int((topology / "physical_package_id").read_text(encoding="ascii").strip()),
+        int((topology / "core_id").read_text(encoding="ascii").strip()),
+    )
+
+
 def parse_cpu_list(value: str) -> list[int]:
     result: list[int] = []
     for part in value.strip().split(","):
@@ -324,6 +333,14 @@ def main() -> int:
         cpus = [host.get("candidate_cpu"), host.get("load_generator_cpu"), host.get("postgres_cpu")]
         if any(not isinstance(cpu, int) for cpu in cpus) or len(set(cpus)) != 3:
             raise RuntimeError("three distinct preregistered CPU allocations are required")
+        core_keys = [physical_core_key(cpu) for cpu in cpus]
+        recorded_cores = host.get("selected_physical_cores", {})
+        expected_cores = [
+            tuple(recorded_cores.get(name, []))
+            for name in ("candidate", "load_generator", "postgresql")
+        ]
+        if len(set(core_keys)) != 3 or core_keys != expected_cores:
+            raise RuntimeError("physical CPU topology differs from the preregistered three-core allocation")
         if not shutil.which("docker") or not shutil.which("taskset") or not shutil.which("psql"):
             raise RuntimeError("docker, taskset, and psql are required")
         if not Path("/sys/fs/cgroup/cgroup.controllers").is_file():
