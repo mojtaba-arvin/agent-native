@@ -242,6 +242,10 @@ adapter.admit_job(
             0,
             completed.stdout + "\\n" + completed.stderr,
         )
+        output = completed.stdout + completed.stderr
+        self.assertIn("Ran 14 tests", output)
+        self.assertIn("OK", output)
+        self.assertNotIn("skipped=", output)
         if completed.stdout:
             print(completed.stdout, end="")
         if completed.stderr:
