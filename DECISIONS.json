@@ -206,6 +206,142 @@
         "Finite retry budget and terminal failure state are tested"
       ],
       "reason": "No real broker, separate producer/consumer databases, multi-node failure model, external API idempotency adapter, distributed observability, or production recovery policy is implemented."
+    },
+    {
+      "id": "D-0015",
+      "topic": "v0_1_capacity_envelope_and_rust_go_selection_rule",
+      "status": "decided",
+      "value": "Pre-register a one-service-replica capacity acceptance hypothesis of 1 vCPU, 1 GiB service memory, 100 completed control-plane requests/second at concurrency 32, p99 <= 100 ms, sustained CPU <= 50% of one vCPU, and <= 25 cgroup CPU-seconds per 5,000 completed requests. Compare Rust/Tokio+Hyper with Go/net/http only after identical product-workload semantics and all hard gates pass. No runtime is selected by this decision.",
+      "constraints": [
+        "Inference and external provider calls are outside the measured runtime path",
+        "Use the authenticated Agent/tool-execution control-plane request mix",
+        "Use 10 randomized repetitions per candidate with 5,000 measured requests and 250 warm-up requests per repetition",
+        "Use controlled one-vCPU host and cgroup v2 accounting for capacity claims",
+        "All functional, security, data-integrity and registered failure assertions are hard gates",
+        "No score or selection when required evidence is missing",
+        "Select only with at least 5 weighted-score points advantage, paired 95% bootstrap confidence interval excluding zero, and no rank reversal under +/-20% weight sensitivity"
+      ],
+      "capacity_envelope": {
+        "service_vcpu": 1,
+        "service_memory_bytes": 1073741824,
+        "completed_requests_per_second": 100,
+        "concurrency": 32,
+        "p99_latency_ms": 100,
+        "sustained_cpu_fraction": 0.5,
+        "cpu_seconds_per_5000_completed_requests": 25,
+        "repetitions_per_candidate": 10,
+        "requests_per_repetition": 5000,
+        "warmup_requests_per_repetition": 250
+      },
+      "runtime_candidates": [
+        "Rust/Tokio + Hyper",
+        "Go/net/http"
+      ],
+      "weighted_criteria": {
+        "p99_latency": 25,
+        "completed_throughput": 20,
+        "peak_service_cgroup_memory": 15,
+        "cgroup_cpu_time": 10,
+        "ecosystem_operability": 10,
+        "failure_semantics": 10,
+        "startup_time": 5,
+        "deployable_artifact_size": 5
+      },
+      "selection_rule": {
+        "hard_gates_required": true,
+        "minimum_score_margin_points": 5,
+        "confidence_interval": "paired bootstrap 95% interval for score difference must exclude zero",
+        "weight_sensitivity": "vary each weight by +/-20%, renormalize to 100; ordering must not reverse",
+        "if_both_pass": "select higher score only when margin, confidence interval, and sensitivity requirements all pass; otherwise no winner",
+        "if_neither_pass": "select neither",
+        "if_one_pass_with_complete_evidence": "select the sole eligible candidate",
+        "if_evidence_missing": "no selection; missing evidence is not measured, never zero",
+        "current_runtime_selection": "none",
+        "bootstrap_resamples": 10000,
+        "bootstrap_seed": "preregistered before the cohort"
+      },
+      "evidence": [
+        "docs/T02_SLO_AND_RUNTIME.md",
+        "experiments/e002/control-plane-workload.md",
+        "experiments/e002/decision-matrix.md",
+        "experiments/e002/cpu-gate-analysis.md",
+        "experiments/e009/performance-evidence-2026-11-18.md"
+      ],
+      "request_mix": [
+        {
+          "share_percent": 60,
+          "operation": "authorized_read",
+          "required_semantics": [
+            "authentication",
+            "tenant_resolution",
+            "contract_validation",
+            "read_authorization",
+            "durable_audit"
+          ]
+        },
+        {
+          "share_percent": 20,
+          "operation": "validate_plan",
+          "required_semantics": [
+            "authentication",
+            "tenant_resolution",
+            "contract_validation",
+            "non_mutating_plan",
+            "durable_audit"
+          ]
+        },
+        {
+          "share_percent": 10,
+          "operation": "job_admission",
+          "required_semantics": [
+            "authentication",
+            "idempotency_validation",
+            "submission_authorization",
+            "atomic_job_outbox_audit_idempotency_persistence"
+          ]
+        },
+        {
+          "share_percent": 10,
+          "operation": "expected_denial",
+          "required_semantics": [
+            "default_deny",
+            "durable_deny_audit",
+            "no_business_mutation"
+          ]
+        }
+      ],
+      "hard_gates": [
+        "100_percent_shared_black_box_positive_negative_and_failure_contract_conformance",
+        "zero_authorization_tenant_isolation_audit_ordering_idempotency_or_data_integrity_violations",
+        "100_percent_registered_deadline_overload_cancellation_worker_crash_retry_duplicate_delivery_deduplication_and_recovery_assertions",
+        "each_repetition_completed_throughput_at_least_100_requests_per_second",
+        "each_repetition_p99_at_most_100_milliseconds",
+        "each_5000_completed_request_repetition_cgroup_cpu_at_most_25_seconds",
+        "service_cgroup_peak_memory_at_most_1_gibibyte_and_no_oom_events",
+        "identical_host_workload_storage_durability_and_measurement_boundary"
+      ],
+      "measurement_protocol": {
+        "repetitions_per_candidate": 10,
+        "measured_requests_per_repetition": 5000,
+        "warmup_requests_per_repetition": 250,
+        "concurrency": 32,
+        "arrival_model": "rate-controlled open-loop",
+        "candidate_order": "randomized",
+        "cpu_accounting": "cgroup v2 cpu.stat",
+        "memory_accounting": "cgroup v2 memory peak and memory.events",
+        "capacity_host": "controlled one-vCPU host",
+        "shared_host_results": "diagnostic_only",
+        "expected_4xx_denials_count_as_completed": true,
+        "inference_and_external_provider_calls_in_runtime_path": false,
+        "paired_workload_seeds": true,
+        "randomize_candidate_order_within_pair": true
+      },
+      "historical_cpu_screen": {
+        "cpu_seconds_per_5000_requests": 0.5,
+        "workload": "trivial in-memory GET /work?ms=0",
+        "status": "historical-only; retired as prospective product eligibility gate",
+        "retroactive_rescoring": false
+      }
     }
   ]
 }
