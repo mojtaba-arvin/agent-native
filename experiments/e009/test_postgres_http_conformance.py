@@ -7,13 +7,10 @@ import threading
 import unittest
 import uuid
 
-from audit import SQLiteAuditSink
 from catalog import build_catalog_handlers
 from http_server import create_server
 from identity import MemoryIdentityProvider
 from kernel import ServiceRuntime, load_service_ir
-from repository import SQLiteCatalogRepository
-from security_model import Grant, RequestContext
 
 from test_http_conformance import (
     HTTPConformanceTests,
@@ -43,6 +40,7 @@ class PostgresHTTPConformanceTests(HTTPConformanceTests):
             self.skipTest("requires psycopg 3")
 
         self.schema = f"e009_t06_{uuid.uuid4().hex}"
+        self.addCleanup(self._drop_schema)
         self.repository = PostgresCatalogRepository(self.dsn, schema=self.schema)
         self.audit_sink = PostgresAuditSink(self.dsn, schema=self.schema)
         self.work_store = None
@@ -72,6 +70,19 @@ class PostgresHTTPConformanceTests(HTTPConformanceTests):
         self.server_thread.start()
         self.base_url = f"http://127.0.0.1:{self.server.server_port}"
 
+    def _drop_schema(self) -> None:
+        if not hasattr(self, "schema"):
+            return
+        import psycopg
+        from psycopg import sql
+
+        with psycopg.connect(self.dsn) as connection:
+            connection.execute(
+                sql.SQL("DROP SCHEMA IF EXISTS {} CASCADE").format(
+                    sql.Identifier(self.schema)
+                )
+            )
+
     def tearDown(self) -> None:
         if hasattr(self, "server"):
             self.server.shutdown()
@@ -79,13 +90,3 @@ class PostgresHTTPConformanceTests(HTTPConformanceTests):
             self.server_thread.join(timeout=5)
         if hasattr(self, "repository"):
             self.repository.close()
-        if hasattr(self, "schema"):
-            import psycopg
-            from psycopg import sql
-
-            with psycopg.connect(self.dsn) as connection:
-                connection.execute(
-                    sql.SQL("DROP SCHEMA IF EXISTS {} CASCADE").format(
-                        sql.Identifier(self.schema)
-                    )
-                )
