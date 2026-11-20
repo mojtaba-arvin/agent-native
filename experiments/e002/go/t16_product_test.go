@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"strings"
 	"testing"
 )
@@ -16,6 +17,10 @@ func TestT16ProductRoutesUseAuthenticatedPostgresContract(t *testing.T) {
 	t.Setenv("T16_READ_TOKEN", "test-read-token")
 	t.Setenv("T16_DENY_TOKEN", "test-deny-token")
 	t.Setenv("T16_TENANT_ID", "tenant-a")
+	reset := exec.Command("psql", dsn, "-X", "-v", "ON_ERROR_STOP=1", "-c", "SELECT t16_reset()")
+	if output, err := reset.CombinedOutput(); err != nil {
+		t.Fatalf("reset T16 database: %v: %s", err, output)
+	}
 	product, err := newProductServiceFromEnv()
 	if err != nil {
 		t.Fatal(err)
@@ -60,7 +65,10 @@ func TestT16ProductRoutesUseAuthenticatedPostgresContract(t *testing.T) {
 		t.Fatalf("expected capability denial failed: %d %s", denied.Code, denied.Body.String())
 	}
 	unauthorized := httptest.NewRecorder()
-	handler.ServeHTTP(unauthorized, httptest.NewRequest(http.MethodGet, "/v1/records/fixture-0001", nil))
+	unauthorizedRequest := httptest.NewRequest(http.MethodGet, "/v1/records/fixture-0001", nil)
+	unauthorizedRequest.Header.Set("X-Request-ID", "go-unauthorized-1")
+	unauthorizedRequest.Header.Set("X-Tenant-ID", "tenant-a")
+	handler.ServeHTTP(unauthorized, unauthorizedRequest)
 	if unauthorized.Code != http.StatusUnauthorized {
 		t.Fatalf("missing bearer token status = %d", unauthorized.Code)
 	}
