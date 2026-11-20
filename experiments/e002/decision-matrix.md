@@ -118,3 +118,12 @@ The existing evidence is insufficient to select Go, Rust, WASI P2, or BEAM:
 5. The observed CPU values are not a basis for runtime elimination under the revised product envelope.
 
 No weighted winner is computed. The next decision-grade comparison must implement the agent/tool-control-plane request mix, the full failure semantics suite, and a controlled-host protocol before selecting a runtime. The four candidates remain research candidates; none is promoted to the product runtime.
+
+
+## T09 controlled-cgroup follow-up — 20 November 2026
+
+The T09 follow-up completed ten randomized repetitions for each of Go/net-http, Rust/Tokio + Hyper, WASI P2/Wasmtime, and Elixir/BEAM, with all 40 repetitions passing the narrow in-memory HTTP probe. The run-level measurements and raw artifact are recorded in the [T10 runtime decision report](results/2026-11-20-t09-runtime-decision.md), sourced from [workflow 44741277036](https://github.com/mojtaba-arvin/agent-native/actions/runs/44741277036) ([raw artifact 14630464028](https://github.com/mojtaba-arvin/agent-native/actions/runs/44741277036/artifacts/14630464028)).
+
+**T10 outcome: no runtime selected.** Applying the unchanged T02 rule, this cohort is not decision-grade: it measures closed-loop `GET /work?ms=0`, uses a 2-GiB candidate memory ceiling, and runs on an ephemeral shared GitHub-hosted VM. It does not execute the authenticated control-plane workload, open-loop 100 req/s arrival, 1-GiB envelope, durable audit/PostgreSQL/outbox/idempotency path, or required security and fault-injection assertions. Those product gates remain **not measured**.
+
+Go led the trivial probe's throughput; Rust used less probe CPU and memory. Neither trade-off selects a product runtime. WASI and BEAM remain exploratory candidates outside T02's formal Rust-versus-Go pair. No weighted score is calculated and no candidate is eliminated by this evidence. This addendum records the latest diagnostic input without changing T02's preregistered rule.
