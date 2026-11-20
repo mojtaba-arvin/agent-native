@@ -78,6 +78,28 @@ def postgres_version(dsn: str) -> str:
     return version
 
 
+def physical_core_key(cpu: int) -> tuple[int, int]:
+    topology = Path(f"/sys/devices/system/cpu/cpu{cpu}/topology")
+    package_id = topology / "physical_package_id"
+    core_id = topology / "core_id"
+    if not package_id.is_file() or not core_id.is_file():
+        raise RuntimeError(f"physical_cpu_topology_unavailable_for_cpu_{cpu}")
+    return int(package_id.read_text().strip()), int(core_id.read_text().strip())
+
+
+def select_distinct_physical_cpus(allowed_cpus: list[int]) -> list[int]:
+    selected: list[int] = []
+    seen: set[tuple[int, int]] = set()
+    for cpu in allowed_cpus:
+        key = physical_core_key(cpu)
+        if key not in seen:
+            selected.append(cpu)
+            seen.add(key)
+        if len(selected) == 3:
+            break
+    return selected
+
+
 def collect_host(attestation: dict[str, str], pg_version: str) -> dict[str, Any]:
     if platform.system() != "Linux":
         raise RuntimeError("T16_requires_linux")
@@ -92,8 +114,9 @@ def collect_host(attestation: dict[str, str], pg_version: str) -> dict[str, Any]
     if not hasattr(os, "sched_getaffinity"):
         raise RuntimeError("sched_getaffinity_required")
     allowed_cpus = sorted(os.sched_getaffinity(0))
-    if len(allowed_cpus) < 3:
-        raise RuntimeError("need_three_host_cpus_to_isolate_candidate_load_generator_and_postgresql")
+    physical_cpus = select_distinct_physical_cpus(allowed_cpus)
+    if len(physical_cpus) < 3:
+        raise RuntimeError("need_three_distinct_physical_cores_for_candidate_load_generator_and_postgresql")
     if not shutil.which("docker") or not shutil.which("taskset"):
         raise RuntimeError("docker_and_taskset_required")
     docker = subprocess.run(
@@ -108,10 +131,11 @@ def collect_host(attestation: dict[str, str], pg_version: str) -> dict[str, Any]
         "cpu_model": read_cpu_model(),
         "machine": platform.machine(),
         "host_cpu_affinity": allowed_cpus,
+        "selected_physical_cores": {name: list(physical_core_key(cpu)) for name, cpu in zip(("candidate", "load_generator", "postgresql"), physical_cpus)},
         "candidate_vcpus": 1,
-        "candidate_cpu": allowed_cpus[0],
-        "load_generator_cpu": allowed_cpus[1],
-        "postgres_cpu": allowed_cpus[2],
+        "candidate_cpu": physical_cpus[0],
+        "load_generator_cpu": physical_cpus[1],
+        "postgres_cpu": physical_cpus[2],
         "candidate_memory_max_bytes": 1073741824,
         "cgroup_version": 2,
         "cgroup_controllers": controllers,
