@@ -33,7 +33,7 @@ CPU_MAX = "100000 100000"
 
 def write_json(path: Path, value: dict) -> None:
     """Write standards-compliant JSON with a single trailing newline."""
-    path.write_text(json.dumps(value, indent=2, sort_keys=True) + "\\n", encoding="utf-8")
+    path.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
 def parse_cpu_stat(raw: str) -> dict[str, int]:
