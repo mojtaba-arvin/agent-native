@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -75,7 +76,9 @@ func TestExpectedDenialIsCompletedFunctionalOutcome(t *testing.T) {
 		if r.Header.Get("Authorization") != "Bearer deny-secret" {
 			t.Errorf("unexpected denial credential")
 		}
+		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusForbidden)
+		_, _ = fmt.Fprint(w, `{"request_id":"rep-01-00001","error":{"code":"CAPABILITY_DENIED"}}`)
 	}))
 	defer server.Close()
 	cfg := testSettings()
