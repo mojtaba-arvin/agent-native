@@ -124,7 +124,13 @@ BEGIN
            OR body->>'operation' IS DISTINCT FROM 'catalog.read'
            OR COALESCE(body->>'resource_id', '') = ''
            OR body - ARRAY['contract_version', 'operation', 'resource_id'] <> '{}'::jsonb THEN
-            RAISE EXCEPTION 't16_contract_invalid';
+            outcome := jsonb_build_object('request_id', request_id,
+                'error', jsonb_build_object('code', 'INVALID_CONTRACT'));
+            INSERT INTO t16_audit(event_id, request_id, principal_id, tenant_id,
+                operation_id, decision, reason_code, outcome)
+            VALUES (gen_random_uuid(), request_id, principal_id, v_tenant_id,
+                'operations.validate', 'deny', 'INVALID_CONTRACT', outcome);
+            RETURN outcome;
         END IF;
         outcome := jsonb_build_object('request_id', request_id, 'decision', 'allow');
         INSERT INTO t16_audit(event_id, request_id, principal_id, tenant_id,
@@ -135,9 +141,17 @@ BEGIN
     ELSIF v_operation_id = 'job_admission' THEN
         IF body->>'contract_version' IS DISTINCT FROM 'v1' OR body->>'operation' IS DISTINCT FROM 'jobs.create'
            OR jsonb_typeof(body->'payload') IS DISTINCT FROM 'object'
-           OR body - ARRAY['contract_version', 'operation', 'payload'] <> '{}'::jsonb
-           OR v_idempotency_key IS NULL OR v_idempotency_key = '' THEN
-            RAISE EXCEPTION 't16_job_contract_invalid';
+           OR body - ARRAY['contract_version', 'operation', 'payload'] <> '{}'::jsonb THEN
+            outcome := jsonb_build_object('request_id', request_id,
+                'error', jsonb_build_object('code', 'INVALID_CONTRACT'));
+            INSERT INTO t16_audit(event_id, request_id, principal_id, tenant_id,
+                operation_id, decision, reason_code, outcome)
+            VALUES (gen_random_uuid(), request_id, principal_id, v_tenant_id,
+                'jobs.create', 'deny', 'INVALID_CONTRACT', outcome);
+            RETURN outcome;
+        END IF;
+        IF v_idempotency_key IS NULL OR v_idempotency_key = '' THEN
+            RAISE EXCEPTION 't16_idempotency_key_required';
         END IF;
         request_hash := encode(digest(convert_to((body->'payload')::text, 'UTF8'), 'sha256'), 'hex');
         PERFORM pg_advisory_xact_lock(hashtextextended(v_tenant_id || ':' || v_operation_id || ':' || v_idempotency_key, 0));
