@@ -504,12 +504,11 @@ def main() -> int:
                         "--target", "http://127.0.0.1:8080", "--requests", str(REQUESTS),
                         "--concurrency", str(CONCURRENCY), "--warmup", "0",
                         "--target-rps", str(TARGET_RPS), "--run-id", run_id,
-                        "--read-token", read_token, "--deny-token", deny_token,
                         "--output-prefix", "/src/" + str(prefix.relative_to(root)),
                     ]
                     loadgen_measured = run_loadgen_container(
                         f"t16-loadgen-measured-{uuid.uuid4().hex[:8]}",
-                        measured_arguments, host["load_generator_cpu"], root, bin_dir,
+                        measured_arguments, host["load_generator_cpu"], root, bin_dir, read_token, deny_token,
                     )
                     if loadgen_warmup["path"] == str(candidate_cgroup) or loadgen_measured["path"] == str(candidate_cgroup):
                         raise RuntimeError("load generator shares the candidate cgroup")
