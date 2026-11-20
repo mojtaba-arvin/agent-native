@@ -92,8 +92,8 @@ def collect_host(attestation: dict[str, str], pg_version: str) -> dict[str, Any]
     if not hasattr(os, "sched_getaffinity"):
         raise RuntimeError("sched_getaffinity_required")
     allowed_cpus = sorted(os.sched_getaffinity(0))
-    if len(allowed_cpus) < 2:
-        raise RuntimeError("need_two_host_cpus_to_isolate_candidate_and_load_generator")
+    if len(allowed_cpus) < 3:
+        raise RuntimeError("need_three_host_cpus_to_isolate_candidate_load_generator_and_postgresql")
     if not shutil.which("docker") or not shutil.which("taskset"):
         raise RuntimeError("docker_and_taskset_required")
     docker = subprocess.run(
@@ -109,6 +109,9 @@ def collect_host(attestation: dict[str, str], pg_version: str) -> dict[str, Any]
         "machine": platform.machine(),
         "host_cpu_affinity": allowed_cpus,
         "candidate_vcpus": 1,
+        "candidate_cpu": allowed_cpus[0],
+        "load_generator_cpu": allowed_cpus[1],
+        "postgres_cpu": allowed_cpus[2],
         "candidate_memory_max_bytes": 1073741824,
         "cgroup_version": 2,
         "cgroup_controllers": controllers,
