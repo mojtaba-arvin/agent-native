@@ -40,7 +40,6 @@ postgres_markers = (
     "def test_audit_storage_outage_fails_closed",
     "def test_audit_is_append_only",
     "def test_outbox_lease_expiry_fences_stale_acknowledgement",
-    "def test_append_audit_sequence_survives_reopen",
 )
 missing_postgres = [marker for marker in postgres_markers if marker not in postgres_tests]
 
@@ -48,6 +47,8 @@ parity_markers = (
     "def test_process_crash_after_commit_reconciles_identically_on_both_engines",
     "def test_precommit_faults_have_identical_atomic_rollback_on_both_engines",
     "def test_identical_generated_traces_have_identical_sqlite_and_postgres_outcomes",
+    "def test_canonical_request_hashes_match_across_engines",
+    "def test_append_audit_sequence_is_monotonic_after_reopen_on_both_engines",
     "def test_canonical_request_hashes_match_across_engines",
     "range(20261118, 20261143)",
     "len(seeds) * 60",
