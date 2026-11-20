@@ -56,6 +56,7 @@ class T16PreflightTests(unittest.TestCase):
         self.assertEqual(protocol["postgres_version"], "16.4")
         self.assertEqual(protocol["arrival_model"], "open_loop")
         self.assertEqual(protocol["arrival_schedule"], "fixed_rate_100_rps")
+        self.assertIn("fixed 5000/100-second offer window", protocol["throughput_measurement"])
         self.assertIn("keep-alive", protocol["connection_policy"])
         self.assertEqual(protocol["trace_timing_fields"], ["scheduled_offset_ms", "offered_at", "started_at", "finished_at"])
         self.assertEqual(protocol["cpu_max"], "100000 100000")
