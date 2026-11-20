@@ -1,8 +1,8 @@
 # T16 controlled-host preparation
 
-This directory contains T16 preparation tooling and a deterministic open-loop
-product workload generator. It does not implement the Rust/Go product request
-path or claim a benchmark result.
+This directory contains T16 preparation tooling, the PostgreSQL product contract,
+Go and Rust candidate product paths, and a deterministic open-loop workload
+generator. It does not claim a benchmark result until the controlled-host matrix runs.
 
 ## Pre-registration
 
@@ -26,15 +26,13 @@ With a reachable PostgreSQL service and `psql` installed, invoke:
 python3 experiments/e002/t16/preflight.py \
   --attestation /secure/path/t16-host-attestation.json \
   --source-sha "$(git rev-parse HEAD)" \
-  --command python3 experiments/e002/t16/run.py \
-  --postgres-dsn "$AGENT_NATIVE_E002_POSTGRES_DSN"
+  --command "python3 experiments/e002/t16/run.py --source-sha $(git rev-parse HEAD)"
 ```
 
 The output directory is `experiments/e002/t16/` and contains the immutable
-pre-registration, host manifest, and protocol. The command above is a future
-runner entry point: `run.py` is intentionally not present until the product
-request path and candidate parity implementation exist. Do not run this
-example as a benchmark or commit generated evidence.
+pre-registration, host manifest, and protocol. The runner is implemented in
+`run.py`; its end-to-end candidate path is being verified by CI before any
+controlled-host result is claimed. Do not commit generated evidence.
 
 
 ## Controlled-host setup and execution
