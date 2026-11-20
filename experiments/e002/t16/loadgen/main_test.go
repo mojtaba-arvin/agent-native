@@ -1,0 +1,103 @@
+package main
+
+import (
+	"context"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+	"time"
+)
+
+func testSettings() settings {
+	return settings{
+		target: "http://127.0.0.1:8080", requests: 5000, concurrency: 32,
+		warmup: 250, targetRPS: 100, timeout: time.Second, seed: 42,
+		runID: "rep-01", readToken: "read-secret", denyToken: "deny-secret",
+		tenant: "tenant-a", outputPrefix: "/tmp/t16",
+	}
+}
+
+func TestWorkloadHasExactRequestMixAndIsDeterministic(t *testing.T) {
+	first, second := workload(5000, 20261120), workload(5000, 20261120)
+	counts := map[operation]int{}
+	for i, op := range first {
+		counts[op]++
+		if op != second[i] {
+			t.Fatal("same seed produced a different request sequence")
+		}
+	}
+	want := map[operation]int{
+		authorizedRead: 3000, validatePlan: 1000,
+		jobAdmission: 500, expectedDenial: 500,
+	}
+	for op, count := range want {
+		if counts[op] != count {
+			t.Errorf("%s count = %d, want %d", op, counts[op], count)
+		}
+	}
+}
+
+func TestBuildRequestUsesTrustedFixtureHeadersAndExpectedStatuses(t *testing.T) {
+	cfg := testSettings()
+	cases := []struct {
+		op operation
+		method string
+		path string
+		token string
+		status int
+	}{
+		{authorizedRead, http.MethodGet, "/v1/records/fixture-0001", "Bearer read-secret", http.StatusOK},
+		{validatePlan, http.MethodPost, "/v1/operations/validate", "Bearer read-secret", http.StatusOK},
+		{jobAdmission, http.MethodPost, "/v1/jobs", "Bearer read-secret", http.StatusAccepted},
+		{expectedDenial, http.MethodPost, "/v1/jobs", "Bearer deny-secret", http.StatusForbidden},
+	}
+	for index, test := range cases {
+		request, expected, err := buildRequest(context.Background(), cfg, "rep-01", index, test.op)
+		if err != nil { t.Fatal(err) }
+		if request.Method != test.method || request.URL.Path != test.path {
+			t.Errorf("%s route = %s %s", test.op, request.Method, request.URL.Path)
+		}
+		if request.Header.Get("Authorization") != test.token {
+			t.Errorf("%s bearer fixture mismatch", test.op)
+		}
+		if request.Header.Get("X-Tenant-ID") != "tenant-a" || request.Header.Get("X-Request-ID") == "" {
+			t.Errorf("%s missing tenant/request identity headers", test.op)
+		}
+		if expected != test.status { t.Errorf("%s expected status = %d", test.op, expected) }
+		if (test.op == jobAdmission || test.op == expectedDenial) && request.Header.Get("Idempotency-Key") == "" {
+			t.Errorf("%s missing idempotency key", test.op)
+		}
+	}
+}
+
+func TestExpectedDenialIsCompletedFunctionalOutcome(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "Bearer deny-secret" {
+			t.Errorf("unexpected denial credential")
+		}
+		w.WriteHeader(http.StatusForbidden)
+	}))
+	defer server.Close()
+	cfg := testSettings()
+	cfg.target = server.URL
+	item := sendOne(server.Client(), cfg, "rep-01", 1, expectedDenial)
+	if !item.Completed || !item.Functional || item.Status != http.StatusForbidden {
+		t.Fatalf("expected 403 denial should be a completed functional response: %+v", item)
+	}
+}
+
+func TestOpenLoopSummarySeparatesOfferedAndCompleted(t *testing.T) {
+	cfg := testSettings()
+	items := []observation{
+		{Operation: authorizedRead, Status: 200, Completed: true, Functional: true, LatencyMS: 5},
+		{Operation: expectedDenial, Status: 403, Completed: true, Functional: true, LatencyMS: 7},
+		{Operation: jobAdmission, Error: "client_concurrency_limit"},
+	}
+	got := summarize(cfg, "rep-01", items, 0.02)
+	if got.OfferedRequests != 3 || got.CompletedRequests != 2 || got.ExpectedDenialsCompleted != 1 {
+		t.Fatalf("incorrect offered/completed accounting: %+v", got)
+	}
+	if got.FunctionalSuccess || got.ArrivalModel != "open_loop_fixed_rate" {
+		t.Fatalf("incorrect failure or arrival-model accounting: %+v", got)
+	}
+}
