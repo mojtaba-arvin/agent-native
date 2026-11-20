@@ -20,7 +20,7 @@ jobs:
   preflight-contract:
     name: T16 preregistration, workload, and PostgreSQL contract tests
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     env:
       T16_POSTGRES_DSN: postgresql://postgres:postgres@127.0.0.1:5432/agent_native
       T16_PSQL_DSN: postgresql://postgres:postgres@127.0.0.1:5432/agent_native
@@ -75,6 +75,10 @@ jobs:
       - name: Test Rust product candidate
         run: cargo test --locked
         working-directory: experiments/e002/rust
+      - name: Build both candidate runtimes in the production benchmark image
+        run: docker build --file experiments/e002/t16/Dockerfile --tag t16-candidates-ci .
+      - name: Verify candidate image includes the pinned PostgreSQL client
+        run: docker run --rm --entrypoint psql t16-candidates-ci --version
       - name: Test open-loop T16 product workload generator
         run: go test ./...
         working-directory: experiments/e002/t16/loadgen
