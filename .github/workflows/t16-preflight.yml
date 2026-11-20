@@ -96,6 +96,7 @@ jobs:
           read_token = os.environ["T16_READ_TOKEN"]
           deny_token = os.environ["T16_DENY_TOKEN"]
           for candidate in ("go-net-http", "rust-tokio-hyper"):
+              print("testing candidate: " + candidate, flush=True)
               name = "t16-ci-" + candidate + "-" + uuid.uuid4().hex[:8]
               try:
                   module.run_command([
