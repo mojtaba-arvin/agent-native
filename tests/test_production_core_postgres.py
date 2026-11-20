@@ -362,7 +362,8 @@ host.dispatch(
             while not marker.exists() and process.poll() is None and time.monotonic() < deadline:
                 time.sleep(0.05)
             if not marker.exists():
-                process.kill()
+                if process.poll() is None:
+                    process.kill()
                 stdout, stderr = process.communicate(timeout=5)
                 self.fail("child did not reach post-commit pause: " + stdout + stderr)
             process.send_signal(signal.SIGKILL)
