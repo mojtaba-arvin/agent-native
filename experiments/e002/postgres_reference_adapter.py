@@ -121,10 +121,6 @@ class PostgresReferenceAdapter:
         if not isinstance(event, dict):
             raise ValueError("audit_event_must_be_object")
         event_id = _text(event.get("event_id"), "event_id")
-        try:
-            event_uuid = uuid.UUID(event_id)
-        except ValueError:
-            raise ValueError("invalid_event_id") from None
         request_id = _text(event.get("request_id"), "request_id")
         operation_id = _text(event.get("operation_id"), "operation_id")
         decision = event.get("decision")
@@ -135,7 +131,7 @@ class PostgresReferenceAdapter:
                 """INSERT INTO e002_audit(event_id,request_id,tenant_id,operation_id,
                    decision,reason_code,outcome_json,created_at)
                    VALUES(%s,%s,%s,%s,%s,%s,%s,%s) RETURNING sequence""",
-                (event_uuid, request_id, event.get("tenant_id"), operation_id, decision,
+                (event_id, request_id, event.get("tenant_id"), operation_id, decision,
                  _text(event.get("reason_code"), "reason_code"),
                  _json(event.get("outcome", {})), int(event.get("created_at", time.time()))),
             ).fetchone()
