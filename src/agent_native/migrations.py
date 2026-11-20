@@ -77,13 +77,14 @@ class IRMigrationPlanner:
             if isinstance(item, Mapping) and isinstance(item.get("name"), str)
         }
         resources: dict[str, ResourceSpec] = {}
+        reserved = {"schema_migrations", "idempotency_keys", "audit_log", "outbox"}
         for operation in ir.get("operations", ()):
             name = operation.get("name")
             if bindings.get(name) != "crud.create":
                 continue
             config = configs.get(name, {})
             resource = config.get("resource")
-            if not isinstance(resource, str) or not _IDENTIFIER.fullmatch(resource):
+            if not isinstance(resource, str) or not _IDENTIFIER.fullmatch(resource) or resource in reserved:
                 raise MigrationError("invalid_resource_identifier")
             output = operation.get("output")
             if not isinstance(output, str) or output not in declarations:
@@ -95,7 +96,7 @@ class IRMigrationPlanner:
             names = set()
             for field in fields:
                 field_name, type_name = field.get("name"), field.get("type")
-                if not isinstance(field_name, str) or not _IDENTIFIER.fullmatch(field_name):
+                if not isinstance(field_name, str) or not _IDENTIFIER.fullmatch(field_name) or field_name == "tenant_id":
                     raise MigrationError("invalid_ir_field_identifier")
                 if field_name in names:
                     raise MigrationError("duplicate_ir_field")
@@ -113,6 +114,8 @@ class IRMigrationPlanner:
             if not isinstance(key, str) or key not in names:
                 raise MigrationError("invalid_primary_key_projection")
             generated_key = key not in create_fields
+            if generated_key and next(column for column in columns if column.name == key).sql_type != "UUID":
+                raise MigrationError("generated_primary_key_must_be_uuid")
             unique_fields = config.get("unique_fields", ())
             if not isinstance(unique_fields, (list, tuple)) or any(
                 not isinstance(field, str) or field not in names or field == key
