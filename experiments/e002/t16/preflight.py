@@ -158,8 +158,10 @@ def build_protocol(source_sha: str, pg_version: str) -> dict[str, Any]:
     return {
         "schema_version": 1,
         "source_sha": source_sha,
-        "arrival_model": "open_loop",
+        "arrival_model": "open_loop_fixed_rate",
         "request_mix": REQUEST_MIX,
+        "connection_policy": "HTTP/1.1 keep-alive; max 32 concurrent connections",
+        "trace_timing_fields": ["scheduled_offset_ms", "offered_at", "started_at", "finished_at"],
         "repetitions_per_candidate": 10,
         "candidate_order": "randomized",
         "requests_per_repetition": 5000,
@@ -171,7 +173,7 @@ def build_protocol(source_sha: str, pg_version: str) -> dict[str, Any]:
         "storage_engine": "PostgreSQL",
         "postgres_version": pg_version,
         "candidate_names": ["rust-tokio-hyper", "go-net-http"],
-        "raw_trace_format": "one JSON object per completed or failed request, JSONL",
+        "raw_trace_format": "one JSON object per offered request, including failed or client-dropped requests, JSONL",
         "denial_accounting": "expected 4xx denials count as completed requests",
     }
 
