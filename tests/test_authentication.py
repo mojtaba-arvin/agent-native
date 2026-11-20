@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import unittest
-import uuid
 from pathlib import Path
 
 from agent_native import (
