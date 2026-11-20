@@ -202,5 +202,52 @@ adapter.admit_job(
         ), [])
 
 
+    def test_t06_http_conformance_on_postgres(self):
+        """Run the complete E-009 T04 HTTP suite on this job's PostgreSQL 16.4 service.
+
+        This keeps the T06 database-backed conformance check in the existing
+        Layer 1 PostgreSQL job and reuses its pinned psycopg installation.
+        """
+        repository_root = Path(__file__).resolve().parents[2]
+        environment = dict(os.environ)
+        python_paths = [
+            str(repository_root / "src"),
+            str(repository_root / "experiments" / "e009"),
+        ]
+        if environment.get("PYTHONPATH"):
+            python_paths.append(environment["PYTHONPATH"])
+        environment["PYTHONPATH"] = os.pathsep.join(python_paths)
+        command = [
+            sys.executable,
+            "-m",
+            "unittest",
+            "discover",
+            "-s",
+            str(repository_root / "experiments" / "e009"),
+            "-p",
+            "test_postgres_http_conformance.py",
+            "-v",
+        ]
+        completed = subprocess.run(
+            command,
+            cwd=repository_root,
+            env=environment,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=180,
+        )
+        self.assertEqual(
+            completed.returncode,
+            0,
+            completed.stdout + "\\n" + completed.stderr,
+        )
+        if completed.stdout:
+            print(completed.stdout, end="")
+        if completed.stderr:
+            print(completed.stderr, file=sys.stderr, end="")
+
+
+
 if __name__ == "__main__":
     unittest.main()
