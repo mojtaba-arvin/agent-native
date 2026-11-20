@@ -106,6 +106,26 @@ class T16PostgresSchemaTests(unittest.TestCase):
         self.assertEqual(len({item["job_id"] for item in outcomes}), 1)
         self.assertEqual(self.counts(), (1, 1, 1, 32, 0))
 
+
+    def test_unknown_top_level_contract_fields_fail_closed(self):
+        with self.assertRaises(psycopg.Error):
+            self.call(
+                operation="validate_plan", request_id="plan-extra",
+                body={
+                    "contract_version": "v1", "operation": "catalog.read",
+                    "resource_id": "fixture-0001", "unexpected": True,
+                },
+            )
+        with self.assertRaises(psycopg.Error):
+            self.call(
+                operation="job_admission", request_id="job-extra",
+                body={
+                    "contract_version": "v1", "operation": "jobs.create",
+                    "payload": {"fixture": "safe"}, "unexpected": True,
+                },
+                key="extra-field-key",
+            )
+
     def test_audit_rows_are_append_only(self):
         self.call(operation="expected_denial", request_id="immutable")
         with psycopg.connect(self.dsn) as db:
