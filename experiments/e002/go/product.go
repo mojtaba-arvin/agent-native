@@ -251,7 +251,7 @@ func (app *application) serveProduct(w http.ResponseWriter, request *http.Reques
 		var decoded jobRequest
 		raw, err := decodeT16Body(request, &decoded)
 		if err != nil {
-			http.Error(w, "invalid_contract", http.StatusBadRequest)
+			writeT16Error(w, http.StatusBadRequest, "INVALID_CONTRACT")
 			return
 		}
 		body = raw
