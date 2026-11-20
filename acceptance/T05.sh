@@ -57,6 +57,7 @@ missing_parity = [marker for marker in parity_markers if marker not in parity_te
 implementation_markers = (
     'CANONICALIZATION_VERSION = "json-sort-keys-compact-utf8-v1"',
     "def append_audit(",
+    "event_uuid = uuid.UUID(event_id)",
     "def admit_job(",
     "def lookup_idempotency(",
     "def claim_outbox(",
