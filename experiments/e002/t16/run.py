@@ -33,11 +33,11 @@ def utc_now() -> str:
     return dt.datetime.now(dt.timezone.utc).isoformat()
 
 
-def run_command(command: list[str], *, timeout: int = 300, input_text: str | None = None) -> str:
+def run_command(command: list[str], *, timeout: int = 300, input_text: str | None = None, allow_failure: bool = False) -> str:
     result = subprocess.run(
         command, input=input_text, check=False, capture_output=True, text=True, timeout=timeout,
     )
-    if result.returncode:
+    if result.returncode and not allow_failure:
         raise RuntimeError(
             f"command failed ({result.returncode}): {command!r}\n"
             f"stdout: {result.stdout[-3000:]}\nstderr: {result.stderr[-3000:]}"
@@ -120,10 +120,9 @@ def wait_ready(container: str, timeout: float = 30.0) -> float:
     while time.monotonic() < deadline:
         state = run_command(
             ["docker", "inspect", "--format", "{{.State.Running}}", container],
-            check=False if False else True,
         )
         if state != "true":
-            logs = run_command(["docker", "logs", container], timeout=15)
+            logs = run_command(["docker", "logs", container], timeout=15, allow_failure=True)
             raise RuntimeError(f"candidate exited before readiness: {logs[-3000:]}")
         try:
             with urllib.request.urlopen("http://127.0.0.1:8080/health", timeout=1.0) as response:
@@ -210,7 +209,7 @@ def verify_product_conformance(dsn: str, read_token: str, deny_token: str) -> No
                (SELECT count(*) FROM t16_audit) || '|' ||
                (SELECT count(*) FROM t16_integrity_violations)
     """)
-    if counts != "1|1|1|6|0":
+    if counts != "1|1|1|7|0":
         raise RuntimeError(f"durable conformance state mismatch: {counts!r}")
     psql(dsn, "SELECT t16_reset()")
 
@@ -323,6 +322,13 @@ def main() -> int:
         # Verify the external PostgreSQL service is live and record its process cgroup.
         pg_pid = int(psql(args.postgres_dsn, "SELECT pg_backend_pid()"))
         postgres_cgroup = cgroup_for_pid(pg_pid)
+        postgres_cpu_max = (postgres_cgroup / "cpu.max").read_text(encoding="ascii").strip()
+        postgres_cpuset = (postgres_cgroup / "cpuset.cpus.effective").read_text(encoding="ascii").strip()
+        if postgres_cpu_max != CPU_MAX or parse_cpu_list(postgres_cpuset) != [host["postgres_cpu"]]:
+            raise RuntimeError(
+                f"PostgreSQL must have its own one-CPU cgroup on CPU {host['postgres_cpu']}: "
+                f"cpu.max={postgres_cpu_max!r}, cpuset={postgres_cpuset!r}"
+            )
         pg_version = psql(args.postgres_dsn, "SHOW server_version")
         if pg_version != str(host.get("postgres_version")):
             raise RuntimeError("PostgreSQL version differs from preregistered host manifest")
@@ -390,6 +396,7 @@ def main() -> int:
                     if not host.get("postgres_separate_from_candidate_cgroup"):
                         host["postgres_separate_from_candidate_cgroup"] = True
                         host["postgres_cgroup_path"] = str(postgres_cgroup)
+                        host["postgres_cgroup_limits"] = {"cpu_max": postgres_cpu_max, "cpuset_cpus_effective": postgres_cpuset}
                         host["candidate_cgroup_path"] = str(candidate_cgroup)
                         host_path = host_path
                         host_path.write_text(json.dumps(host, indent=2, sort_keys=True) + "\n", encoding="utf-8")
@@ -480,7 +487,7 @@ def main() -> int:
                         flush=True,
                     )
                 finally:
-                    run_command(["docker", "rm", "--force", container], timeout=60)
+                    run_command(["docker", "rm", "--force", container], timeout=60, allow_failure=True)
 
         results = {
             "schema_version": 1,
