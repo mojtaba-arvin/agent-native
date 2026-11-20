@@ -206,6 +206,65 @@
         "Finite retry budget and terminal failure state are tested"
       ],
       "reason": "No real broker, separate producer/consumer databases, multi-node failure model, external API idempotency adapter, distributed observability, or production recovery policy is implemented."
+    },
+    {
+      "id": "D-0015",
+      "topic": "v0_1_capacity_envelope_and_rust_go_selection_rule",
+      "status": "decided",
+      "value": "Pre-register a one-service-replica capacity acceptance hypothesis of 1 vCPU, 1 GiB service memory, 100 completed control-plane requests/second at concurrency 32, p99 <= 100 ms, sustained CPU <= 50% of one vCPU, and <= 25 cgroup CPU-seconds per 5,000 completed requests. Compare Rust/Tokio+Hyper with Go/net/http only after identical product-workload semantics and all hard gates pass. No runtime is selected by this decision.",
+      "constraints": [
+        "Inference and external provider calls are outside the measured runtime path",
+        "Use the authenticated Agent/tool-execution control-plane request mix",
+        "Use 10 randomized repetitions per candidate with 5,000 measured requests and 250 warm-up requests per repetition",
+        "Use controlled one-vCPU host and cgroup v2 accounting for capacity claims",
+        "All functional, security, data-integrity and registered failure assertions are hard gates",
+        "No score or selection when required evidence is missing",
+        "Select only with at least 5 weighted-score points advantage, paired 95% bootstrap confidence interval excluding zero, and no rank reversal under +/-20% weight sensitivity"
+      ],
+      "capacity_envelope": {
+        "service_vcpu": 1,
+        "service_memory_bytes": 1073741824,
+        "completed_requests_per_second": 100,
+        "concurrency": 32,
+        "p99_latency_ms": 100,
+        "sustained_cpu_fraction": 0.5,
+        "cpu_seconds_per_5000_completed_requests": 25,
+        "repetitions_per_candidate": 10,
+        "requests_per_repetition": 5000,
+        "warmup_requests_per_repetition": 250
+      },
+      "runtime_candidates": [
+        "Rust/Tokio + Hyper",
+        "Go/net/http"
+      ],
+      "weighted_criteria": {
+        "p99_latency": 25,
+        "completed_throughput": 20,
+        "peak_service_cgroup_memory": 15,
+        "cgroup_cpu_time": 10,
+        "ecosystem_operability": 10,
+        "failure_semantics": 10,
+        "startup_time": 5,
+        "deployable_artifact_size": 5
+      },
+      "selection_rule": {
+        "hard_gates_required": true,
+        "minimum_score_margin_points": 5,
+        "confidence_interval": "paired bootstrap 95% interval for score difference must exclude zero",
+        "weight_sensitivity": "vary each weight by +/-20%, renormalize to 100; ordering must not reverse",
+        "if_both_pass": "select higher score only when margin, confidence interval, and sensitivity requirements all pass; otherwise no winner",
+        "if_neither_pass": "select neither",
+        "if_one_pass_with_complete_evidence": "select the sole eligible candidate",
+        "if_evidence_missing": "no selection; missing evidence is not measured, never zero",
+        "current_runtime_selection": "none"
+      },
+      "evidence": [
+        "docs/T02_SLO_AND_RUNTIME.md",
+        "experiments/e002/control-plane-workload.md",
+        "experiments/e002/decision-matrix.md",
+        "experiments/e002/cpu-gate-analysis.md",
+        "experiments/e009/performance-evidence-2026-11-18.md"
+      ]
     }
   ]
 }
