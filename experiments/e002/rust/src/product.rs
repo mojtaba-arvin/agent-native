@@ -243,3 +243,42 @@ fn json_response(status: StatusCode, body: &str) -> Response<ResponseBody> {
         .body(Full::new(Bytes::from(body.to_owned())).map_err(|never| match never {}).boxed())
         .expect("static product response is valid")
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn t16_header_validation_rejects_injection_and_empty_values() {
+        assert!(valid_header("tenant-a"));
+        assert!(valid_header("request_001"));
+        assert!(!valid_header(""));
+        assert!(!valid_header("tenant-a\nX-Admin: true"));
+        assert!(!valid_header("tenant a"));
+        assert!(!valid_header(&"x".repeat(129)));
+    }
+
+    #[test]
+    fn t16_postgres_pool_executes_durable_authorized_read_when_configured() {
+        let Ok(dsn) = env::var("T16_PSQL_DSN") else {
+            return;
+        };
+        let pool = PgPool::new(&dsn, 32).expect("32 persistent psql sessions should start");
+        let payload = r#"{"request_id":"rust-pg-read-1","principal_id":"benchmark-reader","tenant_id":"tenant-a","operation":"authorized_read","resource_id":"fixture-0001","body":{}}"#;
+        let result = pool.query(payload).expect("PostgreSQL product function should return JSON");
+        assert!(result.contains(r#""request_id": "rust-pg-read-1""#));
+        assert!(result.contains(r#""id": "fixture-0001""#));
+    }
+
+    #[test]
+    fn t16_postgres_pool_records_expected_denial_when_configured() {
+        let Ok(dsn) = env::var("T16_PSQL_DSN") else {
+            return;
+        };
+        let pool = PgPool::new(&dsn, 32).expect("32 persistent psql sessions should start");
+        let payload = r#"{"request_id":"rust-pg-deny-1","principal_id":"benchmark-limited","tenant_id":"tenant-a","operation":"expected_denial","reason_code":"CAPABILITY_DENIED","body":{}}"#;
+        let result = pool.query(payload).expect("denial audit should commit and return JSON");
+        assert!(result.contains(r#""code": "CAPABILITY_DENIED""#));
+    }
+}
