@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -64,6 +65,44 @@ func TestT16ProductRoutesUseAuthenticatedPostgresContract(t *testing.T) {
 	if denied.Code != http.StatusForbidden || !strings.Contains(denied.Body.String(), "CAPABILITY_DENIED") {
 		t.Fatalf("expected capability denial failed: %d %s", denied.Code, denied.Body.String())
 	}
+
+	// A client-supplied tenant header cannot switch the trusted tenant scope.
+	crossTenant := httptest.NewRecorder()
+	crossTenantRequest := httptest.NewRequest(http.MethodGet, "/v1/records/fixture-0001", nil)
+	crossTenantRequest.Header.Set("Authorization", "Bearer test-read-token")
+	crossTenantRequest.Header.Set("X-Tenant-ID", "tenant-b")
+	crossTenantRequest.Header.Set("X-Request-ID", "go-cross-tenant-1")
+	handler.ServeHTTP(crossTenant, crossTenantRequest)
+	if crossTenant.Code != http.StatusForbidden || !strings.Contains(crossTenant.Body.String(), "TENANT_SCOPE_MISMATCH") {
+		t.Fatalf("cross-tenant request was not denied: %d %s", crossTenant.Code, crossTenant.Body.String())
+	}
+
+	// Replays return the original job; a changed payload under the same key conflicts.
+	jobRequest := func(requestID, payload string) *httptest.ResponseRecorder {
+		recorder := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodPost, "/v1/jobs", strings.NewReader(payload))
+		req.Header.Set("Authorization", "Bearer test-read-token")
+		req.Header.Set("X-Tenant-ID", "tenant-a")
+		req.Header.Set("X-Request-ID", requestID)
+		req.Header.Set("Idempotency-Key", "go-idempotency-shared")
+		handler.ServeHTTP(recorder, req)
+		return recorder
+	}
+	first := jobRequest("go-idem-1", `{"contract_version":"v1","operation":"jobs.create","payload":{"fixture":"first"}}`)
+	replay := jobRequest("go-idem-2", `{"contract_version":"v1","operation":"jobs.create","payload":{"fixture":"first"}}`)
+	conflict := jobRequest("go-idem-3", `{"contract_version":"v1","operation":"jobs.create","payload":{"fixture":"different"}}`)
+	var firstBody, replayBody map[string]any
+	if err := json.Unmarshal(first.Body.Bytes(), &firstBody); err != nil { t.Fatal(err) }
+	if err := json.Unmarshal(replay.Body.Bytes(), &replayBody); err != nil { t.Fatal(err) }
+	if first.Code != http.StatusAccepted || replay.Code != http.StatusAccepted ||
+		firstBody["job_id"] != replayBody["job_id"] {
+		t.Fatalf("idempotency replay did not return original job: first=%d %s replay=%d %s",
+			first.Code, first.Body.String(), replay.Code, replay.Body.String())
+	}
+	if conflict.Code != http.StatusConflict || !strings.Contains(conflict.Body.String(), "IDEMPOTENCY_CONFLICT") {
+		t.Fatalf("idempotency payload conflict was not rejected: %d %s", conflict.Code, conflict.Body.String())
+	}
+
 	unauthorized := httptest.NewRecorder()
 	unauthorizedRequest := httptest.NewRequest(http.MethodGet, "/v1/records/fixture-0001", nil)
 	unauthorizedRequest.Header.Set("X-Request-ID", "go-unauthorized-1")
