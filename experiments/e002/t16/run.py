@@ -509,7 +509,7 @@ def main() -> int:
                     ]
                     loadgen_measured = run_loadgen_container(
                         f"t16-loadgen-measured-{uuid.uuid4().hex[:8]}",
-                        measured_arguments, host["load_generator_cpu"], root, bin_dir, read_token, deny_token,
+                        measured_arguments, host["load_generator_cpu"], root, bin_dir, output, read_token, deny_token,
                     )
                     if any(path == str(candidate_cgroup) or path == str(postgres_cgroup) for path in (loadgen_warmup["path"], loadgen_measured["path"])):
                         raise RuntimeError("load generator shares the candidate or PostgreSQL cgroup")
