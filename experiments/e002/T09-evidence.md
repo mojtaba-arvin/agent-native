@@ -6,7 +6,7 @@
 
 ## Registered protocol
 
-- 10 randomized repetitions per candidate (40 candidate runs total).
+- 10 repetitions per candidate, with candidate order randomized independently for each repetition (40 candidate runs total).
 - 5,000 measured GET /work?ms=0 requests per repetition, concurrency 32, warm-up 250.
 - The measured request succeeds only for HTTP 200 with the exact body completed:0.
 - The independent request generator is a compiled Go net/http binary; Python only orchestrates Docker and aggregates result files.
@@ -26,4 +26,4 @@
 
 This is a controlled one-vCPU cgroup-v2 container measurement on an ephemeral GitHub-hosted VM. The candidate cgroup and load-generator CPU are isolated from each other, and the candidate CPU quota/accounting is enforced and recorded. It is **not dedicated bare-metal evidence**: the workflow cannot establish exclusive physical-host tenancy or remove hypervisor/neighbor noise.
 
-The workload remains the existing trivial in-memory HTTP endpoint. It does not exercise the authenticated control-plane lifecycle, durable audit, PostgreSQL, outbox/idempotency, or the product workload design. Results are a controlled-cgroup diagnostic for the current E-002 probes, not a product SLO or decision-grade runtime selection. **No runtime is selected.**
+The workload remains the existing trivial in-memory HTTP endpoint. It does not exercise the authenticated control-plane lifecycle, durable audit, PostgreSQL, outbox/idempotency, or the product workload design. Results are a controlled-cgroup diagnostic for the current E-002 probes, not a product SLO or decision-grade runtime selection. **no runtime is selected.**
