@@ -167,6 +167,14 @@ def verify_product_conformance(dsn: str, read_token: str, deny_token: str) -> No
     )
     if status != 200 or plan.get("decision") != "allow":
         raise RuntimeError("plan-validation conformance failed")
+
+    invalid_status, invalid = http_request(
+        "POST", "/v1/operations/validate", token=read_token, request_id="conf-invalid",
+        body={"contract_version": "v1", "operation": "catalog.read", "resource_id": "fixture-0001", "unexpected": True},
+    )
+    if invalid_status != 400 or invalid.get("error", {}).get("code") != "INVALID_CONTRACT":
+        raise RuntimeError("unknown contract fields were not rejected consistently")
+
     body = {"contract_version": "v1", "operation": "jobs.create", "payload": {"fixture": "conformance"}}
     status, first = http_request(
         "POST", "/v1/jobs", token=read_token, request_id="conf-job-1",
@@ -209,7 +217,7 @@ def verify_product_conformance(dsn: str, read_token: str, deny_token: str) -> No
                (SELECT count(*) FROM t16_audit) || '|' ||
                (SELECT count(*) FROM t16_integrity_violations)
     """)
-    if counts != "1|1|1|7|0":
+    if counts != "1|1|1|8|0":
         raise RuntimeError(f"durable conformance state mismatch: {counts!r}")
     psql(dsn, "SELECT t16_reset()")
 
