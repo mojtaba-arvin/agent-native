@@ -97,3 +97,32 @@ A gate false positive: fix `scripts/task_gate.py` plus a new unit test in a `kin
 ## 9. Definition of done for v1
 
 T01 to T19 closed, the nightly acceptance run green for 7 consecutive days on the base branch, and the pilot (T18) running the container image from T15 against PostgreSQL.
+## 10. Evidence discipline (applies to every task)
+
+These rules exist so that every claim made in this repository — in a PR, an issue, a report, or a decision record — can be traced to a reproducible artifact. They are not optional and do not depend on the task kind.
+
+**10.1 Pre-registration for measurement tasks.**
+Before running any benchmark, capacity test, or agent evaluation, write a `prereg.json` in the task's evidence directory with:
+- the exact command,
+- the commit SHA,
+- the number of repetitions,
+- the metric thresholds (p99, success rate, CPU budget),
+- the decision rule ("if X then Y").
+Commit it **before** the run. A result produced without a matching `prereg.json` committed earlier is not evidence; it is an observation and must be labeled as such.
+
+**10.2 Run ledger.**
+Every measurement run appends one JSON line to `evidence/ledger.jsonl`:
+`{"run_id", "task", "sha", "prereg_hash", "command", "started_at", "finished_at", "status", "metrics": {...}}`.
+Cancelled runs are recorded with `"status": "cancelled"` and are **excluded from any denominator** used to compute rates or averages. A rate computed without excluding cancelled runs is invalid.
+
+**10.3 Hash-bound claims.**
+Any sentence in a PR body, issue comment, or `docs/` file that says "passed", "accepted", "p99 is X", or "success rate is Y" must carry the `run_id` from the ledger. A claim without a `run_id` is a draft note, not a result.
+
+**10.4 No silent threshold changes.**
+Once a `prereg.json` is committed, changing a metric threshold or a decision rule requires a new `prereg.json` with a new timestamp and a written rationale in the issue. Editing the old file is forbidden. The gate can check this mechanically later.
+
+**10.5 Reference implementation is the oracle, not the product.**
+When the Python reference and the production runtime disagree, the reference is the definition of correct behavior *for the contract*, and the production runtime is fixed. The reference itself is validated against the JSON Schema and the black-box conformance suite, not against "what Python happens to do." If the schema and the reference disagree, the schema wins.
+
+**10.6 Negative results are evidence.**
+A failed experiment, a rejected hypothesis, or a run where the agent did not solve the task is recorded in the ledger and referenced in the issue. Do not delete failed-run records to make a summary look better. A clean history that contains only successes is a red flag, not a proof.
