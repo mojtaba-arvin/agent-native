@@ -1,8 +1,8 @@
 # T10 — T09 runtime decision
 
 **Decision date:** 20 November 2026  
-**Task:** T10 (#114)  
-**Decision:** **NO SELECTION**  
+Task: T10 (#114)  
+Decision: **NO SELECTION**  
 **Selected runtime:** None. This is an evidence-based deferral under T02, not a selection of a "none" runtime and not a rejection of any candidate architecture.
 
 ## 1. Rule applied
