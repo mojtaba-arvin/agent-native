@@ -197,19 +197,25 @@ type jobRequest struct {
 	Payload          map[string]any `json:"payload"`
 }
 
+func writeT16Error(w http.ResponseWriter, status int, code string) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(map[string]any{"error": map[string]string{"code": code}})
+}
+
 func (app *application) serveProduct(w http.ResponseWriter, request *http.Request) {
 	if app.product == nil {
-		http.Error(w, "product_workload_not_configured", http.StatusServiceUnavailable)
+		writeT16Error(w, http.StatusServiceUnavailable, "PRODUCT_WORKLOAD_NOT_CONFIGURED")
 		return
 	}
 	if request.URL.RawQuery != "" {
-		http.Error(w, "query_not_supported", http.StatusBadRequest)
+		writeT16Error(w, http.StatusBadRequest, "QUERY_NOT_SUPPORTED")
 		return
 	}
 	requestID := request.Header.Get("X-Request-ID")
 	assertedTenant := request.Header.Get("X-Tenant-ID")
 	if !validT16Header(requestID) || !validT16Header(assertedTenant) {
-		http.Error(w, "invalid_request_context", http.StatusBadRequest)
+		writeT16Error(w, http.StatusBadRequest, "INVALID_REQUEST_CONTEXT")
 		return
 	}
 
@@ -220,7 +226,7 @@ func (app *application) serveProduct(w http.ResponseWriter, request *http.Reques
 	case "Bearer " + app.product.denyToken:
 		principal, allowed = "benchmark-limited", false
 	default:
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		writeT16Error(w, http.StatusUnauthorized, "UNAUTHORIZED")
 		return
 	}
 
@@ -234,7 +240,7 @@ func (app *application) serveProduct(w http.ResponseWriter, request *http.Reques
 		var decoded validateRequest
 		raw, err := decodeT16Body(request, &decoded)
 		if err != nil {
-			http.Error(w, "invalid_contract", http.StatusBadRequest)
+			writeT16Error(w, http.StatusBadRequest, "INVALID_CONTRACT")
 			return
 		}
 		body = raw
@@ -250,7 +256,7 @@ func (app *application) serveProduct(w http.ResponseWriter, request *http.Reques
 		}
 		body = raw
 		if !validT16Header(request.Header.Get("Idempotency-Key")) {
-			http.Error(w, "idempotency_key_required", http.StatusBadRequest)
+			writeT16Error(w, http.StatusBadRequest, "IDEMPOTENCY_KEY_REQUIRED")
 			return
 		}
 		if allowed && assertedTenant == app.product.tenant {
@@ -298,7 +304,7 @@ func (app *application) serveProduct(w http.ResponseWriter, request *http.Reques
 
 	result, err := app.product.pool.query(value)
 	if err != nil {
-		http.Error(w, "durable_operation_failed", http.StatusServiceUnavailable)
+		writeT16Error(w, http.StatusServiceUnavailable, "DURABLE_OPERATION_FAILED")
 		return
 	}
 	if strings.Contains(result, "IDEMPOTENCY_CONFLICT") {
