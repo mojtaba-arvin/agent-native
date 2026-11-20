@@ -9,7 +9,7 @@ use std::{
 };
 
 use bytes::Bytes;
-use http_body_util::{BodyExt, Full, combinators::BoxBody};
+use http_body_util::{BodyExt, Full};
 use hyper::{body::Incoming, header, Request, Response, StatusCode};
 
 use crate::ResponseBody;
@@ -139,7 +139,7 @@ impl ProductConfig {
         }
         let request_id = header_text(&request, "x-request-id").to_owned();
         let asserted_tenant = header_text(&request, "x-tenant-id").to_owned();
-        if !valid_header(request_id) || !valid_header(asserted_tenant) {
+        if !valid_header(&request_id) || !valid_header(&asserted_tenant) {
             return json_response(StatusCode::BAD_REQUEST, r#"{"error":{"code":"INVALID_REQUEST_CONTEXT"}}"#);
         }
 
@@ -162,7 +162,7 @@ impl ProductConfig {
         };
 
         let idempotency_key = header_text(&request, "idempotency-key").to_owned();
-        if operation == "job_admission" && !valid_header(idempotency_key) {
+        if operation == "job_admission" && !valid_header(&idempotency_key) {
             return json_response(StatusCode::BAD_REQUEST, r#"{"error":{"code":"IDEMPOTENCY_KEY_REQUIRED"}}"#);
         }
         if operation == "job_admission" && (!allowed || asserted_tenant != self.tenant) {
