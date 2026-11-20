@@ -83,8 +83,10 @@ func TestExpectedDenialIsCompletedFunctionalOutcome(t *testing.T) {
 	defer server.Close()
 	cfg := testSettings()
 	cfg.target = server.URL
-	item := sendOne(server.Client(), cfg, "rep-01", 1, expectedDenial)
-	if !item.Completed || !item.Functional || item.Status != http.StatusForbidden {
+	base := time.Now()
+	item := sendOne(server.Client(), cfg, "rep-01", 1, expectedDenial, base, base, base)
+	if !item.Completed || !item.Functional || item.Status != http.StatusForbidden ||
+		item.OfferedAt == "" || item.StartedAt == "" || item.FinishedAt == "" || item.ScheduledOffsetMS != 0 {
 		t.Fatalf("expected 403 denial should be a completed functional response: %+v", item)
 	}
 }
@@ -125,5 +127,18 @@ func TestOpenLoopSummarySeparatesOfferedAndCompleted(t *testing.T) {
 	}
 	if got.FunctionalSuccess || got.ArrivalModel != "open_loop_fixed_rate" {
 		t.Fatalf("incorrect failure or arrival-model accounting: %+v", got)
+	}
+}
+
+func TestNewClientReusesHTTPConnectionsWithinConcurrencyLimit(t *testing.T) {
+	client := newClient(time.Second, 32)
+	defer client.CloseIdleConnections()
+	transport, ok := client.Transport.(*http.Transport)
+	if !ok {
+		t.Fatal("client transport is not an HTTP transport")
+	}
+	if transport.DisableKeepAlives || transport.MaxConnsPerHost != 32 ||
+		transport.MaxIdleConnsPerHost != 32 {
+		t.Fatalf("unexpected connection policy: %+v", transport)
 	}
 }
