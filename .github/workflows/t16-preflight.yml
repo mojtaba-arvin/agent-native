@@ -81,6 +81,38 @@ jobs:
         run: docker build --file experiments/e002/t16/Dockerfile --tag t16-candidates-ci .
       - name: Verify candidate image includes the pinned PostgreSQL client
         run: docker run --rm --entrypoint psql t16-candidates-ci --version
+      - name: Run product conformance against both candidate containers
+        run: |
+          python - <<'PY'
+          import importlib.util
+          import os
+          import uuid
+
+          spec = importlib.util.spec_from_file_location("t16_runner", "experiments/e002/t16/run.py")
+          module = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(module)
+          image = "t16-candidates-ci"
+          dsn = os.environ["T16_POSTGRES_DSN"]
+          read_token = os.environ["T16_READ_TOKEN"]
+          deny_token = os.environ["T16_DENY_TOKEN"]
+          for candidate in ("go-net-http", "rust-tokio-hyper"):
+              name = "t16-ci-" + candidate + "-" + uuid.uuid4().hex[:8]
+              try:
+                  module.run_command([
+                      "docker", "run", "--detach", "--name", name, "--network=host",
+                      "--memory=1g",
+                      "--env", "T16_READ_TOKEN=" + read_token,
+                      "--env", "T16_DENY_TOKEN=" + deny_token,
+                      "--env", "T16_TENANT_ID=tenant-a",
+                      "--env", "T16_PSQL_DSN=" + os.environ["T16_PSQL_DSN"],
+                      image, candidate,
+                  ], timeout=60)
+                  module.wait_ready(name)
+                  module.verify_product_conformance(dsn, read_token, deny_token)
+                  print(candidate + ": product conformance passed")
+              finally:
+                  module.run_command(["docker", "rm", "--force", name], timeout=60, allow_failure=True)
+          PY
       - name: Test open-loop T16 product workload generator
         run: go test ./...
         working-directory: experiments/e002/t16/loadgen
