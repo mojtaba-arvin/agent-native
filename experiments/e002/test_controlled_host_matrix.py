@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from controlled_host_matrix import cpu_quota_cores, distribution, parse_cpu_list, parse_cpu_stat
+from controlled_host_matrix import cpu_quota_cores, distribution, parse_cpu_list, parse_cpu_stat, unified_cgroup_path
 
 
 class TestParseCPUStat(unittest.TestCase):
@@ -16,6 +16,14 @@ class TestParseCPUStat(unittest.TestCase):
     def test_cpu_stat_requires_usage_accounting(self):
         with self.assertRaisesRegex(ValueError, "usage_usec"):
             parse_cpu_stat("nr_periods 10\n")
+
+    def test_unified_cgroup_membership_is_required(self):
+        self.assertEqual(
+            unified_cgroup_path("0::/system.slice/docker-example.scope\n"),
+            "/system.slice/docker-example.scope",
+        )
+        with self.assertRaisesRegex(ValueError, "unique cgroup-v2"):
+            unified_cgroup_path("2:cpu:/legacy\n")
 
 
 class TestOneVcpuQuota(unittest.TestCase):
