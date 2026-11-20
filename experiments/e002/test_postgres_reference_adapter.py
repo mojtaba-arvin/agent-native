@@ -240,7 +240,7 @@ adapter.admit_job(
         self.assertEqual(
             completed.returncode,
             0,
-            completed.stdout + "\\n" + completed.stderr,
+            completed.stdout + "\n" + completed.stderr,
         )
         output = completed.stdout + completed.stderr
         self.assertIn("Ran 14 tests", output)
