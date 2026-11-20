@@ -13,6 +13,7 @@ from preflight import (  # noqa: E402
     build_preregistration,
     build_protocol,
     canonical_json,
+    select_distinct_physical_cpus,
     validate_attestation,
 )
 
@@ -58,6 +59,23 @@ class T16PreflightTests(unittest.TestCase):
         self.assertEqual(protocol["trace_timing_fields"], ["scheduled_offset_ms", "offered_at", "started_at", "finished_at"])
         self.assertEqual(protocol["cpu_max"], "100000 100000")
         self.assertEqual(protocol["memory_max_bytes"], 1073741824)
+
+
+    def test_cpu_allocator_uses_three_distinct_physical_cores(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            topology = {
+                0: (0, 0),
+                1: (0, 0),  # SMT sibling of CPU 0
+                2: (0, 1),
+                3: (0, 2),
+            }
+            for cpu, (package, core) in topology.items():
+                path = root / f"cpu{cpu}" / "topology"
+                path.mkdir(parents=True)
+                (path / "physical_package_id").write_text(str(package))
+                (path / "core_id").write_text(str(core))
+            self.assertEqual(select_distinct_physical_cpus([0, 1, 2, 3], root), [0, 2, 3])
 
     def test_host_attestation_requires_explicit_dedicated_host_claim(self):
         good = {
