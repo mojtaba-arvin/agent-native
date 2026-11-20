@@ -37,6 +37,23 @@ those shared-runner checks is a controlled-host capacity result. Do not commit
 generated evidence.
 
 
+
+### Runner security and no-cost execution
+
+Standard GitHub-hosted runners are free for public repositories, but they are
+fresh VMs (and the one-CPU `ubuntu-slim` option is a container on a shared VM),
+not a dedicated physical benchmark host. Do not treat their measurements as
+T16 capacity evidence.
+
+Do not attach a persistent self-hosted runner to this public repository for
+benchmarking. GitHub warns that arbitrary pull requests can execute untrusted
+workflow code and compromise a persistent self-hosted machine. The safest
+no-cost route is to run this script manually on an already available dedicated
+physical Linux host from a trusted, clean checkout, without registering that
+machine as a repository runner. A disposable ephemeral/JIT runner is an
+alternative only if its host is dedicated and destroyed/reimaged after the
+single job; do not expose long-lived credentials to it.
+
 ## Controlled-host setup and execution
 
 The host must be a dedicated physical Linux machine with at least three
