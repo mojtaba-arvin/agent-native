@@ -1,0 +1,82 @@
+"""Production multi-service loader and dispatcher."""
+from __future__ import annotations
+
+import uuid
+from pathlib import Path
+from typing import Any, Callable
+
+from .handlers import RuntimeAdapters, TrustedHandlerRegistry, build_service_runtime
+from .manifest import ServiceRegistry, ServiceRegistryError
+from .runtime import RuntimeResponse
+
+
+class ServiceHost:
+    """Load validated service manifests once and dispatch by stable service ID.
+
+    Service manifests select only IDs from the supplied host-owned handler
+    registry. The host never imports code named by a manifest.
+    """
+
+    def __init__(
+        self,
+        services_root: str | Path,
+        *,
+        handlers: TrustedHandlerRegistry,
+        adapters: RuntimeAdapters,
+        clock: Callable[[], float] | None = None,
+        audit_sink: Any = None,
+    ):
+        if not isinstance(handlers, TrustedHandlerRegistry):
+            raise TypeError("host_requires_trusted_handler_registry")
+        if not isinstance(adapters, RuntimeAdapters):
+            raise TypeError("host_requires_runtime_adapters")
+        self.registry = ServiceRegistry(
+            services_root,
+            trusted_handler_ids=handlers.handler_ids,
+        )
+        registered = self.registry.load_all()
+        self._runtimes = {
+            service_id: build_service_runtime(
+                service,
+                handlers=handlers,
+                adapters=adapters,
+                clock=clock,
+                audit_sink=audit_sink,
+            )
+            for service_id, service in registered.items()
+        }
+
+    @property
+    def service_ids(self) -> tuple[str, ...]:
+        return tuple(sorted(self._runtimes))
+
+    def dispatch(
+        self,
+        service_id: str,
+        method: str,
+        target: str,
+        body: dict[str, Any],
+        identity,
+        *,
+        headers: dict[str, str] | None = None,
+        request_id: str | None = None,
+    ) -> RuntimeResponse:
+        runtime = self._runtimes.get(service_id) if isinstance(service_id, str) else None
+        if runtime is None:
+            safe_request_id = (
+                request_id
+                if isinstance(request_id, str) and request_id.strip() and len(request_id) <= 128
+                else str(uuid.uuid4())
+            )
+            return RuntimeResponse(
+                404,
+                {"error": {"code": "SERVICE_NOT_FOUND"}, "request_id": safe_request_id},
+            )
+        return runtime.dispatch(
+            method,
+            target,
+            body,
+            identity,
+            headers=headers,
+            request_id=request_id,
+        )
