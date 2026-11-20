@@ -7,7 +7,7 @@
 ## Registered protocol
 
 - 10 repetitions per candidate, with candidate order randomized independently for each repetition (40 candidate runs total).
-- 5,000 measured GET /work?ms=0 requests per repetition, concurrency 32, warm-up 250.
+- 5,000 measured GET /work?ms=0 requests per repetition, closed-loop concurrency 32, warm-up 250 in a separate Go invocation before the measured cgroup CPU baseline.
 - The measured request succeeds only for HTTP 200 with the exact body completed:0.
 - The independent request generator is a compiled Go net/http binary; Python only orchestrates Docker and aggregates result files.
 - Candidate processes run one at a time in separate Docker containers with cgroup v2 limits of one CPU (cpu.max = 100000 100000), a single pinned host CPU, and 2 GiB memory.
