@@ -247,7 +247,7 @@ class ProductionCorePostgresTests(unittest.TestCase):
         self.assertFalse(stock.generated_key)
         self.assertEqual(
             [(column.name, column.sql_type) for column in stock.columns],
-            [("sku", "TEXT"), ("quantity", "BIGINT"), ("warehouse_id", "TEXT")],
+            [("quantity", "BIGINT"), ("sku", "TEXT"), ("warehouse_id", "TEXT")],
         )
         with self.repository._connect() as db:
             item_columns = {
