@@ -1,6 +1,12 @@
 name: T16 preflight contract
 
 on:
+  push:
+    branches:
+      - "task/T16-slo-run-controlled-host"
+    paths:
+      - "experiments/e002/t16/**"
+      - ".github/workflows/t16-preflight.yml"
   pull_request:
     paths:
       - "experiments/e002/t16/**"
