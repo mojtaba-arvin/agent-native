@@ -190,7 +190,7 @@ class ProductionCorePostgresTests(unittest.TestCase):
             ],
         )
 
-    def test_production_loader_and_router_fail_closed(self) -> None:
+    def test_unknown_route_and_method_fail_closed(self) -> None:
         identity = self._catalog_identity()
         unknown = self.catalog.dispatch("GET", "/not-a-route", {}, identity)
         self.assertEqual(unknown.status_code, 404)
