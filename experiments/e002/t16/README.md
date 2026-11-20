@@ -127,7 +127,7 @@ cannot yet produce valid T16 candidate runs.
 ## Current evidence boundary
 
 - `preflight.py` rejects GitHub Actions runners, requires Linux/cgroup v2,
-  Docker, taskset, at least two host CPUs, a reachable PostgreSQL dependency,
+  Docker, taskset, at least three host CPUs, a reachable PostgreSQL dependency,
   and an explicit operator attestation.
 - The generated host manifest deliberately records
   `postgres_separate_from_candidate_cgroup: false`. A preflight cannot prove
