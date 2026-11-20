@@ -38,6 +38,7 @@ class ResourceSpec:
     columns: tuple[ColumnSpec, ...]
     create_fields: tuple[str, ...]
     unique_fields: tuple[str, ...] = ()
+    minimums: tuple[tuple[str, int | float], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -122,6 +123,16 @@ class IRMigrationPlanner:
                 for field in unique_fields
             ) or len(unique_fields) != len(set(unique_fields)):
                 raise MigrationError("invalid_unique_field_projection")
+            minimums = config.get("minimums", {})
+            if not isinstance(minimums, Mapping):
+                raise MigrationError("invalid_minimum_constraints")
+            for field_name, minimum in minimums.items():
+                column = next((column for column in columns if column.name == field_name), None)
+                if (
+                    column is None or column.sql_type not in {"BIGINT", "DOUBLE PRECISION"}
+                    or type(minimum) not in {int, float}
+                ):
+                    raise MigrationError("invalid_minimum_constraint:" + str(field_name))
             spec = ResourceSpec(
                 name=resource,
                 key=key,
@@ -129,6 +140,7 @@ class IRMigrationPlanner:
                 columns=tuple(columns),
                 create_fields=tuple(create_fields),
                 unique_fields=tuple(unique_fields),
+                minimums=tuple(sorted(minimums.items())),
             )
             previous = resources.get(resource)
             if previous is not None and previous != spec:
