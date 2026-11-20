@@ -54,9 +54,18 @@ class TaskGateTests(unittest.TestCase):
         self.assert_fails(make_context(["src/a.py", "project-control/HANDOFF.md"]), "frozen")
         self.assert_fails(make_context(["src/a.py", "project-control/TASKS.json"]), "frozen")
 
-    def test_decision_event_only_for_decision_kind(self):
-        self.assert_passes(make_context(["project-control/DECISION_EVENTS.jsonl", "docs/decision.md"], kind="decision"))
-        self.assert_fails(make_context(["src/a.py", "project-control/DECISION_EVENTS.jsonl"]), "frozen")
+    def test_root_decision_registry_only_for_decision_kind(self):
+        self.assert_passes(make_context(["DECISIONS.json", "docs/decision.md"], kind="decision"))
+        self.assert_fails(make_context(["DECISIONS.json", "docs/decision.md"], kind="code"), "frozen")
+
+    def test_project_control_decision_event_remains_frozen(self):
+        self.assert_fails(
+            make_context(
+                ["project-control/DECISION_EVENTS.jsonl", "docs/decision.md"],
+                kind="decision",
+            ),
+            "frozen",
+        )
 
     def test_acceptance_pr_must_be_separate(self):
         self.assert_passes(make_context(["acceptance/T07.sh"], acceptance_exists=False))
@@ -112,6 +121,7 @@ class TaskGateTests(unittest.TestCase):
         self.assertEqual(gate.classify("src/a/test_b.py"), "test")
         self.assertEqual(gate.classify("services/x/service.an"), "product")
         self.assertEqual(gate.classify("experiments/e1/x.py"), "research")
+        self.assertEqual(gate.classify("DECISIONS.json"), "state")
         self.assertEqual(gate.classify("README.md"), "docs")
 
 
