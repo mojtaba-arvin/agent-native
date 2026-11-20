@@ -90,6 +90,20 @@ class ProductionCorePostgresTests(unittest.TestCase):
         self.assertEqual(replay.body["data"], item)
         trace.append(("idempotent-replay", replay.status_code, replay.body["data"]["id"]))
 
+        mismatched_replay = self.host.dispatch(
+            "catalog", "POST", "/items", {"name": "Different lamp"}, identity,
+            headers={"idempotency-key": "catalog-trace-001"},
+        )
+        self.assertEqual(mismatched_replay.status_code, 409)
+        trace.append(("idempotency-conflict", mismatched_replay.status_code, "Conflict"))
+
+        duplicate_name = self.host.dispatch(
+            "catalog", "POST", "/items", {"name": "Desk lamp"}, identity,
+            headers={"idempotency-key": "catalog-trace-002"},
+        )
+        self.assertEqual(duplicate_name.status_code, 409)
+        trace.append(("duplicate-name", duplicate_name.status_code, "Conflict"))
+
         by_id = self.host.dispatch("catalog", "GET", "/items/" + item["id"], {}, identity)
         self.assertEqual(by_id.status_code, 200)
         self.assertEqual(by_id.body["data"], item)
@@ -114,6 +128,8 @@ class ProductionCorePostgresTests(unittest.TestCase):
             [
                 ("create", 201),
                 ("idempotent-replay", 201),
+                ("idempotency-conflict", 409),
+                ("duplicate-name", 409),
                 ("read-by-id", 200),
                 ("read-by-name", 200),
                 ("cross-tenant-read", 404),
@@ -133,6 +149,14 @@ class ProductionCorePostgresTests(unittest.TestCase):
         expected = {"sku": "LAMP-001", "quantity": 12, "warehouse_id": "WH-1"}
         self.assertEqual(created.body["data"], expected)
         trace.append(("create", created.status_code, expected))
+
+        duplicate = self.host.dispatch(
+            "inventory", "POST", "/stock",
+            {"sku": "LAMP-001", "quantity": 99, "warehouse_id": "WH-1"},
+            identity,
+        )
+        self.assertEqual(duplicate.status_code, 409)
+        trace.append(("duplicate-sku", duplicate.status_code, "Conflict"))
 
         listed = self.host.dispatch(
             "inventory", "GET", "/stock?warehouse_id=WH-1", {}, identity
@@ -165,6 +189,7 @@ class ProductionCorePostgresTests(unittest.TestCase):
             [(entry[0], entry[1]) for entry in trace],
             [
                 ("create", 201),
+                ("duplicate-sku", 409),
                 ("list", 200),
                 ("update", 200),
                 ("delete", 204),
