@@ -13,7 +13,8 @@
           "sku",
           "quantity",
           "warehouse_id"
-        ]
+        ],
+        "primary_key": "sku"
       }
     },
     "update_stock": {
