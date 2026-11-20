@@ -255,3 +255,14 @@ adapter.admit_job(
 
 if __name__ == "__main__":
     unittest.main()
+
+
+# T11 production runtime parity is exercised in the same Layer 1 PostgreSQL
+# invocation as the storage reference adapter. Importing the test case here
+# keeps it out of a separate CI-only path and makes the fast suite skip it
+# cleanly when no disposable PostgreSQL DSN is configured.
+import sys as _sys
+from pathlib import Path as _Path
+
+_sys.path.insert(0, str(_Path(__file__).resolve().parents[2] / "tests"))
+from test_production_core_postgres import ProductionCorePostgresTests  # noqa: E402,F401
