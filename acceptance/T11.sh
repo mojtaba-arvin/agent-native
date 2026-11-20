@@ -34,7 +34,7 @@ tests = required["production PostgreSQL parity tests"].read_text(encoding="utf-8
 checks = {
     "IR v1 semantic validation in service registry": "validate_ir" in manifest or "Parser(" in manifest,
     "host-registered handlers, never manifest imports": "class TrustedHandlerRegistry" in handlers,
-    "IR-backed runtime dispatch": "class ServiceRuntime" in runtime and "def handle(" in runtime,
+    "IR-backed runtime dispatch": "class ServiceRuntime" in runtime and "def dispatch(" in runtime,
     "PostgreSQL catalog/inventory integration": "Postgres" in tests and "catalog" in tests.lower() and "inventory" in tests.lower(),
     "deterministic reference trace comparison": "reference_trace" in tests.lower() or "trace" in tests.lower(),
     "negative route and malformed IR coverage": any(x in tests for x in ("unknown_route", "malformed_ir", "invalid_ir", "route_not_found")),
