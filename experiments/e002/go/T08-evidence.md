@@ -61,8 +61,9 @@ go build -o "$RUNNER_TEMP/e002-go" .
 python ../conformance.py --command "$RUNNER_TEMP/e002-go" --cwd .
 ```
 
-The existing Layer 1 CI step named `E-002 Go runtime` runs these same three
-commands with the pinned Go 1.23.12 toolchain. The shared runner verifies
+The shared runner is tracked at `experiments/e002/conformance.py`. The existing
+Layer 1 CI step named `E-002 Go runtime` runs these same three commands with
+the pinned Go 1.23.12 toolchain. The shared runner verifies
 readiness, successful work, the 900 ms deadline failure, malformed query
 variants, and the exact ordered streaming response.
 
