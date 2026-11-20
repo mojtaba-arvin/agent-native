@@ -223,6 +223,8 @@ impl ProductConfig {
             Ok(Ok(body)) => {
                 let actual_status = if body.contains(r#""code": "IDEMPOTENCY_CONFLICT""#) {
                     StatusCode::CONFLICT
+                } else if body.contains(r#""code": "INVALID_CONTRACT""#) {
+                    StatusCode::BAD_REQUEST
                 } else {
                     status
                 };
