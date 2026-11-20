@@ -1,4 +1,4 @@
-"""Disposable E-001 parser prototype; not production framework code."""
+"""Canonical parser and semantic validator for Agent Native service IR v1."""
 from __future__ import annotations
 
 import json
@@ -7,6 +7,8 @@ import sys
 import unicodedata
 from dataclasses import dataclass
 from pathlib import Path
+
+IR_VERSION = 1
 
 TOKEN = re.compile(
     r'(?P<space>\s+)|(?P<comment>//[^\n]*)|(?P<string>"(?:\\.|[^"\\])*")|'
@@ -179,7 +181,7 @@ class Parser:
                 if field["type"] not in known_types:
                     self.fail("AN020", f"unknown input type {field['type']!r} in field {field['name']!r}")
         ir = {
-            "ir_version": 1,
+            "ir_version": IR_VERSION,
             "service": {"name": name, "version": version},
             "types": sorted(types, key=lambda item: item["name"]),
             "operations": sorted(operations, key=lambda item: item["name"]),
@@ -282,7 +284,7 @@ def validate_ir(ir: object) -> None:
         or set(ir) != {"ir_version", "service", "types", "operations"}
         or not isinstance(ir.get("ir_version"), int)
         or isinstance(ir.get("ir_version"), bool)
-        or ir.get("ir_version") != 1
+        or ir.get("ir_version") != IR_VERSION
     ):
         fail("AN021", "unsupported or malformed IR version or top-level shape")
     service = ir.get("service")
