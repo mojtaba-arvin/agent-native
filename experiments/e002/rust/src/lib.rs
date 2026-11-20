@@ -1,3 +1,5 @@
+pub mod product;
+
 //! Testable Rust implementation of the shared E-002 HTTP workload contract.
 //!
 //! This is a runtime spike, not a selected Agent Native production runtime.
@@ -237,4 +239,19 @@ mod tests {
             ]
         );
     }
+}
+
+/// Dispatch the T16 product routes when the product database/auth fixtures are configured.
+pub async fn handle_with_product(
+    request: Request<Incoming>,
+    slots: Arc<Semaphore>,
+    product: Option<Arc<product::ProductConfig>>,
+) -> Result<Response<ResponseBody>, Infallible> {
+    if request.uri().path().starts_with("/v1/") {
+        return Ok(match product {
+            Some(config) => config.handle(request).await,
+            None => response(StatusCode::SERVICE_UNAVAILABLE, "product workload not configured"),
+        });
+    }
+    handle(request, slots).await
 }
