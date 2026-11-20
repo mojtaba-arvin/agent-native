@@ -122,7 +122,8 @@ BEGIN
     ELSIF v_operation_id = 'validate_plan' THEN
         IF body->>'contract_version' IS DISTINCT FROM 'v1'
            OR body->>'operation' IS DISTINCT FROM 'catalog.read'
-           OR COALESCE(body->>'resource_id', '') = '' THEN
+           OR COALESCE(body->>'resource_id', '') = ''
+           OR body - ARRAY['contract_version', 'operation', 'resource_id'] <> '{}'::jsonb THEN
             RAISE EXCEPTION 't16_contract_invalid';
         END IF;
         outcome := jsonb_build_object('request_id', request_id, 'decision', 'allow');
@@ -134,6 +135,7 @@ BEGIN
     ELSIF v_operation_id = 'job_admission' THEN
         IF body->>'contract_version' IS DISTINCT FROM 'v1' OR body->>'operation' IS DISTINCT FROM 'jobs.create'
            OR jsonb_typeof(body->'payload') IS DISTINCT FROM 'object'
+           OR body - ARRAY['contract_version', 'operation', 'payload'] <> '{}'::jsonb
            OR v_idempotency_key IS NULL OR v_idempotency_key = '' THEN
             RAISE EXCEPTION 't16_job_contract_invalid';
         END IF;
