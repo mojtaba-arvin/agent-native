@@ -125,12 +125,13 @@ def read_memory_events(path: Path) -> dict[str, int]:
 
 
 def run_loadgen_container(name: str, arguments: list[str], cpu: int, root: Path,
-                          bin_dir: Path, timeout: int = 180) -> dict[str, Any]:
+                          bin_dir: Path, read_token: str, deny_token: str, timeout: int = 180) -> dict[str, Any]:
     container = name
     try:
         run_command([
             "docker", "run", "--detach", "--name", container,
             "--cpus=1", f"--cpuset-cpus={cpu}", "--memory=1g", "--network=host",
+            "--env", f"T16_READ_TOKEN={read_token}", "--env", f"T16_DENY_TOKEN={deny_token}",
             "-v", f"{root}:/src:ro", "-v", f"{bin_dir}:/out:ro",
             "-w", "/src/experiments/e002/t16/loadgen",
             "golang:1.23.12-bookworm", "/out/t16-loadgen", *arguments,
@@ -449,11 +450,13 @@ def main() -> int:
                 prefix = output / "runs" / candidate / f"rep-{repetition:02d}"
                 prefix.parent.mkdir(parents=True, exist_ok=True)
                 command = [
-                    "taskset", "-c", str(host["load_generator_cpu"]), str(loadgen),
+                    "docker", "run", "--cpus=1",
+                    f"--cpuset-cpus={host['load_generator_cpu']}", "--memory=1g", "--network=host",
+                    "--env", "T16_READ_TOKEN=$T16_READ_TOKEN", "--env", "T16_DENY_TOKEN=$T16_DENY_TOKEN",
+                    "golang:1.23.12-bookworm", "/out/t16-loadgen",
                     "--target", "http://127.0.0.1:8080", "--requests", str(REQUESTS),
                     "--concurrency", str(CONCURRENCY), "--warmup", "0", "--target-rps", str(TARGET_RPS),
-                    "--run-id", run_id, "--read-token", "$T16_READ_TOKEN",
-                    "--deny-token", "$T16_DENY_TOKEN", "--output-prefix", str(prefix),
+                    "--run-id", run_id, "--output-prefix", "/src/" + str(prefix.relative_to(root)),
                 ]
                 record = None
                 try:
@@ -488,13 +491,12 @@ def main() -> int:
                         "--target", "http://127.0.0.1:8080", "--requests", str(REQUESTS),
                         "--concurrency", str(CONCURRENCY), "--warmup", str(WARMUP),
                         "--target-rps", str(TARGET_RPS), "--run-id", run_id + "-warmup",
-                        "--read-token", read_token, "--deny-token", deny_token,
                         "--output-prefix", "/src/" + str((prefix.parent / (prefix.name + "-warmup")).relative_to(root)),
                         "--warmup-only",
                     ]
                     loadgen_warmup = run_loadgen_container(
                         f"t16-loadgen-warmup-{uuid.uuid4().hex[:8]}",
-                        warmup_arguments, host["load_generator_cpu"], root, bin_dir,
+                        warmup_arguments, host["load_generator_cpu"], root, bin_dir, read_token, deny_token,
                     )
                     psql(args.postgres_dsn, "SELECT t16_reset()")
                     cpu_before = read_cpu_usage(candidate_cgroup)
