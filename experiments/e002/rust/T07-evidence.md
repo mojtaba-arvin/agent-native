@@ -50,7 +50,7 @@ toolchain and committed lockfile:
     cargo build --locked --release
 
 Run the shared, black-box HTTP checks from this directory after the release
-build:
+build. The shared runner lives at experiments/e002/conformance.py:
 
     python ../conformance.py --command ./target/release/agent-native-e002-rust --cwd .
 
