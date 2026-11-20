@@ -23,7 +23,7 @@ The framework must enable agents across capability levels to produce, verify, op
 
 Agents should inspect the repository, form hypotheses, implement experiments, run tests, review diffs, record decisions, and continue without narrating progress to the user. Ask the user only for decisions that require personal authority, credentials, irreversible actions, or material spending.
 
-Never merge to `main`, publish releases, deploy production systems, change repository security settings, or perform destructive external operations without explicit authorization.
+v1 work follows docs/V1_PLAN.md on research/reboot-core. Task state lives in GitHub Issues. Do not edit project-control/.
 
 ## Required engineering loop
 
