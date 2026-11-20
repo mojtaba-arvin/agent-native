@@ -342,6 +342,142 @@
         "status": "historical-only; retired as prospective product eligibility gate",
         "retroactive_rescoring": false
       }
+    },
+    {
+      "id": "D-0016",
+      "topic": "runtime_selection",
+      "status": "decided",
+      "task": "T10 (#114)",
+      "value": "No v0.1 runtime is selected. Defer selection until Rust/Tokio + Hyper and Go/net/http are compared on the registered authenticated control-plane workload and every T02 hard gate has complete, comparable evidence.",
+      "selection": {
+        "outcome": "no_selection",
+        "runtime": null,
+        "reason": "The T09 cohort measures a trivial closed-loop HTTP probe, not the preregistered product workload. Required product semantics, open-loop capacity behavior, 1-GiB memory envelope, controlled-host isolation, security/integrity assertions, and failure-semantics evidence are not measured.",
+        "weighted_score": "not_calculated"
+      },
+      "runtime_candidates": [
+        "Rust/Tokio + Hyper",
+        "Go/net/http"
+      ],
+      "exploratory_candidates": [
+        "WASI P2 / Wasmtime",
+        "Elixir/BEAM"
+      ],
+      "observed_tradeoffs": {
+        "Go/net-http": {
+          "throughput_mean_requests_per_second": 10514.85,
+          "throughput_sample_sd_requests_per_second": 367.04,
+          "p99_mean_ms": 4.575,
+          "p99_sample_sd_ms": 0.33,
+          "cpu_mean_seconds_per_5000": 0.2935,
+          "cpu_sample_sd_seconds_per_5000": 0.0095,
+          "peak_cgroup_memory_median_mib": 7.24,
+          "functional_repetitions_passed": 10,
+          "functional_repetitions_total": 10,
+          "median_throughput_requests_per_second": 10630.32,
+          "median_p99_ms": 4.6172,
+          "median_cpu_seconds_per_5000": 0.2896,
+          "median_startup_ms": 15.02
+        },
+        "Rust/Tokio + Hyper": {
+          "throughput_mean_requests_per_second": 10371.6,
+          "throughput_sample_sd_requests_per_second": 376.13,
+          "p99_mean_ms": 4.609,
+          "p99_sample_sd_ms": 0.197,
+          "cpu_mean_seconds_per_5000": 0.2628,
+          "cpu_sample_sd_seconds_per_5000": 0.0054,
+          "peak_cgroup_memory_median_mib": 4.15,
+          "functional_repetitions_passed": 10,
+          "functional_repetitions_total": 10,
+          "median_throughput_requests_per_second": 10384.34,
+          "median_p99_ms": 4.6634,
+          "median_cpu_seconds_per_5000": 0.2612,
+          "median_startup_ms": 14.82
+        },
+        "WASI P2 / Wasmtime": {
+          "throughput_mean_requests_per_second": 6428.7,
+          "throughput_sample_sd_requests_per_second": 115.64,
+          "p99_mean_ms": 7.672,
+          "p99_sample_sd_ms": 0.26,
+          "cpu_mean_seconds_per_5000": 0.7744,
+          "cpu_sample_sd_seconds_per_5000": 0.0122,
+          "peak_cgroup_memory_median_mib": 21.5,
+          "functional_repetitions_passed": 10,
+          "functional_repetitions_total": 10
+        },
+        "Elixir/BEAM": {
+          "throughput_mean_requests_per_second": 9795.92,
+          "throughput_sample_sd_requests_per_second": 429.49,
+          "p99_mean_ms": 5.014,
+          "p99_sample_sd_ms": 0.237,
+          "cpu_mean_seconds_per_5000": 0.4874,
+          "cpu_sample_sd_seconds_per_5000": 0.0165,
+          "peak_cgroup_memory_median_mib": 46.83,
+          "functional_repetitions_passed": 10,
+          "functional_repetitions_total": 10
+        }
+      },
+      "rejected_alternatives": [
+        {
+          "classification": "rejected",
+          "alternative": "Select Go because it led T09 probe throughput.",
+          "reason": "The small throughput lead was measured on a closed-loop in-memory endpoint and does not establish the registered authenticated control-plane workload or any missing hard gate."
+        },
+        {
+          "classification": "rejected",
+          "alternative": "Select Rust because it used less T09 probe CPU and memory.",
+          "reason": "The CPU and memory observations are specific to the trivial probe and do not prove product workload eligibility."
+        },
+        {
+          "classification": "rejected",
+          "alternative": "Calculate a weighted score from T09 and declare the highest score a winner.",
+          "reason": "T02 prohibits scoring when comparable required measurements or hard-gate evidence are missing."
+        },
+        {
+          "classification": "rejected",
+          "alternative": "Eliminate Go, Rust, WASI, or BEAM as an architecture based on this cohort.",
+          "reason": "The cohort is not representative of the product boundary; no architecture is eliminated. WASI and BEAM are exploratory candidates outside T02's formal Rust-versus-Go pair."
+        }
+      ],
+      "eligibility_assessment": {
+        "authenticated_control_plane_workload": "not_measured",
+        "authorization_and_tenant_isolation": "not_measured",
+        "durable_audit_and_postgresql": "not_measured",
+        "atomic_job_outbox_idempotency": "not_measured",
+        "rate_controlled_open_loop_100_requests_per_second": "not_measured",
+        "one_vcpu_one_gib_product_envelope": "incomplete_2_gib_was_used",
+        "security_integrity_and_failure_semantics_hard_gates": "not_measured",
+        "controlled_exclusive_host": "not_established",
+        "comparable_complete_weighted_score_inputs": "not_measured",
+        "weighted_score": "not_calculated"
+      },
+      "source_evidence": {
+        "source_sha": "acfd8d0f775d46b4f0dea39ade423e445efc8fd5",
+        "workflow_run": 44741277036,
+        "artifact_id": 14630464028,
+        "artifact_url": "https://github.com/mojtaba-arvin/agent-native/actions/runs/44741277036/artifacts/14630464028",
+        "decision_grade": false,
+        "workload": "in-memory GET /work?ms=0",
+        "arrival_model": "closed-loop",
+        "service_cpu_limit": "1 vCPU",
+        "service_memory_limit_bytes": 2147483648,
+        "host": "ephemeral shared GitHub-hosted Ubuntu 26.04.1 x86_64 VM"
+      },
+      "constraints": [
+        "Apply docs/T02_SLO_AND_RUNTIME.md without changing its registered workload, thresholds, hard gates, weights, or Rust-versus-Go candidate boundary.",
+        "Treat T09 throughput, latency, CPU, and cgroup memory as observed diagnostic trade-offs for its trivial endpoint only.",
+        "Do not claim that T09 met the product capacity envelope or production SLO.",
+        "Do not select or eliminate any candidate architecture from the T09 cohort.",
+        "Missing product evidence remains not measured, never zero or a pass.",
+        "Do not calculate a weighted score or select a runtime until the complete T02 comparison is decision-grade."
+      ],
+      "evidence": [
+        "docs/T02_SLO_AND_RUNTIME.md",
+        "docs/T10_RUNTIME_DECISION.md",
+        "experiments/e002/T09-evidence.md",
+        "https://github.com/mojtaba-arvin/agent-native/actions/runs/44741277036",
+        "https://github.com/mojtaba-arvin/agent-native/actions/runs/44741277036/artifacts/14630464028"
+      ]
     }
   ]
 }
