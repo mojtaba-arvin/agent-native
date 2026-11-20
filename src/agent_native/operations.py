@@ -231,9 +231,6 @@ class OperationalHTTPServer(ThreadingHTTPServer):
             self.shutdown_request(request)
 
     def process_request(self, request: socket.socket, client_address) -> None:
-        if not self.ready:
-            self._reject_connection(request, 503, "SERVER_DRAINING")
-            return
         if not self._admission.acquire(blocking=False):
             self._reject_connection(request, 503, "OVERLOADED")
             return
@@ -446,6 +443,11 @@ def create_operational_server(
                         except (BrokenPipeError, ConnectionResetError, socket.timeout):
                             pass
                     self.close_connection = True
+                    return
+
+                if not self.server.ready:
+                    status = 503
+                    self._send(status, {"error": {"code": "SERVER_DRAINING"}}, request_id=request_id)
                     return
 
                 headers = self._request_headers()
