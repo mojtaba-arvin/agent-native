@@ -2,7 +2,8 @@ package main
 
 import (
 	"context"
-	"fmt"
+	"errors"
+	"io"
 	"log"
 	"net/http"
 	"strconv"
@@ -12,81 +13,126 @@ import (
 
 const (
 	maxConcurrent = 64
+	maxWorkMS     = uint64(5000)
 	workDeadline  = 750 * time.Millisecond
 )
 
-func main() {
-	slots := make(chan struct{}, maxConcurrent)
-	mux := http.NewServeMux()
+var errInvalidWorkQuery = errors.New("invalid ms")
 
-	mux.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) {
+type application struct {
+	slots    chan struct{}
+	deadline time.Duration
+}
+
+func newHandler(maxActive int, deadline time.Duration) http.Handler {
+	if maxActive < 1 {
+		panic("maxActive must be positive")
+	}
+	if deadline <= 0 {
+		panic("deadline must be positive")
+	}
+	return &application{slots: make(chan struct{}, maxActive), deadline: deadline}
+}
+
+// parseWorkMS accepts only the exact raw query shape ms=<ASCII decimal digits>.
+func parseWorkMS(rawQuery string) (uint64, error) {
+	if !strings.HasPrefix(rawQuery, "ms=") {
+		return 0, errInvalidWorkQuery
+	}
+	value := rawQuery[len("ms="):]
+	if value == "" {
+		return 0, errInvalidWorkQuery
+	}
+	for i := 0; i < len(value); i++ {
+		if value[i] < '0' || value[i] > '9' {
+			return 0, errInvalidWorkQuery
+		}
+	}
+	ms, err := strconv.ParseUint(value, 10, 64)
+	if err != nil || ms > maxWorkMS {
+		return 0, errInvalidWorkQuery
+	}
+	return ms, nil
+}
+
+func (app *application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.Header().Set("Allow", http.MethodGet)
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	switch r.URL.Path {
+	case "/health":
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("ok"))
-	})
+		_, _ = io.WriteString(w, "ok")
+	case "/work":
+		app.serveWork(w, r)
+	case "/stream":
+		app.serveStream(w, r)
+	default:
+		http.NotFound(w, r)
+	}
+}
 
-	mux.HandleFunc("/work", func(w http.ResponseWriter, r *http.Request) {
-		select {
-		case slots <- struct{}{}:
-			defer func() { <-slots }()
-		default:
-			http.Error(w, "overloaded", http.StatusServiceUnavailable)
+func (app *application) serveWork(w http.ResponseWriter, r *http.Request) {
+	ms, err := parseWorkMS(r.URL.RawQuery)
+	if err != nil {
+		http.Error(w, "invalid ms", http.StatusBadRequest)
+		return
+	}
+
+	select {
+	case app.slots <- struct{}{}:
+		defer func() { <-app.slots }()
+	default:
+		http.Error(w, "overloaded", http.StatusServiceUnavailable)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), app.deadline)
+	defer cancel()
+
+	timer := time.NewTimer(time.Duration(ms) * time.Millisecond)
+	defer timer.Stop()
+
+	select {
+	case <-ctx.Done():
+		if r.Context().Err() != nil {
 			return
 		}
-
-		rawQuery := r.URL.RawQuery
-		value, found := strings.CutPrefix(rawQuery, "ms=")
-		if !found || value == "" || strings.ContainsAny(value, "&;") {
-			http.Error(w, "invalid ms", http.StatusBadRequest)
+		http.Error(w, "deadline exceeded", http.StatusGatewayTimeout)
+	case <-timer.C:
+		if r.Context().Err() != nil {
 			return
 		}
-		for _, character := range value {
-			if character < '0' || character > '9' {
-				http.Error(w, "invalid ms", http.StatusBadRequest)
-				return
-			}
-		}
-		ms, err := strconv.Atoi(value)
-		if err != nil || ms > 5000 {
-			http.Error(w, "invalid ms", http.StatusBadRequest)
+		w.WriteHeader(http.StatusOK)
+		_, _ = io.WriteString(w, "completed:"+strconv.FormatUint(ms, 10))
+	}
+}
+
+func (app *application) serveStream(w http.ResponseWriter, r *http.Request) {
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, "streaming unsupported", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/octet-stream")
+	for _, chunk := range []string{"chunk-1\n", "chunk-2\n", "chunk-3\n"} {
+		if r.Context().Err() != nil {
 			return
 		}
-		ctx, cancel := context.WithTimeout(r.Context(), workDeadline)
-		defer cancel()
-
-		timer := time.NewTimer(time.Duration(ms) * time.Millisecond)
-		defer timer.Stop()
-		select {
-		case <-ctx.Done():
-			http.Error(w, "deadline exceeded", http.StatusGatewayTimeout)
-		case <-timer.C:
-			w.WriteHeader(http.StatusOK)
-			_, _ = fmt.Fprintf(w, "completed:%d", ms)
-		}
-	})
-
-	mux.HandleFunc("/stream", func(w http.ResponseWriter, r *http.Request) {
-		flusher, ok := w.(http.Flusher)
-		if !ok {
-			http.Error(w, "streaming unsupported", http.StatusInternalServerError)
+		if _, err := io.WriteString(w, chunk); err != nil {
 			return
 		}
-		w.Header().Set("Content-Type", "application/octet-stream")
-		for _, chunk := range []string{"chunk-1\n", "chunk-2\n", "chunk-3\n"} {
-			select {
-			case <-r.Context().Done():
-				return
-			default:
-				if _, err := w.Write([]byte(chunk)); err != nil {
-					return
-				}
-				flusher.Flush()
-			}
-		}
-	})
+		flusher.Flush()
+	}
+}
 
+func main() {
 	server := &http.Server{
 		Addr:              "127.0.0.1:8080",
-		Handler:           mux,
+		Handler:           newHandler(maxConcurrent, workDeadline),
 		ReadHeaderTimeout: 2 * time.Second,
 		IdleTimeout:       30 * time.Second,
 	}
