@@ -223,6 +223,7 @@ func sendOne(client *http.Client, cfg settings, runID string, index int, op oper
 	response, err := client.Do(request)
 	if err != nil {
 		item.Error = err.Error()
+		item.FinishedAt = time.Now().UTC().Format(time.RFC3339Nano)
 		item.LatencyMS = float64(time.Since(started).Nanoseconds()) / 1e6
 		return item
 	}
