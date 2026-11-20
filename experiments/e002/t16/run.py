@@ -404,6 +404,7 @@ def main() -> int:
                     if repetition == 1:
                         verify_product_conformance(args.postgres_dsn, read_token, deny_token)
                     psql(args.postgres_dsn, "SELECT t16_reset()")
+                    events_before = read_memory_events(candidate_cgroup)
                     warmup_command = [
                         "taskset", "-c", str(host["load_generator_cpu"]), str(loadgen),
                         "--target", "http://127.0.0.1:8080", "--requests", str(REQUESTS),
@@ -415,7 +416,6 @@ def main() -> int:
                     run_command(warmup_command, timeout=180)
                     psql(args.postgres_dsn, "SELECT t16_reset()")
                     cpu_before = read_cpu_usage(candidate_cgroup)
-                    events_before = read_memory_events(candidate_cgroup)
                     measured_command = [
                         "taskset", "-c", str(host["load_generator_cpu"]), str(loadgen),
                         "--target", "http://127.0.0.1:8080", "--requests", str(REQUESTS),
