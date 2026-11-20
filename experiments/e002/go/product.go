@@ -297,6 +297,9 @@ func (app *application) serveProduct(w http.ResponseWriter, request *http.Reques
 		http.Error(w, "durable_operation_failed", http.StatusServiceUnavailable)
 		return
 	}
+	if strings.Contains(result, "IDEMPOTENCY_CONFLICT") {
+		expectedStatus = http.StatusConflict
+	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(expectedStatus)
 	_, _ = io.WriteString(w, result)
