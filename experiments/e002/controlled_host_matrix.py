@@ -97,8 +97,24 @@ def run_command(command: list[str], *, check: bool = True, timeout: int = 120) -
     return completed
 
 
-def docker_text(container: str, path: str) -> str:
-    return run_command(["docker", "exec", container, "cat", path]).stdout.strip()
+def unified_cgroup_path(raw: str) -> str:
+    entries = [line.split(":", 2)[2] for line in raw.splitlines() if line.startswith("0::")]
+    if len(entries) != 1 or not entries[0].startswith("/"):
+        raise ValueError("container process has no unique cgroup-v2 membership")
+    return entries[0]
+
+
+def container_cgroup_path(container: str) -> Path:
+    pid_text = run_command(["docker", "inspect", "--format", "{{.State.Pid}}", container]).stdout.strip()
+    pid = int(pid_text)
+    if pid <= 0:
+        raise RuntimeError(f"candidate container has invalid host PID: {pid_text!r}")
+    membership = Path(f"/proc/{pid}/cgroup").read_text(encoding="ascii")
+    relative = unified_cgroup_path(membership).lstrip("/")
+    directory = Path("/sys/fs/cgroup") / relative
+    if not directory.is_dir():
+        raise RuntimeError(f"candidate cgroup-v2 directory is not visible on host: {directory}")
+    return directory
 
 
 def wait_ready(container: str, timeout_seconds: float = 30.0) -> float:
@@ -159,10 +175,10 @@ def host_metadata(server_cpu: int, loadgen_cpu: int) -> dict:
     }
 
 
-def inspect_container_limits(container: str, server_cpu: int) -> dict:
-    cpu_max = docker_text(container, "/sys/fs/cgroup/cpu.max")
-    cpus = docker_text(container, "/sys/fs/cgroup/cpuset.cpus.effective")
-    memory_max = docker_text(container, "/sys/fs/cgroup/memory.max")
+def inspect_container_limits(cgroup: Path, server_cpu: int) -> dict:
+    cpu_max = (cgroup / "cpu.max").read_text(encoding="ascii").strip()
+    cpus = (cgroup / "cpuset.cpus.effective").read_text(encoding="ascii").strip()
+    memory_max = (cgroup / "memory.max").read_text(encoding="ascii").strip()
     quota = cpu_quota_cores(cpu_max)
     cpu_ids = parse_cpu_list(cpus)
     if cpu_max != CPU_MAX or quota != 1.0:
@@ -179,12 +195,12 @@ def inspect_container_limits(container: str, server_cpu: int) -> dict:
     }
 
 
-def read_cgroup_snapshot(container: str) -> dict:
-    cpu = parse_cpu_stat(docker_text(container, "/sys/fs/cgroup/cpu.stat"))
+def read_cgroup_snapshot(cgroup: Path) -> dict:
+    cpu = parse_cpu_stat((cgroup / "cpu.stat").read_text(encoding="ascii"))
     return {
         "cpu_stat": cpu,
-        "memory_current_bytes": int(docker_text(container, "/sys/fs/cgroup/memory.current")),
-        "memory_peak_bytes": int(docker_text(container, "/sys/fs/cgroup/memory.peak")),
+        "memory_current_bytes": int((cgroup / "memory.current").read_text(encoding="ascii").strip()),
+        "memory_peak_bytes": int((cgroup / "memory.peak").read_text(encoding="ascii").strip()),
     }
 
 
@@ -337,11 +353,12 @@ def execute_matrix(args: argparse.Namespace) -> dict:
             }
             try:
                 startup_seconds = wait_ready(name)
-                limits = inspect_container_limits(name, server_cpu)
+                cgroup_path = container_cgroup_path(name)
+                limits = inspect_container_limits(cgroup_path, server_cpu)
                 run_loadgen(args.loadgen.resolve(), prefix, loadgen_cpu, warmup_only=True)
-                before = read_cgroup_snapshot(name)
+                before = read_cgroup_snapshot(cgroup_path)
                 measured = run_loadgen(args.loadgen.resolve(), prefix, loadgen_cpu, warmup_only=False)
-                after = read_cgroup_snapshot(name)
+                after = read_cgroup_snapshot(cgroup_path)
                 summary_path = prefix.with_suffix(".json")
                 summary = json.loads(summary_path.read_text(encoding="utf-8"))
                 cpu_before = before["cpu_stat"]
@@ -349,6 +366,7 @@ def execute_matrix(args: argparse.Namespace) -> dict:
                 usage_usec = cpu_after["usage_usec"] - cpu_before["usage_usec"]
                 elapsed = float(summary["elapsed_seconds"])
                 cgroup = {
+                    "path": str(cgroup_path),
                     "limits": limits,
                     "before": before,
                     "after": after,
@@ -360,6 +378,7 @@ def execute_matrix(args: argparse.Namespace) -> dict:
                 }
                 record.update({
                     "startup_seconds": startup_seconds,
+                    "warmup_requests_completed_before_measurement": WARMUP,
                     "elapsed_seconds": elapsed,
                     "loadgen_exit_code": measured.returncode,
                     "loadgen_summary": summary,
