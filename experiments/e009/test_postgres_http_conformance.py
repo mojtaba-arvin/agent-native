@@ -90,3 +90,7 @@ class PostgresHTTPConformanceTests(HTTPConformanceTests):
             self.server_thread.join(timeout=5)
         if hasattr(self, "repository"):
             self.repository.close()
+
+def load_tests(loader, standard_tests, pattern):
+    """Discover only the PostgreSQL-backed subclass, not its imported base."""
+    return loader.loadTestsFromTestCase(PostgresHTTPConformanceTests)
