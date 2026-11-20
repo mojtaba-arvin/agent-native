@@ -10,8 +10,7 @@ from agent_native import (
     PostgresResourceRepository,
     RequestContext,
     RuntimeAdapters,
-    ServiceRegistry,
-    build_service_runtime,
+    ServiceHost,
     built_in_handler_registry,
 )
 
@@ -25,17 +24,16 @@ class ProductionCorePostgresTests(unittest.TestCase):
         self.schema = "t11_" + uuid.uuid4().hex[:20]
         self.repository = PostgresResourceRepository(DSN, schema=self.schema)
         self.handlers = built_in_handler_registry()
-        self.registry = ServiceRegistry(
+        self.host = ServiceHost(
             ROOT / "services",
-            trusted_handler_ids=self.handlers.handler_ids,
+            handlers=self.handlers,
+            adapters=RuntimeAdapters(
+                repository=self.repository,
+                jobs=object(),
+                events=object(),
+            ),
+            clock=lambda: 100,
         )
-        self.adapters = RuntimeAdapters(
-            repository=self.repository,
-            jobs=object(),
-            events=object(),
-        )
-        self.catalog = self._runtime("catalog")
-        self.inventory = self._runtime("inventory")
 
     def tearDown(self) -> None:
         if hasattr(self, "repository"):
@@ -46,15 +44,6 @@ class ProductionCorePostgresTests(unittest.TestCase):
                         sql.Identifier(self.schema)
                     )
                 )
-
-    def _runtime(self, service_id: str):
-        service = self.registry.load(service_id)
-        return build_service_runtime(
-            service,
-            handlers=self.handlers,
-            adapters=self.adapters,
-            clock=lambda: 100,
-        )
 
     @staticmethod
     def _identity(tenant: str, capabilities: tuple[tuple[str, str], ...]) -> RequestContext:
@@ -85,47 +74,41 @@ class ProductionCorePostgresTests(unittest.TestCase):
         identity = self._catalog_identity()
         trace = []
 
-        created = self.catalog.dispatch(
-            "POST", "/items", {"name": "Desk lamp"}, identity,
+        created = self.host.dispatch(
+            "catalog", "POST", "/items", {"name": "Desk lamp"}, identity,
             headers={"idempotency-key": "catalog-trace-001"},
         )
         self.assertEqual(created.status_code, 201)
         item = created.body["data"]
         trace.append(("create", created.status_code, item["name"]))
 
-        replay = self.catalog.dispatch(
-            "POST", "/items", {"name": "Desk lamp"}, identity,
+        replay = self.host.dispatch(
+            "catalog", "POST", "/items", {"name": "Desk lamp"}, identity,
             headers={"idempotency-key": "catalog-trace-001"},
         )
         self.assertEqual(replay.status_code, 201)
         self.assertEqual(replay.body["data"], item)
         trace.append(("idempotent-replay", replay.status_code, replay.body["data"]["id"]))
 
-        by_id = self.catalog.dispatch(
-            "GET", "/items/" + item["id"], {}, identity
-        )
+        by_id = self.host.dispatch("catalog", "GET", "/items/" + item["id"], {}, identity)
         self.assertEqual(by_id.status_code, 200)
         self.assertEqual(by_id.body["data"], item)
         trace.append(("read-by-id", by_id.status_code, by_id.body["data"]["name"]))
 
-        by_name = self.catalog.dispatch(
-            "GET", "/items/by-name/Desk%20lamp", {}, identity
+        by_name = self.host.dispatch(
+            "catalog", "GET", "/items/by-name/Desk%20lamp", {}, identity
         )
         self.assertEqual(by_name.status_code, 200)
         self.assertEqual(by_name.body["data"], item)
         trace.append(("read-by-name", by_name.status_code, by_name.body["data"]["id"]))
 
-        other_tenant = self.catalog.dispatch(
-            "GET", "/items/" + item["id"], {},
+        other_tenant = self.host.dispatch(
+            "catalog", "GET", "/items/" + item["id"], {},
             self._catalog_identity("tenant-b"),
         )
         self.assertEqual(other_tenant.status_code, 404)
         trace.append(("cross-tenant-read", other_tenant.status_code, "NotFound"))
 
-        self.assertEqual(
-            [entry[0] for entry in trace],
-            ["create", "idempotent-replay", "read-by-id", "read-by-name", "cross-tenant-read"],
-        )
         self.assertEqual(
             [(entry[0], entry[1]) for entry in trace],
             [
@@ -141,43 +124,42 @@ class ProductionCorePostgresTests(unittest.TestCase):
         identity = self._inventory_identity()
         trace = []
 
-        created = self.inventory.dispatch(
-            "POST", "/stock",
+        created = self.host.dispatch(
+            "inventory", "POST", "/stock",
             {"sku": "LAMP-001", "quantity": 12, "warehouse_id": "WH-1"},
             identity,
         )
         self.assertEqual(created.status_code, 201)
-        self.assertEqual(created.body["data"], {
-            "sku": "LAMP-001", "quantity": 12, "warehouse_id": "WH-1",
-        })
-        trace.append(("create", created.status_code, created.body["data"]))
+        expected = {"sku": "LAMP-001", "quantity": 12, "warehouse_id": "WH-1"}
+        self.assertEqual(created.body["data"], expected)
+        trace.append(("create", created.status_code, expected))
 
-        listed = self.inventory.dispatch(
-            "GET", "/stock?warehouse_id=WH-1", {}, identity
+        listed = self.host.dispatch(
+            "inventory", "GET", "/stock?warehouse_id=WH-1", {}, identity
         )
         self.assertEqual(listed.status_code, 200)
-        self.assertEqual(listed.body["data"], [created.body["data"]])
+        self.assertEqual(listed.body["data"], [expected])
         trace.append(("list", listed.status_code, len(listed.body["data"])))
 
-        updated = self.inventory.dispatch(
-            "PATCH", "/stock/LAMP-001", {"quantity": 7}, identity
+        updated = self.host.dispatch(
+            "inventory", "PATCH", "/stock/LAMP-001", {"quantity": 7}, identity
         )
         self.assertEqual(updated.status_code, 200)
         self.assertEqual(updated.body["data"]["quantity"], 7)
-        trace.append(("update", updated.status_code, updated.body["data"]["quantity"]))
+        trace.append(("update", updated.status_code, 7))
 
-        deleted = self.inventory.dispatch(
-            "DELETE", "/stock/LAMP-001", {}, identity
+        deleted = self.host.dispatch(
+            "inventory", "DELETE", "/stock/LAMP-001", {}, identity
         )
         self.assertEqual(deleted.status_code, 204)
         trace.append(("delete", deleted.status_code, None))
 
-        empty = self.inventory.dispatch(
-            "GET", "/stock?warehouse_id=WH-1", {}, identity
+        empty = self.host.dispatch(
+            "inventory", "GET", "/stock?warehouse_id=WH-1", {}, identity
         )
         self.assertEqual(empty.status_code, 200)
         self.assertEqual(empty.body["data"], [])
-        trace.append(("list-after-delete", empty.status_code, len(empty.body["data"])))
+        trace.append(("list-after-delete", empty.status_code, 0))
 
         self.assertEqual(
             [(entry[0], entry[1]) for entry in trace],
@@ -191,17 +173,27 @@ class ProductionCorePostgresTests(unittest.TestCase):
         )
 
     def test_unknown_route_and_method_fail_closed(self) -> None:
+        self.assertEqual(self.host.service_ids, ("catalog", "inventory"))
+        missing_service = self.host.dispatch(
+            "unknown", "GET", "/", {}, self._catalog_identity()
+        )
+        self.assertEqual(missing_service.status_code, 404)
+        self.assertEqual(missing_service.body["error"]["code"], "SERVICE_NOT_FOUND")
+
         identity = self._catalog_identity()
-        unknown = self.catalog.dispatch("GET", "/not-a-route", {}, identity)
+        unknown = self.host.dispatch("catalog", "GET", "/not-a-route", {}, identity)
         self.assertEqual(unknown.status_code, 404)
         self.assertEqual(unknown.body["error"]["code"], "ROUTE_NOT_FOUND")
 
-        wrong_method = self.catalog.dispatch("DELETE", "/items/by-name/example", {}, identity)
+        wrong_method = self.host.dispatch(
+            "catalog", "DELETE", "/items/by-name/example", {}, identity
+        )
         self.assertEqual(wrong_method.status_code, 405)
         self.assertEqual(wrong_method.body["error"]["code"], "METHOD_NOT_ALLOWED")
 
-        unauthorized = self.catalog.dispatch(
-            "POST", "/items", {"name": "Denied"}, self._identity("tenant-c", ())
+        unauthorized = self.host.dispatch(
+            "catalog", "POST", "/items", {"name": "Denied"},
+            self._identity("tenant-c", ()),
         )
         self.assertEqual(unauthorized.status_code, 403)
         self.assertEqual(unauthorized.body["error"]["code"], "Unauthorized")
