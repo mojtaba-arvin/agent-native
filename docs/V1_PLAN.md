@@ -36,7 +36,7 @@ Work on a branch `task/Txx-short-name` created from `origin/research/reboot-core
 
 Every issue has: Outputs, a `Depends:` line, an `Attempt budget:` line (default 3), Recovery, and exactly one label `kind:code|docs|decision|research|process`.
 
-Every product, documentation, decision, or research task has an `acceptance/Txx.sh` script. A `kind:process` task limited to workflow or task-gate maintenance may omit that script only when the PR adds or updates automated tests for the changed enforcement behavior. Such process PRs still require `Task: Txx`, an open v1 issue, closed dependencies, and a passing task gate.
+Every product, documentation, decision, or research task has an `acceptance/Txx.sh` script. A `kind:process` task may omit that script only for (a) workflow or task-gate maintenance that adds or updates automated tests for the changed enforcement behavior, or (b) a rules-only PR that changes exactly `docs/V1_PLAN.md` as described in section 8. Such process PRs still require `Task: Txx`, an open v1 issue, closed dependencies, and a passing task gate.
 
 Order per task, always in separate PRs when an acceptance script is required:
 
