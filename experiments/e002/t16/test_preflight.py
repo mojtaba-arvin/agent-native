@@ -52,7 +52,9 @@ class T16PreflightTests(unittest.TestCase):
         self.assertEqual(sum(protocol["request_mix"].values()), 100)
         self.assertEqual(protocol["storage_engine"], "PostgreSQL")
         self.assertEqual(protocol["postgres_version"], "16.4")
-        self.assertEqual(protocol["arrival_model"], "open_loop")
+        self.assertEqual(protocol["arrival_model"], "open_loop_fixed_rate")
+        self.assertIn("keep-alive", protocol["connection_policy"])
+        self.assertEqual(protocol["trace_timing_fields"], ["scheduled_offset_ms", "offered_at", "started_at", "finished_at"])
         self.assertEqual(protocol["cpu_max"], "100000 100000")
         self.assertEqual(protocol["memory_max_bytes"], 1073741824)
 
