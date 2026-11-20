@@ -1,0 +1,48 @@
+name: task-acceptance
+
+# Acceptance executes code supplied by the PR. Use pull_request (not pull_request_target)
+# and never persist checkout credentials into the untrusted worktree.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+    branches: [research/reboot-core]
+
+permissions:
+  contents: read
+
+jobs:
+  acceptance:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR head (for acceptance script)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: pr
+          persist-credentials: false
+
+      - name: Extract Task ID
+        id: task
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TASK="$(printf '%s\n' "$PR_BODY" | sed -nE 's/^Task:[[:space:]]*(T[0-9]{2})[[:space:]]*$/\1/p' | head -n 1)"
+          if [[ -z "$TASK" ]]; then
+            echo "No Task: line in PR body"
+            exit 1
+          fi
+          echo "id=$TASK" >> "$GITHUB_OUTPUT"
+
+      - name: Run acceptance script
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd pr
+          SCRIPT="acceptance/${{ steps.task.outputs.id }}.sh"
+          if [[ ! -f "$SCRIPT" ]]; then
+            echo "Missing $SCRIPT in PR head"
+            exit 1
+          fi
+          bash "$SCRIPT"
