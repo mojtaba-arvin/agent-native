@@ -34,7 +34,7 @@ ignore = Path(".dockerignore").read_text(encoding="utf-8")
 
 checks = {
     "base image is pinned by immutable OCI digest": "@sha256:" in base and "PYTHON_BASE=" in base,
-    "build tools are exact-version and hash pinned": "setuptools==75.8.0" in lock and "wheel==0.45.1" in lock and lock.count("--hash=sha256:") == 2,
+    "build tools are exact-version and hash pinned": "setuptools==84.2.1" in lock and "wheel==0.48.0" in lock and lock.count("--hash=sha256:") == 2,
     "multi-stage runtime image is non-root": "AS builder" in dockerfile and "AS runtime" in dockerfile and "USER 65532:65532" in dockerfile,
     "runtime image installs the wheel offline without runtime dependencies": "pip install --no-index --no-deps" in dockerfile,
     "build is repeated and complete image IDs are compared": 'build_once "$IMAGE_A"' in builder and 'build_once "$IMAGE_B"' in builder and "IMAGE_A_ID" in builder and "IMAGE_B_ID" in builder,
