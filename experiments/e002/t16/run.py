@@ -467,7 +467,7 @@ def main() -> int:
                         "command": command,
                         "started_at": run_started,
                         "finished_at": utc_now(),
-                        "raw_trace": str(prefix.with_suffix(".jsonl").relative_to(output)),
+                        "raw_trace": str(prefix.with_suffix(".jsonl").relative_to(root)),
                         "status": "completed",
                         "functional_conformance": bool(summary["functional_success"]),
                         "metrics": metrics,
