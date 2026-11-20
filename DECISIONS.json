@@ -256,7 +256,9 @@
         "if_neither_pass": "select neither",
         "if_one_pass_with_complete_evidence": "select the sole eligible candidate",
         "if_evidence_missing": "no selection; missing evidence is not measured, never zero",
-        "current_runtime_selection": "none"
+        "current_runtime_selection": "none",
+        "bootstrap_resamples": 10000,
+        "bootstrap_seed": "preregistered before the cohort"
       },
       "evidence": [
         "docs/T02_SLO_AND_RUNTIME.md",
@@ -330,7 +332,9 @@
         "capacity_host": "controlled one-vCPU host",
         "shared_host_results": "diagnostic_only",
         "expected_4xx_denials_count_as_completed": true,
-        "inference_and_external_provider_calls_in_runtime_path": false
+        "inference_and_external_provider_calls_in_runtime_path": false,
+        "paired_workload_seeds": true,
+        "randomize_candidate_order_within_pair": true
       },
       "historical_cpu_screen": {
         "cpu_seconds_per_5000_requests": 0.5,
