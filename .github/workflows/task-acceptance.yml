@@ -110,6 +110,22 @@ jobs:
           echo "Selected acceptance mode: $mode"
           echo "mode=$mode" >> "$GITHUB_OUTPUT"
 
+      - name: Restore and verify T16 controlled-host evidence
+        if: steps.task.outputs.id == 'T16' && steps.mode.outputs.mode != 'skip-process'
+        working-directory: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="t16-evidence-${PR_HEAD_SHA}"
+          git fetch --no-tags origin "refs/tags/${tag}:refs/tags/${tag}"
+          tag_commit="$(git rev-parse "${tag}^{commit}")"
+          test "$tag_commit" = "$PR_HEAD_SHA"
+          gh release download "$tag" --repo "$GITHUB_REPOSITORY" --pattern "t16-evidence.tar.gz" --dir "$RUNNER_TEMP"
+          python3 experiments/e002/t16/restore_evidence.py "$RUNNER_TEMP/t16-evidence.tar.gz" "experiments/e002/t16" "$PR_HEAD_SHA"
+
       - name: Run and evaluate acceptance script
         working-directory: pr
         env:
