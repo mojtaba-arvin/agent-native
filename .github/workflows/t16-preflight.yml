@@ -1,0 +1,26 @@
+name: T16 preflight contract
+
+on:
+  pull_request:
+    paths:
+      - "experiments/e002/t16/**"
+      - ".github/workflows/t16-preflight.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  preflight-contract:
+    name: T16 preregistration and attestation unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11.18"
+      - name: Compile preflight tooling
+        run: python -m py_compile experiments/e002/t16/preflight.py
+      - name: Test preregistration, protocol, and attestation validation
+        run: python -m unittest discover -s experiments/e002/t16 -p "test_*.py" -v
