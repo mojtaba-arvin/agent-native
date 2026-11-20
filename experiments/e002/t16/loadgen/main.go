@@ -48,6 +48,10 @@ type settings struct {
 }
 
 type observation struct {
+	ScheduledOffsetMS float64   `json:"scheduled_offset_ms"`
+	OfferedAt         string    `json:"offered_at"`
+	StartedAt         string    `json:"started_at"`
+	FinishedAt        string    `json:"finished_at"`
 	Index       int       `json:"index"`
 	RequestID   string    `json:"request_id"`
 	Operation   operation `json:"operation"`
@@ -176,21 +180,30 @@ func buildRequest(ctx context.Context, cfg settings, runID string, index int, op
 func newClient(timeout time.Duration, concurrency int) *http.Client {
 	return &http.Client{
 		Transport: &http.Transport{
-			DisableKeepAlives: true,
+			DisableKeepAlives: false,
+			MaxIdleConns: concurrency,
+			MaxIdleConnsPerHost: concurrency,
 			MaxConnsPerHost: concurrency,
+			IdleConnTimeout: 30 * time.Second,
 		},
 		Timeout: timeout,
 	}
 }
 
-func sendOne(client *http.Client, cfg settings, runID string, index int, op operation) observation {
+func sendOne(client *http.Client, cfg settings, runID string, index int, op operation, runStart, scheduled, offered time.Time) observation {
 	started := time.Now()
 	ctx, cancel := context.WithTimeout(context.Background(), cfg.timeout)
 	defer cancel()
 	request, expected, err := buildRequest(ctx, cfg, runID, index, op)
-	item := observation{Index: index, RequestID: fmt.Sprintf("%s-%05d", runID, index), Operation: op, Expected: expected}
+	item := observation{
+		ScheduledOffsetMS: float64(scheduled.Sub(runStart).Nanoseconds()) / 1e6,
+		OfferedAt: offered.UTC().Format(time.RFC3339Nano),
+		StartedAt: started.UTC().Format(time.RFC3339Nano),
+		Index: index, RequestID: fmt.Sprintf("%s-%05d", runID, index), Operation: op, Expected: expected,
+	}
 	if err != nil {
 		item.Error = err.Error()
+		item.FinishedAt = time.Now().UTC().Format(time.RFC3339Nano)
 		item.LatencyMS = float64(time.Since(started).Nanoseconds()) / 1e6
 		return item
 	}
@@ -222,6 +235,7 @@ func sendOne(client *http.Client, cfg settings, runID string, index int, op oper
 	}
 	item.ResponseBody = string(body)
 	item.Functional = item.Completed && item.Status == expected && validateResponse(op, item.RequestID, item.ResponseBody)
+	item.FinishedAt = time.Now().UTC().Format(time.RFC3339Nano)
 	item.LatencyMS = float64(time.Since(started).Nanoseconds()) / 1e6
 	return item
 }
@@ -266,18 +280,21 @@ func execute(cfg settings, client *http.Client, runID string, count int, seed in
 		if wait := time.Until(due); wait > 0 {
 			time.Sleep(wait)
 		}
+		offered := time.Now()
 		select {
 		case slots <- struct{}{}:
 			workers.Add(1)
 			go func(i int, operation operation) {
 				defer workers.Done()
 				defer func() { <-slots }()
-				results <- sendOne(client, cfg, runID, i, operation)
+				results <- sendOne(client, cfg, runID, i, operation, started, due, offered)
 			}(index, op)
 		default:
 			results <- observation{
 				Index: index, RequestID: fmt.Sprintf("%s-%05d", runID, index),
-				Operation: op, Error: "client_concurrency_limit", Functional: false,
+				Operation: op, ScheduledOffsetMS: float64(due.Sub(started).Nanoseconds()) / 1e6,
+				OfferedAt: offered.UTC().Format(time.RFC3339Nano), FinishedAt: offered.UTC().Format(time.RFC3339Nano),
+				Error: "client_concurrency_limit", Functional: false,
 			}
 		}
 	}
@@ -339,7 +356,7 @@ func summarize(cfg settings, runID string, items []observation, elapsed float64)
 		ExpectedDenialsCompleted: denials, FailedResponses: failures,
 		FunctionalSuccess: failures == 0 && len(items) == cfg.requests && completed == cfg.requests,
 		ArrivalModel: "open_loop_fixed_rate",
-		ConnectionPolicy: "one HTTP/1.1 connection per request; keep-alive disabled",
+		ConnectionPolicy: "HTTP/1.1 keep-alive; max 32 concurrent connections",
 	}
 }
 
