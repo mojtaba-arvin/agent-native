@@ -31,6 +31,11 @@ MEMORY_LIMIT_BYTES = 2 * 1024 * 1024 * 1024
 CPU_MAX = "100000 100000"
 
 
+def write_json(path: Path, value: dict) -> None:
+    """Write standards-compliant JSON with a single trailing newline."""
+    path.write_text(json.dumps(value, indent=2, sort_keys=True) + "\\n", encoding="utf-8")
+
+
 def parse_cpu_stat(raw: str) -> dict[str, int]:
     parsed: dict[str, int] = {}
     for line in raw.splitlines():
@@ -325,7 +330,7 @@ def execute_matrix(args: argparse.Namespace) -> dict:
     protocol["container_image_inspect"] = run_command([
         "docker", "image", "inspect", args.image, "--format", "{{.Id}} {{json .RepoDigests}}"
     ]).stdout.strip()
-    (output / "protocol.json").write_text(json.dumps(protocol, indent=2, sort_keys=True) + "\\n", encoding="utf-8")
+    write_json(output / "protocol.json", protocol)
     rng = random.Random(SEED)
     records: list[dict] = []
     for repetition in range(1, REPETITIONS + 1):
