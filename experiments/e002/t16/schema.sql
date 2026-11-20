@@ -82,6 +82,7 @@ DECLARE
     principal_id TEXT := input->>'principal_id';
     v_tenant_id TEXT := input->>'tenant_id';
     v_operation_id TEXT := input->>'operation';
+    v_target_operation TEXT := COALESCE(input->>'target_operation', 'jobs.create');
     v_idempotency_key TEXT := input->>'idempotency_key';
     reason_code TEXT := COALESCE(input->>'reason_code', 'CAPABILITY_DENIED');
     body JSONB := COALESCE(input->'body', '{}'::jsonb);
@@ -104,7 +105,7 @@ BEGIN
         INSERT INTO t16_audit(event_id, request_id, principal_id, tenant_id,
             operation_id, decision, reason_code, outcome)
         VALUES (gen_random_uuid(), request_id, principal_id, v_tenant_id,
-            'jobs.create', 'deny', reason_code, outcome);
+            v_target_operation, 'deny', reason_code, outcome);
         RETURN outcome;
     ELSIF v_operation_id = 'authorized_read' THEN
         SELECT payload INTO record_payload FROM t16_records
