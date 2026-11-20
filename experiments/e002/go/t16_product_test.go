@@ -55,6 +55,13 @@ func TestT16ProductRoutesUseAuthenticatedPostgresContract(t *testing.T) {
 	if plan.Code != http.StatusOK || !strings.Contains(plan.Body.String(), `"decision": "allow"`) {
 		t.Fatalf("plan validation failed: %d %s", plan.Code, plan.Body.String())
 	}
+
+	invalidContract := request(http.MethodPost, "/v1/operations/validate", "test-read-token", "go-plan-invalid",
+		`{"contract_version":"v1","operation":"catalog.read","resource_id":"fixture-0001","unexpected":true}`)
+	if invalidContract.Code != http.StatusBadRequest || !strings.Contains(invalidContract.Body.String(), "INVALID_CONTRACT") {
+		t.Fatalf("unknown contract field was not rejected: %d %s", invalidContract.Code, invalidContract.Body.String())
+	}
+
 	job := request(http.MethodPost, "/v1/jobs", "test-read-token", "go-job-1",
 		`{"contract_version":"v1","operation":"jobs.create","payload":{"fixture":"go"}}`)
 	if job.Code != http.StatusAccepted || !strings.Contains(job.Body.String(), `"status": "queued"`) {
