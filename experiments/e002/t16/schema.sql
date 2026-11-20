@@ -80,9 +80,9 @@ RETURNS JSONB LANGUAGE plpgsql AS $$
 DECLARE
     request_id TEXT := input->>'request_id';
     principal_id TEXT := input->>'principal_id';
-    tenant_id TEXT := input->>'tenant_id';
-    operation_id TEXT := input->>'operation';
-    idempotency_key TEXT := input->>'idempotency_key';
+    v_tenant_id TEXT := input->>'tenant_id';
+    v_operation_id TEXT := input->>'operation';
+    v_idempotency_key TEXT := input->>'idempotency_key';
     reason_code TEXT := COALESCE(input->>'reason_code', 'CAPABILITY_DENIED');
     body JSONB := COALESCE(input->'body', '{}'::jsonb);
     record_payload JSONB;
@@ -94,21 +94,21 @@ DECLARE
     outcome JSONB;
 BEGIN
     IF request_id IS NULL OR request_id = '' OR principal_id IS NULL OR principal_id = ''
-       OR tenant_id IS NULL OR tenant_id = '' OR operation_id IS NULL OR operation_id = '' THEN
+       OR v_tenant_id IS NULL OR v_tenant_id = '' OR v_operation_id IS NULL OR v_operation_id = '' THEN
         RAISE EXCEPTION 't16_request_context_invalid';
     END IF;
 
-    IF operation_id = 'expected_denial' THEN
+    IF v_operation_id = 'expected_denial' THEN
         outcome := jsonb_build_object('request_id', request_id,
             'error', jsonb_build_object('code', reason_code));
         INSERT INTO t16_audit(event_id, request_id, principal_id, tenant_id,
             operation_id, decision, reason_code, outcome)
-        VALUES (gen_random_uuid(), request_id, principal_id, tenant_id,
+        VALUES (gen_random_uuid(), request_id, principal_id, v_tenant_id,
             'jobs.create', 'deny', reason_code, outcome);
         RETURN outcome;
-    ELSIF operation_id = 'authorized_read' THEN
+    ELSIF v_operation_id = 'authorized_read' THEN
         SELECT payload INTO record_payload FROM t16_records
-        WHERE tenant_id = t16_handle.tenant_id AND record_id = COALESCE(input->>'resource_id', 'fixture-0001');
+        WHERE t16_records.tenant_id = v_tenant_id AND record_id = COALESCE(input->>'resource_id', 'fixture-0001');
         IF record_payload IS NULL THEN
             RAISE EXCEPTION 't16_record_not_found';
         END IF;
@@ -118,9 +118,9 @@ BEGIN
         VALUES (gen_random_uuid(), request_id, principal_id, tenant_id,
             'catalog.read', 'allow', 'AUTHORIZED_READ', outcome);
         RETURN outcome;
-    ELSIF operation_id = 'validate_plan' THEN
-        IF body->>'contract_version' <> 'v1'
-           OR body->>'operation' <> 'catalog.read'
+    ELSIF v_operation_id = 'validate_plan' THEN
+        IF body->>'contract_version' IS DISTINCT FROM 'v1'
+           OR body->>'operation' IS DISTINCT FROM 'catalog.read'
            OR COALESCE(body->>'resource_id', '') = '' THEN
             RAISE EXCEPTION 't16_contract_invalid';
         END IF;
@@ -130,19 +130,19 @@ BEGIN
         VALUES (gen_random_uuid(), request_id, principal_id, tenant_id,
             'operations.validate', 'allow', 'PLAN_VALIDATED', outcome);
         RETURN outcome;
-    ELSIF operation_id = 'job_admission' THEN
-        IF body->>'contract_version' <> 'v1' OR body->>'operation' <> 'jobs.create'
-           OR jsonb_typeof(body->'payload') <> 'object'
-           OR idempotency_key IS NULL OR idempotency_key = '' THEN
+    ELSIF v_operation_id = 'job_admission' THEN
+        IF body->>'contract_version' <> 'v1' OR body->>'operation' IS DISTINCT FROM 'jobs.create'
+           OR jsonb_typeof(body->'payload') IS DISTINCT FROM 'object'
+           OR v_idempotency_key IS NULL OR v_idempotency_key = '' THEN
             RAISE EXCEPTION 't16_job_contract_invalid';
         END IF;
         request_hash := encode(digest(convert_to((body->'payload')::text, 'UTF8'), 'sha256'), 'hex');
-        PERFORM pg_advisory_xact_lock(hashtextextended(tenant_id || ':' || operation_id || ':' || idempotency_key, 0));
+        PERFORM pg_advisory_xact_lock(hashtextextended(v_tenant_id || ':' || v_operation_id || ':' || v_idempotency_key, 0));
         SELECT request_hash, outcome INTO existing_hash, existing_outcome
         FROM t16_idempotency_records
-        WHERE tenant_id = t16_handle.tenant_id
+        WHERE t16_idempotency_records.tenant_id = v_tenant_id
           AND operation_id = 'jobs.create'
-          AND idempotency_key = t16_handle.idempotency_key;
+          AND t16_idempotency_records.idempotency_key = v_idempotency_key;
         IF FOUND THEN
             IF existing_hash <> request_hash THEN
                 outcome := jsonb_build_object('request_id', request_id,
@@ -166,13 +166,13 @@ BEGIN
         outcome := jsonb_build_object('request_id', request_id,
             'job_id', job_id::text, 'status', 'queued');
         INSERT INTO t16_jobs(job_id, tenant_id, operation_id, payload, state)
-        VALUES (job_id, tenant_id, 'jobs.create', body->'payload', 'queued');
+        VALUES (job_id, v_tenant_id, 'jobs.create', body->'payload', 'queued');
         INSERT INTO t16_outbox(event_id, tenant_id, operation_id, job_id, payload)
-        VALUES (event_id, tenant_id, 'jobs.create', job_id,
+        VALUES (event_id, v_tenant_id, 'jobs.create', job_id,
             jsonb_build_object('event_id', event_id::text, 'topic', 'job.created', 'job_id', job_id::text));
         INSERT INTO t16_idempotency_records(tenant_id, operation_id, idempotency_key,
             request_hash, job_id, outcome)
-        VALUES (tenant_id, 'jobs.create', idempotency_key, request_hash, job_id, outcome - 'request_id');
+        VALUES (v_tenant_id, 'jobs.create', v_idempotency_key, request_hash, job_id, outcome - 'request_id');
         INSERT INTO t16_audit(event_id, request_id, principal_id, tenant_id,
             operation_id, decision, reason_code, outcome)
         VALUES (gen_random_uuid(), request_id, principal_id, tenant_id,
