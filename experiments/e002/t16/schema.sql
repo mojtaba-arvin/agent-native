@@ -149,14 +149,14 @@ BEGIN
                     'error', jsonb_build_object('code', 'IDEMPOTENCY_CONFLICT'));
                 INSERT INTO t16_audit(event_id, request_id, principal_id, tenant_id,
                     operation_id, decision, reason_code, outcome)
-                VALUES (gen_random_uuid(), request_id, principal_id, tenant_id,
+                VALUES (gen_random_uuid(), request_id, principal_id, v_tenant_id,
                     'jobs.create', 'deny', 'IDEMPOTENCY_PAYLOAD_CONFLICT', outcome);
                 RETURN outcome;
             END IF;
             outcome := existing_outcome || jsonb_build_object('request_id', request_id);
             INSERT INTO t16_audit(event_id, request_id, principal_id, tenant_id,
                 operation_id, decision, reason_code, outcome)
-            VALUES (gen_random_uuid(), request_id, principal_id, tenant_id,
+            VALUES (gen_random_uuid(), request_id, principal_id, v_tenant_id,
                 'jobs.create', 'allow', 'IDEMPOTENCY_REPLAY', outcome);
             RETURN outcome;
         END IF;
@@ -175,7 +175,7 @@ BEGIN
         VALUES (v_tenant_id, 'jobs.create', v_idempotency_key, request_hash, job_id, outcome - 'request_id');
         INSERT INTO t16_audit(event_id, request_id, principal_id, tenant_id,
             operation_id, decision, reason_code, outcome)
-        VALUES (gen_random_uuid(), request_id, principal_id, tenant_id,
+        VALUES (gen_random_uuid(), request_id, principal_id, v_tenant_id,
             'jobs.create', 'allow', 'JOB_ADMITTED', outcome);
         RETURN outcome;
     ELSE
