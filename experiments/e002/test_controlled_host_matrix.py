@@ -58,8 +58,8 @@ class TestWriteJSON(unittest.TestCase):
             path = Path(directory) / "protocol.json"
             write_json(path, {"cgroup": {"cpu.max": "100000 100000"}, "runs": 10})
             raw = path.read_bytes()
-            self.assertTrue(raw.endswith(b"\\n"))
-            self.assertFalse(raw.endswith(b"\\\\n"))
+            self.assertTrue(raw.endswith(b"\n"))
+            self.assertFalse(raw.endswith(b"\\n"))
             self.assertEqual(json.loads(raw), {"cgroup": {"cpu.max": "100000 100000"}, "runs": 10})
 
 
