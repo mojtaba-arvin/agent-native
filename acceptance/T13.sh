@@ -29,7 +29,7 @@ checks = {
     "data, audit and outbox share one database transaction": "write_in_transaction" in postgres_text and "audit_log" in postgres_text and "outbox" in postgres_text,
     "production tests verify atomic write and rollback": "test_mutation_commits_data_audit_and_outbox_atomically" in production_text and "test_mutation_failure_rolls_back_data_audit_and_outbox" in production_text,
     "production tests verify migration from catalog and inventory IR": "test_migrations_are_derived_from_catalog_and_inventory_ir" in production_text,
-    "SIGKILL recovery is exercised after commit before response": "test_sigkill_after_commit_before_response_reconciles" in crash_text and "signal.SIGKILL" in crash_text,
+    "SIGKILL recovery is exercised after commit before response": "test_sigkill_after_commit_before_response_reconciles" in production_text and "signal.SIGKILL" in production_text,
 }
 failed = [label for label, passed in checks.items() if not passed]
 if failed:
