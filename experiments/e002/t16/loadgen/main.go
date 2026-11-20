@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"runtime"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -55,6 +56,7 @@ type observation struct {
 	LatencyMS   float64   `json:"latency_ms"`
 	Completed   bool      `json:"completed"`
 	Functional  bool      `json:"functional_success"`
+	ResponseBody string  `json:"response_body,omitempty"`
 	Error       string    `json:"error,omitempty"`
 }
 
@@ -209,15 +211,45 @@ func sendOne(client *http.Client, cfg settings, runID string, index int, op oper
 		return item
 	}
 	defer response.Body.Close()
-	_, readErr := io.Copy(io.Discard, io.LimitReader(response.Body, 65537))
+	body, readErr := io.ReadAll(io.LimitReader(response.Body, 65537))
 	item.Status = response.StatusCode
 	item.Completed = readErr == nil
 	if readErr != nil {
 		item.Error = readErr.Error()
 	}
-	item.Functional = item.Completed && item.Status == expected
+	item.ResponseBody = string(body)
+	item.Functional = item.Completed && item.Status == expected && validateResponse(op, item.RequestID, item.ResponseBody)
 	item.LatencyMS = float64(time.Since(started).Nanoseconds()) / 1e6
 	return item
+}
+
+func validateResponse(op operation, requestID, body string) bool {
+	var envelope map[string]any
+	if err := json.Unmarshal([]byte(body), &envelope); err != nil {
+		return false
+	}
+	if envelope["request_id"] != requestID {
+		return false
+	}
+	switch op {
+	case authorizedRead:
+		data, ok := envelope["data"].(map[string]any)
+		return ok && data["id"] == "fixture-0001"
+	case validatePlan:
+		return envelope["decision"] == "allow"
+	case jobAdmission:
+		return envelope["status"] == "queued" && nonEmptyString(envelope["job_id"])
+	case expectedDenial:
+		err, ok := envelope["error"].(map[string]any)
+		return ok && err["code"] == "CAPABILITY_DENIED"
+	default:
+		return false
+	}
+}
+
+func nonEmptyString(value any) bool {
+	text, ok := value.(string)
+	return ok && text != ""
 }
 
 func execute(cfg settings, client *http.Client, runID string, count int, seed int64) ([]observation, float64) {
@@ -290,7 +322,7 @@ func summarize(cfg settings, runID string, items []observation, elapsed float64)
 		rate = float64(completed) / elapsed
 	}
 	return summary{
-		Target: cfg.target, RunID: runID, Seed: cfg.seed, GoVersion: runtimeVersion(),
+		Target: cfg.target, RunID: runID, Seed: cfg.seed, GoVersion: runtime.Version(),
 		OfferedRequests: len(items), CompletedRequests: completed,
 		Concurrency: cfg.concurrency, TargetRPS: cfg.targetRPS, WarmupRequests: cfg.warmup,
 		ElapsedSeconds: elapsed, CompletedRPS: rate,
