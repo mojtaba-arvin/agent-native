@@ -274,6 +274,9 @@ class OperationalHTTPServer(ThreadingHTTPServer):
             raise ValueError("shutdown_timeout_must_be_finite_and_non_negative")
         self.begin_draining()
         self.metrics.shutdown()
+        if self._serve_stopped.is_set():
+            self.server_close()
+            return self.active_requests == 0
         if not self._serve_started.is_set():
             with self._condition:
                 self._stopped = True
@@ -282,6 +285,13 @@ class OperationalHTTPServer(ThreadingHTTPServer):
             return True
         if threading.current_thread() is getattr(self, "_serve_thread", None):
             raise RuntimeError("shutdown_must_run_outside_serve_forever_thread")
+        # The BaseServer shutdown event is cleared inside super().serve_forever().
+        # Wait for that transition to avoid a start/shutdown race.
+        while self._BaseServer__is_shut_down.is_set() and not self._serve_stopped.is_set():
+            time.sleep(0.001)
+        if self._serve_stopped.is_set():
+            self.server_close()
+            return self.active_requests == 0
 
         self.shutdown()
         deadline = time.monotonic() + float(timeout_seconds)
