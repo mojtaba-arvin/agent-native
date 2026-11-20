@@ -109,7 +109,9 @@ class IRMigrationPlanner:
                 not isinstance(field, str) or field not in names for field in create_fields
             ) or len(create_fields) != len(set(create_fields)):
                 raise MigrationError("invalid_create_input_projection")
-            key = "id" if "id" in names else columns[0].name
+            key = config.get("primary_key", "id" if "id" in names else create_fields[0] if create_fields else "")
+            if not isinstance(key, str) or key not in names:
+                raise MigrationError("invalid_primary_key_projection")
             generated_key = key not in create_fields
             unique_fields = config.get("unique_fields", ())
             if not isinstance(unique_fields, (list, tuple)) or any(
