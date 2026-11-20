@@ -12,6 +12,6 @@ defmodule AgentNativeE002Beam.MixProject do
   end
 
   def application do
-    [extra_applications: [:logger], mod: {AgentNativeE002Beam.Application, []}]
+    [extra_applications: [:logger]]
   end
 end
