@@ -71,6 +71,10 @@ jobs:
       - name: Test Go product server against PostgreSQL
         run: go test ./...
         working-directory: experiments/e002/go
+      - uses: dtolnay/rust-toolchain@1.100.0
+      - name: Test Rust product candidate
+        run: cargo test --locked
+        working-directory: experiments/e002/rust
       - name: Test open-loop T16 product workload generator
         run: go test ./...
         working-directory: experiments/e002/t16/loadgen
