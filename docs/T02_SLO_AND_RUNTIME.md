@@ -66,7 +66,7 @@ For each candidate:
 
 1. Pass 100% of the shared black-box conformance and fault-injection assertions before performance scoring.
 2. Use a rate-controlled open-loop generator to sustain 100 completed requests/second; a closed-loop generator alone is not sufficient because it can conceal overload by reducing offered load as latency rises.
-3. Run **10 randomized repetitions per candidate**, **5,000 measured requests per repetition**, concurrency 32, and 250 warm-up requests. Randomize candidate order and preserve the same deterministic request sequence and storage settings.
+3. Run **10 randomized repetitions per candidate**, **5,000 measured requests per repetition**, concurrency 32, and 250 warm-up requests. Pair Rust and Go repetitions by the same preregistered workload seed, fixtures, and request sequence; randomize candidate order within each pair. Preserve the same storage settings.
 4. Retain raw request-level traces and per-run summaries. Report offered, admitted, completed, rejected, expected-denial, and timed-out rates separately.
 5. Report p50/p95/p99/max latency, CPU seconds, CPU throttling, peak cgroup memory, OOM counters, queue depth, audit commit latency, storage I/O, and idempotency/retry outcomes for every repetition.
 6. Measure candidate CPU from cgroup v2 cpu.stat (usage_usec, user_usec, system_usec) and record cpu.max and throttling counters. The candidate and its descendants belong in the service cgroup; the load generator does not.
@@ -122,7 +122,7 @@ The selection outcome is determined as follows:
 
 - If both candidates have complete evidence and only one passes every hard gate, select the sole eligible candidate; record the failed gates and supporting raw evidence for the other.
 - If neither passes every hard gate, select neither.
-- If both pass, select the higher weighted-score candidate only when its advantage is at least **5 points** out of 100, the paired **95% bootstrap confidence interval** for the score difference excludes zero, and the registered ±20% weight sensitivity analysis does not reverse the ordering.
+- If both pass, select the higher weighted-score candidate only when its advantage is at least **5 points** out of 100, the paired **95% bootstrap confidence interval** for the score difference excludes zero (10,000 resamples of the 10 matched repetition pairs, using a preregistered bootstrap seed), and the registered ±20% weight sensitivity analysis does not reverse the ordering.
 - If the two candidates are within 5 points, the confidence interval includes zero, or the weight sensitivity analysis reverses the ordering, record **no winner** and collect additional paired evidence under the same preregistered protocol.
 - If either candidate has incomplete evidence rather than a demonstrated hard-gate failure, record **no selection** until the comparison is complete.
 
