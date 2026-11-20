@@ -243,16 +243,24 @@ def integrity_violations(dsn: str) -> int:
 
 
 def aggregate(records: list[dict], candidate: str) -> dict[str, Any]:
-    values = [item["metrics"] for item in records if item["candidate"] == candidate]
+    selected = [item for item in records if item["candidate"] == candidate]
+    values = [item["metrics"] for item in selected if isinstance(item.get("metrics"), dict)]
+    if not values:
+        return {
+            "runs": 0, "attempts": len(selected), "throughput_mean_rps": None,
+            "p99_mean_ms": None, "cpu_mean_seconds": None,
+            "memory_peak_max_bytes": None, "slo_passed_runs": 0,
+        }
     def mean(key: str) -> float:
         return sum(float(item[key]) for item in values) / len(values)
     return {
         "runs": len(values),
+        "attempts": len(selected),
         "throughput_mean_rps": mean("completed_requests_per_second"),
         "p99_mean_ms": mean("p99_ms"),
         "cpu_mean_seconds": mean("cpu_seconds"),
         "memory_peak_max_bytes": max(item["memory_peak_bytes"] for item in values),
-        "slo_passed_runs": sum(1 for item in records if item["candidate"] == candidate and item["slo_pass"]),
+        "slo_passed_runs": sum(1 for item in selected if item.get("slo_pass") is True),
     }
 
 
@@ -269,21 +277,27 @@ def markdown_report(source_sha: str, prereg_hash: str, records: list[dict], host
         "|---|---|---:|---:|---:|---:|---:|---:|---|",
     ]
     for item in records:
-        m = item["metrics"]
+        m = item.get("metrics")
+        if not isinstance(m, dict):
+            lines.append(
+                f"| {item['candidate']} | {item['run_id']} | — | — | — | — | — | — | FAIL (attempt error) |"
+            )
+            continue
         lines.append(
             f"| {item['candidate']} | {item['run_id']} | {m['completed_requests_per_second']:.2f} | "
             f"{m['p99_ms']:.3f} | {m['cpu_seconds']:.4f} | {m['memory_peak_bytes']} | "
             f"{m['oom_events']} | {m['security_or_integrity_violations']} | "
-            f"{'PASS' if item['slo_pass'] else 'FAIL'} |"
+            f"{'PASS' if item.get('slo_pass') else 'FAIL'} |"
         )
     lines.extend(["", "## Cohort summary", ""])
     for candidate in CANDIDATES:
         cohort = aggregate(records, candidate)
         lines.append(
-            f"- {candidate}: {cohort['runs']}/10 runs; mean throughput "
-            f"{cohort['throughput_mean_rps']:.2f} req/s; mean p99 "
-            f"{cohort['p99_mean_ms']:.3f} ms; mean CPU "
-            f"{cohort['cpu_mean_seconds']:.4f} s; {cohort['slo_passed_runs']}/10 SLO passes."
+            f"- {candidate}: {cohort['runs']}/10 measured runs across {cohort['attempts']} attempts; "
+            f"mean throughput {cohort['throughput_mean_rps'] if cohort['throughput_mean_rps'] is not None else 'n/a'} req/s; "
+            f"mean p99 {cohort['p99_mean_ms'] if cohort['p99_mean_ms'] is not None else 'n/a'} ms; "
+            f"mean CPU {cohort['cpu_mean_seconds'] if cohort['cpu_mean_seconds'] is not None else 'n/a'} s; "
+            f"{cohort['slo_passed_runs']}/10 SLO passes."
         )
     lines.extend([
         "",
@@ -418,6 +432,7 @@ def main() -> int:
                     "--run-id", run_id, "--read-token", "$T16_READ_TOKEN",
                     "--deny-token", "$T16_DENY_TOKEN", "--output-prefix", str(prefix),
                 ]
+                record = None
                 try:
                     run_command([
                         "docker", "run", "--detach", "--name", container,
@@ -527,6 +542,32 @@ def main() -> int:
                         f"p99 {metrics['p99_ms']:.2f} ms, SLO {'PASS' if record['slo_pass'] else 'FAIL'}",
                         flush=True,
                     )
+                except Exception as error:
+                    if record is None:
+                        record = {
+                            "candidate": candidate,
+                            "run_id": run_id,
+                            "sha": args.source_sha,
+                            "prereg_hash": prereg_hash,
+                            "command": command,
+                            "started_at": run_started,
+                            "finished_at": utc_now(),
+                            "raw_trace": str(prefix.with_suffix(".jsonl").relative_to(output)),
+                            "status": "failed",
+                            "functional_conformance": False,
+                            "slo_pass": False,
+                        }
+                    else:
+                        record["status"] = "failed"
+                        record["functional_conformance"] = False
+                        record["slo_pass"] = False
+                        record["finished_at"] = utc_now()
+                    record["error"] = f"{type(error).__name__}: {error}"
+                    runs.append(record)
+                    with ledger_path.open("a", encoding="utf-8") as handle:
+                        handle.write(json.dumps(record, sort_keys=True) + "\\n")
+                        handle.flush()
+                    print(f"T16 {candidate} {repetition}/10 FAILED: {record['error']}", file=sys.stderr, flush=True)
                 finally:
                     run_command(["docker", "rm", "--force", container], timeout=60, allow_failure=True)
 
