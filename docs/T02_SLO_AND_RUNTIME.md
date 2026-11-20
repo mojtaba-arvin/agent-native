@@ -31,7 +31,7 @@ The following is the v0.1 **capacity acceptance hypothesis** for one service rep
 | CPU budget per standard repetition | **≤ 25 CPU-seconds per 5,000 completed requests** | Derived from 100 req/s at 0.5 CPU-seconds per second |
 | Memory safety | **No OOM events; peak ≤ 1 GiB** | cgroup memory peak and memory.events |
 
-The CPU bound is derived, not guessed:
+The explicit compute target is sustained CPU ≤ 50% of one vCPU at the registered 100 completed requests/second arrival rate. The CPU bound is derived, not guessed:
 
 0.5 CPU-seconds/second ÷ 100 completed requests/second = 0.005 CPU-seconds/request
 
@@ -54,7 +54,7 @@ The deterministic measured request mix is:
 | 10% | Job admission | Authenticate, validate request and idempotency key, authorize submission, atomically persist job + outbox + audit + idempotency result |
 | 10% | Expected denial | Reject missing/insufficient capability or tenant mismatch, persist a deny audit event, and perform no business mutation |
 
-Expected 4xx denials are valid completed requests for throughput accounting. Unexpected 5xx responses, timeouts, malformed responses, transport failures, duplicate effects, authorization violations, and data-integrity failures are not successful completions.
+The exact request mix is 60% authorized read, 20% validate/plan, 10% job admission, and 10% expected denial. Expected 4xx denials are valid completed requests for throughput accounting. Unexpected 5xx responses, timeouts, malformed responses, transport failures, duplicate effects, authorization violations, and data-integrity failures are not successful completions.
 
 Every candidate must execute the same observable stages: bounded request parsing, trusted principal/tenant resolution, contract validation, default-deny authorization, declared handler execution, durable audit before response, and atomic durable job/outbox/idempotency/audit admission. A candidate that substitutes in-memory audit, skips authorization, weakens durability, or moves work outside the measured request boundary is not comparable.
 
@@ -71,7 +71,7 @@ For each candidate:
 5. Report p50/p95/p99/max latency, CPU seconds, CPU throttling, peak cgroup memory, OOM counters, queue depth, audit commit latency, storage I/O, and idempotency/retry outcomes for every repetition.
 6. Measure candidate CPU from cgroup v2 cpu.stat (usage_usec, user_usec, system_usec) and record cpu.max and throttling counters. The candidate and its descendants belong in the service cgroup; the load generator does not.
 7. Measure peak cgroup memory and memory.events; retain database resource/I/O measurements separately.
-8. Use a controlled, documented one-vCPU host for capacity claims. Shared GitHub-hosted runner results are diagnostic only. The 5 ms /proc process-tree sampler is an explicitly limited fallback, not equivalent to cgroup accounting.
+8. Use a controlled one-vCPU host, fully documented and isolated from unrelated load, for capacity claims. Shared GitHub-hosted runner results are diagnostic only. The 5 ms /proc process-tree sampler is an explicitly limited fallback, not equivalent to cgroup accounting.
 9. Keep every repetition. Report the run-level distribution and uncertainty; do not pool historical start/end-snapshot CPU cohorts with measurements from the newer sampler or cgroup accounting.
 
 A candidate must meet each performance target in **all 10 repetitions**. An aggregate mean or median must not hide a repetition that missed throughput, p99, CPU, or memory limits.
