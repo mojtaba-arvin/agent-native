@@ -356,8 +356,15 @@ def main() -> int:
             raise RuntimeError(f"checked-out source SHA {actual_sha} differs from preregistered {args.source_sha}")
         run_command(["git", "diff", "--quiet"])
         run_command(["git", "diff", "--cached", "--quiet"])
-        if run_command(["git", "status", "--porcelain", "--untracked-files=all"]):
-            raise RuntimeError("source checkout contains untracked files")
+        untracked = run_command(["git", "ls-files", "--others", "--exclude-standard"]).splitlines()
+        allowed_evidence = {
+            str((output / "prereg.json").relative_to(root)),
+            str((output / "host.json").relative_to(root)),
+            str((output / "protocol.json").relative_to(root)),
+        }
+        unexpected_untracked = sorted(set(untracked) - allowed_evidence)
+        if unexpected_untracked:
+            raise RuntimeError("source checkout contains unexpected untracked files: " + ", ".join(unexpected_untracked))
         if not args.postgres_dsn:
             raise ValueError("AGENT_NATIVE_E002_POSTGRES_DSN is required")
         prereg_path, host_path, protocol_path = output / "prereg.json", output / "host.json", output / "protocol.json"
@@ -450,15 +457,7 @@ def main() -> int:
                 run_started = utc_now()
                 prefix = output / "runs" / candidate / f"rep-{repetition:02d}"
                 prefix.parent.mkdir(parents=True, exist_ok=True)
-                command = [
-                    "docker", "run", "--cpus=1",
-                    f"--cpuset-cpus={host['load_generator_cpu']}", "--memory=1g", "--network=host",
-                    "--env", "T16_READ_TOKEN=$T16_READ_TOKEN", "--env", "T16_DENY_TOKEN=$T16_DENY_TOKEN",
-                    "golang:1.23.12-bookworm", "/out/t16-loadgen",
-                    "--target", "http://127.0.0.1:8080", "--requests", str(REQUESTS),
-                    "--concurrency", str(CONCURRENCY), "--warmup", "0", "--target-rps", str(TARGET_RPS),
-                    "--run-id", run_id, "--output-prefix", "/evidence/" + str(prefix.relative_to(output)),
-                ]
+                command = list(prereg["command"])
                 record = None
                 try:
                     run_command([
