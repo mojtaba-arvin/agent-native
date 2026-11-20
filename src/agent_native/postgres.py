@@ -295,16 +295,18 @@ class PostgresResourceRepository:
         )
 
     def _write_outbox(self, connection, *, tenant_id: str, request_id: str,
-                      event_type: str, payload: Mapping[str, Any], created_at: int) -> None:
+                      event_type: str, payload: Mapping[str, Any], created_at: int) -> str:
         if not isinstance(event_type, str) or not re.fullmatch(r"[a-z][a-z0-9_.-]{0,95}", event_type):
             raise ValueError("invalid_outbox_event_type")
+        event_id = str(uuid.uuid4())
         connection.execute(
             "INSERT INTO " + self.schema +
             ".outbox(event_id,tenant_id,event_type,request_id,payload_json,created_at) "
             "VALUES(%s,%s,%s,%s,%s::jsonb,%s)",
-            (str(uuid.uuid4()), tenant_id, event_type, request_id,
+            (event_id, tenant_id, event_type, request_id,
              self._canonical(payload), created_at),
         )
+        return event_id
 
     def __call__(self, audit_event: Mapping[str, Any]) -> None:
         with self._connect() as connection:
@@ -530,13 +532,13 @@ class PostgresResourceRepository:
             raise ValueError("tenant_id_required")
         if not isinstance(request_id, str) or not request_id:
             raise ValueError("request_id_required")
-        event_id = str(uuid.uuid4())
+        event_id = None
         try:
             with self._connect() as connection:
                 with connection.transaction():
                     if audit_event is not None:
                         self.write_in_transaction(connection, audit_event)
-                    self._write_outbox(
+                    event_id = self._write_outbox(
                         connection, tenant_id=tenant_id, request_id=request_id,
                         event_type=event_type, payload=payload,
                         created_at=int(audit_event.get("timestamp", 0)) if audit_event else 0,
