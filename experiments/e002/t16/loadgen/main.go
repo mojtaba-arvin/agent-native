@@ -81,6 +81,8 @@ type summary struct {
 	TargetRPS                int                `json:"target_rps"`
 	WarmupRequests           int                `json:"warmup_requests"`
 	ElapsedSeconds           float64            `json:"elapsed_seconds"`
+	MeasurementWindowSeconds float64           `json:"measurement_window_seconds"`
+	DrainSeconds              float64           `json:"drain_seconds"`
 	CompletedRPS             float64            `json:"completed_requests_per_second"`
 	LatencyMS                map[string]float64 `json:"latency_ms"`
 	OperationCounts          map[string]int     `json:"operation_counts"`
@@ -338,15 +340,23 @@ func summarize(cfg settings, runID string, items []observation, elapsed float64)
 			failures++
 		}
 	}
+	// The open-loop measurement window is the exact scheduled offer interval.
+	// Drain time is reported separately so response latency after the final offer
+	// cannot depress a 100-RPS completion rate merely by extending the shutdown tail.
+	window := float64(len(items)) / float64(cfg.targetRPS)
 	rate := 0.0
-	if elapsed > 0 {
-		rate = float64(completed) / elapsed
+	if window > 0 {
+		rate = float64(completed) / window
+}
+	drain := elapsed - window
+	if drain < 0 {
+		drain = 0
 	}
 	return summary{
 		Target: cfg.target, RunID: runID, Seed: cfg.seed, GoVersion: runtime.Version(),
 		OfferedRequests: len(items), CompletedRequests: completed,
 		Concurrency: cfg.concurrency, TargetRPS: cfg.targetRPS, WarmupRequests: cfg.warmup,
-		ElapsedSeconds: elapsed, CompletedRPS: rate,
+		ElapsedSeconds: elapsed, MeasurementWindowSeconds: window, DrainSeconds: drain, CompletedRPS: rate,
 		LatencyMS: map[string]float64{
 			"p50": percentile(append([]float64(nil), latencies...), .50),
 			"p95": percentile(append([]float64(nil), latencies...), .95),
