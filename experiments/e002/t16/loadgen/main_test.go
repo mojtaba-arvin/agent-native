@@ -89,6 +89,29 @@ func TestExpectedDenialIsCompletedFunctionalOutcome(t *testing.T) {
 	}
 }
 
+
+func TestValidateResponseRequiresOperationSpecificEnvelope(t *testing.T) {
+	requestID := "rep-02-00017"
+	cases := []struct {
+		op operation
+		body string
+		want bool
+	}{
+		{authorizedRead, `{"request_id":"rep-02-00017","data":{"id":"fixture-0001"}}`, true},
+		{validatePlan, `{"request_id":"rep-02-00017","decision":"allow"}`, true},
+		{jobAdmission, `{"request_id":"rep-02-00017","job_id":"job-1","status":"queued"}`, true},
+		{expectedDenial, `{"request_id":"rep-02-00017","error":{"code":"CAPABILITY_DENIED"}}`, true},
+		{authorizedRead, `{"request_id":"other","data":{"id":"fixture-0001"}}`, false},
+		{expectedDenial, `{"request_id":"rep-02-00017","error":{"code":"INTERNAL_ERROR"}}`, false},
+		{jobAdmission, `{"request_id":"rep-02-00017","job_id":"","status":"queued"}`, false},
+	}
+	for _, test := range cases {
+		if got := validateResponse(test.op, requestID, test.body); got != test.want {
+			t.Errorf("%s validateResponse() = %v, want %v", test.op, got, test.want)
+		}
+	}
+}
+
 func TestOpenLoopSummarySeparatesOfferedAndCompleted(t *testing.T) {
 	cfg := testSettings()
 	items := []observation{
