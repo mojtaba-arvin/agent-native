@@ -317,6 +317,8 @@ def main() -> int:
             raise RuntimeError(f"checked-out source SHA {actual_sha} differs from preregistered {args.source_sha}")
         run_command(["git", "diff", "--quiet"])
         run_command(["git", "diff", "--cached", "--quiet"])
+        if run_command(["git", "status", "--porcelain", "--untracked-files=all"]):
+            raise RuntimeError("source checkout contains untracked files")
         if not args.postgres_dsn:
             raise ValueError("AGENT_NATIVE_E002_POSTGRES_DSN is required")
         prereg_path, host_path, protocol_path = output / "prereg.json", output / "host.json", output / "protocol.json"
@@ -387,6 +389,15 @@ def main() -> int:
         prereg_hash = prereg.get("sha256")
         if not isinstance(prereg_hash, str) or len(prereg_hash) != 64:
             raise RuntimeError("preregistration SHA-256 is missing")
+        canonical_prereg = {key: value for key, value in prereg.items() if key != "sha256"}
+        import hashlib
+        canonical_bytes = json.dumps(canonical_prereg, sort_keys=True, separators=(",", ":"), allow_nan=False).encode("utf-8")
+        if hashlib.sha256(canonical_bytes).hexdigest() != prereg_hash:
+            raise RuntimeError("preregistration content does not match its SHA-256")
+        if prereg.get("task") != "T16" or prereg.get("repetitions_per_candidate") != REPETITIONS or prereg.get("requests_per_repetition") != REQUESTS or prereg.get("concurrency") != CONCURRENCY or prereg.get("warmup_requests") != WARMUP or prereg.get("target_completed_rps") != TARGET_RPS:
+            raise RuntimeError("preregistration workload parameters differ from the executable matrix")
+        if protocol.get("request_mix") != {"authorized_read": 60, "validate_plan": 20, "job_admission": 10, "expected_denial": 10} or protocol.get("storage_engine") != "PostgreSQL" or protocol.get("arrival_model") != "open_loop":
+            raise RuntimeError("protocol differs from the T16 product workload contract")
         ledger_path = output / "ledger.jsonl"
         ledger_path.write_text("", encoding="utf-8")
         runs: list[dict] = []
@@ -489,7 +500,7 @@ def main() -> int:
                         "command": command,
                         "started_at": run_started,
                         "finished_at": utc_now(),
-                        "raw_trace": str(prefix.with_suffix(".jsonl").relative_to(root)),
+                        "raw_trace": str(prefix.with_suffix(".jsonl").relative_to(output)),
                         "status": "completed",
                         "functional_conformance": bool(summary["functional_success"]),
                         "metrics": metrics,
