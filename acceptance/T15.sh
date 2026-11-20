@@ -81,7 +81,7 @@ printf '%s  %s\n' "$SYFT_SHA256" "$syft_archive" | sha256sum --check --status
 tar -xzf "$syft_archive" -C "$RUNNER_TEMP" syft
 install -m 0755 "$RUNNER_TEMP/syft" "$RUNNER_TEMP/bin/syft"
 export PATH="$RUNNER_TEMP/bin:$PATH"
-syft version | grep -F "$SYFT_VERSION"
+syft version | grep -F "${SYFT_VERSION#v}"
 
 builder_name="agent-native-t15-${GITHUB_RUN_ID:-local}"
 docker buildx create --name "$builder_name" --driver docker-container --driver-opt "image=$BUILDKIT_IMAGE" --use
