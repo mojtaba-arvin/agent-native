@@ -115,7 +115,11 @@ func TestT16ProductRoutesUseAuthenticatedPostgresContract(t *testing.T) {
 	unauthorizedRequest.Header.Set("X-Request-ID", "go-unauthorized-1")
 	unauthorizedRequest.Header.Set("X-Tenant-ID", "tenant-a")
 	handler.ServeHTTP(unauthorized, unauthorizedRequest)
-	if unauthorized.Code != http.StatusUnauthorized {
-		t.Fatalf("missing bearer token status = %d", unauthorized.Code)
+	var unauthorizedBody map[string]any
+	if err := json.Unmarshal(unauthorized.Body.Bytes(), &unauthorizedBody); err != nil {
+		t.Fatalf("missing bearer token error envelope is not JSON: %s", unauthorized.Body.String())
+	}
+	if unauthorized.Code != http.StatusUnauthorized || unauthorizedBody["error"].(map[string]any)["code"] != "UNAUTHORIZED" {
+		t.Fatalf("missing bearer token response = %d %s", unauthorized.Code, unauthorized.Body.String())
 	}
 }
