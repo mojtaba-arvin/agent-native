@@ -14,7 +14,8 @@
           "quantity",
           "warehouse_id"
         ],
-        "primary_key": "sku"
+        "primary_key": "sku",
+        "minimums": {"quantity": 0}
       }
     },
     "update_stock": {
