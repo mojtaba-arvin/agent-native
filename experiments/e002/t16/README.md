@@ -20,7 +20,13 @@ On the dedicated Linux host, create an operator attestation JSON file:
 The statement must be truthful: a cgroup or a GitHub-hosted VM is not proof of
 exclusive physical-host tenancy. Do not create this file for a shared runner.
 
-With a reachable PostgreSQL service and `psql` installed, invoke:
+With a reachable PostgreSQL service, `psql` installed, and the DSN exported, invoke:
+
+```bash
+export AGENT_NATIVE_E002_POSTGRES_DSN="postgresql://USER:PASSWORD@HOST:5432/agent_native"
+```
+
+
 
 ```bash
 python3 experiments/e002/t16/preflight.py \
@@ -57,7 +63,9 @@ single job; do not expose long-lived credentials to it.
 ## Controlled-host setup and execution
 
 The host must be a dedicated physical Linux machine with at least three
-available CPUs, cgroup v2, Docker, taskset, and psql. Reserve one CPU each for
+available CPUs, cgroup v2, Docker, taskset, and psql. The PostgreSQL container
+uses `--pid=host` so `pg_backend_pid()` can be mapped to the host cgroup for
+separate-dependency verification. Reserve one CPU each for
 the candidate, load generator, and PostgreSQL. Start PostgreSQL on the third
 CPU in its own one-CPU cgroup before preflight:
 
@@ -113,8 +121,9 @@ runs product conformance before measurement, then executes ten randomized
 5,000-request repetitions per candidate. Each repetition gets a fresh
 one-vCPU/one-GiB candidate container, a 250-request warm-up, a measured
 open-loop run, cgroup CPU/memory/OOM accounting, a raw JSONL trace, and a
-ledger record. It writes `ledger.jsonl`, `results.json`, and `report.md`
-only after the corresponding evidence is collected. Stop the PostgreSQL
+ledger record. The ledger is appended after each completed or failed attempt,
+so a mid-matrix failure does not erase earlier evidence. `results.json` and
+`report.md` are emitted after all 20 attempts have been recorded. Stop the PostgreSQL
 container after preserving the generated evidence:
 
 ```bash
@@ -129,7 +138,9 @@ deterministically shuffles the exact 60/20/10/10 request mix. Each JSONL record
 captures scheduled offset, offered/start/finish timestamps, request metadata/body,
 and response metadata/body. It keeps expected 403 capability denials in completed
 throughput, while treating transport errors and malformed response envelopes
-as failures; bearer-token values are never written to traces.
+as failures; bearer-token values are never written to traces. Completed throughput
+uses the exact 50-second offer window for 5,000 requests at 100 RPS; final
+completion drain is reported separately.
 
 The expected candidate HTTP contract is:
 
