@@ -37,7 +37,7 @@ checks = {
     "build tools are exact-version and hash pinned": "setuptools==84.2.1" in lock and "wheel==0.48.0" in lock and lock.count("--hash=sha256:") == 2,
     "multi-stage runtime image is non-root": "AS builder" in dockerfile and "AS runtime" in dockerfile and "USER 65532:65532" in dockerfile,
     "runtime image installs the wheel offline without runtime dependencies": "pip install --no-index --no-deps" in dockerfile,
-    "build is repeated and complete image IDs are compared": 'build_once "$IMAGE_A"' in builder and 'build_once "$IMAGE_B"' in builder and "IMAGE_A_ID" in builder and "IMAGE_B_ID" in builder,
+    "two independent uncached builds compare complete image IDs": 'build_once "$IMAGE_A"' in builder and 'build_once "$IMAGE_B"' in builder and "--no-cache" in builder and "IMAGE_A_ID" in builder and "IMAGE_B_ID" in builder,
     "build uses source epoch, normalized file timestamps and pinned platform": "SOURCE_DATE_EPOCH" in builder and "rewrite-timestamp=true" in builder and "--platform linux/amd64" in builder,
     "SBOM is generated and validated as SPDX-2.3": "syft" in builder and '"SPDX-2.3"' in validator and '"agent-native"' in validator,
     "container is smoke-tested under restricted runtime settings": "--network none --read-only" in builder and "--cap-drop ALL" in builder and "--user 65532:65532" in builder,
