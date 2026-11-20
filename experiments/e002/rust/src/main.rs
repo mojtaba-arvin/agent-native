@@ -16,9 +16,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let (stream, _) = listener.accept().await?;
         let io = TokioIo::new(stream);
         let slots = Arc::clone(&slots);
+        let product = product.clone();
 
         tokio::spawn(async move {
-            let product = product.clone();
             let service = service_fn(move |request| handle_with_product(request, Arc::clone(&slots), product.clone()));
             if let Err(error) = hyper::server::conn::http1::Builder::new()
                 .serve_connection(io, service)
