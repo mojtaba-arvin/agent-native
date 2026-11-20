@@ -40,6 +40,14 @@ class ServiceHost:
             trusted_handler_ids=handlers.handler_ids,
         )
         registered = self.registry.load_all()
+        atomic_audit = callable(getattr(adapters.repository, "write_in_transaction", None))
+        if atomic_audit:
+            if not callable(adapters.repository):
+                raise TypeError("atomic_repository_must_be_an_audit_sink")
+            if audit_sink is None:
+                audit_sink = adapters.repository
+            elif audit_sink is not adapters.repository:
+                raise TypeError("postgres_repository_must_own_the_atomic_audit_sink")
         apply_migrations = getattr(adapters.repository, "apply_migrations", None)
         if callable(apply_migrations):
             apply_migrations(registered.values())
