@@ -29,3 +29,17 @@ experiments
 docs
 research
 project-control
+
+# T16 candidate image: narrowly re-include only the two candidate sources and image entrypoint.
+!experiments/
+experiments/*
+!experiments/e002/
+experiments/e002/*
+!experiments/e002/go/
+!experiments/e002/go/**
+!experiments/e002/rust/
+!experiments/e002/rust/**
+!experiments/e002/t16/
+experiments/e002/t16/*
+!experiments/e002/t16/Dockerfile
+!experiments/e002/t16/entrypoint.sh
