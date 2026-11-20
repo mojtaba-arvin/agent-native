@@ -245,6 +245,7 @@ class ProductionCorePostgresTests(unittest.TestCase):
         )
         self.assertEqual(stock.key, "sku")
         self.assertFalse(stock.generated_key)
+        self.assertEqual(stock.minimums, (("quantity", 0),))
         self.assertEqual(
             [(column.name, column.sql_type) for column in stock.columns],
             [("quantity", "BIGINT"), ("sku", "TEXT"), ("warehouse_id", "TEXT")],
@@ -381,6 +382,35 @@ host.dispatch(
         self.assertEqual(self.repository.counts(), {
             "audit_log": 2, "outbox": 1, "idempotency_keys": 1,
         })
+
+
+    def test_ir_derived_minimum_rejects_negative_inventory_mutations(self) -> None:
+        identity = self._inventory_identity()
+        invalid_create = self.host.dispatch(
+            "inventory", "POST", "/stock",
+            {"sku": "NEGATIVE-001", "quantity": -1, "warehouse_id": "WH-1"},
+            identity,
+        )
+        self.assertEqual(invalid_create.status_code, 400)
+        self.assertIsNone(
+            self.repository.read("stock", "NEGATIVE-001", tenant_id="tenant-a")
+        )
+
+        created = self.host.dispatch(
+            "inventory", "POST", "/stock",
+            {"sku": "VALID-001", "quantity": 12, "warehouse_id": "WH-1"},
+            identity,
+        )
+        self.assertEqual(created.status_code, 201)
+        invalid_update = self.host.dispatch(
+            "inventory", "PATCH", "/stock/VALID-001", {"quantity": -2}, identity
+        )
+        self.assertEqual(invalid_update.status_code, 400)
+        self.assertEqual(
+            self.repository.read("stock", "VALID-001", tenant_id="tenant-a")["quantity"],
+            12,
+        )
+        self.assertEqual(len(self.repository.outbox_events(tenant_id="tenant-a")), 1)
 
 
 if __name__ == "__main__":
