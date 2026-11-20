@@ -32,7 +32,7 @@ export AGENT_NATIVE_E002_POSTGRES_DSN="postgresql://USER:PASSWORD@HOST:5432/agen
 python3 experiments/e002/t16/preflight.py \
   --attestation /secure/path/t16-host-attestation.json \
   --source-sha "$(git rev-parse HEAD)" \
-  --command "python3 experiments/e002/t16/run.py --source-sha $(git rev-parse HEAD)"
+  --command python3 experiments/e002/t16/run.py --source-sha "$(git rev-parse HEAD)"
 ```
 
 The output directory is `experiments/e002/t16/` and contains the immutable
@@ -109,7 +109,7 @@ SOURCE_SHA="$(git rev-parse HEAD)"
 python3 experiments/e002/t16/preflight.py \
   --attestation /secure/path/t16-host-attestation.json \
   --source-sha "$SOURCE_SHA" \
-  --command "python3 experiments/e002/t16/run.py --source-sha $SOURCE_SHA"
+  --command python3 experiments/e002/t16/run.py --source-sha "$SOURCE_SHA"
 
 python3 experiments/e002/t16/run.py --source-sha "$SOURCE_SHA"
 bash acceptance/T16.sh
@@ -139,6 +139,8 @@ captures scheduled offset, offered/start/finish timestamps, request metadata/bod
 and response metadata/body. It keeps expected 403 capability denials in completed
 throughput, while treating transport errors and malformed response envelopes
 as failures; bearer-token values are never written to traces. Completed throughput
+uses the exact 50-second offer window for 5,000 requests at 100 RPS; final
+completion drain is reported separately. Completed throughput
 uses the exact 50-second offer window for 5,000 requests at 100 RPS; final
 completion drain is reported separately.
 
