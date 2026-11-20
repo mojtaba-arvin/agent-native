@@ -138,7 +138,7 @@ BEGIN
         END IF;
         request_hash := encode(digest(convert_to((body->'payload')::text, 'UTF8'), 'sha256'), 'hex');
         PERFORM pg_advisory_xact_lock(hashtextextended(v_tenant_id || ':' || v_operation_id || ':' || v_idempotency_key, 0));
-        SELECT request_hash, outcome INTO existing_hash, existing_outcome
+        SELECT t16_idempotency_records.request_hash, t16_idempotency_records.outcome INTO existing_hash, existing_outcome
         FROM t16_idempotency_records
         WHERE t16_idempotency_records.tenant_id = v_tenant_id
           AND operation_id = 'jobs.create'
