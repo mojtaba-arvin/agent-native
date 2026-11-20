@@ -7,6 +7,7 @@ from .handlers import RuntimeAdapters, TrustedHandlerRegistry, built_in_handler_
 from .security import Grant, PolicyEngine, RequestContext
 from .gateway import AgentGateway, GatewayError, Plan, Proposal, ValidationResult
 from .authz import EFFECT_ACCESS_MODE, classify_effects
+from .postgres import PostgresResourceRepository
 
 __version__ = "0.1.0.dev0"
 
@@ -27,6 +28,7 @@ __all__ = [
     "build_service_runtime",
     "Grant",
     "PolicyEngine",
+    "PostgresResourceRepository",
     "RequestContext",
     "ServiceRuntime",
     "validate_operation_inputs",
