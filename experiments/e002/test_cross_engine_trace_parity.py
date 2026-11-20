@@ -5,6 +5,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import uuid
 from pathlib import Path
 
 try:
@@ -167,6 +168,149 @@ adapter.admit_job(
 
         self.assertEqual(len(set(digests)), len(seeds))
         self.assertEqual(len(seeds) * 60, 1500)
+
+
+    def test_canonical_request_hashes_match_across_engines(self):
+        dsn = os.environ["AGENT_NATIVE_E002_POSTGRES_DSN"]
+        with tempfile.TemporaryDirectory() as directory:
+            sqlite = SQLiteReferenceAdapter(Path(directory) / "canonical.sqlite3")
+            postgres = PostgresReferenceAdapter(dsn)
+            postgres.reset()
+
+            # Semantically identical nested JSON with deliberately different
+            # insertion order must have the same versioned canonical hash.
+            sqlite_payload = {
+                "name": "Desk lamp",
+                "details": {
+                    "manufacturer": "Ångström",
+                    "attributes": {"z": 3, "a": 1},
+                },
+            }
+            postgres_payload = {
+                "details": {
+                    "attributes": {"a": 1, "z": 3},
+                    "manufacturer": "Ångström",
+                },
+                "name": "Desk lamp",
+            }
+
+            def submit(adapter, payload, key, request_id):
+                return adapter.admit_job(
+                    tenant_id="tenant-canonical",
+                    operation_id="jobs.create",
+                    idempotency_key=key,
+                    payload=payload,
+                    outbox_payload={"topic": "job.created"},
+                    audit_event={
+                        "request_id": request_id,
+                        "operation_id": "jobs.create",
+                        "created_at": 2000,
+                    },
+                )
+
+            sqlite_status, _ = submit(
+                sqlite, sqlite_payload, "canonical-same", "sqlite-canonical-same"
+            )
+            postgres_status, _ = submit(
+                postgres, postgres_payload, "canonical-same", "postgres-canonical-same"
+            )
+            self.assertEqual(sqlite_status, "created")
+            self.assertEqual(postgres_status, "created")
+
+            sqlite_hash = sqlite.lookup_idempotency(
+                "tenant-canonical", "jobs.create", "canonical-same"
+            )["request_hash"]
+            postgres_hash = postgres.lookup_idempotency(
+                "tenant-canonical", "jobs.create", "canonical-same"
+            )["request_hash"]
+            self.assertRegex(sqlite_hash, r"^[0-9a-f]{64}$")
+            self.assertEqual(sqlite_hash, postgres_hash)
+            self.assertEqual(
+                sqlite.metadata()["canonicalization_version"],
+                postgres.metadata()["canonicalization_version"],
+            )
+
+            changed_sqlite_payload = {
+                "name": "Desk lamp",
+                "details": {
+                    "manufacturer": "Ångström",
+                    "attributes": {"z": 4, "a": 1},
+                },
+            }
+            changed_postgres_payload = {
+                "details": {
+                    "attributes": {"a": 1, "z": 4},
+                    "manufacturer": "Ångström",
+                },
+                "name": "Desk lamp",
+            }
+            self.assertEqual(
+                submit(
+                    sqlite,
+                    changed_sqlite_payload,
+                    "canonical-changed",
+                    "sqlite-canonical-changed",
+                )[0],
+                "created",
+            )
+            self.assertEqual(
+                submit(
+                    postgres,
+                    changed_postgres_payload,
+                    "canonical-changed",
+                    "postgres-canonical-changed",
+                )[0],
+                "created",
+            )
+            changed_sqlite_hash = sqlite.lookup_idempotency(
+                "tenant-canonical", "jobs.create", "canonical-changed"
+            )["request_hash"]
+            changed_postgres_hash = postgres.lookup_idempotency(
+                "tenant-canonical", "jobs.create", "canonical-changed"
+            )["request_hash"]
+            self.assertEqual(changed_sqlite_hash, changed_postgres_hash)
+            self.assertNotEqual(changed_sqlite_hash, sqlite_hash)
+
+    def test_append_audit_sequence_is_monotonic_after_reopen_on_both_engines(self):
+        dsn = os.environ["AGENT_NATIVE_E002_POSTGRES_DSN"]
+        with tempfile.TemporaryDirectory() as directory:
+            sqlite_path = Path(directory) / "audit-sequence.sqlite3"
+            sqlite = SQLiteReferenceAdapter(sqlite_path)
+            postgres = PostgresReferenceAdapter(dsn)
+            postgres.reset()
+
+            def event(request_id):
+                return {
+                    "event_id": str(uuid.uuid4()),
+                    "request_id": request_id,
+                    "tenant_id": "tenant-a",
+                    "operation_id": "jobs.create",
+                    "decision": "allow",
+                    "reason_code": "T05_AUDIT_SEQUENCE",
+                    "outcome": {"source": "cross-engine-conformance"},
+                    "created_at": 3000,
+                }
+
+            sqlite_first = sqlite.append_audit(event("sqlite-audit-1"))
+            postgres_first = postgres.append_audit(event("postgres-audit-1"))
+
+            sqlite_reopened = SQLiteReferenceAdapter(sqlite_path)
+            postgres_reopened = PostgresReferenceAdapter(dsn)
+            sqlite_second = sqlite_reopened.append_audit(event("sqlite-audit-2"))
+            postgres_second = postgres_reopened.append_audit(event("postgres-audit-2"))
+
+            self.assertGreater(sqlite_second, sqlite_first)
+            self.assertGreater(postgres_second, postgres_first)
+            self.assertEqual(
+                [sqlite_first, sqlite_second],
+                [postgres_first, postgres_second],
+            )
+            self.assertEqual(sqlite_reopened.recover()["audit"], 2)
+            self.assertEqual(
+                postgres_reopened.recover()["e002_audit"],
+                2,
+            )
+
 
 
 if __name__ == "__main__":
