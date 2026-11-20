@@ -49,7 +49,6 @@ parity_markers = (
     "def test_identical_generated_traces_have_identical_sqlite_and_postgres_outcomes",
     "def test_canonical_request_hashes_match_across_engines",
     "def test_append_audit_sequence_is_monotonic_after_reopen_on_both_engines",
-    "def test_canonical_request_hashes_match_across_engines",
     "range(20261118, 20261143)",
     "len(seeds) * 60",
 )
