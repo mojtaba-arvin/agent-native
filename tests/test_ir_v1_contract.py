@@ -171,7 +171,7 @@ class ServiceIRV1ContractTests(unittest.TestCase):
         candidate = copy.deepcopy(self.ir)
         get_item = next(op for op in candidate["operations"] if op["name"] == "get_item")
         get_item["path"] = "/items/{id}/{id}"
-        self.assert_invalid(candidate, "AN027")
+        self.assert_invalid(candidate, "AN035")
 
     def test_get_operations_cannot_declare_body_inputs(self) -> None:
         candidate = copy.deepcopy(self.ir)
