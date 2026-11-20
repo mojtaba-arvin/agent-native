@@ -40,6 +40,9 @@ class ServiceHost:
             trusted_handler_ids=handlers.handler_ids,
         )
         registered = self.registry.load_all()
+        migrate_services = getattr(adapters.repository, "migrate_services", None)
+        if callable(migrate_services):
+            migrate_services(registered.values())
         self._runtimes = {
             service_id: build_service_runtime(
                 service,
