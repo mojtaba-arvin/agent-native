@@ -242,6 +242,7 @@ func (app *application) serveProduct(w http.ResponseWriter, request *http.Reques
 		operation = "validate_plan"
 		targetOperation = "operations.validate"
 	case request.Method == http.MethodPost && request.URL.Path == "/v1/jobs":
+		targetOperation = "jobs.create"
 		var decoded jobRequest
 		raw, err := decodeT16Body(request, &decoded)
 		if err != nil {
