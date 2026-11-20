@@ -173,6 +173,10 @@ class PostgresResourceRepository:
             results.append(self.migrate_service(service))
         return tuple(results)
 
+    def apply_migrations(self, services) -> tuple[bool, ...]:
+        """Apply all service migration plans before the host accepts traffic."""
+        return self.migrate_services(services)
+
     def _create_resource_table(self, connection, resource: ResourceSpec) -> None:
         _psycopg, sql, _row = self._driver()
         definitions = ["tenant_id TEXT NOT NULL"]
