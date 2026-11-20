@@ -101,7 +101,7 @@ BEGIN
     IF v_operation_id = 'expected_denial' THEN
         outcome := jsonb_build_object('request_id', request_id,
             'error', jsonb_build_object('code', reason_code));
-        INSERT INTO t16_audit(event_id, request_id, principal_id, v_tenant_id,
+        INSERT INTO t16_audit(event_id, request_id, principal_id, tenant_id,
             operation_id, decision, reason_code, outcome)
         VALUES (gen_random_uuid(), request_id, principal_id, v_tenant_id,
             'jobs.create', 'deny', reason_code, outcome);
@@ -115,7 +115,7 @@ BEGIN
         outcome := jsonb_build_object('request_id', request_id, 'data', record_payload);
         INSERT INTO t16_audit(event_id, request_id, principal_id, tenant_id,
             operation_id, decision, reason_code, outcome)
-        VALUES (gen_random_uuid(), request_id, principal_id, tenant_id,
+        VALUES (gen_random_uuid(), request_id, principal_id, v_tenant_id,
             'catalog.read', 'allow', 'AUTHORIZED_READ', outcome);
         RETURN outcome;
     ELSIF v_operation_id = 'validate_plan' THEN
