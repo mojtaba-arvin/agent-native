@@ -41,7 +41,7 @@ src/lib.rs contains executable tests for:
 These are behavior assertions; the previous placeholder assertion of two
 literal constants has been removed.
 
-## Build and runtime verification matrix
+## Verification matrix
 
 Run from experiments/e002/rust with the repository-pinned Rust 1.100.0
 toolchain and committed lockfile:
