@@ -103,13 +103,14 @@ func one(ctx context.Context, client *http.Client, target string, index int) obs
 		return observation{Index: index, LatencyMS: float64(time.Since(started).Nanoseconds()) / 1e6, Error: &message}
 	}
 	response, err := client.Do(request)
-	latency := float64(time.Since(started).Nanoseconds()) / 1e6
 	if err != nil {
 		message := err.Error()
+		latency := float64(time.Since(started).Nanoseconds()) / 1e6
 		return observation{Index: index, LatencyMS: latency, Error: &message}
 	}
 	defer response.Body.Close()
 	body, readErr := io.ReadAll(io.LimitReader(response.Body, 4097))
+	latency := float64(time.Since(started).Nanoseconds()) / 1e6
 	if readErr != nil {
 		message := readErr.Error()
 		return observation{Index: index, Status: response.StatusCode, LatencyMS: latency, Error: &message}
