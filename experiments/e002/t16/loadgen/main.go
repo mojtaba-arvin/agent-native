@@ -44,6 +44,7 @@ type settings struct {
 	denyToken    string
 	tenant       string
 	outputPrefix string
+	warmupOnly   bool
 }
 
 type observation struct {
@@ -103,6 +104,7 @@ func parseSettings(args []string) (settings, error) {
 	flags.StringVar(&cfg.denyToken, "deny-token", os.Getenv("T16_DENY_TOKEN"), "insufficient-capability bearer token")
 	flags.StringVar(&cfg.tenant, "tenant", "tenant-a", "trusted fixture tenant asserted by the client")
 	flags.StringVar(&cfg.outputPrefix, "output-prefix", "", "output prefix for .jsonl and .json")
+	flags.BoolVar(&cfg.warmupOnly, "warmup-only", false, "run and validate warm-up requests without a measured sample")
 	if err := flags.Parse(args); err != nil {
 		return settings{}, err
 	}
@@ -114,7 +116,7 @@ func parseSettings(args []string) (settings, error) {
 		cfg.concurrency != 32 || cfg.targetRPS != 100 || cfg.timeout <= 0 {
 		return settings{}, errors.New("T16 requires requests divisible by 10, concurrency 32, target-rps 100, and a positive timeout")
 	}
-	if cfg.runID == "" || cfg.readToken == "" || cfg.denyToken == "" || cfg.tenant == "" || cfg.outputPrefix == "" {
+	if cfg.runID == "" || cfg.readToken == "" || cfg.denyToken == "" || cfg.tenant == "" || cfg.outputPrefix == "" || (cfg.warmupOnly && cfg.warmup < 1) {
 		return settings{}, errors.New("run-id, read-token, deny-token, tenant, and output-prefix are required")
 	}
 	return cfg, nil
@@ -381,6 +383,9 @@ func run(cfg settings) error {
 				return fmt.Errorf("warm-up request %d failed: status=%d expected=%d error=%s", item.Index, item.Status, item.Expected, item.Error)
 			}
 		}
+	}
+	if cfg.warmupOnly {
+		return nil
 	}
 	items, elapsed := execute(cfg, client, cfg.runID, cfg.requests, cfg.seed)
 	result := summarize(cfg, cfg.runID, items, elapsed)
