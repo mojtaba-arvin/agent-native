@@ -267,7 +267,7 @@ def execute_matrix(args: argparse.Namespace) -> dict:
     bundle = args.bundle.resolve()
     if not bundle.is_dir():
         raise RuntimeError(f"candidate bundle directory is missing: {bundle}")
-    required = ("e002-go", "e002-rust", "wasmtime", "agent_native_e002_wasi_p2.wasm", "beam-release")
+    required = ("e002-go", "e002-rust", "wasmtime", "agent_native_e002_wasi_p2.wasm", "beam-release", "toolchains.txt")
     missing = [name for name in required if not (bundle / name).exists()]
     if missing:
         raise RuntimeError(f"candidate bundle is incomplete: {missing}")
@@ -279,8 +279,11 @@ def execute_matrix(args: argparse.Namespace) -> dict:
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)
     (output / "host.json").write_text(json.dumps(host, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    toolchains = (bundle / "toolchains.txt").read_text(encoding="utf-8")
+    (output / "toolchains.txt").write_text(toolchains, encoding="utf-8")
     protocol = {
         "load_generator": "Go net/http binary; not Python",
+        "toolchains": toolchains,
         "requests_per_repetition": REQUESTS,
         "concurrency": CONCURRENCY,
         "warmup_requests": WARMUP,
@@ -303,6 +306,10 @@ def execute_matrix(args: argparse.Namespace) -> dict:
         "--file", str(args.dockerfile.resolve()),
         str(args.dockerfile.resolve().parent),
     ], timeout=900)
+    protocol["container_base_image"] = run_command([
+        "docker", "image", "inspect", "ubuntu:24.04", "--format", "{{.Id}} {{json .RepoDigests}}"
+    ]).stdout.strip()
+    (output / "protocol.json").write_text(json.dumps(protocol, indent=2, sort_keys=True) + "\\n", encoding="utf-8")
     rng = random.Random(SEED)
     records: list[dict] = []
     for repetition in range(1, REPETITIONS + 1):
