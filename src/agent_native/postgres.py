@@ -178,7 +178,7 @@ class PostgresResourceRepository:
             raise ValueError("tenant_id_required")
         if not isinstance(payload, Mapping):
             raise ValueError("payload_must_be_object")
-        expected = set(spec["columns"]) - {spec["key"]}
+        expected = set(spec["columns"]) if resource == "stock" else set(spec["columns"]) - {spec["key"]}
         if set(payload) != expected:
             raise ValueError("resource_payload_fields_mismatch")
         for name, expected_type in spec["types"].items():
