@@ -19,7 +19,8 @@
         "input_fields": [
           "name"
         ],
-        "idempotency_input": "idempotency_key"
+        "idempotency_input": "idempotency_key",
+        "unique_fields": ["name"]
       }
     },
     "get_item_by_name": {

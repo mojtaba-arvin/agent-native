@@ -57,6 +57,7 @@ class AuditReceipt:
     def __init__(self):
         self._committed = False
         self._fallback_recorded = False
+        self._failed = False
 
     @property
     def committed(self) -> bool:
@@ -64,13 +65,17 @@ class AuditReceipt:
 
     @property
     def recorded(self) -> bool:
-        return self._committed or self._fallback_recorded
+        return self._committed or self._fallback_recorded or self._failed
 
     def mark_committed(self) -> None:
         self._committed = True
 
     def mark_fallback_recorded(self) -> None:
         self._fallback_recorded = True
+
+    def mark_failed(self) -> None:
+        """Record that the atomic write rolled back; do not append a split audit row."""
+        self._failed = True
 
 
 @dataclass(frozen=True)
@@ -457,7 +462,7 @@ class ServiceRuntime:
             defer_audit = bool(
                 self.audit_sink is not None
                 and decision.allowed
-                and "queue.submit" in effects
+                and bool(effects.intersection({"queue.submit", "repository.write", "event.publish"}))
                 and callable(getattr(self.audit_sink, "write_in_transaction", None))
             )
             if self.audit_sink is not None and not defer_audit:
