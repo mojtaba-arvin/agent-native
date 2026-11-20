@@ -130,6 +130,21 @@ func TestOpenLoopSummarySeparatesOfferedAndCompleted(t *testing.T) {
 	}
 }
 
+func TestCompletedThroughputUsesFixedOpenLoopWindowAndReportsDrain(t *testing.T) {
+	cfg := testSettings()
+	items := make([]observation, cfg.requests)
+	for i := range items {
+		items[i] = observation{Operation: authorizedRead, Completed: true, Functional: true, Status: http.StatusOK}
+	}
+	got := summarize(cfg, "rep-throughput", items, 50.08)
+	if got.CompletedRPS != 100 || got.MeasurementWindowSeconds != 50 {
+		t.Fatalf("completed throughput must use the 50-second offer window: %+v", got)
+	}
+	if got.DrainSeconds < 0.079 || got.DrainSeconds > 0.081 {
+		t.Fatalf("response drain must be reported separately: %+v", got)
+	}
+}
+
 func TestNewClientReusesHTTPConnectionsWithinConcurrencyLimit(t *testing.T) {
 	client := newClient(time.Second, 32)
 	defer client.CloseIdleConnections()
