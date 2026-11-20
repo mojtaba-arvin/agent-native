@@ -64,6 +64,44 @@ class T16RunnerUnitTests(unittest.TestCase):
         })
         self.assertIn(record["run_id"], report)
 
+    def test_failed_attempt_without_metrics_is_preserved_in_partial_report(self):
+        failed = {
+            "candidate": "go-net-http",
+            "run_id": "t16-go-net-http-rep-01",
+            "status": "failed",
+            "functional_conformance": False,
+            "slo_pass": False,
+            "error": "RuntimeError: candidate did not become ready",
+        }
+        cohort = aggregate([failed], "go-net-http")
+        self.assertEqual(cohort["attempts"], 1)
+        self.assertEqual(cohort["runs"], 0)
+        report = markdown_report("a" * 40, "b" * 64, [failed], {
+            "cpu_model": "test CPU", "machine": "x86_64",
+            "kernel_release": "test-kernel", "postgres_version": "16.4",
+            "physical_host_isolation": "dedicated",
+        })
+        self.assertIn(failed["run_id"], report)
+        self.assertIn("attempt error", report)
+
+    def test_failed_attempt_with_partial_metrics_is_aggregated_but_not_passed(self):
+        failed = {
+            "candidate": "rust-tokio-hyper",
+            "run_id": "t16-rust-tokio-hyper-rep-01",
+            "status": "failed",
+            "slo_pass": False,
+            "metrics": {
+                "completed_requests_per_second": 0.0,
+                "p99_ms": 0.0,
+                "cpu_seconds": 0.0,
+                "memory_peak_bytes": 0,
+            },
+        }
+        cohort = aggregate([failed], "rust-tokio-hyper")
+        self.assertEqual(cohort["attempts"], 1)
+        self.assertEqual(cohort["runs"], 1)
+        self.assertEqual(cohort["slo_passed_runs"], 0)
+
     def test_command_runner_can_record_expected_failure_without_raising(self):
         import sys
         output = run_command([sys.executable, "-c", "raise SystemExit(7)"], allow_failure=True)
