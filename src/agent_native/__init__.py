@@ -8,6 +8,7 @@ from .security import Grant, PolicyEngine, RequestContext
 from .gateway import AgentGateway, GatewayError, Plan, Proposal, ValidationResult
 from .authz import EFFECT_ACCESS_MODE, classify_effects
 from .postgres import PostgresResourceRepository
+from .host import ServiceHost
 
 __version__ = "0.1.0.dev0"
 
@@ -20,6 +21,7 @@ __all__ = [
     "RuntimeFault",
     "RuntimeResponse",
     "RegisteredService",
+    "ServiceHost",
     "ServiceRegistry",
     "ServiceRegistryError",
     "RuntimeAdapters",
