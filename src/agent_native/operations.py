@@ -200,6 +200,7 @@ class OperationalHTTPServer(ThreadingHTTPServer):
             self._ready = False
 
     def serve_forever(self, poll_interval: float = 0.5) -> None:
+        self._serve_thread = threading.current_thread()
         self._serve_started.set()
         try:
             super().serve_forever(poll_interval=poll_interval)
@@ -243,12 +244,12 @@ class OperationalHTTPServer(ThreadingHTTPServer):
             raise
 
     def process_request_thread(self, request: socket.socket, client_address) -> None:
-        request.settimeout(self.request_timeout_seconds)
         with self._condition:
             self._active_requests += 1
             self._active_sockets.add(request)
             self.metrics.begin_request()
         try:
+            request.settimeout(self.request_timeout_seconds)
             super().process_request_thread(request, client_address)
         finally:
             with self._condition:
@@ -422,15 +423,19 @@ def create_operational_server(
                     return
                 if method in {"GET", "HEAD"} and path == "/metrics":
                     status = 200
-                    self._send(
-                        status,
-                        None,
-                        request_id=request_id,
-                        content_type="text/plain; version=0.0.4; charset=utf-8",
-                    )
-                    # Replace the empty response body with the current metrics exposition.
                     metrics = self.server.metrics.render(ready=self.server.ready).encode("utf-8")
-                    self.send_response  # keep the response writer owned by this handler
+                    self.send_response(status)
+                    self.send_header("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
+                    self.send_header("Content-Length", str(len(metrics)))
+                    self.send_header("Connection", "close")
+                    self.send_header("X-Request-ID", request_id)
+                    self.end_headers()
+                    if method != "HEAD":
+                        try:
+                            self.wfile.write(metrics)
+                        except (BrokenPipeError, ConnectionResetError, socket.timeout):
+                            pass
+                    self.close_connection = True
                     return
 
                 headers = self._request_headers()
