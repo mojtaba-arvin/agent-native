@@ -322,8 +322,8 @@ def execute_matrix(args: argparse.Namespace) -> dict:
         "--file", str(args.dockerfile.resolve()),
         str(args.dockerfile.resolve().parent),
     ], timeout=900)
-    protocol["container_base_image"] = run_command([
-        "docker", "image", "inspect", "ubuntu:24.04", "--format", "{{.Id}} {{json .RepoDigests}}"
+    protocol["container_image_inspect"] = run_command([
+        "docker", "image", "inspect", args.image, "--format", "{{.Id}} {{json .RepoDigests}}"
     ]).stdout.strip()
     (output / "protocol.json").write_text(json.dumps(protocol, indent=2, sort_keys=True) + "\\n", encoding="utf-8")
     rng = random.Random(SEED)
