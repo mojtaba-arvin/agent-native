@@ -87,7 +87,7 @@ Two complementary checks define v1 acceptance:
 
 JSON Schema alone cannot express all v1 cross-field constraints, such as resolving a type name against the complete declarations, requiring path inputs to match placeholders, rejecting duplicate route pairs, or binding a validation rule to a String input. Those checks are part of \`validate_ir()\` and are covered by executable positive and negative tests.
 
-Unknown or unsupported versions and unknown properties **fail closed**. A caller must not ignore a validation error, guess a default, or continue to runtime/plan execution after validation has failed.
+Consumers must reject unknown or unsupported versions and unknown properties; both **fail closed**. A caller must not ignore a validation error, guess a default, or continue to runtime/plan execution after validation has failed.
 
 ## 4. Complete-snapshot and deterministic representation rules
 
