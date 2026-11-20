@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import json
+import tempfile
 import unittest
+from pathlib import Path
 
-from controlled_host_matrix import cpu_quota_cores, distribution, parse_cpu_list, parse_cpu_stat, unified_cgroup_path
+from controlled_host_matrix import cpu_quota_cores, distribution, parse_cpu_list, parse_cpu_stat, unified_cgroup_path, write_json
 
 
 class TestParseCPUStat(unittest.TestCase):
@@ -47,6 +50,17 @@ class TestAllowedCPUList(unittest.TestCase):
         for value in ("2-1", "-1", "a", "1-"):
             with self.subTest(value=value), self.assertRaises(ValueError):
                 parse_cpu_list(value)
+
+
+class TestWriteJSON(unittest.TestCase):
+    def test_write_json_produces_valid_document_and_one_newline(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "protocol.json"
+            write_json(path, {"cgroup": {"cpu.max": "100000 100000"}, "runs": 10})
+            raw = path.read_bytes()
+            self.assertTrue(raw.endswith(b"\\n"))
+            self.assertFalse(raw.endswith(b"\\\\n"))
+            self.assertEqual(json.loads(raw), {"cgroup": {"cpu.max": "100000 100000"}, "runs": 10})
 
 
 class TestDistribution(unittest.TestCase):
