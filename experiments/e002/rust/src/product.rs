@@ -97,11 +97,11 @@ impl PgPool {
 
     pub fn query(&self, payload: &str) -> Result<String, String> {
         let worker = {
-            let receiver = self.receiver.lock().map_err(|_| "psql_pool_poisoned")?;
+            let receiver = self.receiver.lock().map_err(|_| "psql_pool_poisoned".to_owned())?;
             receiver.recv().map_err(|error| format!("psql_pool_receive:{error}"))?
         };
         let result = worker.lock()
-            .map_err(|_| "psql_worker_poisoned")?
+            .map_err(|_| "psql_worker_poisoned".to_owned())?
             .query(payload);
         self.sender.send(worker).map_err(|error| format!("psql_pool_return:{error}"))?;
         result
@@ -137,8 +137,8 @@ impl ProductConfig {
         if request.uri().query().is_some() {
             return json_response(StatusCode::BAD_REQUEST, r#"{"error":{"code":"QUERY_NOT_SUPPORTED"}}"#);
         }
-        let request_id = header_text(&request, "x-request-id");
-        let asserted_tenant = header_text(&request, "x-tenant-id");
+        let request_id = header_text(&request, "x-request-id").to_owned();
+        let asserted_tenant = header_text(&request, "x-tenant-id").to_owned();
         if !valid_header(request_id) || !valid_header(asserted_tenant) {
             return json_response(StatusCode::BAD_REQUEST, r#"{"error":{"code":"INVALID_REQUEST_CONTEXT"}}"#);
         }
@@ -161,7 +161,7 @@ impl ProductConfig {
             _ => return json_response(StatusCode::NOT_FOUND, r#"{"error":{"code":"NOT_FOUND"}}"#),
         };
 
-        let idempotency_key = header_text(&request, "idempotency-key");
+        let idempotency_key = header_text(&request, "idempotency-key").to_owned();
         if operation == "job_admission" && !valid_header(idempotency_key) {
             return json_response(StatusCode::BAD_REQUEST, r#"{"error":{"code":"IDEMPOTENCY_KEY_REQUIRED"}}"#);
         }
