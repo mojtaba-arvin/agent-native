@@ -67,7 +67,7 @@ test_markers = (
     "TestParseCPUStat",
     "TestOneVcpuQuota",
     "TestAllowedCPUList",
-    "TestDistribution",\n    "TestWriteJSON",
+    "TestDistribution",
 )
 missing_tests = [marker for marker in test_markers if marker not in tests]
 
