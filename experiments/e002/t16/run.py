@@ -125,14 +125,14 @@ def read_memory_events(path: Path) -> dict[str, int]:
 
 
 def run_loadgen_container(name: str, arguments: list[str], cpu: int, root: Path,
-                          bin_dir: Path, read_token: str, deny_token: str, timeout: int = 180) -> dict[str, Any]:
+                          bin_dir: Path, output: Path, read_token: str, deny_token: str, timeout: int = 180) -> dict[str, Any]:
     container = name
     try:
         run_command([
             "docker", "run", "--detach", "--name", container,
             "--cpus=1", f"--cpuset-cpus={cpu}", "--memory=1g", "--network=host",
             "--env", f"T16_READ_TOKEN={read_token}", "--env", f"T16_DENY_TOKEN={deny_token}",
-            "-v", f"{root}:/src:ro", "-v", f"{bin_dir}:/out:ro",
+            "-v", f"{root}:/src:ro", "-v", f"{output}:/evidence:rw", "-v", f"{bin_dir}:/out:ro",
             "-w", "/src/experiments/e002/t16/loadgen",
             "golang:1.23.12-bookworm", "/out/t16-loadgen", *arguments,
         ], timeout=60)
@@ -457,7 +457,7 @@ def main() -> int:
                     "golang:1.23.12-bookworm", "/out/t16-loadgen",
                     "--target", "http://127.0.0.1:8080", "--requests", str(REQUESTS),
                     "--concurrency", str(CONCURRENCY), "--warmup", "0", "--target-rps", str(TARGET_RPS),
-                    "--run-id", run_id, "--output-prefix", "/src/" + str(prefix.relative_to(root)),
+                    "--run-id", run_id, "--output-prefix", "/evidence/" + str(prefix.relative_to(output)),
                 ]
                 record = None
                 try:
@@ -492,12 +492,12 @@ def main() -> int:
                         "--target", "http://127.0.0.1:8080", "--requests", str(REQUESTS),
                         "--concurrency", str(CONCURRENCY), "--warmup", str(WARMUP),
                         "--target-rps", str(TARGET_RPS), "--run-id", run_id + "-warmup",
-                        "--output-prefix", "/src/" + str((prefix.parent / (prefix.name + "-warmup")).relative_to(root)),
+                        "--output-prefix", "/evidence/" + str((prefix.parent / (prefix.name + "-warmup")).relative_to(output)),
                         "--warmup-only",
                     ]
                     loadgen_warmup = run_loadgen_container(
                         f"t16-loadgen-warmup-{uuid.uuid4().hex[:8]}",
-                        warmup_arguments, host["load_generator_cpu"], root, bin_dir, read_token, deny_token,
+                        warmup_arguments, host["load_generator_cpu"], root, bin_dir, output, read_token, deny_token,
                     )
                     psql(args.postgres_dsn, "SELECT t16_reset()")
                     cpu_before = read_cpu_usage(candidate_cgroup)
