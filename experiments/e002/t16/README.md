@@ -119,10 +119,14 @@ go vet ./...
 go build -o /tmp/t16-loadgen .
 ```
 
-The generator's workload protocol is implemented; the candidate endpoints are
-not. In particular, the existing Rust and Go E-002 servers remain toy
-`/health`, `/work`, and `/stream` implementations. The generator therefore
-cannot yet produce valid T16 candidate runs.
+The original E-002 `/health`, `/work`, and `/stream` routes remain for earlier
+experiments. T16 adds separate authenticated product routes to both candidate
+binaries. They share the same PostgreSQL transaction function and use persistent
+`psql` client-process pools inside each candidate cgroup, so the client-process
+CPU and memory are included in candidate measurements. The Go HTTP path is
+integration-tested; Rust compilation and PostgreSQL-pool tests are covered by
+CI. The controlled-host runner performs full HTTP conformance against both
+candidates before recording measured runs.
 
 ## Current evidence boundary
 
