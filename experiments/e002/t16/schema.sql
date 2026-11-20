@@ -127,7 +127,7 @@ BEGIN
         outcome := jsonb_build_object('request_id', request_id, 'decision', 'allow');
         INSERT INTO t16_audit(event_id, request_id, principal_id, tenant_id,
             operation_id, decision, reason_code, outcome)
-        VALUES (gen_random_uuid(), request_id, principal_id, tenant_id,
+        VALUES (gen_random_uuid(), request_id, principal_id, v_tenant_id,
             'operations.validate', 'allow', 'PLAN_VALIDATED', outcome);
         RETURN outcome;
     ELSIF v_operation_id = 'job_admission' THEN
