@@ -123,6 +123,29 @@ def read_memory_events(path: Path) -> dict[str, int]:
     return values
 
 
+
+def run_loadgen_container(name: str, arguments: list[str], cpu: int, root: Path,
+                          bin_dir: Path, timeout: int = 180) -> dict[str, Any]:
+    container = name
+    try:
+        run_command([
+            "docker", "run", "--detach", "--name", container,
+            "--cpus=1", f"--cpuset-cpus={cpu}", "--memory=1g", "--network=host",
+            "-v", f"{root}:/src:ro", "-v", f"{bin_dir}:/out:ro",
+            "-w", "/src/experiments/e002/t16/loadgen",
+            "golang:1.23.12-bookworm", "/out/t16-loadgen", *arguments,
+        ], timeout=60)
+        cgroup = container_cgroup(container)
+        limits = verify_candidate_cgroup(cgroup, cpu)
+        exit_code = run_command(["docker", "wait", container], timeout=timeout)
+        logs = run_command(["docker", "logs", container], timeout=15, allow_failure=True)
+        if exit_code != "0":
+            raise RuntimeError(f"load generator exited {exit_code}: {logs[-3000:]}")
+        return {"path": str(cgroup), "limits": limits, "logs": logs[-4000:]}
+    finally:
+        run_command(["docker", "rm", "--force", container], timeout=60, allow_failure=True)
+
+
 def wait_ready(container: str, timeout: float = 30.0) -> float:
     started = time.monotonic()
     deadline = started + timeout
@@ -461,26 +484,33 @@ def main() -> int:
                         verify_product_conformance(args.postgres_dsn, read_token, deny_token)
                     psql(args.postgres_dsn, "SELECT t16_reset()")
                     events_before = read_memory_events(candidate_cgroup)
-                    warmup_command = [
-                        "taskset", "-c", str(host["load_generator_cpu"]), str(loadgen),
+                    warmup_arguments = [
                         "--target", "http://127.0.0.1:8080", "--requests", str(REQUESTS),
                         "--concurrency", str(CONCURRENCY), "--warmup", str(WARMUP),
                         "--target-rps", str(TARGET_RPS), "--run-id", run_id + "-warmup",
                         "--read-token", read_token, "--deny-token", deny_token,
-                        "--output-prefix", str(prefix) + "-warmup", "--warmup-only",
+                        "--output-prefix", "/src/" + str((prefix.parent / (prefix.name + "-warmup")).relative_to(root)),
+                        "--warmup-only",
                     ]
-                    run_command(warmup_command, timeout=180)
+                    loadgen_warmup = run_loadgen_container(
+                        f"t16-loadgen-warmup-{uuid.uuid4().hex[:8]}",
+                        warmup_arguments, host["load_generator_cpu"], root, bin_dir,
+                    )
                     psql(args.postgres_dsn, "SELECT t16_reset()")
                     cpu_before = read_cpu_usage(candidate_cgroup)
-                    measured_command = [
-                        "taskset", "-c", str(host["load_generator_cpu"]), str(loadgen),
+                    measured_arguments = [
                         "--target", "http://127.0.0.1:8080", "--requests", str(REQUESTS),
                         "--concurrency", str(CONCURRENCY), "--warmup", "0",
                         "--target-rps", str(TARGET_RPS), "--run-id", run_id,
                         "--read-token", read_token, "--deny-token", deny_token,
-                        "--output-prefix", str(prefix),
+                        "--output-prefix", "/src/" + str(prefix.relative_to(root)),
                     ]
-                    run_command(measured_command, timeout=180)
+                    loadgen_measured = run_loadgen_container(
+                        f"t16-loadgen-measured-{uuid.uuid4().hex[:8]}",
+                        measured_arguments, host["load_generator_cpu"], root, bin_dir,
+                    )
+                    if loadgen_warmup["path"] == str(candidate_cgroup) or loadgen_measured["path"] == str(candidate_cgroup):
+                        raise RuntimeError("load generator shares the candidate cgroup")
                     cpu_after = read_cpu_usage(candidate_cgroup)
                     events_after = read_memory_events(candidate_cgroup)
                     summary = json.loads(prefix.with_suffix(".json").read_text(encoding="utf-8"))
@@ -521,6 +551,10 @@ def main() -> int:
                         "metrics": metrics,
                         "slo_pass": all(checks.values()),
                         "startup_seconds": startup_seconds,
+                        "load_generator_cgroups": {
+                            "warmup": loadgen_warmup,
+                            "measured": loadgen_measured,
+                        },
                         "cgroup": {
                             "path": str(candidate_cgroup),
                             "limits": cgroup_limits,
