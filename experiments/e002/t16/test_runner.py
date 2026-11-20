@@ -56,7 +56,8 @@ class T16RunnerUnitTests(unittest.TestCase):
             },
             "slo_pass": True,
         }
-        report = markdown_report("a" * 40, "b" * 64, [record], {
+        rust_record = {**record, "candidate": "rust-tokio-hyper", "run_id": "t16-rust-tokio-hyper-rep-01"}
+        report = markdown_report("a" * 40, "b" * 64, [record, rust_record], {
             "cpu_model": "test CPU", "machine": "x86_64",
             "kernel_release": "test-kernel", "postgres_version": "16.4",
             "physical_host_isolation": "dedicated",
