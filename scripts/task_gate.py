@@ -22,7 +22,7 @@ PRODUCT_PREFIXES = (
     "cmd/", "pkg/", "migrations/", "deploy/", "docker/",
 )
 KINDS = ("code", "docs", "decision", "research", "process")
-DECISION_FILE = "project-control/DECISION_EVENTS.jsonl"
+DECISION_FILE = "DECISIONS.json"
 
 KIND_RULES: dict[str, tuple[set[str], set[str]]] = {
     "code": ({"product", "test", "docs", "other"}, {"product", "test"}),
@@ -36,6 +36,8 @@ KIND_RULES: dict[str, tuple[set[str], set[str]]] = {
 def classify(path: str) -> str:
     if path.startswith("acceptance/"):
         return "acceptance"
+    if path == DECISION_FILE:
+        return "state"
     if path.startswith("project-control/"):
         return "state"
     if path.startswith((".github/", "scripts/")):
