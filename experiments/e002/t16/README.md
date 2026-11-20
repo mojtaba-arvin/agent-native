@@ -64,12 +64,24 @@ CPU in its own one-CPU cgroup before preflight:
 ```bash
 eval "$(python3 - <<'PY'
 import os
-cpus = sorted(os.sched_getaffinity(0))
-if len(cpus) < 3:
-    raise SystemExit("T16 needs at least three available CPUs")
-print(f"CANDIDATE_CPU={cpus[0]}")
-print(f"LOADGEN_CPU={cpus[1]}")
-print(f"POSTGRES_CPU={cpus[2]}")
+from pathlib import Path
+selected, seen = [], set()
+for cpu in sorted(os.sched_getaffinity(0)):
+    topology = Path(f"/sys/devices/system/cpu/cpu{cpu}/topology")
+    key = (
+        (topology / "physical_package_id").read_text().strip(),
+        (topology / "core_id").read_text().strip(),
+    )
+    if key not in seen:
+        selected.append(cpu)
+        seen.add(key)
+    if len(selected) == 3:
+        break
+if len(selected) < 3:
+    raise SystemExit("T16 needs three distinct available physical CPU cores")
+print(f"CANDIDATE_CPU={selected[0]}")
+print(f"LOADGEN_CPU={selected[1]}")
+print(f"POSTGRES_CPU={selected[2]}")
 PY
 )"
 docker run --detach --name t16-postgres --network host \
