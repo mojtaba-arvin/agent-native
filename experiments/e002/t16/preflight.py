@@ -78,8 +78,8 @@ def postgres_version(dsn: str) -> str:
     return version
 
 
-def physical_core_key(cpu: int) -> tuple[int, int]:
-    topology = Path(f"/sys/devices/system/cpu/cpu{cpu}/topology")
+def physical_core_key(cpu: int, topology_root: Path = Path("/sys/devices/system/cpu")) -> tuple[int, int]:
+    topology = topology_root / f"cpu{cpu}" / "topology"
     package_id = topology / "physical_package_id"
     core_id = topology / "core_id"
     if not package_id.is_file() or not core_id.is_file():
@@ -87,11 +87,11 @@ def physical_core_key(cpu: int) -> tuple[int, int]:
     return int(package_id.read_text().strip()), int(core_id.read_text().strip())
 
 
-def select_distinct_physical_cpus(allowed_cpus: list[int]) -> list[int]:
+def select_distinct_physical_cpus(allowed_cpus: list[int], topology_root: Path = Path("/sys/devices/system/cpu")) -> list[int]:
     selected: list[int] = []
     seen: set[tuple[int, int]] = set()
     for cpu in allowed_cpus:
-        key = physical_core_key(cpu)
+        key = physical_core_key(cpu, topology_root)
         if key not in seen:
             selected.append(cpu)
             seen.add(key)
