@@ -136,7 +136,7 @@ class OperationalHTTPServer(ThreadingHTTPServer):
     """
 
     allow_reuse_address = True
-    daemon_threads = False
+    daemon_threads = True
     block_on_close = False
 
     def __init__(
