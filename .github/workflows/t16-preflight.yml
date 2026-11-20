@@ -7,10 +7,12 @@ on:
     paths:
       - "experiments/e002/t16/**"
       - ".github/workflows/t16-preflight.yml"
+      - ".dockerignore"
   pull_request:
     paths:
       - "experiments/e002/t16/**"
       - ".github/workflows/t16-preflight.yml"
+      - ".dockerignore"
   workflow_dispatch:
 
 permissions:
