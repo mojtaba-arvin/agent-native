@@ -221,7 +221,7 @@ def _factory_crud_list(config: Mapping[str, Any]):
 
 
 def _factory_crud_create(config: Mapping[str, Any]):
-    cfg = _config(config, required={"resource", "input_fields"}, optional={"idempotency_input", "unique_fields", "primary_key"})
+    cfg = _config(config, required={"resource", "input_fields"}, optional={"idempotency_input", "unique_fields", "primary_key", "minimums"})
     resource = _identifier(cfg["resource"], "resource")
     fields = _input_fields(cfg["input_fields"])
     idem_input = cfg.get("idempotency_input")
@@ -230,6 +230,12 @@ def _factory_crud_create(config: Mapping[str, Any]):
     primary_key = cfg.get("primary_key")
     if primary_key is not None and (not isinstance(primary_key, str) or not re.fullmatch(r"[a-z][a-z0-9_]{0,63}", primary_key)):
         raise ValueError("primary_key must be a lowercase field identifier")
+    minimums = cfg.get("minimums", {})
+    if not isinstance(minimums, Mapping) or any(
+        not isinstance(field, str) or type(value) not in {int, float}
+        for field, value in minimums.items()
+    ):
+        raise ValueError("minimums must map field names to numeric minimums")
     unique_fields = cfg.get("unique_fields", ())
     if not isinstance(unique_fields, (list, tuple)) or any(
         not isinstance(field, str) or not field for field in unique_fields
