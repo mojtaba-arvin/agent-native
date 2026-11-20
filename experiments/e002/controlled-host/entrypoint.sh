@@ -15,7 +15,7 @@ case "$candidate" in
       /opt/candidates/agent_native_e002_wasi_p2.wasm
     ;;
   beam-elixir-otp)
-    exec /opt/candidates/beam-release/bin/agent_native_e002_beam start
+    exec /opt/candidates/beam-release/bin/agent_native_e002_beam eval 'AgentNativeE002Beam.Server.main()'
     ;;
   *)
     echo "unknown E-002 candidate: $candidate" >&2
