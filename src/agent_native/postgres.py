@@ -369,89 +369,103 @@ class PostgresResourceRepository:
         if not isinstance(payload, Mapping) or set(payload) != set(spec.create_fields):
             raise ValueError("resource_payload_fields_mismatch")
         for column in spec.columns:
-            if column.name in payload and not isinstance(payload[column.name], column.python_type):
+            if column.name not in payload:
+                continue
+            value = payload[column.name]
+            if column.sql_type == "BIGINT" and type(value) is not int:
                 raise ValueError("invalid_resource_field:" + column.name)
-        if column.sql_type == "BIGINT" and type(payload[column.name]) is not int:
-            raise ValueError("invalid_resource_field:" + column.name)
+            if column.sql_type == "BOOLEAN" and type(value) is not bool:
+                raise ValueError("invalid_resource_field:" + column.name)
+            if column.sql_type == "DOUBLE PRECISION" and (
+                type(value) not in {int, float} or isinstance(value, bool)
+            ):
+                raise ValueError("invalid_resource_field:" + column.name)
+            if column.sql_type not in {"BIGINT", "BOOLEAN", "DOUBLE PRECISION"} and not isinstance(value, column.python_type):
+                raise ValueError("invalid_resource_field:" + column.name)
         if idempotency_key is not None and (
             not isinstance(idempotency_key, str) or not idempotency_key.strip()
         ):
             raise ValueError("invalid_idempotency_key")
-        canonical = self._canonical(payload)
-        digest = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+        digest = hashlib.sha256(self._canonical(payload).encode("utf-8")).hexdigest()
         result = dict(payload)
         if spec.generated_key:
             result[spec.key] = str(uuid.uuid4())
 
         psycopg, _sql, _row = self._driver()
-        committed = False
         try:
             with self._connect() as connection:
                 with connection.transaction():
+                    previous = None
                     if idempotency_key is not None:
                         lock = json.dumps([tenant_id, resource, idempotency_key], separators=(",", ":"))
-                        connection.execute("SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))", (lock,))
+                        connection.execute(
+                            "SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))", (lock,)
+                        )
                         previous = connection.execute(
                             "SELECT request_sha256,response_json FROM " + self.schema +
                             ".idempotency_keys WHERE tenant_id=%s AND resource=%s AND idempotency_key=%s",
                             (tenant_id, resource, idempotency_key),
                         ).fetchone()
-                        if previous:
-                            if previous["request_sha256"] != digest:
-                                raise DomainFault("Conflict", "idempotency_key_reused_with_different_request")
-                            result = previous["response_json"]
-                            if audit_event is not None:
-                                self.write_in_transaction(connection, audit_event)
-                if previous if idempotency_key is not None else False:
-                    committed = True
-                else:
-                    columns = ["tenant_id"] + [column.name for column in spec.columns]
-                    values = [tenant_id] + [result[column.name] for column in spec.columns]
-                    placeholders = ", ".join(["%s"] * len(columns))
-                    connection.execute(
-                        "INSERT INTO " + self.schema + "." + resource +
-                        " (" + ", ".join(columns) + ") VALUES (" + placeholders + ")",
-                        values,
-                    )
-                    if idempotency_key is not None:
+                    if previous is not None:
+                        if previous["request_sha256"] != digest:
+                            raise DomainFault("Conflict", "idempotency_key_reused_with_different_request")
+                        result = previous["response_json"]
+                        if audit_event is not None:
+                            self.write_in_transaction(connection, audit_event)
+                    else:
+                        columns = ["tenant_id"] + [column.name for column in spec.columns]
+                        values = [tenant_id] + [result[column.name] for column in spec.columns]
                         connection.execute(
-                            "INSERT INTO " + self.schema +
-                            ".idempotency_keys(tenant_id,resource,idempotency_key,request_sha256,response_json) "
-                            "VALUES(%s,%s,%s,%s,%s::jsonb)",
-                            (tenant_id, resource, idempotency_key, digest, self._canonical(result)),
+                            "INSERT INTO " + self.schema + "." + resource +
+                            " (" + ", ".join(columns) + ") VALUES (" +
+                            ", ".join(["%s"] * len(columns)) + ")",
+                            values,
                         )
-                    self._commit_write(
-                        connection, resource=resource, operation="created",
-                        tenant_id=tenant_id, result=result,
-                        audit_event=audit_event, audit_receipt=audit_receipt,
-                    )
-                    committed = True
+                        if idempotency_key is not None:
+                            connection.execute(
+                                "INSERT INTO " + self.schema +
+                                ".idempotency_keys(tenant_id,resource,idempotency_key,request_sha256,response_json) "
+                                "VALUES(%s,%s,%s,%s,%s::jsonb)",
+                                (tenant_id, resource, idempotency_key, digest, self._canonical(result)),
+                            )
+                        self._commit_write(
+                            connection, resource=resource, operation="created",
+                            tenant_id=tenant_id, result=result, audit_event=audit_event,
+                        )
             if audit_event is not None and audit_receipt is not None:
                 audit_receipt.mark_committed()
             self._fault("after_commit")
             return result
         except psycopg.errors.UniqueViolation as error:
-            if audit_receipt is not None:
+            if audit_event is not None and audit_receipt is not None:
                 audit_receipt.mark_failed()
             raise DomainFault("Conflict", "resource_conflict") from error
         except Exception:
-            if audit_event is not None and audit_receipt is not None and not committed:
+            if audit_event is not None and audit_receipt is not None and not audit_receipt.committed:
                 audit_receipt.mark_failed()
             raise
 
-    def update(self, resource: str, key_value: Any, payload: Mapping[str, Any], *,
-               tenant_id: str, audit_event: Mapping[str, Any] | None = None,
-               audit_receipt: Any = None):
+
+    def update(
+        self, resource: str, key_value: Any, payload: Mapping[str, Any], *,
+        tenant_id: str, audit_event: Mapping[str, Any] | None = None,
+        audit_receipt: Any = None,
+    ):
         spec = self._resource(resource)
         allowed = {column.name for column in spec.columns} - {spec.key}
         if not isinstance(payload, Mapping) or not payload or not set(payload).issubset(allowed):
             raise ValueError("resource_update_fields_mismatch")
         for column in spec.columns:
-            if column.name in payload and not isinstance(payload[column.name], column.python_type):
-                raise ValueError("invalid_resource_field:" + column.name)
+            if column.name in payload:
+                value = payload[column.name]
+                if column.sql_type == "BIGINT" and type(value) is not int:
+                    raise ValueError("invalid_resource_field:" + column.name)
+                if column.sql_type == "BOOLEAN" and type(value) is not bool:
+                    raise ValueError("invalid_resource_field:" + column.name)
+                if column.sql_type not in {"BIGINT", "BOOLEAN", "DOUBLE PRECISION"} and not isinstance(value, column.python_type):
+                    raise ValueError("invalid_resource_field:" + column.name)
         assignments = ", ".join(field + " = %s" for field in sorted(payload))
         values = [payload[field] for field in sorted(payload)] + [tenant_id, key_value]
-        committed = False
         try:
             with self._connect() as connection:
                 with connection.transaction():
@@ -463,23 +477,23 @@ class PostgresResourceRepository:
                     if result is not None:
                         self._commit_write(
                             connection, resource=resource, operation="updated",
-                            tenant_id=tenant_id, result=result,
-                            audit_event=audit_event, audit_receipt=audit_receipt,
+                            tenant_id=tenant_id, result=result, audit_event=audit_event,
                         )
-                        committed = True
             if result is not None and audit_event is not None and audit_receipt is not None:
                 audit_receipt.mark_committed()
             self._fault("after_commit")
             return result
         except Exception:
-            if audit_event is not None and audit_receipt is not None and not committed:
+            if audit_event is not None and audit_receipt is not None and not audit_receipt.committed:
                 audit_receipt.mark_failed()
             raise
 
-    def delete(self, resource: str, key_value: Any, *, tenant_id: str,
-               audit_event: Mapping[str, Any] | None = None, audit_receipt: Any = None) -> bool:
+
+    def delete(
+        self, resource: str, key_value: Any, *, tenant_id: str,
+        audit_event: Mapping[str, Any] | None = None, audit_receipt: Any = None,
+    ) -> bool:
         spec = self._resource(resource)
-        committed = False
         try:
             with self._connect() as connection:
                 with connection.transaction():
@@ -492,23 +506,24 @@ class PostgresResourceRepository:
                     if result is not None:
                         self._commit_write(
                             connection, resource=resource, operation="deleted",
-                            tenant_id=tenant_id, result=result,
-                            audit_event=audit_event, audit_receipt=audit_receipt,
+                            tenant_id=tenant_id, result=result, audit_event=audit_event,
                         )
-                        committed = True
             if result is not None and audit_event is not None and audit_receipt is not None:
                 audit_receipt.mark_committed()
             self._fault("after_commit")
             return result is not None
         except Exception:
-            if audit_event is not None and audit_receipt is not None and not committed:
+            if audit_event is not None and audit_receipt is not None and not audit_receipt.committed:
                 audit_receipt.mark_failed()
             raise
 
-    def publish(self, event_type: str, payload: Mapping[str, Any], *,
-                tenant_id: str, request_id: str,
-                audit_event: Mapping[str, Any] | None = None,
-                audit_receipt: Any = None):
+
+    def publish(
+        self, event_type: str, payload: Mapping[str, Any], *,
+        tenant_id: str, request_id: str,
+        audit_event: Mapping[str, Any] | None = None,
+        audit_receipt: Any = None,
+    ):
         if not isinstance(payload, Mapping):
             raise ValueError("event_payload_must_be_object")
         if not isinstance(tenant_id, str) or not tenant_id:
@@ -516,7 +531,6 @@ class PostgresResourceRepository:
         if not isinstance(request_id, str) or not request_id:
             raise ValueError("request_id_required")
         event_id = str(uuid.uuid4())
-        committed = False
         try:
             with self._connect() as connection:
                 with connection.transaction():
@@ -527,15 +541,15 @@ class PostgresResourceRepository:
                         event_type=event_type, payload=payload,
                         created_at=int(audit_event.get("timestamp", 0)) if audit_event else 0,
                     )
-                    committed = True
             if audit_event is not None and audit_receipt is not None:
                 audit_receipt.mark_committed()
             self._fault("after_commit")
             return {"id": event_id, "state": "queued"}
         except Exception:
-            if audit_event is not None and audit_receipt is not None and not committed:
+            if audit_event is not None and audit_receipt is not None and not audit_receipt.committed:
                 audit_receipt.mark_failed()
             raise
+
 
     def close(self) -> None:
         """Connections are scoped to individual operations."""
