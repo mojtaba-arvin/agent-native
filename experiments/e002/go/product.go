@@ -176,7 +176,6 @@ func decodeT16Body(request *http.Request, target any) (json.RawMessage, error) {
 		raw = []byte("{}")
 	}
 	decoder := json.NewDecoder(bytes.NewReader(raw))
-	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(target); err != nil {
 		return nil, err
 	}
@@ -304,6 +303,8 @@ func (app *application) serveProduct(w http.ResponseWriter, request *http.Reques
 	}
 	if strings.Contains(result, "IDEMPOTENCY_CONFLICT") {
 		expectedStatus = http.StatusConflict
+	} else if strings.Contains(result, "INVALID_CONTRACT") {
+		expectedStatus = http.StatusBadRequest
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(expectedStatus)
