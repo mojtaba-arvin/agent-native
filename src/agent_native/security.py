@@ -381,7 +381,7 @@ class CapabilityTokenAuthority:
         if not isinstance(claims, dict) or set(claims) != self._CLAIM_KEYS:
             raise AuthenticationError("invalid_token_claims")
         if (
-            claims["v"] != 1
+            type(claims["v"]) is not int or claims["v"] != 1
             or claims["iss"] != self.issuer
             or claims["aud"] != self.audience
             or not isinstance(claims["sub"], str) or not claims["sub"].strip()
