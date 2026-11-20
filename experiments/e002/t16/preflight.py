@@ -184,6 +184,7 @@ def build_protocol(source_sha: str, pg_version: str) -> dict[str, Any]:
         "source_sha": source_sha,
         "arrival_model": "open_loop",
         "arrival_schedule": "fixed_rate_100_rps",
+        "throughput_measurement": "completed responses divided by the fixed 5000/100-second offer window; completion drain is reported separately",
         "request_mix": REQUEST_MIX,
         "connection_policy": "HTTP/1.1 keep-alive; max 32 concurrent connections",
         "trace_timing_fields": ["scheduled_offset_ms", "offered_at", "started_at", "finished_at"],
