@@ -192,6 +192,10 @@ class PostgresResourceRepository:
             definitions.append(
                 "UNIQUE (tenant_id, " + sql.Identifier(field).as_string(connection) + ")"
             )
+        for field, minimum in resource.minimums:
+            definitions.append(
+                "CHECK (" + sql.Identifier(field).as_string(connection) + " >= " + repr(minimum) + ")"
+            )
         statement = (
             "CREATE TABLE IF NOT EXISTS "
             + self._qualified(resource.name).as_string(connection)
@@ -388,6 +392,9 @@ class PostgresResourceRepository:
                 raise ValueError("invalid_resource_field:" + column.name)
             if column.sql_type not in {"BIGINT", "BOOLEAN", "DOUBLE PRECISION"} and not isinstance(value, column.python_type):
                 raise ValueError("invalid_resource_field:" + column.name)
+        for field, minimum in spec.minimums:
+            if field in payload and payload[field] < minimum:
+                raise DomainFault("InvalidInput", "resource_field_below_minimum:" + field)
         if idempotency_key is not None and (
             not isinstance(idempotency_key, str) or not idempotency_key.strip()
         ):
@@ -470,6 +477,9 @@ class PostgresResourceRepository:
                     raise ValueError("invalid_resource_field:" + column.name)
                 if column.sql_type not in {"BIGINT", "BOOLEAN", "DOUBLE PRECISION"} and not isinstance(value, column.python_type):
                     raise ValueError("invalid_resource_field:" + column.name)
+        for field, minimum in spec.minimums:
+            if field in payload and payload[field] < minimum:
+                raise DomainFault("InvalidInput", "resource_field_below_minimum:" + field)
         assignments = ", ".join(field + " = %s" for field in sorted(payload))
         values = [payload[field] for field in sorted(payload)] + [tenant_id, key_value]
         try:
