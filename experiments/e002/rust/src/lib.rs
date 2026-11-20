@@ -1,9 +1,9 @@
-pub mod product;
-
 //! Testable Rust implementation of the shared E-002 HTTP workload contract.
 //!
 //! This is a runtime spike, not a selected Agent Native production runtime.
 //! The executable listener is provided by the crate binary.
+
+pub mod product;
 
 use std::{convert::Infallible, sync::Arc, time::Duration};
 
