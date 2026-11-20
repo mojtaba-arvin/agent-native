@@ -91,7 +91,7 @@ contract_markers = (
     "1,500 total",
     "not a product database choice",
 )
-missing_contract = [marker for marker in contract if marker not in contract]
+missing_contract = [marker for marker in contract_markers if marker not in contract]
 
 problems = []
 for label, missing in (
