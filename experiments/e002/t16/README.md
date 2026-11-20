@@ -84,7 +84,7 @@ print(f"LOADGEN_CPU={selected[1]}")
 print(f"POSTGRES_CPU={selected[2]}")
 PY
 )"
-docker run --detach --name t16-postgres --network host \
+docker run --detach --name t16-postgres --pid=host --network host \
   --cpus=1 --cpuset-cpus="$POSTGRES_CPU" --memory=2g \
   --env POSTGRES_HOST_AUTH_METHOD=trust \
   --env POSTGRES_DB=agent_native \
@@ -123,7 +123,7 @@ docker rm --force t16-postgres
 
 ## Open-loop request generator
 
-The Go module in `loadgen/` schedules arrivals at a fixed 100 requests/second. Completed throughput is calculated against the exact 50-second offer window for 5,000 requests; final response drain is measured and reported separately so it does not distort the fixed-rate completion ratio. The load generator itself runs in a separately verified one-CPU/one-GiB cgroup on its own physical core.
+The Go module in `loadgen/` schedules arrivals at a fixed 100 requests/second,
 caps in-flight requests at 32, reuses HTTP/1.1 keep-alive connections, and
 deterministically shuffles the exact 60/20/10/10 request mix. Each JSONL record
 captures scheduled offset, offered/start/finish timestamps, request metadata/body,
