@@ -34,13 +34,15 @@ Work on a branch `task/Txx-short-name` created from `origin/research/reboot-core
 
 ## 3. Task contract
 
-Every issue has: Outputs, `acceptance/Txx.sh`, `Depends:` line, `Attempt budget:` line (default 3), Recovery, and exactly one label `kind:code|docs|decision|research|process`.
+Every issue has: Outputs, a `Depends:` line, an `Attempt budget:` line (default 3), Recovery, and exactly one label `kind:code|docs|decision|research|process`.
 
-Order per task, always in separate PRs:
+Every product, documentation, decision, or research task has an `acceptance/Txx.sh` script. A `kind:process` task may omit that script only for (a) workflow or task-gate maintenance that adds or updates automated tests for the changed enforcement behavior, or (b) a rules-only PR that changes exactly `docs/V1_PLAN.md` as described in section 8. Such process PRs still require `Task: Txx`, an open v1 issue, closed dependencies, and a passing task gate.
 
-**PR A:** only `acceptance/Txx.sh` (it must fail meaningfully on current base, say why in the PR). Merge.
+Order per task, always in separate PRs when an acceptance script is required:
 
-**PR B:** the implementation. PR body starts with `Task: Txx`. Acceptance must pass in CI.
+**PR A:** only `acceptance/Txx.sh`. It must fail meaningfully on the current base and explain the missing behavior. The required `acceptance` status check passes PR A only when that expected failure is observed; if the script passes on the unchanged base, PR A fails. Merge PR A.
+
+**PR B:** the implementation. PR body starts with `Task: Txx`. The acceptance script must pass in CI.
 
 A task closes when PR B merges. Close the issue with `Closes #N` in the PR body.
 
@@ -87,6 +89,8 @@ Two agents never work on the same task: the assignee owns it.
 ## 8. Maintenance
 
 Adding a task: open an issue from the template. Changing the rules: a `kind:process` PR editing this file, with a note in the issue that explains why.
+
+A `kind:process` PR that changes only `docs/V1_PLAN.md` is permitted as the exact one-file rules-maintenance exception. Any additional path must satisfy the normal `kind:process` CI/test requirements. Workflow/gate-maintenance process tasks may omit a task acceptance script only when they add or update automated tests for the behavior they change.
 
 A gate false positive: fix `scripts/task_gate.py` plus a new unit test in a `kind:process` PR. Never bypass the gate by editing the workflow to skip it.
 
