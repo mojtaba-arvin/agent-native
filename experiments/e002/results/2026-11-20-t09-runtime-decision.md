@@ -87,3 +87,8 @@ A future decision-grade comparison must implement the same authenticated control
 It must retain request-level traces and per-run summaries, measure the registered latency, throughput, CPU, memory, throttling, storage/audit and idempotency outcomes, and complete the comparable startup, deployable-artifact, ecosystem/operability and failure-semantics inputs. Only then may the T02 weighted score, 10,000-resample paired 95% bootstrap interval, and ±20% weight-sensitivity analysis be evaluated.
 
 Until that evidence exists, the product runtime remains **unselected**. The T09 raw artifact remains diagnostic evidence and is not discarded or rescored as a product benchmark.
+
+
+## 7. Decision integrity
+
+The aggregate `matrix.json` explicitly records `decision_grade: false`. The runner is a **shared GitHub-hosted** environment, not an exclusive physical host. The four candidates are **not rejected as architectures** by this decision; they remain research candidates pending comparable product evidence.
