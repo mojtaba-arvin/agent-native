@@ -69,6 +69,19 @@ class TaskGateTests(unittest.TestCase):
     def test_process_kind_exempt_from_acceptance(self):
         self.assert_passes(make_context([".github/workflows/x.yml", "scripts/task_gate.py"], kind="process", acceptance_exists=False))
 
+    def test_process_rules_only_exception_is_exact(self):
+        self.assert_passes(
+            make_context(["docs/V1_PLAN.md"], kind="process", acceptance_exists=False)
+        )
+        self.assert_fails(
+            make_context(
+                ["docs/V1_PLAN.md", "README.md"],
+                kind="process",
+                acceptance_exists=False,
+            ),
+            "must change at least one",
+        )
+
     def test_process_kind_cannot_touch_product(self):
         self.assert_fails(make_context([".github/workflows/x.yml", "src/a.py"], kind="process"), "may not change")
 
