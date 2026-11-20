@@ -59,8 +59,9 @@ jobs:
           script: |
             const { owner, repo } = context.repo;
             const needsExtended = (path) =>
-              path.startsWith('.github/workflows/') ||
+              path.startsWith('.github/') ||
               path.startsWith('scripts/') ||
+              path.startsWith('acceptance/') ||
               path.startsWith('src/') ||
               path.startsWith('tests/') ||
               path.startsWith('schemas/') ||
