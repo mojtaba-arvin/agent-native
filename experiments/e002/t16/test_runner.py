@@ -3,10 +3,11 @@ from __future__ import annotations
 import sys
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
-from run import aggregate, markdown_report, parse_cpu_list, run_command, verify_candidate_cgroup
+from run import aggregate, markdown_report, parse_cpu_list, run_command, run_loadgen_container, verify_candidate_cgroup
 
 
 class T16RunnerUnitTests(unittest.TestCase):
@@ -101,6 +102,46 @@ class T16RunnerUnitTests(unittest.TestCase):
         self.assertEqual(cohort["attempts"], 1)
         self.assertEqual(cohort["runs"], 1)
         self.assertEqual(cohort["slo_passed_runs"], 0)
+
+    def test_loadgen_container_is_cpu_memory_pinned_and_writes_to_evidence_mount(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "repo"
+            output = root / "experiments/e002/t16"
+            binary = output / "bin"
+            root.mkdir()
+            output.mkdir(parents=True)
+            binary.mkdir()
+            cgroup = Path(directory) / "cgroup"
+            cgroup.mkdir()
+            calls = []
+            def command(args, **kwargs):
+                calls.append(args)
+                if args[:2] == ["docker", "wait"]:
+                    return "0"
+                if args[:2] == ["docker", "logs"]:
+                    return "loadgen summary"
+                return ""
+            with mock.patch("run.run_command", side_effect=command), \
+                 mock.patch("run.container_cgroup", return_value=cgroup), \
+                 mock.patch("run.verify_candidate_cgroup", return_value={
+                     "cpu_max": "100000 100000", "cpuset_cpus_effective": "3",
+                     "memory_max_bytes": 1073741824,
+                 }) as verify:
+                result = run_loadgen_container(
+                    "t16-loadgen-test", ["--requests", "10"], 3,
+                    root, binary, output, "read-secret", "deny-secret",
+                )
+            self.assertEqual(result["limits"]["cpuset_cpus_effective"], "3")
+            verify.assert_called_once_with(cgroup, 3)
+            docker_run = calls[0]
+            self.assertIn("--cpus=1", docker_run)
+            self.assertIn("--cpuset-cpus=3", docker_run)
+            self.assertIn("--memory=1g", docker_run)
+            self.assertIn(f"{output}:/evidence:rw", docker_run)
+            self.assertIn(f"{root}:/src:ro", docker_run)
+            self.assertIn("T16_READ_TOKEN=read-secret", docker_run)
+            self.assertIn("T16_DENY_TOKEN=deny-secret", docker_run)
+            self.assertEqual(calls[-1][:4], ["docker", "rm", "--force", "t16-loadgen-test"])
 
     def test_command_runner_can_record_expected_failure_without_raising(self):
         import sys
