@@ -50,7 +50,7 @@ impl PsqlWorker {
             if count == 0 {
                 return Err("psql_worker_exited".to_owned());
             }
-            let line = line.trim_end_matches(['\r', '\n']);
+            let line = line.trim_end_matches(&['\r', '\n'][..]);
             if line == DONE {
                 break;
             }
