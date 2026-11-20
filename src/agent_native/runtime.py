@@ -74,7 +74,7 @@ class AuditReceipt:
         self._fallback_recorded = True
 
     def mark_failed(self) -> None:
-        \"\"\"Record that the atomic write rolled back; do not append a split audit row.\"\"\"
+        """Record that the atomic write rolled back; do not append a split audit row."""
         self._failed = True
 
 
