@@ -13,6 +13,7 @@ import os
 import platform
 import re
 import shutil
+import shlex
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -210,8 +211,8 @@ def main() -> int:
                         help="operator-supplied JSON attesting dedicated physical-host tenancy")
     parser.add_argument("--output", type=Path, default=Path("experiments/e002/t16"))
     parser.add_argument("--source-sha", default=os.getenv("GITHUB_SHA", ""))
-    parser.add_argument("--command", nargs="+", required=True,
-                        help="exact command that will execute the preregistered measurement")
+    parser.add_argument("--command", required=True,
+                        help="exact shell command that will execute the preregistered measurement")
     parser.add_argument("--postgres-dsn", default=os.getenv("AGENT_NATIVE_E002_POSTGRES_DSN", ""))
     args = parser.parse_args()
     try:
@@ -220,7 +221,7 @@ def main() -> int:
             raise ValueError("AGENT_NATIVE_E002_POSTGRES_DSN_required")
         pg_version = postgres_version(args.postgres_dsn)
         host = collect_host(attestation, pg_version)
-        prereg = build_preregistration(args.source_sha, args.command)
+        prereg = build_preregistration(args.source_sha, shlex.split(args.command))
         protocol = build_protocol(args.source_sha, pg_version)
         args.output.mkdir(parents=True, exist_ok=True)
         for name, value in (("prereg.json", prereg), ("host.json", host), ("protocol.json", protocol)):
