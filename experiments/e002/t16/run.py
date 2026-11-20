@@ -505,7 +505,7 @@ def main() -> int:
                         "--target", "http://127.0.0.1:8080", "--requests", str(REQUESTS),
                         "--concurrency", str(CONCURRENCY), "--warmup", "0",
                         "--target-rps", str(TARGET_RPS), "--run-id", run_id,
-                        "--output-prefix", "/src/" + str(prefix.relative_to(root)),
+                        "--output-prefix", "/evidence/" + str(prefix.relative_to(output)),
                     ]
                     loadgen_measured = run_loadgen_container(
                         f"t16-loadgen-measured-{uuid.uuid4().hex[:8]}",
