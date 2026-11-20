@@ -61,3 +61,5 @@ One unplanned duplicate, [44541147095](https://github.com/mojtaba-arvin/agent-na
 M3-005 is complete as a bounded negative feasibility rerun. Primary run [44539287065](https://github.com/mojtaba-arvin/agent-native/actions/runs/44539287065), artifact #14538178152 (SHA-256 `94d2d6d3ddee3f5a11467601bacbbe5619a7dda95f603f9022846718c2f6c8d4`), produced 0/6 full lifecycle completions. Provider telemetry proves native tool definitions were exposed correctly. Progressive 1B/3B repeated `interface.describe`; upfront 3B reached successful validation but exceeded the fixed 12,000-token budget before planning. No model qualifies.
 
 M3-008 is active: add runner-side duplicate discovery/inspection handling and deduplicate compacted outcomes without changing budgets or the model lock. M3-007 (alternate model cohort) is deferred until M3-008 completes. The separate unplanned docs-triggered run #44541147095 is retained but not pooled.
+
+<!-- T00 gate probe: intentionally touches frozen legacy state. -->
