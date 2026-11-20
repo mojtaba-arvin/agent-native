@@ -1,6 +1,11 @@
 from __future__ import annotations
 
 import os
+import signal
+import subprocess
+import sys
+import tempfile
+import time
 import unittest
 import uuid
 from pathlib import Path
@@ -30,9 +35,10 @@ class ProductionCorePostgresTests(unittest.TestCase):
             adapters=RuntimeAdapters(
                 repository=self.repository,
                 jobs=object(),
-                events=object(),
+                events=self.repository,
             ),
             clock=lambda: 100,
+            audit_sink=self.repository,
         )
 
     def tearDown(self) -> None:
@@ -222,6 +228,158 @@ class ProductionCorePostgresTests(unittest.TestCase):
         )
         self.assertEqual(unauthorized.status_code, 403)
         self.assertEqual(unauthorized.body["error"]["code"], "Unauthorized")
+
+
+    def test_migrations_are_derived_from_catalog_and_inventory_ir(self) -> None:
+        history = self.repository.migration_history()
+        self.assertEqual({row["service_id"] for row in history}, {"catalog", "inventory"})
+        self.assertTrue(all(row["checksum"] for row in history))
+        items = self.repository.resource_schema("items")
+        stock = self.repository.resource_schema("stock")
+        self.assertEqual(items.key, "id")
+        self.assertTrue(items.generated_key)
+        self.assertEqual(items.unique_fields, ("name",))
+        self.assertEqual(
+            [(column.name, column.sql_type) for column in items.columns],
+            [("id", "UUID"), ("name", "TEXT")],
+        )
+        self.assertEqual(stock.key, "sku")
+        self.assertFalse(stock.generated_key)
+        self.assertEqual(
+            [(column.name, column.sql_type) for column in stock.columns],
+            [("sku", "TEXT"), ("quantity", "BIGINT"), ("warehouse_id", "TEXT")],
+        )
+        with self.repository._connect() as db:
+            item_columns = {
+                row["column_name"]: row["data_type"]
+                for row in db.execute(
+                    "SELECT column_name,data_type FROM information_schema.columns "
+                    "WHERE table_schema=%s AND table_name='items'",
+                    (self.schema,),
+                ).fetchall()
+            }
+            stock_columns = {
+                row["column_name"]: row["data_type"]
+                for row in db.execute(
+                    "SELECT column_name,data_type FROM information_schema.columns "
+                    "WHERE table_schema=%s AND table_name='stock'",
+                    (self.schema,),
+                ).fetchall()
+            }
+        self.assertEqual(item_columns["id"], "uuid")
+        self.assertEqual(item_columns["name"], "text")
+        self.assertEqual(stock_columns["quantity"], "bigint")
+
+    def test_mutation_commits_data_audit_and_outbox_atomically(self) -> None:
+        response = self.host.dispatch(
+            "catalog", "POST", "/items", {"name": "Atomic lamp"},
+            self._catalog_identity(),
+            headers={"idempotency-key": "atomic-create-001"},
+            request_id="atomic-request-001",
+        )
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(self.repository.counts(), {
+            "audit_log": 1, "outbox": 1, "idempotency_keys": 1,
+        })
+        self.assertEqual(self.repository.audit_events(tenant_id="tenant-a")[0]["operation"], "create_item")
+        event = self.repository.outbox_events(tenant_id="tenant-a")[0]
+        self.assertEqual(event["event_type"], "items.created")
+        self.assertEqual(event["request_id"], "atomic-request-001")
+        self.assertEqual(event["payload_json"]["data"], response.body["data"])
+        self.assertEqual(
+            self.repository.read("items", response.body["data"]["id"], tenant_id="tenant-a"),
+            response.body["data"],
+        )
+
+    def test_mutation_failure_rolls_back_data_audit_and_outbox(self) -> None:
+        def fail_after_audit(stage):
+            if stage == "after_audit":
+                raise OSError("injected_failure_after_audit_write")
+
+        self.repository._fault_hook = fail_after_audit
+        response = self.host.dispatch(
+            "catalog", "POST", "/items", {"name": "Must roll back"},
+            self._catalog_identity(),
+            headers={"idempotency-key": "atomic-rollback-001"},
+            request_id="atomic-rollback-request",
+        )
+        self.repository._fault_hook = None
+        self.assertEqual(response.status_code, 500)
+        self.assertEqual(self.repository.counts(), {
+            "audit_log": 0, "outbox": 0, "idempotency_keys": 0,
+        })
+        self.assertIsNone(
+            self.repository.read_by_field("items", "name", "Must roll back", tenant_id="tenant-a")
+        )
+
+    def test_sigkill_after_commit_before_response_reconciles(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            marker = Path(directory) / "committed.marker"
+            child = r"""
+import sys
+import time
+from pathlib import Path
+from agent_native import PostgresResourceRepository, RuntimeAdapters, ServiceHost, built_in_handler_registry, Grant, RequestContext
+
+dsn, schema, marker, services_root = sys.argv[1:]
+def stop_after_commit(stage):
+    if stage == "after_commit":
+        Path(marker).write_text("commit returned from PostgreSQL", encoding="utf-8")
+        while True:
+            time.sleep(1)
+
+repository = PostgresResourceRepository(dsn, schema=schema, _fault_hook=stop_after_commit)
+host = ServiceHost(
+    services_root,
+    handlers=built_in_handler_registry(),
+    adapters=RuntimeAdapters(repository=repository, jobs=object(), events=repository),
+    clock=lambda: 100,
+    audit_sink=repository,
+)
+identity = RequestContext(
+    principal_id="principal-tenant-a",
+    tenant_id="tenant-a",
+    now=100,
+    grants=(Grant("principal-tenant-a", "tenant-a", "items.create", "/items"),),
+)
+host.dispatch(
+    "catalog", "POST", "/items", {"name": "SIGKILL lamp"}, identity,
+    headers={"idempotency-key": "sigkill-commit-001"},
+    request_id="sigkill-original-request",
+)
+"""
+            environment = dict(os.environ)
+            environment["PYTHONPATH"] = str(ROOT / "src")
+            process = subprocess.Popen(
+                [sys.executable, "-c", child, DSN, self.schema, str(marker), str(ROOT / "services")],
+                cwd=ROOT,
+                env=environment,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+            deadline = time.monotonic() + 20
+            while not marker.exists() and process.poll() is None and time.monotonic() < deadline:
+                time.sleep(0.05)
+            if not marker.exists():
+                process.kill()
+                stdout, stderr = process.communicate(timeout=5)
+                self.fail("child did not reach post-commit pause: " + stdout + stderr)
+            process.send_signal(signal.SIGKILL)
+            return_code = process.wait(timeout=10)
+            self.assertEqual(return_code, -signal.SIGKILL)
+
+        retry = self.host.dispatch(
+            "catalog", "POST", "/items", {"name": "SIGKILL lamp"},
+            self._catalog_identity(),
+            headers={"idempotency-key": "sigkill-commit-001"},
+            request_id="sigkill-retry-request",
+        )
+        self.assertEqual(retry.status_code, 201)
+        self.assertEqual(retry.body["data"]["name"], "SIGKILL lamp")
+        self.assertEqual(self.repository.counts(), {
+            "audit_log": 2, "outbox": 1, "idempotency_keys": 1,
+        })
 
 
 if __name__ == "__main__":
