@@ -41,6 +41,7 @@ missing_implementation = [marker for marker in implementation_markers if marker 
 test_markers = (
     "func TestParseWorkMS(",
     "func TestWorkCompletesBeforeDeadline(",
+    "func TestRegisteredAdmissionLimitIs64(",
     "func TestWorkTimesOutAtRegisteredDeadline(",
     "func TestWorkAdmissionIsBoundedAndReleasesCapacity(",
     "func TestWorkTimeoutReleasesAdmissionCapacity(",
@@ -85,5 +86,5 @@ for label, items in (
             print(f"- {item}")
         sys.exit(1)
 
-print("T08 acceptance: Go workload tests, Layer 1 locked-toolchain build, shared HTTP checks, and evidence record are present.")
+print("T08 acceptance: Go workload tests, pinned Go toolchain build, shared HTTP checks, and evidence record are present.")
 PY
