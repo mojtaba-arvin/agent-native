@@ -134,11 +134,11 @@ class HTTPConformanceTests(unittest.TestCase):
         try:
             with urllib.request.urlopen(request, timeout=5) as response:
                 status = response.status
-                response_headers = dict(response.headers.items())
+                response_headers = {name.lower(): value for name, value in response.headers.items()}
                 raw_body = response.read()
         except urllib.error.HTTPError as error:
             status = error.code
-            response_headers = dict(error.headers.items())
+            response_headers = {name.lower(): value for name, value in error.headers.items()}
             raw_body = error.read()
         payload = json.loads(raw_body) if raw_body else None
         return status, response_headers, raw_body, payload
@@ -401,7 +401,7 @@ class HTTPConformanceTests(unittest.TestCase):
             "POST", "/items", body={"name": "Replay lamp"}, headers=headers
         )
         self.assertEqual(replay[0], 200)
-        self.assertEqual(replay[1].get("Idempotency-Replayed"), "true")
+        self.assertEqual(replay[1].get("idempotency-replayed"), "true")
         self.assert_http_contract(replay, request_id_in_body=True)
         self.assertEqual(replay[3]["data"], first[3]["data"])
 
