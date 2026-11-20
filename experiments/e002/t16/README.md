@@ -30,9 +30,11 @@ python3 experiments/e002/t16/preflight.py \
 ```
 
 The output directory is `experiments/e002/t16/` and contains the immutable
-pre-registration, host manifest, and protocol. The runner is implemented in
-`run.py`; its end-to-end candidate path is being verified by CI before any
-controlled-host result is claimed. Do not commit generated evidence.
+pre-registration, host manifest, and protocol. `run.py` verifies the checked-out
+source SHA and clean tracked worktree before building the candidates. CI covers
+unit, PostgreSQL, container-build, and candidate conformance checks; none of
+those shared-runner checks is a controlled-host capacity result. Do not commit
+generated evidence.
 
 
 ## Controlled-host setup and execution
@@ -93,11 +95,12 @@ docker rm --force t16-postgres
 ## Open-loop request generator
 
 The Go module in `loadgen/` schedules arrivals at a fixed 100 requests/second,
-caps in-flight requests at 32, and deterministically shuffles the exact
-60/20/10/10 request mix. It keeps expected 403 capability denials in completed
+caps in-flight requests at 32, reuses HTTP/1.1 keep-alive connections, and
+deterministically shuffles the exact 60/20/10/10 request mix. Each JSONL record
+captures scheduled offset, offered/start/finish timestamps, request metadata/body,
+and response metadata/body. It keeps expected 403 capability denials in completed
 throughput, while treating transport errors and malformed response envelopes
-as failures. Each JSONL record retains request metadata/body and response
-metadata/body, but never stores bearer-token values.
+as failures; bearer-token values are never written to traces.
 
 The expected candidate HTTP contract is:
 
@@ -136,14 +139,13 @@ candidates before recording measured runs.
 - The generated host manifest deliberately records
   `postgres_separate_from_candidate_cgroup: false`. A preflight cannot prove
   that the database is outside the candidate cgroup before the candidate is
-  launched. A future runner must verify and update this only from observed
-  process/cgroup data.
+  launched. `run.py` updates this only after comparing the observed PostgreSQL backend
+  and candidate process cgroup paths and verifying their distinct CPU allocations.
 - T16 now adds a separate authenticated product API to both candidate binaries. The
   original E-002 `/health`, `/work`, and `/stream` toy routes remain for the
   earlier experiments. The product API uses the same PostgreSQL transaction
   function and persistent psql client pool in both runtimes; candidate and
-  PostgreSQL processes are accounted in separate cgroups. CI verifies the Go
-  HTTP path and Rust PostgreSQL pool, while the controlled-host runner performs
-  end-to-end conformance against both candidates before measuring.
+  PostgreSQL processes are accounted in separate cgroups. CI verifies both candidate HTTP paths against PostgreSQL, while the
+  controlled-host runner repeats end-to-end conformance on the attested host before measuring.
 - Shared GitHub-hosted CI is suitable for deterministic unit tests and
   compilation only; its measurements cannot satisfy the dedicated-host gate.
