@@ -381,7 +381,7 @@ def main() -> int:
                 command = [
                     "taskset", "-c", str(host["load_generator_cpu"]), str(loadgen),
                     "--target", "http://127.0.0.1:8080", "--requests", str(REQUESTS),
-                    "--concurrency", str(CONCURRENCY), "--target-rps", str(TARGET_RPS),
+                    "--concurrency", str(CONCURRENCY), "--warmup", "0", "--target-rps", str(TARGET_RPS),
                     "--run-id", run_id, "--read-token", "$T16_READ_TOKEN",
                     "--deny-token", "$T16_DENY_TOKEN", "--output-prefix", str(prefix),
                 ]
