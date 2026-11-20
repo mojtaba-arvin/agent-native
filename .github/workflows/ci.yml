@@ -371,6 +371,14 @@ jobs:
           WASMTIME_BIN="$(find "$RUNNER_TEMP" -type f -name wasmtime -perm -111 -print -quit)"
           test -n "$WASMTIME_BIN"
           cp "$WASMTIME_BIN" "$BUNDLE/wasmtime"
+          {
+            echo "Go: $(go version)"
+            echo "Rust: $(rustc --version)"
+            echo "Cargo: $(cargo --version)"
+            echo "Wasmtime: $("$WASMTIME_BIN" --version)"
+            echo "Elixir and Erlang/OTP:"
+            elixir --version
+          } > "$BUNDLE/toolchains.txt"
           cp -a experiments/e002/beam/_build/prod/rel/agent_native_e002_beam "$BUNDLE/beam-release"
           chmod 0755 "$BUNDLE/e002-go" "$BUNDLE/e002-rust" "$BUNDLE/wasmtime"
 
