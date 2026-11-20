@@ -52,7 +52,7 @@ class PostgresResourceRepository:
 
     def _connect(self):
         psycopg, _sql, dict_row = self._driver()
-        connection = psycopg.connect(self.dsn, row_factory=dict_row)
+        connection = psycopg.connect(\n            self.dsn, row_factory=dict_row, options=f"-c search_path={self.schema}"\n        )
         connection.execute("SET synchronous_commit TO on")
         connection.execute("SET statement_timeout TO '10s'")
         return connection
