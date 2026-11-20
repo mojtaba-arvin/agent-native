@@ -108,7 +108,7 @@ v1 is immutable. In particular:
 - Any incompatible structural **or semantic** change requires a new integer IR version and a new versioned schema file (for example, \`service-ir-v2.schema.json\`). Keep the v1 schema and v1 validator behavior available for v1 documents.
 - Consumers dispatch by the integer \`ir_version\`. Unknown or unsupported versions fail closed; a consumer must not reinterpret v2 as v1 or select a schema by guesswork.
 
-A future v1-to-v2 migration must be an explicit, version-named transformation. It must declare its source and target versions, be deterministic, preserve the meaning of every source declaration, and reject source values it cannot represent. It must not silently discard unknown fields, synthesize authority/capabilities, or invent defaults. The existence of a v2 schema does not imply an automatic migration or an automatic downgrade path.
+A future v1-to-v2 change requires an explicit migration function named for its source and target versions; this is an explicit migration, not an automatic reinterpretation. It must declare its source and target versions, be deterministic, preserve the meaning of every source declaration, and reject source values it cannot represent. It must not silently discard unknown fields, synthesize authority/capabilities, or invent defaults. The existence of a v2 schema does not imply an automatic migration or an automatic downgrade path.
 
 These rules apply to the IR protocol version only. A service release string or a manifest envelope \`schema_version\` may evolve independently without changing \`ir_version\`, provided the embedded IR remains valid v1.
 
