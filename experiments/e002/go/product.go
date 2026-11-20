@@ -226,6 +226,7 @@ func (app *application) serveProduct(w http.ResponseWriter, request *http.Reques
 	}
 
 	operation, resourceID, expectedStatus := "", "", http.StatusOK
+	targetOperation := "catalog.read"
 	var body json.RawMessage
 	switch {
 	case request.Method == http.MethodGet && request.URL.Path == "/v1/records/fixture-0001":
@@ -239,6 +240,7 @@ func (app *application) serveProduct(w http.ResponseWriter, request *http.Reques
 		}
 		body = raw
 		operation = "validate_plan"
+		targetOperation = "operations.validate"
 	case request.Method == http.MethodPost && request.URL.Path == "/v1/jobs":
 		var decoded jobRequest
 		raw, err := decodeT16Body(request, &decoded)
@@ -253,6 +255,7 @@ func (app *application) serveProduct(w http.ResponseWriter, request *http.Reques
 		}
 		if allowed && assertedTenant == app.product.tenant {
 			operation, expectedStatus = "job_admission", http.StatusAccepted
+			targetOperation = "jobs.create"
 		} else {
 			operation, expectedStatus = "expected_denial", http.StatusForbidden
 		}
@@ -278,6 +281,7 @@ func (app *application) serveProduct(w http.ResponseWriter, request *http.Reques
 		"principal_id": principal,
 		"tenant_id": app.product.tenant,
 		"operation": operation,
+		"target_operation": targetOperation,
 		"resource_id": resourceID,
 		"body": body,
 	}
