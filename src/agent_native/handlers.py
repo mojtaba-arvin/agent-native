@@ -221,18 +221,26 @@ def _factory_crud_list(config: Mapping[str, Any]):
 
 
 def _factory_crud_create(config: Mapping[str, Any]):
-    cfg = _config(config, required={"resource", "input_fields"}, optional={"idempotency_input"})
+    cfg = _config(config, required={"resource", "input_fields"}, optional={"idempotency_input", "unique_fields"})
     resource = _identifier(cfg["resource"], "resource")
     fields = _input_fields(cfg["input_fields"])
     idem_input = cfg.get("idempotency_input")
     if idem_input is not None and not isinstance(idem_input, str):
         raise ValueError("idempotency_input must be a string")
+    unique_fields = cfg.get("unique_fields", ())
+    if not isinstance(unique_fields, (list, tuple)) or any(
+        not isinstance(field, str) or not field for field in unique_fields
+    ) or len(unique_fields) != len(set(unique_fields)):
+        raise ValueError("unique_fields must be a unique string array")
 
     def handle(context: HandlerContext):
         tenant_id = _tenant_id(context)
         idem = _value(context, idem_input) if idem_input else None
+        kwargs = {"tenant_id": tenant_id, "idempotency_key": idem}
+        if context.audit_receipt is not None:
+            kwargs.update(audit_event=context.audit_event, audit_receipt=context.audit_receipt)
         result = _adapter(context, "repository", "create")(
-            resource, _payload(context, fields), tenant_id=tenant_id, idempotency_key=idem
+            resource, _payload(context, fields), **kwargs
         )
         return HandlerResult(result, status_code=201)
     return handle
@@ -248,8 +256,11 @@ def _factory_crud_update(config: Mapping[str, Any]):
 
     def handle(context: HandlerContext):
         tenant_id = _tenant_id(context)
+        kwargs = {"tenant_id": tenant_id}
+        if context.audit_receipt is not None:
+            kwargs.update(audit_event=context.audit_event, audit_receipt=context.audit_receipt)
         result = _adapter(context, "repository", "update")(
-            resource, _value(context, key_input), _payload(context, fields), tenant_id=tenant_id
+            resource, _value(context, key_input), _payload(context, fields), **kwargs
         )
         if result is None:
             raise DomainFault("NotFound")
@@ -266,8 +277,11 @@ def _factory_crud_delete(config: Mapping[str, Any]):
 
     def handle(context: HandlerContext):
         tenant_id = _tenant_id(context)
+        kwargs = {"tenant_id": tenant_id}
+        if context.audit_receipt is not None:
+            kwargs.update(audit_event=context.audit_event, audit_receipt=context.audit_receipt)
         deleted = _adapter(context, "repository", "delete")(
-            resource, _value(context, key_input), tenant_id=tenant_id
+            resource, _value(context, key_input), **kwargs
         )
         if not deleted:
             raise DomainFault("NotFound")
@@ -340,8 +354,11 @@ def _factory_events_publish(config: Mapping[str, Any]):
     fields = _input_fields(cfg["input_fields"])
 
     def handle(context: HandlerContext):
+        kwargs = {"tenant_id": _tenant_id(context), "request_id": context.request_id}
+        if context.audit_receipt is not None:
+            kwargs.update(audit_event=context.audit_event, audit_receipt=context.audit_receipt)
         result = _adapter(context, "events", "publish")(
-            event_type, _payload(context, fields), tenant_id=_tenant_id(context), request_id=context.request_id
+            event_type, _payload(context, fields), **kwargs
         )
         return HandlerResult(result, status_code=202)
     return handle
