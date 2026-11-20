@@ -5,7 +5,7 @@ import json
 import unittest
 from pathlib import Path
 
-from agent_native import Diagnostic, IR_VERSION, Parser, validate_ir
+from agent_native import Diagnostic, Parser, validate_ir
 
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_PATH = ROOT / "schemas" / "service-ir-v1.schema.json"
@@ -54,8 +54,7 @@ class ServiceIRV1ContractTests(unittest.TestCase):
         self.assertEqual(conditional["then"]["properties"]["errors"]["contains"], {"const": "InvalidInput"})
 
     def test_parser_emits_the_frozen_version_and_exact_root_shape(self) -> None:
-        self.assertEqual(IR_VERSION, 1)
-        self.assertEqual(self.ir["ir_version"], IR_VERSION)
+        self.assertEqual(self.ir["ir_version"], 1)
         self.assertEqual(set(self.ir), {"ir_version", "service", "types", "operations"})
         validate_ir(self.ir)
 
