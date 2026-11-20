@@ -154,6 +154,12 @@ impl ProductConfig {
 
         let method = request.method().as_str();
         let path = request.uri().path();
+        let target_operation = match path {
+            "/v1/records/fixture-0001" => "catalog.read",
+            "/v1/operations/validate" => "operations.validate",
+            "/v1/jobs" => "jobs.create",
+            _ => "unknown",
+        };
         let (mut operation, resource_id, mut status) = match (method, path) {
             ("GET", "/v1/records/fixture-0001") => ("authorized_read", "fixture-0001", StatusCode::OK),
             ("POST", "/v1/operations/validate") => ("validate_plan", "", StatusCode::OK),
@@ -200,7 +206,7 @@ impl ProductConfig {
             "CAPABILITY_DENIED"
         };
         let mut payload = format!(
-            r#"{{"request_id":"{request_id}","principal_id":"{principal}","tenant_id":"{}","operation":"{operation}","resource_id":"{resource_id}","body":{body_text}"#,
+            r#"{{"request_id":"{request_id}","principal_id":"{principal}","tenant_id":"{}","operation":"{operation}","target_operation":"{target_operation}","resource_id":"{resource_id}","body":{body_text}"#,
             self.tenant
         );
         if operation == "job_admission" || operation == "expected_denial" {
