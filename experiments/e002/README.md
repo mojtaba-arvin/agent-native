@@ -175,3 +175,36 @@ GitHub Actions shared runners are used for tests, image build, smoke tests, publ
 gh attestation verify oci://ghcr.io/mojtaba-arvin/agent-native-t16@sha256:IMAGE_DIGEST \
   -R mojtaba-arvin/agent-native
 ```
+
+
+### Controlled-host operator flow
+
+Download the `t16-image-lock-<source-sha>` artifact from the successful image-publish Actions run. On the dedicated Linux host, verify the provenance attestation and derive all runtime identity values from that lock file rather than copying a mutable tag:
+
+```sh
+gh run download <BUILD_RUN_ID> \
+  --repo mojtaba-arvin/agent-native \
+  --name t16-image-lock-<SOURCE_SHA> \
+  --dir t16-image-lock
+
+SOURCE_SHA="$(jq -r .source_sha t16-image-lock/image-lock.json)"
+IMAGE_REF="$(jq -r .image_ref t16-image-lock/image-lock.json)"
+BUILD_RUN_URL="$(jq -r .build_run_url t16-image-lock/image-lock.json)"
+
+gh attestation verify "oci://$IMAGE_REF" -R mojtaba-arvin/agent-native
+
+export AGENT_NATIVE_E002_POSTGRES_DSN='postgresql://...'
+python experiments/e002/t16/preflight.py \
+  --attestation /secure/path/host-attestation.json \
+  --source-sha "$SOURCE_SHA" \
+  --image-ref "$IMAGE_REF" \
+  --build-run-url "$BUILD_RUN_URL" \
+  --command "python experiments/e002/t16/run.py --source-sha $SOURCE_SHA --image-ref $IMAGE_REF --build-run-url $BUILD_RUN_URL"
+
+python experiments/e002/t16/run.py \
+  --source-sha "$SOURCE_SHA" \
+  --image-ref "$IMAGE_REF" \
+  --build-run-url "$BUILD_RUN_URL"
+```
+
+The attestation file must explicitly identify the dedicated physical host, the host operator, and a timezone-qualified attestation timestamp. The PostgreSQL service must already be running in its own one-CPU cgroup on the preregistered physical core. Do not replace the digest with `:t16` or the source-SHA tag when launching a benchmark.
