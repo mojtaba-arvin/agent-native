@@ -50,10 +50,15 @@ class T16PreflightTests(unittest.TestCase):
         self.assertEqual(prereg["sha256"], hashlib.sha256(canonical_json({k: v for k, v in prereg.items() if k != "sha256"})).hexdigest())
 
     def test_image_reference_must_be_digest_pinned(self):
-        for ref in ("ghcr.io/example/t16:latest", "ghcr.io/example/t16", "ghcr.io/example/t16@sha256:" + "z" * 64):
+        for ref in ("ghcr.io/example/t16:latest", "ghcr.io/example/t16", "ghcr.io/example/t16@sha256:" + "a" * 64, "ghcr.io/mojtaba-arvin/agent-native-t16@sha256:" + "z" * 64):
             with self.subTest(ref=ref):
                 with self.assertRaisesRegex(ValueError, "immutable"):
                     validate_image_ref(ref)
+
+    def test_image_tag_must_equal_full_source_sha(self):
+        image_ref = "ghcr.io/mojtaba-arvin/agent-native-t16@sha256:" + "d" * 64
+        with self.assertRaisesRegex(ValueError, "image_tag_must_equal"):
+            build_preregistration("a" * 40, ["python3", "run.py"], image_ref=image_ref, image_tag="t16")
 
     def test_invalid_or_short_source_sha_is_rejected(self):
         for value in ("", "a" * 39, "g" * 40):
