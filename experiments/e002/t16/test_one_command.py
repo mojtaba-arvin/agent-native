@@ -25,7 +25,7 @@ class OneCommandTests(unittest.TestCase):
         self.assertNotIn("docker:27.5.1-cli", source)
         self.assertIn("RepoDigests", source)
         self.assertIn("T16_IMAGE_REF", source)
-        self.assertIn("\${GH_TOKEN:", source)
+        self.assertIn("$" + "{GH_TOKEN:", source)
 
     def test_evidence_is_a_release_asset_bound_to_the_exact_source_commit(self):
         source = RUNNER_PATH.read_text()
