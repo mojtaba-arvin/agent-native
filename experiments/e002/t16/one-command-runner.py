@@ -110,8 +110,15 @@ def publish_evidence(evidence, run_id, source_sha):
     run(["git", "-C", str(staging), "add", "--all"])
     run(["git", "-C", str(staging), "commit", "-m", "results(t16): publish controlled-host run " + run_id])
     run(["git", "-C", str(staging), "remote", "add", "origin", "https://github.com/%s.git" % REPO])
-    run(["git", "-C", str(staging), "push", "origin", "HEAD:refs/heads/" + branch], env=git_auth_env())
-    return "https://github.com/%s/tree/%s/T16/%s" % (REPO, branch, run_id)
+    push_command = ["git", "-C", str(staging), "push", "origin", "HEAD:refs/heads/" + branch]
+    for attempt in range(1, 4):
+        pushed = run(push_command, check=False, capture=True, env=git_auth_env())
+        if pushed.returncode == 0:
+            return "https://github.com/%s/tree/%s/T16/%s" % (REPO, branch, run_id)
+        print("Evidence upload attempt %d/3 failed: %s" % (attempt, (pushed.stdout or "")[-1500:]), flush=True)
+        if attempt < 3:
+            time.sleep(attempt * 5)
+    raise RuntimeError("Could not publish evidence after three GitHub push attempts.")
 
 
 def main():
