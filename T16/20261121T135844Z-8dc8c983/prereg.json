@@ -1,0 +1,41 @@
+{
+  "build_run_url": "https://github.com/mojtaba-arvin/agent-native/actions/runs/44888091215",
+  "command": [
+    "python3",
+    "/tmp/agent-native-t16-wk8861fm/source/experiments/e002/t16/run.py",
+    "--output",
+    "/tmp/agent-native-t16-wk8861fm/source/experiments/e002/t16/evidence/20261121T135844Z-8dc8c983",
+    "--source-sha",
+    "eb3457f1205746cdcaf927360b2f57afcc6360f9",
+    "--image-ref",
+    "ghcr.io/mojtaba-arvin/agent-native-t16@sha256:24044cf5bf823b69d9f09ff814b3c2ac0d35ab9671ac07fd69d8e2dc2e8b0ac2",
+    "--build-run-url",
+    "https://github.com/mojtaba-arvin/agent-native/actions/runs/44888091215",
+    "--postgres-dsn",
+    "postgresql://postgres@127.0.0.1:5432/agent_native?sslmode=disable"
+  ],
+  "concurrency": 32,
+  "decision_rule": "Each non-cancelled repetition must complete 5000 requests and pass throughput, p99, CPU, memory, OOM, and security/integrity hard gates; report candidate-level pass only when all ten repetitions pass.",
+  "dockerfile_path": "experiments/e002/t16/Dockerfile",
+  "image_digest": "sha256:24044cf5bf823b69d9f09ff814b3c2ac0d35ab9671ac07fd69d8e2dc2e8b0ac2",
+  "image_name": "ghcr.io/mojtaba-arvin/agent-native-t16",
+  "image_ref": "ghcr.io/mojtaba-arvin/agent-native-t16@sha256:24044cf5bf823b69d9f09ff814b3c2ac0d35ab9671ac07fd69d8e2dc2e8b0ac2",
+  "image_tag": "eb3457f1205746cdcaf927360b2f57afcc6360f9",
+  "preregistered_at": "2026-11-21T13:58:59.472217+00:00",
+  "repetitions_per_candidate": 10,
+  "requests_per_repetition": 5000,
+  "sha256": "8dcc5423e7aeeda07a6c0903aab534f9eeda3836ac74da2a62b7fd97a468886e",
+  "source_sha": "eb3457f1205746cdcaf927360b2f57afcc6360f9",
+  "source_url": "https://github.com/mojtaba-arvin/agent-native",
+  "target_completed_rps": 100,
+  "task": "T16",
+  "thresholds": {
+    "completed_requests_per_second_min": 100,
+    "cpu_seconds_per_5000": 25,
+    "memory_peak_bytes": 1073741824,
+    "oom_events": 0,
+    "p99_ms": 100,
+    "security_or_integrity_violations": 0
+  },
+  "warmup_requests": 250
+}

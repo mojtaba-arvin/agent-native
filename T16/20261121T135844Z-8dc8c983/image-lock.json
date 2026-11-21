@@ -1,0 +1,21 @@
+{
+  "base_images": {
+    "go": "golang:1.23.12-bookworm@sha256:167053a2bb901972bf2c1611f8f52c44d5fe7e762e5cab213708d82c421614db",
+    "postgres": "postgres:16.4@sha256:e62fbf9d3e2b49816a32c400ed2dba83e3b361e6833e624024309c35d334b412",
+    "rust": "rust:1.100-bookworm@sha256:ade39a710ef85f3506cffcfec3e8a24ba090badef1dff2fb798f71d878833fea"
+  },
+  "build_run_url": "https://github.com/mojtaba-arvin/agent-native/actions/runs/44888091215",
+  "dockerfile_path": "experiments/e002/t16/Dockerfile",
+  "image_digest": "sha256:24044cf5bf823b69d9f09ff814b3c2ac0d35ab9671ac07fd69d8e2dc2e8b0ac2",
+  "image_name": "ghcr.io/mojtaba-arvin/agent-native-t16",
+  "image_ref": "ghcr.io/mojtaba-arvin/agent-native-t16@sha256:24044cf5bf823b69d9f09ff814b3c2ac0d35ab9671ac07fd69d8e2dc2e8b0ac2",
+  "image_tag": "eb3457f1205746cdcaf927360b2f57afcc6360f9",
+  "image_tags": [
+    "eb3457f1205746cdcaf927360b2f57afcc6360f9",
+    "run-44888091215",
+    "t16"
+  ],
+  "schema_version": 1,
+  "source_sha": "eb3457f1205746cdcaf927360b2f57afcc6360f9",
+  "source_url": "https://github.com/mojtaba-arvin/agent-native"
+}

@@ -1,0 +1,15 @@
+{
+  "build_run_id": "44888091215",
+  "build_run_url": "https://github.com/mojtaba-arvin/agent-native/actions/runs/44888091215",
+  "finished_at": "2026-11-21T14:16:46.807276+00:00",
+  "host_attestation": {
+    "attestation_basis": "operator declaration for this one-command invocation",
+    "attested_at": "2026-11-21T13:58:45.692769+00:00",
+    "attested_by": "mojtaba-arvin",
+    "dedicated_physical_host": true,
+    "host_id": "0d88d852c970ced7c6496e8b"
+  },
+  "image_ref": "ghcr.io/mojtaba-arvin/agent-native-t16@sha256:24044cf5bf823b69d9f09ff814b3c2ac0d35ab9671ac07fd69d8e2dc2e8b0ac2",
+  "source_sha": "eb3457f1205746cdcaf927360b2f57afcc6360f9",
+  "status": "failed"
+}

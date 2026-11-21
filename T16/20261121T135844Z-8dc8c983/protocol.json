@@ -1,0 +1,38 @@
+{
+  "arrival_model": "open_loop",
+  "arrival_schedule": "fixed_rate_100_rps",
+  "candidate_names": [
+    "rust-tokio-hyper",
+    "go-net-http"
+  ],
+  "candidate_order": "randomized",
+  "concurrency": 32,
+  "connection_policy": "HTTP/1.1 keep-alive; max 32 concurrent connections",
+  "cpu_max": "100000 100000",
+  "denial_accounting": "expected 4xx denials count as completed requests",
+  "image_digest": "sha256:24044cf5bf823b69d9f09ff814b3c2ac0d35ab9671ac07fd69d8e2dc2e8b0ac2",
+  "image_ref": "ghcr.io/mojtaba-arvin/agent-native-t16@sha256:24044cf5bf823b69d9f09ff814b3c2ac0d35ab9671ac07fd69d8e2dc2e8b0ac2",
+  "memory_max_bytes": 1073741824,
+  "postgres_version": "16.4 (Debian 16.4-1.pgdg120+2)",
+  "raw_trace_format": "one JSON object per offered request, including failed or client-dropped requests, JSONL",
+  "repetitions_per_candidate": 10,
+  "request_mix": {
+    "authorized_read": 60,
+    "expected_denial": 10,
+    "job_admission": 10,
+    "validate_plan": 20
+  },
+  "requests_per_repetition": 5000,
+  "schema_version": 1,
+  "source_sha": "eb3457f1205746cdcaf927360b2f57afcc6360f9",
+  "storage_engine": "PostgreSQL",
+  "target_completed_rps": 100,
+  "throughput_measurement": "completed responses divided by the fixed 5000/100-second offer window; completion drain is reported separately",
+  "trace_timing_fields": [
+    "scheduled_offset_ms",
+    "offered_at",
+    "started_at",
+    "finished_at"
+  ],
+  "warmup_requests": 250
+}
