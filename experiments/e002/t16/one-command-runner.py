@@ -126,7 +126,7 @@ def main():
     run_id = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ") + "-" + uuid.uuid4().hex[:8]
     evidence = root / "experiments/e002/t16/evidence" / run_id
     evidence.mkdir(parents=True)
-    machine_id = Path("/etc/machine-id").read_text().strip() if Path("/etc/machine-id").exists() else platform.node()
+    machine_id = Path("/host-machine-id").read_text().strip() if Path("/host-machine-id").exists() else platform.node()
     host_id = hashlib.sha256(machine_id.encode()).hexdigest()[:24]
     operator = github_login()
     attestation = {"dedicated_physical_host": True, "host_id": host_id, "attested_by": operator,
