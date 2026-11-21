@@ -10,6 +10,11 @@ fi
 command -v docker >/dev/null 2>&1 || { echo "Docker Engine/CLI is required." >&2; exit 2; }
 command -v curl >/dev/null 2>&1 || { echo "curl is required." >&2; exit 2; }
 docker info >/dev/null 2>&1 || { echo "Docker daemon is unavailable." >&2; exit 2; }
+SECURITY_OPTIONS="$(docker info --format '{{json .SecurityOptions}}')"
+if [[ "$SECURITY_OPTIONS" == *rootless* ]]; then
+  echo "T16 requires a rootful Docker daemon with host PID and cgroup access." >&2
+  exit 2
+fi
 echo "Starting T16 one-command bootstrap..."
 docker run --rm --env GH_TOKEN --env T16_REPOSITORY="$REPOSITORY" --env T16_BRANCH="$BRANCH" \
   --env T16_RAW_BASE="$RAW_BASE" --volume /var/run/docker.sock:/var/run/docker.sock \
