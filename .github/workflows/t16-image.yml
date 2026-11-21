@@ -78,7 +78,7 @@ jobs:
               echo "$inspect" >&2
               sleep "$((attempt * 3))"
             done
-            digest="$(printf '%s\\n' "$inspect" | awk '$1 == "Digest:" {print $2; exit}')"
+            digest="$(echo "$inspect" | awk '$1 == "Digest:" {print $2; exit}')"
             if [[ ! "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
               echo "Could not resolve a sha256 manifest digest for $tag" >&2
               echo "$inspect" >&2
