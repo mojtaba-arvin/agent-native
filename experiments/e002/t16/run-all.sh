@@ -52,7 +52,7 @@ for line in path.read_text(encoding="utf-8").splitlines():
 if len(refs) != 3:
     raise SystemExit(f"expected exactly three benchmark base images (Go, Rust, PostgreSQL); found {refs!r}")
 for ref in refs:
-    if not re.fullmatch(r"[^@\\s]+@sha256:[0-9a-f]{64}", ref):
+    if not re.fullmatch(r"[^@\s]+@sha256:[0-9a-f]{64}", ref):
         raise SystemExit(f"mutable or invalid Docker base image reference: {ref!r}")
     if "latest" in ref.lower():
         raise SystemExit(f"latest is forbidden for benchmark base images: {ref!r}")
