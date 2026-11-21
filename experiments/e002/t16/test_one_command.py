@@ -1,4 +1,5 @@
 import unittest
+from pathlib import Path
 from one_command_common import validate_lock
 
 
@@ -28,6 +29,11 @@ class OneCommandTests(unittest.TestCase):
         lock["image_name"] = "ghcr.io/somewhere/else"
         with self.assertRaises(RuntimeError):
             validate_lock(lock, "a" * 40)
+
+    def test_controller_shares_tmp_with_host_docker_daemon(self):
+        source = Path(__file__).with_name("one-command.py").read_text()
+        self.assertIn('"--volume", "/tmp:/tmp"', source)
+        self.assertIn("bind-mount sources", source)
 
 
 if __name__ == "__main__":
