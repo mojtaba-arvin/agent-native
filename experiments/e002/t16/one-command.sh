@@ -15,6 +15,14 @@ docker info >/dev/null 2>&1 || { echo "Docker daemon is unavailable." >&2; exit 
 SECURITY_OPTIONS="$(docker info --format '{{json .SecurityOptions}}')"
 [[ "$SECURITY_OPTIONS" != *rootless* ]] || { echo "A rootful Docker daemon is required." >&2; exit 2; }
 
+GH_USERNAME="$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" "$API/user" | sed -n '1s/^{"login":"\([^"]*\)".*/\1/p')"
+[[ -n "$GH_USERNAME" ]] || { echo "Could not resolve the GitHub account for GHCR authentication." >&2; exit 2; }
+DOCKER_CONFIG_DIR="$(mktemp -d)"
+chmod 700 "$DOCKER_CONFIG_DIR"
+trap 'rm -rf "$DOCKER_CONFIG_DIR"' EXIT
+export DOCKER_CONFIG="$DOCKER_CONFIG_DIR"
+printf '%s' "$GH_TOKEN" | docker login ghcr.io --username "$GH_USERNAME" --password-stdin >/dev/null
+
 echo "Checking the latest T16 source revision..."
 SOURCE_SHA="$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
   "$API/commits?sha=$BRANCH&per_page=1" | sed -n '1s/^\[{"sha":"\([0-9a-f]\{40\}\)".*/\1/p')"
