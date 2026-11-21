@@ -157,6 +157,8 @@ def validate_image_ref(image_ref: str) -> tuple[str, str]:
     match = re.fullmatch(r"(?P<name>[a-z0-9][a-z0-9./:_-]*)@sha256:(?P<digest>[0-9a-f]{64})", image_ref)
     if not match:
         raise ValueError("image_ref_must_be_an_immutable_sha256_digest_reference")
+    if match.group("name") != "ghcr.io/mojtaba-arvin/agent-native-t16":
+        raise ValueError("image_ref_must_use_the_canonical_T16_GHCR_package")
     return match.group("name"), "sha256:" + match.group("digest")
 
 
@@ -165,6 +167,8 @@ def build_preregistration(
     image_ref: str | None = None, image_tag: str | None = None, build_run_url: str = "",
 ) -> dict[str, Any]:
     image_name, image_digest = validate_image_ref(image_ref) if image_ref else (None, None)
+    if image_tag and image_tag != source_sha:
+        raise ValueError("image_tag_must_equal_the_full_source_sha")
     if build_run_url and not re.fullmatch(r"https://github[.]com/mojtaba-arvin/agent-native/actions/runs/[0-9]+", build_run_url):
         raise ValueError("build_run_url_must_reference_this_repository_actions_run")
     if not re.fullmatch(r"[0-9a-f]{40}", source_sha):
