@@ -43,6 +43,8 @@ from local_agent import (
     _build_compaction_ledger,
     _compact_tool_outcome,
     _build_provider_tool_definitions,
+    _deduplicate_tool_outcomes,
+    _duplicate_completed_tool_response,
     map_tool_call,
 )
 
@@ -485,7 +487,7 @@ class LocalAgentRunnerTests(unittest.TestCase):
                 )
                 result = run(args)
                 self.assertEqual(result["status"], "failed")
-                self.assertEqual(result["failure"], "AgentRunError:inspection_progression_failed")
+                self.assertEqual(result["failure"], "AgentRunError:repeated_invalid_tool_call")
                 self.assertEqual(result["tool_calls"], 3)
                 self.assertEqual(Handler.index, 3)
                 run_dir = next((Path(temp) / "results").iterdir())
@@ -494,14 +496,18 @@ class LocalAgentRunnerTests(unittest.TestCase):
                     for line in (run_dir / "tool-trace.jsonl").read_text(encoding="utf-8").splitlines()
                 ]
                 self.assertTrue(events[0]["response"]["ok"])
+                self.assertEqual(events[0]["execution_origin"], "gateway")
                 self.assertEqual(
                     events[1]["response"]["diagnostics"][0]["code"],
-                    "INSPECTION_OPERATION_REQUIRED",
+                    "INSPECTION_ALREADY_COMPLETED",
                 )
+                self.assertEqual(events[1]["execution_origin"], "runner_duplicate_guard")
                 self.assertEqual(
                     events[2]["response"]["diagnostics"][0]["code"],
-                    "INSPECTION_PROGRESS_REPAIR_EXHAUSTED",
+                    "INSPECTION_ALREADY_COMPLETED",
                 )
+                self.assertEqual(events[2]["execution_origin"], "runner_duplicate_guard")
+                self.assertIn("service.inspect", events[1]["response"]["next_actions"][0])
         finally:
             server.shutdown()
             server.server_close()
@@ -875,6 +881,84 @@ class LocalAgentRunnerTests(unittest.TestCase):
         )
         unknown = map_tool_call(call, 1, {"interface.describe": schema})
         self.assertEqual(unknown["tool"], "<invalid>")
+
+    def test_duplicate_schema_discovery_is_intercepted_with_native_next_action(self):
+        schema = {
+            "type": "object",
+            "properties": {"service_id": {"type": "string"}},
+            "required": ["service_id"],
+        }
+        request = {
+            "request_id": "native-schema-discovery",
+            "tool": "interface.describe",
+            "arguments": {"name": "service.inspect"},
+        }
+        response = _duplicate_completed_tool_response(
+            request,
+            {"service.inspect": schema},
+            None,
+            {},
+            "minimal",
+            "delta",
+            {"native-schema-discovery"},
+        )
+        self.assertFalse(response["ok"])
+        self.assertEqual(response["diagnostics"][0]["code"], "SCHEMA_ALREADY_DISCOVERED")
+        self.assertIn("service.inspect", response["next_actions"][0])
+        self.assertNotIn("input_schema", response["result"])
+
+    def test_duplicate_inspection_is_intercepted_without_repeating_full_payload(self):
+        request = {
+            "request_id": "native-inspect",
+            "tool": "service.inspect",
+            "arguments": {"service_id": "catalog"},
+        }
+        response = _duplicate_completed_tool_response(
+            request,
+            {},
+            self.inspected,
+            self.inspected_operations,
+            "upfront_full",
+            "delta",
+            {"native-inspect"},
+        )
+        self.assertFalse(response["ok"])
+        self.assertEqual(response["diagnostics"][0]["code"], "INSPECTION_ALREADY_COMPLETED")
+        self.assertEqual(response["result"]["base_revision"], self.inspected["revision"])
+        self.assertNotIn("operations", response["result"])
+        self.assertIn("service.propose_delta", response["next_actions"][0])
+
+    def test_compaction_deduplicates_outcomes_and_preserves_latest_guidance(self):
+        schema = {
+            "type": "object",
+            "properties": {"service_id": {"type": "string"}},
+            "required": ["service_id"],
+        }
+        outcomes = [
+            {
+                "request_id": "stable-request",
+                "tool": "interface.describe",
+                "ok": True,
+                "name": "service.inspect",
+                "input_schema": schema,
+            },
+            {
+                "request_id": "stable-request",
+                "tool": "interface.describe",
+                "ok": False,
+                "diagnostics": [{"code": "SCHEMA_ALREADY_DISCOVERED"}],
+                "next_actions": ["Call service.inspect directly."],
+            },
+        ]
+        deduplicated = _deduplicate_tool_outcomes(outcomes)
+        self.assertEqual(len(deduplicated), 1)
+        self.assertEqual(deduplicated[0]["repeat_count"], 2)
+        self.assertEqual(deduplicated[0]["latest_ok"], False)
+        self.assertEqual(deduplicated[0]["input_schema"], schema)
+        self.assertEqual(
+            deduplicated[0]["next_actions"],
+            ["Call service.inspect directly."],
+        )
 
     def test_progressive_schema_discovery_survives_compaction(self):
         schema = {

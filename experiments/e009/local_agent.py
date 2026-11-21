@@ -756,9 +756,13 @@ def _proposal_budget_response(request: dict) -> dict:
     }
 
 
-def _compact_tool_outcome(tool_name: str, arguments: Any, response: dict) -> dict:
+def _compact_tool_outcome(
+    tool_name: str, arguments: Any, response: dict, request_id: str | None = None
+) -> dict:
     """Keep control-relevant outcomes; exact inspection data lives in the ledger."""
     outcome = {"tool": tool_name, "ok": response.get("ok") is True}
+    if isinstance(request_id, str):
+        outcome["request_id"] = request_id
     if tool_name == "service.inspect":
         if isinstance(arguments, dict):
             outcome["operation"] = arguments.get("operation")
@@ -803,6 +807,31 @@ def _compact_tool_outcome(tool_name: str, arguments: Any, response: dict) -> dic
     return outcome
 
 
+def _deduplicate_tool_outcomes(tool_outcomes: list[dict]) -> list[dict]:
+    """Collapse repeated calls by stable request ID while preserving the latest guidance."""
+    compacted = []
+    positions = {}
+    for outcome in tool_outcomes:
+        request_id = outcome.get("request_id") if isinstance(outcome, dict) else None
+        key = f"request:{request_id}" if isinstance(request_id, str) else f"outcome:{digest(outcome)}"
+        if key not in positions:
+            item = dict(outcome)
+            positions[key] = len(compacted)
+            compacted.append(item)
+            continue
+        item = compacted[positions[key]]
+        item["repeat_count"] = item.get("repeat_count", 1) + 1
+        item["latest_ok"] = outcome.get("ok")
+        for field in ("diagnostics", "next_actions", "latest_diagnostics"):
+            if field in outcome:
+                item[field] = outcome[field]
+        # Keep the first exact schema/result snapshot; only fill fields that were absent.
+        for field, value in outcome.items():
+            if field not in item and field not in {"repeat_count"}:
+                item[field] = value
+    return compacted[-12:]
+
+
 def _build_compaction_ledger(
     inspected: dict | None,
     inspected_operations: dict[str, dict],
@@ -816,7 +845,7 @@ def _build_compaction_ledger(
             name: inspected_operations[name] for name in inspected_operations
         },
         "tool_sequence": list(tool_sequence),
-        "recent_tool_outcomes": tool_outcomes[-12:],
+        "recent_tool_outcomes": _deduplicate_tool_outcomes(tool_outcomes),
     }
 
 
@@ -842,6 +871,90 @@ def _compact_conversation(
             ),
         },
     ]
+
+
+def _duplicate_completed_tool_response(
+    request: dict,
+    discovered_tool_schemas: dict[str, dict],
+    inspected: dict | None,
+    inspected_operations: dict[str, dict],
+    base_disclosure: str,
+    proposal_mode: str,
+    successful_tool_responses: set[str],
+) -> dict | None:
+    """Stop identical successful discovery/inspection calls before another Gateway round trip."""
+    request_id = request.get("request_id")
+    tool_name = request.get("tool")
+    arguments = request.get("arguments")
+    if not isinstance(request_id, str) or request_id not in successful_tool_responses:
+        return None
+    if not isinstance(arguments, dict):
+        return None
+
+    if tool_name == "interface.describe":
+        name = arguments.get("name")
+        if not isinstance(name, str) or not isinstance(discovered_tool_schemas.get(name), dict):
+            return None
+        return {
+            "protocol_version": "0.1",
+            "request_id": request_id,
+            "ok": False,
+            "result": {"name": name, "already_discovered": True},
+            "diagnostics": [{
+                "code": "SCHEMA_ALREADY_DISCOVERED",
+                "message": f"The exact input schema for {name} has already been retrieved and is exposed as a native provider function.",
+                "source_span": None,
+                "fix_hint": f"Do not call interface.describe again. Call the native {name} function directly using the schema already supplied.",
+            }],
+            "next_actions": [
+                f"Call {name} directly now; its exact native function schema is already available."
+            ],
+        }
+
+    if tool_name == "service.inspect":
+        operation = arguments.get("operation")
+        if not isinstance(inspected, dict):
+            return None
+        if operation is not None and (
+            not isinstance(operation, str) or operation not in inspected_operations
+        ):
+            return None
+        revision = inspected.get("revision")
+        next_actions = []
+        if base_disclosure == "per_operation":
+            available = [
+                item.get("name") for item in inspected.get("operations", [])
+                if isinstance(item, dict) and isinstance(item.get("name"), str)
+            ]
+            missing = [name for name in available if name not in inspected_operations]
+            if missing:
+                next_actions.append(
+                    f"Inspect the next existing operation with service.inspect(service_id='{SERVICE_ID}', operation='{missing[0]}')."
+                )
+        if not next_actions:
+            proposal_tool = "service.propose_delta" if proposal_mode == "delta" else "service.propose"
+            next_actions.append(
+                f"Do not repeat service.inspect. Continue with {proposal_tool} using service_id='{SERVICE_ID}' and the exact base_revision '{revision}'."
+            )
+        return {
+            "protocol_version": "0.1",
+            "request_id": request_id,
+            "ok": False,
+            "result": {
+                "service_id": arguments.get("service_id"),
+                "operation": operation,
+                "already_inspected": True,
+                "base_revision": revision,
+            },
+            "diagnostics": [{
+                "code": "INSPECTION_ALREADY_COMPLETED",
+                "message": "This exact read-only inspection request already succeeded; its verified result is retained in the Gateway state ledger.",
+                "source_span": None,
+                "fix_hint": "Use the existing service_inspection or operation_inspections entry instead of repeating the same request.",
+            }],
+            "next_actions": next_actions,
+        }
+    return None
 
 
 def _plan_gate_response(
@@ -1025,6 +1138,7 @@ def run(args: argparse.Namespace) -> dict:
             + "For snapshot mode preserve the complete service object, types array, and all existing operation objects exactly, then append the requested operation. "
             + "For delta mode submit exactly one add_operation change containing that operation. Do not inspect the requested new operation. "
             + "Follow gateway next_actions and diagnostics; never propose while required inspection is missing. "
+            + "Never repeat a successful interface.describe or service.inspect call with identical arguments; use the exact schema and verified state already in the ledger to advance. "
             + "A service.validate response can have outer ok=true while result.valid=false. Do not plan unless valid=true. "
             + "If validation fails, read diagnostics and correct the proposal; never repeat an identical invalid call. "
             + "Call service.plan only after successful validation of the same change_set_id. "
@@ -1061,6 +1175,7 @@ def run(args: argparse.Namespace) -> dict:
         apply_result = None
         tool_sequence: list[str] = []
         tool_outcomes: list[dict] = []
+        successful_tool_responses: set[str] = set()
         failed_tool_requests: set[str] = set()
         prevalidation_repair_attempts: set[str] = set()
         invalid_catalog_operation_attempts: set[str] = set()
@@ -1168,20 +1283,31 @@ def run(args: argparse.Namespace) -> dict:
                     request = map_tool_call(provider_call, call_number, discovered_tool_schemas)
                     tool_name = request.get("tool")
                     arguments = request.get("arguments")
-                    if tool_name == "service.plan":
-                        nested = _plan_gate_response(
-                            request, successful_proposal, validation_result, validation_change_set_id
-                        )
-                    elif tool_name in {"service.propose", "service.propose_delta"}:
-                        proposal_attempts, nested = _proposal_attempt_gate(
-                            request, proposal_attempts
-                        )
-                    else:
-                        nested = None
-                    execution_origin = "runner_gate" if nested is not None else "gateway"
+                    nested = _duplicate_completed_tool_response(
+                        request,
+                        discovered_tool_schemas,
+                        inspected,
+                        inspected_operations,
+                        base_disclosure,
+                        proposal_mode,
+                        successful_tool_responses,
+                    )
+                    execution_origin = "runner_duplicate_guard" if nested is not None else "gateway"
                     prevalidation_repair_exhausted = False
                     catalog_guard_exhausted = False
                     inspection_progression_exhausted = False
+                    if nested is None and tool_name == "service.plan":
+                        nested = _plan_gate_response(
+                            request, successful_proposal, validation_result, validation_change_set_id
+                        )
+                        if nested is not None:
+                            execution_origin = "runner_gate"
+                    elif nested is None and tool_name in {"service.propose", "service.propose_delta"}:
+                        proposal_attempts, nested = _proposal_attempt_gate(
+                            request, proposal_attempts
+                        )
+                        if nested is not None:
+                            execution_origin = "runner_gate"
                     if nested is None:
                         catalog_prevalidated, catalog_guard_exhausted = prevalidate_catalog_operation(
                             request, inspected, invalid_catalog_operation_attempts
@@ -1228,7 +1354,7 @@ def run(args: argparse.Namespace) -> dict:
                     })
                     record["tool_calls"] = call_number
                     tool_sequence.append(tool_name if isinstance(tool_name, str) else "<invalid>")
-                    tool_outcomes.append(_compact_tool_outcome(tool_name, arguments, nested))
+                    tool_outcomes.append(_compact_tool_outcome(tool_name, arguments, nested, request.get("request_id")))
                     if tool_name == "interface.describe" and nested.get("ok") is True:
                         described = nested.get("result") or {}
                         described_name = described.get("name")
@@ -1247,6 +1373,8 @@ def run(args: argparse.Namespace) -> dict:
                                 if isinstance(item, dict) and item.get("name") == described_name:
                                     item["input_schema"] = described_schema
                                     break
+                            if isinstance(request.get("request_id"), str):
+                                successful_tool_responses.add(request["request_id"])
                     if _is_proposal_budget_exhausted(nested):
                         raise AgentRunError("proposal_repair_budget_exceeded")
                     if prevalidation_repair_exhausted:
@@ -1275,6 +1403,8 @@ def run(args: argparse.Namespace) -> dict:
                                         inspected_operations[item.get("name")] = item
                         elif isinstance(arguments, dict) and isinstance(arguments.get("operation"), str):
                             inspected_operations[arguments["operation"]] = inspected_result.get("operation")
+                        if isinstance(request.get("request_id"), str):
+                            successful_tool_responses.add(request["request_id"])
                     elif tool_name in {"service.propose", "service.propose_delta"} and nested.get("ok"):
                         if (
                             base_disclosure != "minimal"
