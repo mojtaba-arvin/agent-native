@@ -153,7 +153,7 @@ def run_loadgen_container(name: str, arguments: list[str], cpu: int, output: Pat
             raise RuntimeError(f"load generator exited {exit_code}: {logs[-3000:]}")
         return {"path": str(cgroup), "limits": limits, "logs": logs[-4000:], "exit_code": int(exit_code)}
     finally:
-        run_command(["docker", "rm", "--force", container], timeout=60, allow_failure=True)
+        run_command(["docker", "rm", "--force", "--volumes", container], timeout=60, allow_failure=True)
 
 
 def verify_image_identity(image_ref: str, source_sha: str) -> dict[str, str]:
