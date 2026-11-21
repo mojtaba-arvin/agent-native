@@ -6,7 +6,7 @@ BRANCH="task/T16-image-digest-pipeline"
 IMAGE="ghcr.io/mojtaba-arvin/agent-native-t16"
 API="https://api.github.com/repos/$REPOSITORY"
 
-: "\${GH_TOKEN:?Export GH_TOKEN with public_repo and read:packages scopes.}"
+: "${GH_TOKEN:?Export GH_TOKEN with public_repo and read:packages scopes.}"
 command -v docker >/dev/null 2>&1 || { echo "Docker Engine/CLI is required." >&2; exit 2; }
 command -v curl >/dev/null 2>&1 || { echo "curl is required." >&2; exit 2; }
 docker info >/dev/null 2>&1 || { echo "Docker daemon is unavailable." >&2; exit 2; }
