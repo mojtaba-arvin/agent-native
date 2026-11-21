@@ -12,12 +12,16 @@ import sys
 import tempfile
 import time
 import uuid
+import tarfile
+import urllib.request
+import urllib.error
 from pathlib import Path
 
 REPO = "mojtaba-arvin/agent-native"
 TOKEN = os.environ["GH_TOKEN"]
-LOCK = json.loads(os.environ["T16_IMAGE_LOCK_JSON"])
-BUILD_RUN_ID = os.environ["T16_BUILD_RUN_ID"]
+SOURCE_SHA = os.environ["T16_SOURCE_SHA"]
+IMAGE_REF = os.environ["T16_IMAGE_REF"]
+IMAGE_NAME = "ghcr.io/mojtaba-arvin/agent-native-t16"
 API = "https://api.github.com"
 
 
@@ -84,41 +88,59 @@ def stream_process(args, log_path, cwd=None):
         return process.wait()
 
 
-def publish_evidence(evidence, run_id, source_sha):
-    branch = "t16-results/%s-%s" % (run_id, source_sha[:8])
-    staging = Path(tempfile.mkdtemp(prefix="t16-results-"))
-    payload = staging / "T16" / run_id
-    payload.mkdir(parents=True)
-    for item in evidence.iterdir():
-        target = payload / item.name
-        if item.is_dir():
-            shutil.copytree(item, target)
-        elif item.is_file():
-            shutil.copy2(item, target)
+def github_api(method, path, payload=None, content_type="application/vnd.github+json"):
+    data = json.dumps(payload).encode() if payload is not None else None
+    request = urllib.request.Request(API + path, data=data, method=method, headers={
+        "Authorization": "Bearer " + TOKEN, "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28", "Content-Type": content_type})
+    try:
+        with urllib.request.urlopen(request, timeout=180) as response:
+            body = response.read()
+            return json.loads(body) if body else {}
+    except urllib.error.HTTPError as exc:
+        detail = exc.read(2000).decode("utf-8", "replace")
+        raise RuntimeError("GitHub API %s %s failed (%s): %s" % (method, path, exc.code, detail))
+
+
+def resolve_build_run(source_sha):
+    branch = github_api("GET", "/repos/%s/commits?sha=task/T16-image-digest-pipeline&per_page=1" % REPO)
+    if not branch or branch[0].get("sha") != source_sha:
+        raise RuntimeError("Pulled image revision is not the current T16 branch head.")
+    runs = github_api("GET", "/repos/%s/actions/workflows/t16-image.yml/runs?branch=task/T16-image-digest-pipeline&event=push&per_page=50" % REPO)
+    match = next((item for item in runs.get("workflow_runs", [])
+                  if item.get("head_sha") == source_sha and item.get("status") == "completed"
+                  and item.get("conclusion") == "success"), None)
+    if not match:
+        raise RuntimeError("No successful immutable-image workflow exists for this source SHA.")
+    return int(match["id"]), match["html_url"]
+
+
+def publish_evidence(evidence, run_id, source_sha, image_ref, build_run_id, build_url):
+    archive_path = Path(tempfile.mktemp(prefix="t16-evidence-", suffix=".tar.gz"))
     checksums = []
-    for item in sorted(payload.rglob("*")):
+    for item in sorted(evidence.rglob("*")):
         if item.is_file() and item.name != "checksums.sha256":
-            checksums.append("%s  %s" % (hashlib.sha256(item.read_bytes()).hexdigest(), item.relative_to(payload)))
-    (payload / "checksums.sha256").write_text("\n".join(checksums) + "\n")
-    (staging / "README.md").write_text(
-        "# T16 controlled-host results\n\n"
-        "- Source: %s\n- Image: %s\n- Build: https://github.com/%s/actions/runs/%s\n"
-        "- Evidence: T16/%s/\n" % (source_sha, LOCK["image_ref"], REPO, BUILD_RUN_ID, run_id))
-    run(["git", "init", "-b", branch, str(staging)])
-    run(["git", "-C", str(staging), "config", "user.name", "T16 Results Bot"])
-    run(["git", "-C", str(staging), "config", "user.email", "t16-results@users.noreply.github.com"])
-    run(["git", "-C", str(staging), "add", "--all"])
-    run(["git", "-C", str(staging), "commit", "-m", "results(t16): publish controlled-host run " + run_id])
-    run(["git", "-C", str(staging), "remote", "add", "origin", "https://github.com/%s.git" % REPO])
-    push_command = ["git", "-C", str(staging), "push", "origin", "HEAD:refs/heads/" + branch]
-    for attempt in range(1, 4):
-        pushed = run(push_command, check=False, capture=True, env=git_auth_env())
-        if pushed.returncode == 0:
-            return "https://github.com/%s/tree/%s/T16/%s" % (REPO, branch, run_id)
-        print("Evidence upload attempt %d/3 failed: %s" % (attempt, (pushed.stdout or "")[-1500:]), flush=True)
-        if attempt < 3:
-            time.sleep(attempt * 5)
-    raise RuntimeError("Could not publish evidence after three GitHub push attempts.")
+            checksums.append("%s  %s" % (hashlib.sha256(item.read_bytes()).hexdigest(), item.relative_to(evidence)))
+    (evidence / "checksums.sha256").write_text("\n".join(checksums) + "\n")
+    with tarfile.open(archive_path, "w:gz", compresslevel=6) as archive:
+        archive.add(evidence, arcname="T16/" + run_id)
+    asset_name = "t16-evidence-" + run_id + ".tar.gz"
+    tag = "t16-run-" + run_id
+    release = github_api("POST", "/repos/%s/releases" % REPO, {
+        "tag_name": tag, "name": "T16 controlled-host run " + run_id,
+        "body": "Source: %s\nImage: %s\nBuild: %s\nInspect execution-metadata.json in the attached archive." % (source_sha, image_ref, build_url),
+        "draft": False, "prerelease": False})
+    upload_url = release["upload_url"].split("{", 1)[0] + "?name=" + asset_name
+    request = urllib.request.Request(upload_url, data=archive_path.read_bytes(), method="POST", headers={
+        "Authorization": "Bearer " + TOKEN, "Accept": "application/vnd.github+json",
+        "Content-Type": "application/gzip"})
+    try:
+        with urllib.request.urlopen(request, timeout=900) as response:
+            asset = json.loads(response.read())
+    except urllib.error.HTTPError as exc:
+        raise RuntimeError("Release asset upload failed (%s): %s" % (exc.code, exc.read(2000).decode("utf-8", "replace")))
+    archive_path.unlink(missing_ok=True)
+    return asset.get("browser_download_url") or release["html_url"]
 
 
 def main():
@@ -126,13 +148,17 @@ def main():
         raise RuntimeError("Only a non-GitHub-Runner Linux host is accepted.")
     if platform.machine().lower() not in {"x86_64", "amd64"}:
         raise RuntimeError("The published T16 image currently targets linux/amd64; this host is not x86_64.")
-    name = "ghcr.io/mojtaba-arvin/agent-native-t16"
-    digest = LOCK.get("image_digest", "")
-    sha = LOCK.get("source_sha", "")
-    if LOCK.get("image_name") != name or LOCK.get("image_ref") != name + "@" + digest:
-        raise RuntimeError("Invalid immutable image lock.")
-    if not re.fullmatch(r"sha256:[0-9a-f]{64}", digest) or not re.fullmatch(r"[0-9a-f]{40}", sha):
-        raise RuntimeError("Invalid image digest or source SHA.")
+    sha = SOURCE_SHA
+    if not re.fullmatch(r"[0-9a-f]{40}", sha) or not re.fullmatch(
+            r"ghcr\.io/mojtaba-arvin/agent-native-t16@sha256:[0-9a-f]{64}", IMAGE_REF):
+        raise RuntimeError("Invalid source SHA or immutable image reference.")
+    image_info = run(["docker", "image", "inspect", "--format", "{{json .RepoDigests}}", IMAGE_REF], capture=True)
+    if IMAGE_REF not in json.loads(image_info.stdout):
+        raise RuntimeError("Controller image is not the exact local RepoDigest.")
+    build_run_id, build_run_url = resolve_build_run(sha)
+    lock = {"schema_version": 1, "source_sha": sha, "image_name": IMAGE_NAME,
+            "image_ref": IMAGE_REF, "image_digest": IMAGE_REF.rsplit("@", 1)[1],
+            "build_run_url": build_run_url, "build_run_id": build_run_id}
 
     root = Path(tempfile.mkdtemp(prefix="agent-native-t16-")) / "source"
     run(["git", "clone", "--no-checkout", "https://github.com/%s.git" % REPO, str(root)], env=git_auth_env())
@@ -146,7 +172,7 @@ def main():
     run_id = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ") + "-" + uuid.uuid4().hex[:8]
     evidence = root / "experiments/e002/t16/evidence" / run_id
     evidence.mkdir(parents=True)
-    (evidence / "image-lock.json").write_text(json.dumps(LOCK, indent=2, sort_keys=True) + "\n")
+    (evidence / "image-lock.json").write_text(json.dumps(lock, indent=2, sort_keys=True) + "\n")
     machine_id = Path("/host-machine-id").read_text().strip() if Path("/host-machine-id").exists() else platform.node()
     host_id = hashlib.sha256(machine_id.encode()).hexdigest()[:24]
     operator = github_login()
@@ -156,29 +182,27 @@ def main():
     attestation_path = Path(tempfile.mkdtemp(prefix="t16-attestation-")) / "host.json"
     attestation_path.write_text(json.dumps(attestation, indent=2) + "\n")
     (evidence / "operator-attestation.json").write_text(json.dumps(attestation, indent=2, sort_keys=True) + "\n")
-    pg_image = LOCK.get("base_images", {}).get("postgres", "")
-    if not re.fullmatch(r"postgres:16[.]4@sha256:[0-9a-f]{64}", pg_image):
-        raise RuntimeError("Image lock lacks the immutable PostgreSQL 16.4 base image.")
+    pg_image = IMAGE_REF
     pg_name = "t16-postgres-" + uuid.uuid4().hex[:10]
     dsn = "postgresql://postgres@127.0.0.1:5432/agent_native?sslmode=disable"
     pg_started = False
     status = "failed"
     try:
         run(["docker", "pull", pg_image])
-        run(["docker", "run", "--detach", "--name", pg_name, "--pid=host", "--network=host",
+        run(["docker", "run", "--detach", "--name", pg_name, "--pid=host", "--network=host", "--entrypoint", "docker-entrypoint.sh",
              "--cpus=1", "--cpuset-cpus=%d" % postgres_cpu, "--memory=2g",
              "--env", "POSTGRES_HOST_AUTH_METHOD=trust", "--env", "POSTGRES_DB=agent_native",
              pg_image, "-c", "listen_addresses=127.0.0.1"])
         pg_started = True
         wait_postgres(dsn)
         runner = ["python3", str(root / "experiments/e002/t16/run.py"), "--output", str(evidence),
-                  "--source-sha", sha, "--image-ref", LOCK["image_ref"],
-                  "--build-run-url", LOCK["build_run_url"], "--postgres-dsn", dsn]
+                  "--source-sha", sha, "--image-ref", IMAGE_REF,
+                  "--build-run-url", build_run_url, "--postgres-dsn", dsn]
         prereg_command = " ".join(subprocess.list2cmdline([arg]) for arg in runner)
         pre = run(["python3", str(root / "experiments/e002/t16/preflight.py"),
                    "--attestation", str(attestation_path), "--output", str(evidence),
-                   "--source-sha", sha, "--image-ref", LOCK["image_ref"], "--image-tag", LOCK["image_tag"],
-                   "--build-run-url", LOCK["build_run_url"], "--postgres-dsn", dsn,
+                   "--source-sha", sha, "--image-ref", IMAGE_REF, "--image-tag", sha,
+                   "--build-run-url", build_run_url, "--postgres-dsn", dsn,
                    "--command", prereg_command], check=False, capture=True, cwd=str(root))
         (evidence / "preflight.log").write_text(pre.stdout or "")
         if pre.returncode:
@@ -198,11 +222,11 @@ def main():
     finally:
         if pg_started:
             run(["docker", "rm", "--force", pg_name], check=False)
-        metadata = {"status": status, "source_sha": sha, "image_ref": LOCK["image_ref"],
-                    "build_run_url": LOCK["build_run_url"], "build_run_id": BUILD_RUN_ID,
+        metadata = {"status": status, "source_sha": sha, "image_ref": IMAGE_REF,
+                    "build_run_url": build_run_url, "build_run_id": build_run_id,
                     "host_attestation": attestation, "finished_at": dt.datetime.now(dt.timezone.utc).isoformat()}
         (evidence / "execution-metadata.json").write_text(json.dumps(metadata, indent=2, sort_keys=True) + "\n")
-        url = publish_evidence(evidence, run_id, sha)
+        url = publish_evidence(evidence, run_id, sha, IMAGE_REF, build_run_id, build_run_url)
         print("T16 evidence: " + url, flush=True)
         print("T16 status: " + status.upper(), flush=True)
     return 0 if status == "completed" else 1
