@@ -104,6 +104,7 @@ def build_and_get_lock():
         raise RuntimeError("The successful build did not publish its image-lock artifact.")
     return lock, int(run["id"]), login
 
+
 def main():
     lock, build_run_id, username = build_and_get_lock()
     print("Published immutable image: " + lock["image_ref"], flush=True)
@@ -118,6 +119,10 @@ def main():
                "--volume", "/var/run/docker.sock:/var/run/docker.sock",
                "--volume", "/sys/fs/cgroup:/sys/fs/cgroup",
                "--volume", "/etc/machine-id:/host-machine-id:ro",
+               # The controller's checkout/evidence paths are passed to sibling Docker
+               # containers as bind-mount sources. Share /tmp with the daemon host so
+               # those absolute paths resolve to the same files in both namespaces.
+               "--volume", "/tmp:/tmp",
                "--volume", volume + ":/root/.docker", "--env", "GH_TOKEN",
                "--env", "T16_IMAGE_LOCK_JSON=" + json.dumps(lock, separators=(",", ":")),
                "--env", "T16_BUILD_RUN_ID=" + str(build_run_id),
