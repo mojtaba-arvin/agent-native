@@ -227,6 +227,7 @@ def main():
     dsn = "postgresql://postgres@127.0.0.1:5432/agent_native?sslmode=disable"
     pg_started = False
     status = "failed"
+    evidence_published = False
     try:
         run(["docker", "pull", pg_image])
         run(["docker", "run", "--detach", "--name", pg_name, "--pid=host", "--network=host", "--entrypoint", "/usr/local/bin/docker-entrypoint.sh",
@@ -272,10 +273,17 @@ def main():
         (evidence / "execution-metadata.json").write_text(json.dumps(metadata, indent=2, sort_keys=True) + "\n")
         try:
             url = publish_evidence(evidence, run_id, sha, IMAGE_REF, build_run_id, build_run_url)
+            evidence_published = True
             print("T16 evidence: " + url, flush=True)
             print("T16 status: " + status.upper(), flush=True)
+        except Exception:
+            print("T16 evidence upload failed; local evidence preserved at: " + str(evidence), file=sys.stderr, flush=True)
+            raise
         finally:
-            shutil.rmtree(root.parent, ignore_errors=True)
+            if evidence_published:
+                shutil.rmtree(root.parent, ignore_errors=True)
+            else:
+                print("T16 evidence retained on host at: " + str(evidence), file=sys.stderr, flush=True)
             shutil.rmtree(attestation_path.parent, ignore_errors=True)
     return 0 if status == "completed" else 1
 
