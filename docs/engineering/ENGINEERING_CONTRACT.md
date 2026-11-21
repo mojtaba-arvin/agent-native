@@ -51,3 +51,6 @@ Follow the active research/reboot-core plan and project-control boundaries. Pres
 
 ## Maintenance
 Keep this contract aligned with actual CI and repository policy. Documentation is not proof that a control is enforced; executable validation and observed CI results are required.
+
+
+This repository-level maintenance change is tracked as process task T20; it does not claim completion of any product acceptance task.
