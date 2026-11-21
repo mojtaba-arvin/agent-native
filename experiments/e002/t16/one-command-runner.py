@@ -150,7 +150,8 @@ def main():
         pg_started = True
         wait_postgres(dsn)
         runner = ["python3", str(root / "experiments/e002/t16/run.py"), "--output", str(evidence),
-                  "--source-sha", sha, "--image-ref", LOCK["image_ref"], "--build-run-url", LOCK["build_run_url"]]
+                  "--source-sha", sha, "--image-ref", LOCK["image_ref"],
+                  "--build-run-url", LOCK["build_run_url"], "--postgres-dsn", dsn]
         prereg_command = " ".join(subprocess.list2cmdline([arg]) for arg in runner)
         pre = run(["python3", str(root / "experiments/e002/t16/preflight.py"),
                    "--attestation", str(attestation_path), "--output", str(evidence),
