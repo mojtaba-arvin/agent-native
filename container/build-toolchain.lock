@@ -1,0 +1,6 @@
+# Release versions and SHA-256 hashes for the Linux/amd64 build toolchain.
+BUILDX_VERSION=v0.39.1
+BUILDX_SHA256=903090816da68f8bc1a2ff5346dd163a5adacfce4548d003c75df42cd47a9bf4
+BUILDKIT_IMAGE=moby/buildkit:v0.35.1
+SYFT_VERSION=v1.57.2
+SYFT_SHA256=ad92bd3ec1b94a3df01d4d0aec199afa9c42b72e86da436ff5f837914d32706b

@@ -1,0 +1,57 @@
+name: Task
+description: A v1 task (Txx)
+labels: [v1]
+body:
+  - type: input
+    id: task_id
+    attributes:
+      label: Task ID
+      description: e.g. T07
+    validations:
+      required: true
+  - type: textarea
+    id: outputs
+    attributes:
+      label: Outputs
+      description: What files or commits should exist when this task is done
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance script
+      description: Path to acceptance/Txx.sh (created in PR A of the task)
+      placeholder: acceptance/T07.sh
+    validations:
+      required: true
+  - type: input
+    id: depends
+    attributes:
+      label: Depends
+      description: Comma-separated Txx IDs, or leave empty for none
+  - type: input
+    id: budget
+    attributes:
+      label: Attempt budget
+      value: "3"
+    validations:
+      required: true
+  - type: textarea
+    id: recovery
+    attributes:
+      label: Recovery
+      description: What to do if this task fails repeatedly
+    validations:
+      required: true
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Kind
+      options:
+        - code
+        - docs
+        - decision
+        - research
+        - process
+    validations:
+      required: true

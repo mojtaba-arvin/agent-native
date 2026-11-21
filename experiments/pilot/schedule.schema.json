@@ -1,0 +1,316 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Agent Native paired pilot schedule",
+  "description": "Trusted runner-only schedule. candidate_id and arm order must never be copied into the agent-visible prompt or session.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schedule_version",
+    "plan_id",
+    "protocol",
+    "trials"
+  ],
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "source_hashes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        ".gitignore",
+        "experiments/pilot/README.md",
+        "experiments/pilot/AGENT_ADAPTER.md",
+        "experiments/pilot/ORACLE_CONTRACT.md",
+        "experiments/pilot/PROMPT.md",
+        "experiments/pilot/TASK.md",
+        "experiments/e001/examples/catalog.an",
+        "experiments/e001/prototype/agent_native.py",
+        "experiments/e005/interface.py",
+        "experiments/e005/tools.json",
+        "experiments/pilot/surface.py",
+        "experiments/pilot/gateway.py",
+        "experiments/pilot/ollama_runner.py",
+        "experiments/pilot/run_schedule.py",
+        "experiments/pilot/analyze.py",
+        "experiments/pilot/candidate.py",
+        "experiments/pilot/candidate.schema.json",
+        "experiments/pilot/evaluation-result.schema.json",
+        "experiments/pilot/finalize.py",
+        "experiments/pilot/schedule.py",
+        "experiments/pilot/verify_schedule.py",
+        "experiments/pilot/schedule.schema.json",
+        "experiments/e007/trace.schema.json",
+        "experiments/e007/metrics.py"
+      ],
+      "properties": {
+        ".gitignore": {
+          "$ref": "#/$defs/sha256"
+        },
+        "experiments/pilot/README.md": {
+          "$ref": "#/$defs/sha256"
+        },
+        "experiments/pilot/AGENT_ADAPTER.md": {
+          "$ref": "#/$defs/sha256"
+        },
+        "experiments/pilot/ORACLE_CONTRACT.md": {
+          "$ref": "#/$defs/sha256"
+        },
+        "experiments/pilot/PROMPT.md": {
+          "$ref": "#/$defs/sha256"
+        },
+        "experiments/pilot/TASK.md": {
+          "$ref": "#/$defs/sha256"
+        },
+        "experiments/e001/examples/catalog.an": {
+          "$ref": "#/$defs/sha256"
+        },
+        "experiments/e001/prototype/agent_native.py": {
+          "$ref": "#/$defs/sha256"
+        },
+        "experiments/e005/interface.py": {
+          "$ref": "#/$defs/sha256"
+        },
+        "experiments/e005/tools.json": {
+          "$ref": "#/$defs/sha256"
+        },
+        "experiments/pilot/surface.py": {
+          "$ref": "#/$defs/sha256"
+        },
+        "experiments/pilot/gateway.py": {
+          "$ref": "#/$defs/sha256"
+        },
+        "experiments/pilot/ollama_runner.py": {
+          "$ref": "#/$defs/sha256"
+        },
+        "experiments/pilot/run_schedule.py": {
+          "$ref": "#/$defs/sha256"
+        },
+        "experiments/pilot/analyze.py": {
+          "$ref": "#/$defs/sha256"
+        },
+        "experiments/pilot/candidate.py": {
+          "$ref": "#/$defs/sha256"
+        },
+        "experiments/pilot/candidate.schema.json": {
+          "$ref": "#/$defs/sha256"
+        },
+        "experiments/pilot/evaluation-result.schema.json": {
+          "$ref": "#/$defs/sha256"
+        },
+        "experiments/pilot/finalize.py": {
+          "$ref": "#/$defs/sha256"
+        },
+        "experiments/pilot/schedule.py": {
+          "$ref": "#/$defs/sha256"
+        },
+        "experiments/pilot/verify_schedule.py": {
+          "$ref": "#/$defs/sha256"
+        },
+        "experiments/pilot/schedule.schema.json": {
+          "$ref": "#/$defs/sha256"
+        },
+        "experiments/e007/trace.schema.json": {
+          "$ref": "#/$defs/sha256"
+        },
+        "experiments/e007/metrics.py": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "budgets": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "max_input_tokens",
+        "max_output_tokens",
+        "max_tool_calls",
+        "max_wall_seconds"
+      ],
+      "properties": {
+        "max_input_tokens": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "max_output_tokens": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "max_tool_calls": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "max_wall_seconds": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "trial": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sequence",
+        "pair_id",
+        "run_id",
+        "candidate_id",
+        "model_id",
+        "generation_settings",
+        "task_id",
+        "attempt",
+        "source_revision",
+        "source_sha256",
+        "budgets",
+        "fresh_state_required",
+        "agent_visible_treatment_label"
+      ],
+      "properties": {
+        "sequence": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "pair_id": {
+          "type": "string",
+          "pattern": "^pair-[0-9]{4}$"
+        },
+        "run_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "candidate_id": {
+          "enum": [
+            "progressive",
+            "upfront"
+          ]
+        },
+        "model_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "generation_settings": {
+          "type": "object"
+        },
+        "task_id": {
+          "const": "pilot-catalog-add-readonly-operation"
+        },
+        "attempt": {
+          "const": 1
+        },
+        "source_revision": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{40}$"
+        },
+        "source_sha256": {
+          "$ref": "#/$defs/source_hashes"
+        },
+        "budgets": {
+          "$ref": "#/$defs/budgets"
+        },
+        "fresh_state_required": {
+          "const": true
+        },
+        "agent_visible_treatment_label": {
+          "const": false
+        }
+      }
+    }
+  },
+  "properties": {
+    "schedule_version": {
+      "const": 1
+    },
+    "plan_id": {
+      "$ref": "#/$defs/sha256"
+    },
+    "protocol": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocol_version",
+        "task_id",
+        "source_revision",
+        "source_sha256",
+        "model_id",
+        "generation_settings",
+        "budgets",
+        "pairs",
+        "seed",
+        "arms",
+        "randomization",
+        "execution"
+      ],
+      "properties": {
+        "protocol_version": {
+          "const": 1
+        },
+        "task_id": {
+          "const": "pilot-catalog-add-readonly-operation"
+        },
+        "source_revision": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{40}$"
+        },
+        "source_sha256": {
+          "$ref": "#/$defs/source_hashes"
+        },
+        "model_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "generation_settings": {
+          "type": "object"
+        },
+        "budgets": {
+          "$ref": "#/$defs/budgets"
+        },
+        "pairs": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 500
+        },
+        "seed": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "arms": {
+          "const": [
+            "progressive",
+            "upfront"
+          ]
+        },
+        "randomization": {
+          "const": "independent_uniform_order_within_each_pair"
+        },
+        "execution": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "fresh_state_per_trial",
+            "max_concurrent_trials",
+            "agent_receives_arm_label"
+          ],
+          "properties": {
+            "fresh_state_per_trial": {
+              "const": true
+            },
+            "max_concurrent_trials": {
+              "const": 1
+            },
+            "agent_receives_arm_label": {
+              "const": false
+            }
+          }
+        }
+      }
+    },
+    "trials": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/trial"
+      }
+    }
+  }
+}

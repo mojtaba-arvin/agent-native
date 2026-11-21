@@ -1,0 +1,94 @@
+{
+  "schema_version": 1,
+  "blockers": [
+    {
+      "id": "BLK-001",
+      "status": "open",
+      "severity": "high",
+      "title": "GitHub autonomous merge and required-check authority is not established",
+      "description": "AGENTS.md reserves repository security settings and main merges for explicit owner authorization. The active Protect Main Branch ruleset currently enforces deletion and non-fast-forward protections only. The classic branch-protection endpoint is not readable through the current integration, so required PR approvals and status checks remain unverified. PR-based integration is available; ruleset/branch-protection changes and unattended main merge require owner action.",
+      "owner_action_required": true,
+      "unblocks": [
+        "Autonomous merge-to-main acceptance test",
+        "Automated release publication"
+      ],
+      "next_step": "Owner reviews GitHub Settings for main, configures required PR approvals/status checks and up-to-date branches, then explicitly authorizes main integration. Keep PR-based integration meanwhile."
+    },
+    {
+      "id": "BLK-002",
+      "status": "resolved",
+      "severity": "low",
+      "title": "Baseline branch head and complete CI workflow inventory need fresh verification",
+      "description": "The reboot-core base SHA and all 15 workflow filenames in the candidate's removal diff have been identified. Nine workflows have successful baseline runs. The remaining work is a policy/compatibility audit, tracked separately as BLK-003.",
+      "owner_action_required": false,
+      "unblocks": [
+        "CP-004",
+        "Accurate CI integration"
+      ],
+      "next_step": "No action; retain the baseline workflow inventory as evidence."
+    },
+    {
+      "id": "BLK-003",
+      "status": "resolved",
+      "severity": "high",
+      "title": "Unified CI candidate needs safety and cost corrections before port",
+      "description": "The unified workflow was integrated into research/reboot-core through PR #65 after PR #64. Fresh PR-head run 44429525898 passed Layer 0 and Layer 1 after retargeting. E-002 ten-repetition performance and E-009 ten-run capacity jobs are manual-only; CPU diagnostics are explicitly not M3 acceptance; the always-on E-009 smoke is functional-only. Evidence scorecards and preregistration integrity are integrated through PRs #68 and #69.",
+      "owner_action_required": false,
+      "unblocks": [
+        "CP-006",
+        "CP-007"
+      ],
+      "next_step": "No further CI consolidation action; preserve manual gates and verify future changes through the unified workflow."
+    },
+    {
+      "id": "BLK-004",
+      "status": "open",
+      "severity": "high",
+      "title": "Decision-grade M3 evaluation lacks a qualifying zero-cost model and protected hidden-oracle path",
+      "description": "M3-000 topology, M3-003 bounded feasibility, M3-004 provider-native schema delivery, M3-005 corrected-adapter CPU rerun, and M3-006 alternate model shortlist are complete. M3-005 produced 0/6 full lifecycle completions; the strongest 3B upfront run completed inspect, proposal, and validation but exhausted the fixed 12,000-token budget before plan. Progressive 1B/3B repeated interface.describe even though service.inspect was exposed natively. M3-008 is active to intercept duplicate discovery/inspection and deduplicate prompt-state outcomes without changing budgets. M3-001 remains blocked until a qualifying model and protected evaluator-only hidden-oracle custody are verified.",
+      "owner_action_required": true,
+      "unblocks": [
+        "M3 decision-grade model evaluation"
+      ],
+      "next_step": "Complete M3-008 and rerun the same locked matrix under the unchanged budgets. If no model qualifies after the harness deduplication fix, proceed to M3-007 with a separately preregistered alternate cohort; keep the original Granite lock and the unplanned duplicate run separate."
+    },
+    {
+      "id": "BLK-005",
+      "status": "resolved",
+      "severity": "medium",
+      "title": "Shared-runner E-009 smoke incorrectly enforced capacity thresholds",
+      "description": "Removed --enforce-capacity-gate from the always-on E-009 product-path smoke while preserving it in the manual ten-repetition capacity confirmation. Run 44428892897 passed Layer 0 and Layer 1, and the E-009 smoke had zero failed expectations.",
+      "owner_action_required": false,
+      "unblocks": [
+        "Stable unified Layer 1 CI"
+      ],
+      "next_step": "No further action on the shared-runner smoke. Review the raw artifact only for product-path diagnostics; use the manual ten-run confirmation for capacity claims."
+    },
+    {
+      "id": "BLK-006",
+      "status": "resolved",
+      "severity": "high",
+      "title": "C1 integration and M0 unblock await owner review of PR #64",
+      "description": "PR #64, #65, #68, and #69 are integrated into research/reboot-core. PR #65 was retargeted after #64 and passed fresh Layer 0 and Layer 1 in run 44429525898. CP-007 is complete. M0 remains blocked by the remaining C0/C1 exit criteria, not by owner review of the PR stack.",
+      "owner_action_required": false,
+      "unblocks": [
+        "CP-007 final acceptance",
+        "M0 milestone unblock",
+        "M1-001 package baseline integration"
+      ],
+      "next_step": "Complete the C0 clean-handoff resume gate and the remaining C1 evidence/decision-integrity criterion; then re-evaluate M0."
+    },
+    {
+      "id": "BLK-007",
+      "status": "open",
+      "severity": "medium",
+      "title": "C3 independent peer review remains outstanding after M2 owner waiver",
+      "description": "M2-003 was integrated after an exact-head repository-owner waiver, source-level integrator audit, and fresh Layer 0/Layer 1 checks. The waiver is not peer review. C3 still requires genuine independent human APPROVED reviews on a trust-boundary change; this remaining governance criterion no longer blocks M2 or M3 preparation.",
+      "owner_action_required": false,
+      "unblocks": [
+        "C3 completion"
+      ],
+      "next_step": "Seek two genuine independent human reviewers for a future trust-boundary review and keep C3 pending until their approvals are recorded. Do not block unrelated M3 preparation on this criterion."
+    }
+  ]
+}

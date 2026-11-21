@@ -1,0 +1,128 @@
+name: nightly-acceptance
+
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: read
+  issues: write
+
+jobs:
+  acceptance-and-process-health:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout research/reboot-core
+        uses: actions/checkout@v4
+        with:
+          ref: research/reboot-core
+          fetch-depth: 0
+
+      - name: Run every acceptance script
+        id: acceptance
+        shell: bash
+        run: |
+          set -u
+          shopt -s nullglob
+          scripts=(acceptance/*.sh)
+          failed=0
+          if (( ${#scripts[@]} == 0 )); then
+            echo "No acceptance/*.sh scripts found."
+            echo "failed=true" >> "$GITHUB_OUTPUT"
+            echo "## Nightly acceptance" >> "$GITHUB_STEP_SUMMARY"
+            echo "- FAIL: no acceptance scripts found" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          echo "## Nightly acceptance" >> "$GITHUB_STEP_SUMMARY"
+          for script in "${scripts[@]}"; do
+            echo "### $script" >> "$GITHUB_STEP_SUMMARY"
+            if bash "$script"; then
+              echo "- PASS: \`$script\`" >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "- FAIL: \`$script\`" >> "$GITHUB_STEP_SUMMARY"
+              failed=1
+            fi
+          done
+          if (( failed )); then
+            echo "failed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "failed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Compute docs/state ratio in the last 50 first-parent commits
+        id: ratio
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          commits="$(git rev-list --first-parent -n 50 research/reboot-core)"
+          total=0
+          marked=0
+          while IFS= read -r commit; do
+            [[ -n "$commit" ]] || continue
+            parent="$(git rev-parse "$commit^" 2>/dev/null || true)"
+            [[ -n "$parent" ]] || continue
+            while IFS= read -r path; do
+              [[ -n "$path" ]] || continue
+              total=$((total + 1))
+              case "$path" in
+                docs/*|*.md|project-control/*) marked=$((marked + 1)) ;;
+              esac
+            done < <(git diff --name-only "$parent" "$commit")
+          done <<< "$commits"
+
+          ratio="$(awk -v marked="$marked" -v total="$total" 'BEGIN { if (total == 0) print 0; else printf "%.6f", marked / total }')"
+          percent="$(awk -v ratio="$ratio" 'BEGIN { printf "%.2f", ratio * 100 }')"
+          echo "docs_state_count=$marked" >> "$GITHUB_OUTPUT"
+          echo "total_file_changes=$total" >> "$GITHUB_OUTPUT"
+          echo "ratio=$ratio" >> "$GITHUB_OUTPUT"
+          echo "## Process health" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Docs/state file changes: $marked / $total ($percent%) across the last 50 first-parent commits." >> "$GITHUB_STEP_SUMMARY"
+
+          if awk -v ratio="$ratio" 'BEGIN { exit !(ratio > 0.10) }'; then
+            echo "Ratio exceeds 10%; attempting NEW_WORK_PAUSED=true."
+            if gh api --method PATCH "/repos/$GITHUB_REPOSITORY/actions/variables/NEW_WORK_PAUSED" \
+              --field name=NEW_WORK_PAUSED --field value=true >/dev/null; then
+              echo "- NEW_WORK_PAUSED set to true." >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "- WARNING: could not set NEW_WORK_PAUSED=true; opening a process-alert issue." >> "$GITHUB_STEP_SUMMARY"
+              gh api --method POST "/repos/$GITHUB_REPOSITORY/labels" \
+                --field name=process-alert --field color=B60205 \
+                --field description="Nightly process-health alert" >/dev/null 2>&1 || true
+              issue_title="Nightly process-health alert: NEW_WORK_PAUSED could not be set"
+              existing="$(gh api "/repos/$GITHUB_REPOSITORY/issues?state=open&labels=process-alert&per_page=100")"
+              if ! printf '%s' "$existing" | jq -e --arg title "$issue_title" 'any(.[]; .title == $title)' >/dev/null; then
+                issue_body="The docs/state file ratio was $percent% ($marked/$total) in the last 50 first-parent commits, above the 10% threshold. The workflow could not set repository variable NEW_WORK_PAUSED=true. Review repository Actions variable permissions and set the variable manually if required. Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+                if gh api --method POST "/repos/$GITHUB_REPOSITORY/issues" \
+                  --field title="$issue_title" --field body="$issue_body" \
+                  --field 'labels[]=process-alert' >/dev/null; then
+                  echo "- Opened process-alert issue: $issue_title." >> "$GITHUB_STEP_SUMMARY"
+                else
+                  echo "- ERROR: could not create the process-alert issue; GitHub token may lack issue/label write permission." >> "$GITHUB_STEP_SUMMARY"
+                fi
+              else
+                echo "- An open process-alert issue already exists; no duplicate created." >> "$GITHUB_STEP_SUMMARY"
+              fi
+            fi
+          else
+            # Clear a previously set pause when the measured ratio has fallen back to 10% or below.
+            current="$(gh api "/repos/$GITHUB_REPOSITORY/actions/variables/NEW_WORK_PAUSED" --jq '.value' 2>/dev/null || true)"
+            if [[ "$current" == "true" ]]; then
+              if gh api --method PATCH "/repos/$GITHUB_REPOSITORY/actions/variables/NEW_WORK_PAUSED" \
+                --field name=NEW_WORK_PAUSED --field value=false >/dev/null; then
+                echo "- NEW_WORK_PAUSED reset to false (ratio is at or below 10%)." >> "$GITHUB_STEP_SUMMARY"
+              else
+                echo "- WARNING: ratio is at or below 10%, but NEW_WORK_PAUSED could not be reset." >> "$GITHUB_STEP_SUMMARY"
+              fi
+            else
+              echo "- NEW_WORK_PAUSED unchanged (ratio is at or below 10%)." >> "$GITHUB_STEP_SUMMARY"
+            fi
+          fi
+
+      - name: Fail if any acceptance script failed
+        if: steps.acceptance.outputs.failed == 'true'
+        run: exit 1

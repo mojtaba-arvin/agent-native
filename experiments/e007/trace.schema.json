@@ -1,0 +1,323 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "event_id",
+    "task_id",
+    "attempt",
+    "timestamp_ns",
+    "event_type"
+  ],
+  "properties": {
+    "event_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "task_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "attempt": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "timestamp_ns": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "event_type": {
+      "enum": [
+        "task_started",
+        "tool_call",
+        "model_usage",
+        "repair",
+        "human_intervention",
+        "runtime_metric",
+        "task_finished"
+      ]
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "candidate_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "model_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "tool_name": {
+      "type": "string"
+    },
+    "schema_lookup": {
+      "type": "boolean"
+    },
+    "change_set_id": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "validation_valid": {
+      "type": "boolean"
+    },
+    "plan_valid": {
+      "type": "boolean"
+    },
+    "plan_will_mutate": {
+      "type": "boolean"
+    },
+    "plan_will_deploy": {
+      "type": "boolean"
+    },
+    "input_tokens": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "output_tokens": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "cost_usd": {
+      "type": "number",
+      "minimum": 0
+    },
+    "accepted": {
+      "type": "boolean"
+    },
+    "eligible_for_acceptance": {
+      "type": "boolean"
+    },
+    "failure_class": {
+      "type": "string"
+    },
+    "metric_name": {
+      "type": "string"
+    },
+    "metric_value": {
+      "type": "number"
+    },
+    "metric_unit": {
+      "type": "string"
+    },
+    "retry": {
+      "type": "boolean"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "required": [
+          "event_type"
+        ],
+        "properties": {
+          "event_type": {
+            "const": "task_finished"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "accepted"
+        ]
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "accepted"
+        ],
+        "properties": {
+          "accepted": {
+            "const": true
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "eligible_for_acceptance": {
+            "const": true
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "schema_lookup"
+        ],
+        "properties": {
+          "schema_lookup": {
+            "const": true
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "tool_name"
+        ],
+        "properties": {
+          "event_type": {
+            "const": "tool_call"
+          },
+          "tool_name": {
+            "const": "interface.describe"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "change_set_id"
+        ]
+      },
+      "then": {
+        "required": [
+          "tool_name"
+        ],
+        "properties": {
+          "event_type": {
+            "const": "tool_call"
+          },
+          "tool_name": {
+            "enum": [
+              "service.propose",
+              "service.validate",
+              "service.plan"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "validation_valid"
+        ]
+      },
+      "then": {
+        "required": [
+          "tool_name"
+        ],
+        "properties": {
+          "event_type": {
+            "const": "tool_call"
+          },
+          "tool_name": {
+            "const": "service.validate"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "anyOf": [
+          {
+            "required": [
+              "plan_valid"
+            ]
+          },
+          {
+            "required": [
+              "plan_will_mutate"
+            ]
+          },
+          {
+            "required": [
+              "plan_will_deploy"
+            ]
+          }
+        ]
+      },
+      "then": {
+        "required": [
+          "tool_name"
+        ],
+        "properties": {
+          "event_type": {
+            "const": "tool_call"
+          },
+          "tool_name": {
+            "const": "service.plan"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "event_type"
+        ],
+        "properties": {
+          "event_type": {
+            "const": "model_usage"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "input_tokens",
+          "output_tokens"
+        ]
+      }
+    },
+    {
+      "if": {
+        "anyOf": [
+          {
+            "required": [
+              "input_tokens"
+            ]
+          },
+          {
+            "required": [
+              "output_tokens"
+            ]
+          },
+          {
+            "required": [
+              "cost_usd"
+            ]
+          }
+        ]
+      },
+      "then": {
+        "required": [
+          "event_type"
+        ],
+        "properties": {
+          "event_type": {
+            "const": "model_usage"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "failure_class"
+        ],
+        "properties": {
+          "failure_class": {
+            "const": "MODEL_TOKEN_BUDGET_EXCEEDED"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "event_type"
+        ],
+        "properties": {
+          "event_type": {
+            "enum": [
+              "model_usage",
+              "tool_call"
+            ]
+          }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,120 @@
+{
+  "schema_version": 1,
+  "status": "provisional_manifest_pinned",
+  "updated_at": "2026-11-19",
+  "runner": {
+    "label": "ubuntu-latest",
+    "os": "ubuntu",
+    "architecture": "x86_64",
+    "vcpus": 4,
+    "memory_gib": 16,
+    "ssd_gib": 14,
+    "public_repository_usage": "free"
+  },
+  "runtime": {
+    "name": "Ollama",
+    "version": "0.40.15",
+    "image": "ollama/ollama@sha256:a717bfc1c56acfc2e85d3109bd40a7646258ec9062c40cea83b9ed0927eb4223",
+    "platform": "linux/amd64",
+    "python_image": "python:3.12-slim@sha256:5e2bdb1b0d542d5039cffb8181c65930093949194a65c365dfb1b0fe13a4fa5b"
+  },
+  "family": {
+    "name": "IBM Granite 4.0 Hybrid",
+    "license": "Apache-2.0",
+    "quantization_default": "Q4_K_M",
+    "architecture": "hybrid Mamba2"
+  },
+  "models": [
+    {
+      "tier": "weak",
+      "tag": "ibm/granite4:350m-h-q4_K_M",
+      "parameters_total": "340M",
+      "parameters_active": "340M",
+      "quantization_expected": "Q4_K_M",
+      "manifest_sha256": "36af176d9b7dd6dd217b09e817e9a6d5508125ede49110307cc431f3f637270a",
+      "config_digest": "sha256:9b184b1a1690812315659156678c2ea695d06fdb463a0428e81b478e14a6e2b3",
+      "model_size_bytes": 222662560,
+      "tool_call_smoke": "progressive_failed_no_tool_call",
+      "expected_download_size_label": "223MB",
+      "parameter_size": "340.33M",
+      "last_failure_code": "provider_final_content_missing",
+      "last_tool_calls": 0,
+      "last_input_tokens": 1648,
+      "last_output_tokens": 137,
+      "last_feasibility_run_id": 44511342601,
+      "initial_bootstrap_run_id": 44509769849,
+      "upfront_tool_call_smoke": "pending"
+    },
+    {
+      "tier": "medium",
+      "tag": "ibm/granite4:1b-h-q4_K_M",
+      "parameters_total": "1.46B",
+      "parameters_active": "1.46B",
+      "quantization_expected": "Q4_K_M",
+      "manifest_sha256": "f6515da40c13e22a9d916fd86540adf828e683749fe91385e6fcb5c96f09a31c",
+      "config_digest": "sha256:9825c8f793880d9170dec72fcdeaa5744000117a95c63e3220fe2b80a9de8b76",
+      "model_size_bytes": 901162208,
+      "tool_call_smoke": "progressive_failed_input_token_budget",
+      "expected_download_size_label": "901MB",
+      "parameter_size": "1.5B",
+      "last_failure_code": "input_token_budget_exceeded",
+      "last_tool_calls": 6,
+      "last_input_tokens": 12214,
+      "last_output_tokens": 420,
+      "last_feasibility_run_id": 44511342601,
+      "initial_bootstrap_run_id": 44509769849,
+      "upfront_tool_call_smoke": "pending"
+    },
+    {
+      "tier": "strong",
+      "tag": "ibm/granite4:3b-h",
+      "parameters_total": "3.19B",
+      "parameters_active": "3.19B",
+      "quantization_expected": "Q4_K_M",
+      "manifest_sha256": "9e66223ed658bcfa14b807dd9847b97afb8e7f23d7aba17e95aec5fa3b128294",
+      "config_digest": "sha256:f66de63fcc6ddca09b24dd84b2216d76a96f872f86829e79bf35d890c921f9ba",
+      "model_size_bytes": 1942564512,
+      "tool_call_smoke": "progressive_failed_no_tool_call",
+      "expected_download_size_label": "1.9GB",
+      "parameter_size": "3.2B",
+      "last_failure_code": "provider_final_content_missing",
+      "last_tool_calls": 0,
+      "last_input_tokens": 1648,
+      "last_output_tokens": 28,
+      "last_feasibility_run_id": 44511342601,
+      "initial_bootstrap_run_id": 44509769849,
+      "upfront_tool_call_smoke": "pending"
+    }
+  ],
+  "smoke": {
+    "task_path": "experiments/e009/AGENT_TASK_DELTA.md",
+    "proposal_mode": "delta",
+    "base_disclosure": "minimal",
+    "arm": "progressive",
+    "num_ctx": 16384,
+    "num_predict": 2048,
+    "max_input_tokens": 12000,
+    "max_output_tokens": 2048,
+    "max_tool_calls": 20,
+    "max_wall_seconds": 600,
+    "temperature": 0,
+    "top_p": 1,
+    "seed": 42,
+    "allow_sandbox_apply": false,
+    "retries": 0,
+    "task_id_source": "local_agent.TASK_ID"
+  },
+  "cost": {
+    "paid_api_usd_ceiling": 0,
+    "gpu_allowed": false,
+    "permitted_compute": "GitHub Actions public-repository hosted CPU runners"
+  },
+  "oracle": {
+    "hidden_oracle_enabled": false,
+    "synthetic_oracle_enabled": false
+  },
+  "external_network": {
+    "during_model_download": "allowed for public Ollama registry only",
+    "during_agent_inference": "blocked"
+  }
+}

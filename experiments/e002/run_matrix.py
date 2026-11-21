@@ -1,0 +1,156 @@
+#!/usr/bin/env python3
+"""Randomized repeated E-002 candidate runner; preserves all individual runs."""
+from __future__ import annotations
+
+import argparse
+import json
+import random
+import statistics
+import subprocess
+import sys
+from pathlib import Path
+
+
+def distribution(values: list[float], seed: int) -> dict:
+    if not values:
+        return {
+            "n": 0, "mean": None, "sample_stddev": None, "median": None,
+            "min": None, "max": None, "bootstrap_mean_95": None,
+        }
+    bootstrap = []
+    if len(values) >= 2:
+        rng = random.Random(seed)
+        for _ in range(2000):
+            bootstrap.append(statistics.mean(rng.choices(values, k=len(values))))
+        bootstrap.sort()
+        lower = bootstrap[max(0, int(0.025 * len(bootstrap)))]
+        upper = bootstrap[min(len(bootstrap) - 1, int(0.975 * len(bootstrap)))]
+        interval = [lower, upper]
+    else:
+        interval = None
+    return {
+        "n": len(values),
+        "mean": statistics.mean(values),
+        "sample_stddev": statistics.stdev(values) if len(values) >= 2 else None,
+        "median": statistics.median(values),
+        "min": min(values),
+        "max": max(values),
+        "bootstrap_mean_95": interval,
+    }
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--go-command", required=True)
+    parser.add_argument("--rust-command", required=True)
+    parser.add_argument("--wasi-command", required=True)
+    parser.add_argument("--beam-command", required=True)
+    parser.add_argument("--go-cwd", default="experiments/e002/go")
+    parser.add_argument("--rust-cwd", default="experiments/e002/rust")
+    parser.add_argument("--wasi-cwd", default="experiments/e002/wasi-p2")
+    parser.add_argument("--beam-cwd", default="experiments/e002/beam")
+    parser.add_argument("--requests", type=int, default=5000)
+    parser.add_argument("--concurrency", type=int, default=64)
+    parser.add_argument("--warmup", type=int, default=250)
+    parser.add_argument("--repetitions", type=int, default=10)
+    parser.add_argument("--seed", type=int, default=20261116)
+    parser.add_argument("--output", required=True)
+    args = parser.parse_args()
+    if min(args.requests, args.concurrency, args.repetitions) < 1 or args.warmup < 0:
+        parser.error("requests, concurrency, repetitions must be positive; warmup non-negative")
+
+    root = Path(args.output)
+    root.mkdir(parents=True, exist_ok=True)
+    candidates = [
+        {"id": "go-net-http", "command": args.go_command, "cwd": args.go_cwd},
+        {"id": "rust-tokio-hyper", "command": args.rust_command, "cwd": args.rust_cwd},
+        {"id": "wasi-p2-wasmtime-50.0.1", "command": args.wasi_command, "cwd": args.wasi_cwd},
+        {"id": "beam-elixir-otp", "command": args.beam_command, "cwd": args.beam_cwd},
+    ]
+    rng = random.Random(args.seed)
+    runs: list[dict] = []
+    benchmark_script = Path(__file__).with_name("benchmark.py")
+
+    for repetition in range(1, args.repetitions + 1):
+        order = candidates.copy()
+        rng.shuffle(order)
+        for position, candidate in enumerate(order, start=1):
+            prefix = root / candidate["id"] / f"rep-{repetition:02d}"
+            command = [
+                sys.executable, str(benchmark_script),
+                "--command", candidate["command"],
+                "--cwd", candidate["cwd"],
+                "--requests", str(args.requests),
+                "--concurrency", str(args.concurrency),
+                "--warmup", str(args.warmup),
+                "--label", candidate["id"],
+                "--output", str(prefix),
+            ]
+            completed = subprocess.run(command, text=True, capture_output=True)
+            record = {
+                "candidate": candidate["id"],
+                "repetition": repetition,
+                "order_position": position,
+                "seed": args.seed,
+                "exit_code": completed.returncode,
+                "stdout": completed.stdout[-4000:],
+                "stderr": completed.stderr[-4000:],
+                "summary_path": str(prefix.with_suffix(".json")),
+                "raw_path": str(prefix.with_suffix(".jsonl")),
+            }
+            if completed.returncode == 0 and prefix.with_suffix(".json").exists():
+                record["summary"] = json.loads(prefix.with_suffix(".json").read_text())
+            runs.append(record)
+            print(f"{repetition}/{args.repetitions} {candidate['id']}: exit={completed.returncode}")
+            if completed.returncode != 0:
+                (root / "matrix.json").write_text(
+                    json.dumps({"seed": args.seed, "runs": runs}, indent=2) + "\n",
+                    encoding="utf-8",
+                )
+                raise SystemExit(f"candidate failed; details retained under {prefix}")
+
+    aggregate = {}
+    for candidate in candidates:
+        samples = [
+            run["summary"] for run in runs
+            if run["candidate"] == candidate["id"] and "summary" in run
+        ]
+        aggregate[candidate["id"]] = {
+            "successful_repetitions": len(samples),
+            "throughput_rps": distribution(
+                [item["throughput_requests_per_second"] for item in samples], args.seed + 1
+            ),
+            "p50_ms": distribution([item["latency_ms"]["p50"] for item in samples], args.seed + 2),
+            "p95_ms": distribution([item["latency_ms"]["p95"] for item in samples], args.seed + 3),
+            "p99_ms": distribution([item["latency_ms"]["p99"] for item in samples], args.seed + 4),
+            "cpu_seconds": distribution(
+                [item["cpu_seconds"] for item in samples if item.get("cpu_seconds") is not None], args.seed + 5
+            ),
+            "peak_rss_mib": distribution(
+                [item["peak_rss_bytes"] / (1024 * 1024) for item in samples if item.get("peak_rss_bytes") is not None], args.seed + 6
+            ),
+            "startup_seconds": distribution(
+                [item["startup_seconds"] for item in samples if item.get("startup_seconds") is not None], args.seed + 7
+            ),
+        }
+
+    result = {
+        "seed": args.seed,
+        "requests_per_run": args.requests,
+        "concurrency": args.concurrency,
+        "warmup": args.warmup,
+        "repetitions_per_candidate": args.repetitions,
+        "randomized_order": True,
+        "aggregate": aggregate,
+        "runs": runs,
+        "interpretation": "Run-level distributions include descriptive statistics and bootstrap intervals for the mean. Shared hosted-runner results remain diagnostic and do not select a runtime.",
+    }
+    (root / "matrix.json").write_text(
+        json.dumps(result, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    print(json.dumps(aggregate, indent=2, sort_keys=True))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

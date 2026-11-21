@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "eval_id": "e010-real-agent-sandbox-apply-v2",
+  "source_revision": "a972418e5795a863a1435bf69cc6592e782c6abd",
+  "task_id": "e010-sandbox-apply-lifecycle",
+  "model": "qwen3:8b",
+  "arm": "upfront",
+  "temperature": 0,
+  "top_p": 1,
+  "seed": 42,
+  "num_ctx": 16384,
+  "num_predict": 2048,
+  "max_wall_seconds": 3000,
+  "max_input_tokens": 120000,
+  "max_output_tokens": 6000,
+  "max_tool_calls": 20,
+  "dispatched_at": "2026-11-18T07:41:33Z",
+  "purpose": "One real Qwen3 E-010 lifecycle demonstration on the exact pinned runner revision, including exact baseline-contract enforcement, apply change-set hash binding, and explicit operation-inspection progression with a bounded one-repair stop for repeated no-progress calls. Exercise inspect → propose → validate → plan → apply in the isolated temporary sandbox, publish the immutable ServiceRuntime snapshot, execute the normalized-name route, and preserve append-only SQLite audit evidence. No production service, deployment, or credentials. Same per-run generation budget as E-007; no budget increase."
+}

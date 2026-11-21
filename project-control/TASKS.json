@@ -1,0 +1,1604 @@
+{
+  "schema_version": 1,
+  "tasks": [
+    {
+      "id": "CP-001",
+      "title": "Add a standard-library control-plane validator and status command",
+      "milestone": "C0",
+      "status": "complete",
+      "priority": 1,
+      "depends_on": [],
+      "owner": "integrator",
+      "scope": [
+        "project_control.py",
+        "project-control/"
+      ],
+      "acceptance": [
+        "python project_control.py validate",
+        "python project_control.py status",
+        "python project_control.py self-test"
+      ],
+      "expected_outputs": [
+        "Cross-file schema/reference validation",
+        "Readable milestone/task status summary"
+      ],
+      "max_unchanged_retries": 1,
+      "replan_after_failures": 2,
+      "stop_conditions": [
+        "Do not modify main or repository security settings"
+      ],
+      "evidence_ids": []
+    },
+    {
+      "id": "CP-002",
+      "title": "Add control-plane validation to the active deterministic CI",
+      "milestone": "C1",
+      "status": "complete",
+      "priority": 2,
+      "depends_on": [
+        "CP-001"
+      ],
+      "owner": "integrator",
+      "scope": [
+        ".github/workflows/"
+      ],
+      "acceptance": [
+        "The active CI invokes the validator",
+        "A malformed-state negative test fails"
+      ],
+      "expected_outputs": [
+        "CI integration",
+        "Negative test"
+      ],
+      "max_unchanged_retries": 1,
+      "replan_after_failures": 2,
+      "stop_conditions": [
+        "Do not replace or merge an unrelated CI workflow without diff review"
+      ],
+      "evidence_ids": []
+    },
+    {
+      "id": "CP-003",
+      "title": "Audit active v0.1 implementation against the roadmap and create evidence-backed task contracts",
+      "milestone": "M0",
+      "status": "complete",
+      "priority": 3,
+      "depends_on": [
+        "CP-001"
+      ],
+      "owner": "research",
+      "scope": [
+        "REPORT.md",
+        "EVALUATION.md",
+        "DECISIONS.json",
+        "research/evidence-index.md",
+        "experiments/e001/",
+        "experiments/e002/",
+        "experiments/e003/",
+        "experiments/e004/",
+        "experiments/e005/",
+        "experiments/e006/",
+        "experiments/e007/",
+        "experiments/e008/",
+        "experiments/e009/",
+        "experiments/e010/",
+        "research/e011-interservice-communication-plan.md",
+        "project-control/M0_AUDIT.md"
+      ],
+      "acceptance": [
+        "Every E-001 through E-011 workstream has a current status and evidence boundary grounded in source/docs",
+        "REPORT.md no longer points to stale in-progress runs or obsolete test counts",
+        "Historical raw traces and dispatch request artifacts remain immutable and are clearly distinguished from active manifests",
+        "Runtime, service syntax, persistence, transport, production identity, capacity, and model acceptance are not overstated",
+        "Each v0.1 gap is mapped to M1-M5 and independently verifiable follow-up work"
+      ],
+      "expected_outputs": [
+        "Evidence-backed M0 source audit",
+        "Reconciled REPORT.md and experiment status notes",
+        "Updated task graph for M1/M2 and remaining M0 gates"
+      ],
+      "max_unchanged_retries": 2,
+      "replan_after_failures": 2,
+      "stop_conditions": [
+        "Do not claim model success or runtime selection without evidence"
+      ],
+      "evidence_ids": [
+        "project-control/M0_AUDIT.md",
+        "REPORT.md reconciled",
+        "experiments/e007/README.md reconciled",
+        "experiments/e009/README.md reconciled",
+        "M1/M2/M3/M4/M5 task contracts",
+        "run:44432301307",
+        "14/14 fast suites",
+        "Layer 1 native/database success"
+      ]
+    },
+    {
+      "id": "CP-004",
+      "title": "Audit reboot-core CI baseline and the staging fast-CI candidate",
+      "milestone": "C1",
+      "status": "complete",
+      "priority": 4,
+      "depends_on": [
+        "CP-001"
+      ],
+      "owner": "ci",
+      "scope": [
+        ".github/workflows/",
+        "scripts/",
+        "experiments/"
+      ],
+      "acceptance": [
+        "Reboot-core base revision is pinned and its associated workflow runs are inventoried",
+        "The staging CI branch is compared without merging its divergent history",
+        "Candidate CI risks and a safe port sequence are recorded"
+      ],
+      "expected_outputs": [
+        "Baseline CI inventory",
+        "CI_PORT_AUDIT.md with evidence-backed corrections"
+      ],
+      "max_unchanged_retries": 1,
+      "replan_after_failures": 2,
+      "stop_conditions": [
+        "Do not merge the stale staging branch wholesale",
+        "Do not weaken required security or integration tests"
+      ],
+      "evidence_ids": [
+        "CI_PORT_AUDIT.md",
+        "run:44361352375",
+        "run:44361352389",
+        "run:44361352415",
+        "run:44361352388",
+        "run:44361352493",
+        "run:44361352395",
+        "run:44361352426",
+        "run:44361352376",
+        "run:44361352514"
+      ]
+    },
+    {
+      "id": "CP-005",
+      "title": "Establish evidence ledger and automated claims checks",
+      "milestone": "C1",
+      "status": "complete",
+      "priority": 5,
+      "depends_on": [
+        "CP-001"
+      ],
+      "owner": "verification",
+      "scope": [
+        "project-control/PROGRESS.json",
+        "project-control/RUN_LEDGER.jsonl",
+        "project_control.py",
+        "scripts/check_claims.py",
+        "scripts/test_claims.py",
+        "scripts/ci.py"
+      ],
+      "acceptance": [
+        "Completion claims must reference one or more unique RUN_LEDGER event IDs",
+        "Referenced events must have an eligible success outcome and immutable run/commit/URL evidence",
+        "Duplicate event IDs, malformed ledger lines, unknown references, failed outcomes, mutable source URLs, and path-only evidence are rejected",
+        "Negative unit tests cover every rejection class",
+        "Claims checker runs in the project-control fast-CI precheck",
+        "Each verified milestone exit criterion maps to exactly one evidence-backed completion claim",
+        "Every verified milestone exit criterion maps to exactly one evidence-backed completion claim"
+      ],
+      "expected_outputs": [
+        "Standard-library claims validator",
+        "Negative regression tests",
+        "Evidence-backed completion claim schema",
+        "CI enforcement and run-ledger evidence"
+      ],
+      "max_unchanged_retries": 2,
+      "replan_after_failures": 2,
+      "stop_conditions": [
+        "Never synthesize run IDs, hashes, or benchmark metrics"
+      ],
+      "evidence_ids": [
+        "run:44430209027",
+        "15 claims-validator tests",
+        "14/14 fast suites",
+        "524 unit tests",
+        "Layer 1 native/database success",
+        "run:44430692124",
+        "7 completion claims validated",
+        "Layer 0 and Layer 1 passed",
+        "15 claims-validator regression tests",
+        "524 unit tests"
+      ]
+    },
+    {
+      "id": "CP-006",
+      "title": "Port and test the path-aware fast runner on reboot-core",
+      "milestone": "C1",
+      "status": "complete",
+      "priority": 6,
+      "depends_on": [
+        "CP-004"
+      ],
+      "owner": "ci",
+      "scope": [
+        "scripts/ci.py",
+        "scripts/fast.sh",
+        "scripts/test_ci.py",
+        "project_control.py",
+        "project-control/"
+      ],
+      "acceptance": [
+        "Deleted source/test paths select the affected suite",
+        "Project-control changes select the validator/self-test suite",
+        "Path selection and cross-suite dependencies have unit tests",
+        "All selected deterministic suites pass on the reboot-core base"
+      ],
+      "expected_outputs": [
+        "Fast suite runner port",
+        "Path-selection regression tests",
+        "Measured target-branch run"
+      ],
+      "max_unchanged_retries": 1,
+      "replan_after_failures": 2,
+      "stop_conditions": [
+        "Do not port the divergent branch history",
+        "Do not claim staging timings as reboot-core measurements"
+      ],
+      "evidence_ids": [
+        "run:44422752436",
+        "run:44422941792",
+        "14/14 suites",
+        "509 unit tests",
+        "4 negative validator cases",
+        "16.22s to 5.79s"
+      ]
+    },
+    {
+      "id": "CP-007",
+      "title": "Consolidate workflow policy without losing manual and extended checks",
+      "milestone": "C1",
+      "status": "complete",
+      "priority": 7,
+      "depends_on": [
+        "CP-006"
+      ],
+      "owner": "ci",
+      "scope": [
+        ".github/workflows/",
+        "project-control/CI_PORT_AUDIT.md"
+      ],
+      "acceptance": [
+        "All 15 legacy workflow responsibilities are mapped",
+        "Unified L0/L1/L2 triggers and least-privilege permissions are reviewed",
+        "Layer 0 and Layer 1 pass in one workflow run on the PR head (run 44424340406)",
+        "E-002 ten-repetition benchmark and E-009 ten-run confirmation are manual-only",
+        "CPU-only model runs are explicitly non-acceptance diagnostics",
+        "No workflow concurrency groups can cancel in-flight evidence",
+        "E-009 PR smoke is labelled as a product-path smoke, not a capacity claim",
+        "After PR #64 is integrated, PR #65 is retargeted to research/reboot-core and passes a fresh run",
+        "Always-on E-009 smoke enforces functional expectations only; capacity thresholds remain in the manual ten-repetition confirmation",
+        "Run 44428892897 and run 44429525898 both pass Layer 0 and Layer 1 after the E-009 smoke threshold separation"
+      ],
+      "expected_outputs": [
+        "Unified CI workflow",
+        "Workflow responsibility matrix",
+        "CI migration evidence",
+        "Fresh full run after retargeting PR #65 to research/reboot-core following PR #64 integration"
+      ],
+      "max_unchanged_retries": 1,
+      "replan_after_failures": 2,
+      "stop_conditions": [
+        "Do not weaken trust-boundary tests",
+        "Do not enable unattended paid model runs"
+      ],
+      "evidence_ids": [
+        "run:44424340406",
+        "14/14 suites",
+        "509 unit tests",
+        "4 validator negative cases",
+        "Layer 1 native/database success",
+        "E-009 product-path smoke: failed_expectations=0",
+        "run:44428892897",
+        "post-correction Layer 0 + Layer 1 success",
+        "E-009 smoke zero failed expectations without capacity enforcement",
+        "run:44444482357",
+        "14/14 fast suites; 571 known tests; scorecard artifact 14492437245",
+        "Layer 1 native/container/database passed on the stacked PR head",
+        "run:44429525898",
+        "PR #64 merged into research/reboot-core",
+        "PR #65 merged into research/reboot-core",
+        "PR #68 merged into research/reboot-core",
+        "PR #69 merged into research/reboot-core"
+      ]
+    },
+    {
+      "id": "M1-001",
+      "title": "Create an installable agent_native package without selecting a production runtime",
+      "milestone": "M1",
+      "status": "complete",
+      "priority": 10,
+      "depends_on": [
+        "CP-003",
+        "CP-007"
+      ],
+      "owner": "core",
+      "scope": [
+        "src/agent_native/",
+        "pyproject.toml",
+        "experiments/e001/",
+        "experiments/e009/"
+      ],
+      "acceptance": [
+        "pip install . succeeds in a clean isolated environment without network runtime dependencies",
+        "Public imports are exposed from agent_native",
+        "Package metadata and supported Python version are explicit",
+        "No production runtime or language selection is claimed"
+      ],
+      "expected_outputs": [
+        "Installable package layout",
+        "Package metadata",
+        "Clean-environment install smoke"
+      ],
+      "max_unchanged_retries": 2,
+      "replan_after_failures": 2,
+      "stop_conditions": [
+        "Do not silently change service syntax or runtime semantics",
+        "Do not introduce nonessential runtime dependencies"
+      ],
+      "evidence_ids": [
+        "run:44449169805",
+        "isolated-venv pip install passed",
+        "no runtime dependencies",
+        "installed public imports passed"
+      ]
+    },
+    {
+      "id": "M1-002",
+      "title": "Remove import-time sys.path mutation from the packaged core and entry points",
+      "milestone": "M1",
+      "status": "complete",
+      "priority": 11,
+      "depends_on": [
+        "M1-001"
+      ],
+      "owner": "core",
+      "scope": [
+        "src/agent_native/",
+        "experiments/e009/serve.py",
+        "experiments/e009/kernel.py",
+        "experiments/e009/agent_gateway.py",
+        "experiments/e010/"
+      ],
+      "acceptance": [
+        "No import-time sys.path.insert or sys.path mutation remains in supported package/CLI paths",
+        "Internal imports resolve through the package namespace",
+        "Legacy research prototypes are either migrated or explicitly isolated as non-package experiments",
+        "Import tests pass from outside the repository root"
+      ],
+      "expected_outputs": [
+        "Stable package imports",
+        "Import-isolation regression tests",
+        "Legacy experiment compatibility note"
+      ],
+      "max_unchanged_retries": 2,
+      "replan_after_failures": 2,
+      "stop_conditions": [
+        "Do not break reproducible historical experiment entry points without a migration path"
+      ],
+      "evidence_ids": [
+        "run:44449169805",
+        "package sys.path scanner passed",
+        "isolated import test passed",
+        "E-009 kernel parity tests passed",
+        "E-004 security parity tests passed"
+      ]
+    },
+    {
+      "id": "M1-003",
+      "title": "Add a unified developer CLI for check, run, inspect, worker, and audit",
+      "milestone": "M1",
+      "status": "complete",
+      "priority": 12,
+      "depends_on": [
+        "M1-001",
+        "M1-002"
+      ],
+      "owner": "core",
+      "scope": [
+        "src/agent_native/cli.py",
+        "src/agent_native/",
+        "project_control.py"
+      ],
+      "acceptance": [
+        "One installed command exposes check, run, inspect, worker, and audit subcommands",
+        "Each command has deterministic help, exit codes, and machine-readable errors",
+        "CLI commands operate on explicit service IDs/paths and never infer production credentials",
+        "CLI smoke tests run from a clean installed environment"
+      ],
+      "expected_outputs": [
+        "Unified CLI entry point",
+        "CLI command contract",
+        "End-to-end CLI smoke tests"
+      ],
+      "max_unchanged_retries": 2,
+      "replan_after_failures": 2,
+      "stop_conditions": [
+        "Do not add production deployment commands in M1"
+      ],
+      "evidence_ids": [
+        "run:44449169805",
+        "CLI tests: check/run/inspect/worker/audit/help/errors passed",
+        "console script agent-native installed and --version passed"
+      ]
+    },
+    {
+      "id": "M1-004",
+      "title": "Preserve deterministic regression coverage through package migration",
+      "milestone": "M1",
+      "status": "complete",
+      "priority": 13,
+      "depends_on": [
+        "M1-001",
+        "M1-002",
+        "M1-003"
+      ],
+      "owner": "verification",
+      "scope": [
+        "tests/",
+        "experiments/",
+        "scripts/ci.py",
+        "pyproject.toml"
+      ],
+      "acceptance": [
+        "Existing deterministic suite count is not reduced without an evidence-backed replacement",
+        "Package install, import isolation, CLI, parser/IR, Gateway, HTTP, persistence, and audit tests pass",
+        "CI runs the packaged test suite from the installed artifact",
+        "Coverage claims are generated from actual test output, not hand-maintained counts"
+      ],
+      "expected_outputs": [
+        "Package migration regression suite",
+        "Installed-artifact CI job",
+        "Evidence-backed test count"
+      ],
+      "max_unchanged_retries": 2,
+      "replan_after_failures": 2,
+      "stop_conditions": [
+        "Do not weaken trust-boundary or failure-injection tests"
+      ],
+      "evidence_ids": [
+        "run:44449169805",
+        "15/15 deterministic suites passed",
+        "627 known tests across 15 suites",
+        "54 package tests including E-009/E-004 parity"
+      ]
+    },
+    {
+      "id": "M2-001",
+      "title": "Load services through a manifest-backed ServiceRegistry",
+      "milestone": "M2",
+      "status": "complete",
+      "priority": 20,
+      "depends_on": [
+        "M1-004"
+      ],
+      "owner": "core",
+      "scope": [
+        "src/agent_native/",
+        "services/",
+        "experiments/e009/"
+      ],
+      "acceptance": [
+        "Service IDs resolve through an explicit manifest/registry rather than hard-coded Catalog mappings",
+        "Service source, version, handlers, and policy references are validated before publication",
+        "Unknown or duplicate service IDs fail closed",
+        "A second service loads without editing kernel/Gateway code"
+      ],
+      "expected_outputs": [
+        "Service manifest schema",
+        "ServiceRegistry and loader",
+        "Registry negative tests"
+      ],
+      "max_unchanged_retries": 2,
+      "replan_after_failures": 2,
+      "stop_conditions": [
+        "Do not add dynamic code execution or arbitrary plugin imports as a loading mechanism"
+      ],
+      "evidence_ids": [
+        "run:44450365382",
+        "15/15 deterministic suites",
+        "646 known tests across 15 suites",
+        "Layer 1 native/container/database passed",
+        "69 installed-package tests including ServiceRegistry negative cases"
+      ]
+    },
+    {
+      "id": "M2-002",
+      "title": "Drive declarative CRUD, job, and event handlers from service IR",
+      "milestone": "M2",
+      "status": "complete",
+      "priority": 21,
+      "depends_on": [
+        "M2-001"
+      ],
+      "owner": "core",
+      "scope": [
+        "src/agent_native/",
+        "services/",
+        "tests/"
+      ],
+      "acceptance": [
+        "GET/list/create/update/delete/job/event handler contracts are represented declaratively",
+        "Handler dispatch is generic and does not branch on service or operation names",
+        "Input/output/error schemas and effect declarations are validated against IR",
+        "Custom handlers require explicit trusted host registration"
+      ],
+      "expected_outputs": [
+        "Declarative handler contracts",
+        "Generic dispatch implementation",
+        "IR/handler conformance tests"
+      ],
+      "max_unchanged_retries": 2,
+      "replan_after_failures": 2,
+      "stop_conditions": [
+        "Do not allow agent-supplied Python or arbitrary handler code"
+      ],
+      "evidence_ids": [
+        "run:44453671758",
+        "15/15 deterministic suites",
+        "78 installed-package tests",
+        "Layer 0 passed",
+        "Layer 1 native/container/database passed",
+        "typed List<StockItem> output validation",
+        "tenant-scoped CRUD, jobs, and event dispatch tests"
+      ]
+    },
+    {
+      "id": "M2-003",
+      "title": "Generalize Agent Gateway proposals to explicit read/write effects while keeping apply separate",
+      "milestone": "M2",
+      "status": "complete",
+      "priority": 22,
+      "depends_on": [
+        "M2-002"
+      ],
+      "owner": "security",
+      "scope": [
+        "src/agent_native/gateway/",
+        "src/agent_native/authz/",
+        "tests/"
+      ],
+      "acceptance": [
+        "Gateway resolves any registered service by service ID",
+        "Read and write proposal effects have explicit capability mapping and default-deny policy",
+        "Agent may propose, validate, and plan write operations but cannot invoke service.apply",
+        "Trust-boundary negative tests cover missing grants, cross-tenant scope, unsupported effects, and service identity mismatch"
+      ],
+      "expected_outputs": [
+        "Service-independent Gateway",
+        "Read/write capability catalog",
+        "Negative authorization tests"
+      ],
+      "max_unchanged_retries": 2,
+      "replan_after_failures": 2,
+      "stop_conditions": [
+        "Do not grant agent-writer service.apply authority",
+        "Trust-boundary changes require two independent reviews by default; a repository-owner waiver is permitted only for the exact PR head, must be recorded in a PR comment, and is not peer review",
+        "A waiver does not satisfy C3's independent peer-review exit criterion"
+      ],
+      "evidence_ids": [
+        "src/agent_native/gateway/core.py",
+        "src/agent_native/authz/effects.py",
+        "src/agent_native/runtime.py",
+        "schemas/gateway-proposal-v1.schema.json",
+        "schemas/gateway-validation-v1.schema.json",
+        "schemas/gateway-plan-v1.schema.json",
+        "docs/gateway.md",
+        "tests/test_gateway.py",
+        "PR-81",
+        "run:44489986238",
+        "run:44491048454",
+        "merge:1f6fd2545cf9b8d670669e84139ff4fe84f1b276"
+      ],
+      "execution": {
+        "branch": "feat/m2-service-independent-gateway",
+        "base_branch": "research/reboot-core",
+        "integration_owner": "integrator"
+      }
+    },
+    {
+      "id": "M2-004",
+      "title": "Prove a second service can be added without changing core code",
+      "milestone": "M2",
+      "status": "complete",
+      "priority": 23,
+      "depends_on": [
+        "M2-003"
+      ],
+      "owner": "verification",
+      "scope": [
+        "services/",
+        "tests/integration/",
+        "docs/"
+      ],
+      "acceptance": [
+        "A second service is added using only manifest, IR, declarative handlers, and policy configuration",
+        "No core runtime/Gateway source changes are required for that service",
+        "Read and write proposal/validate/plan flows are tested against the second service",
+        "Cross-tenant and unauthorized-write negative tests pass"
+      ],
+      "expected_outputs": [
+        "Second service fixture",
+        "No-core-change diff evidence",
+        "Cross-service integration test report"
+      ],
+      "max_unchanged_retries": 2,
+      "replan_after_failures": 2,
+      "stop_conditions": [
+        "Do not treat a fixture-only demonstration as production readiness"
+      ],
+      "evidence_ids": [
+        "run:44461727908",
+        "94 package tests",
+        "Layer 0 passed",
+        "Layer 1 native/container/database passed",
+        "tests/test_gateway_integration.py",
+        "docs/multi-service-gateway-proof.md",
+        "PR-82",
+        "M2-004-STACKED-CI-001",
+        "run:44464064586",
+        "run:44490596646",
+        "run:44491048454",
+        "merge:0e8e8fe67f410add6d851584eeb7434f2f707aa8"
+      ],
+      "execution": {
+        "branch": "feat/m2-second-service-proof",
+        "base_branch": "research/reboot-core",
+        "integration_owner": "integrator"
+      }
+    },
+    {
+      "id": "M0-001",
+      "title": "Inventory and preserve research-only branches and unique evidence artifacts",
+      "milestone": "M0",
+      "status": "complete",
+      "priority": 4,
+      "depends_on": [
+        "CP-003"
+      ],
+      "owner": "research",
+      "scope": [
+        "research/",
+        "experiments/",
+        "git refs"
+      ],
+      "acceptance": [
+        "All research-only branches are classified as unique, merged, or snapshot-only with exact commit SHAs",
+        "Unique paper notes, workflows, benchmark scripts, and evidence artifacts are preserved on a reviewable branch or in a documented immutable reference",
+        "No branch or tag is deleted or rewritten as part of this task",
+        "A reachability check proves each retained unique artifact remains retrievable"
+      ],
+      "expected_outputs": [
+        "Branch inventory with commit/tree references",
+        "Unique-artifact preservation matrix",
+        "Non-destructive cleanup proposal"
+      ],
+      "max_unchanged_retries": 2,
+      "replan_after_failures": 2,
+      "stop_conditions": [
+        "No branch deletion, tag deletion, or force push without owner approval"
+      ],
+      "evidence_ids": [
+        "project-control/BRANCH_INVENTORY.md",
+        "27 current refs inventoried",
+        "4 unique E-007 research branches preserved",
+        "20 diverged branches classified (corrected verification: CP-M0-001-COMPLETE-002)",
+        "5 branches verified reachable from reboot-core",
+        "no snapshot-named refs currently visible",
+        "no destructive ref operations",
+        "CP-M0-001-COMPLETE-002"
+      ]
+    },
+    {
+      "id": "M0-002",
+      "title": "Enforce preregistration and append-only decision integrity",
+      "milestone": "M0",
+      "status": "complete",
+      "priority": 5,
+      "depends_on": [
+        "CP-003"
+      ],
+      "owner": "verification",
+      "scope": [
+        "project-control/PREREGISTRATIONS.json",
+        "project-control/DECISION_EVENTS.jsonl",
+        "DECISIONS.json",
+        "research/design-decisions.md",
+        "experiments/e007/dispatch.json",
+        "experiments/e002/",
+        "experiments/e009/performance-evidence-2026-11-18.md",
+        "scripts/check_preregistrations.py",
+        "scripts/test_preregistrations.py",
+        "scripts/ci.py",
+        "experiments/e009/capacity-confirmation-v1.json",
+        "experiments/e009/performance_smoke.py",
+        "experiments/e009/test_performance_smoke.py",
+        ".github/workflows/ci.yml"
+      ],
+      "acceptance": [
+        "Every frozen/ready/historical cohort or decision artifact has a repository-relative path and exact Git blob SHA-1",
+        "Any mutation of a frozen manifest, decision register, decision log, or preregistration registry fails CI unless accompanied by a new record/event with previous hashes and rationale",
+        "Decision events form a validated SHA-256 chain with unique IDs, ISO timestamps, prior hashes, rationale, affected IDs, and evidence IDs",
+        "Dispatched/completed/failed/cancelled/ineligible cohort records require positive run IDs; cancelled and failed outcomes remain visible",
+        "Agent factorial cohorts remain no-apply and ready-for-manual-dispatch records cannot already contain run IDs",
+        "Negative tests cover changed frozen manifests, changed decision/registry files, duplicate IDs, missing run IDs, bad event chains, invalid statuses, and path traversal",
+        "Validator runs in the project-control fast-CI precheck",
+        "Factorial cells that are not started due to infrastructure or budget abort remain explicit in the raw cohort artifact with a reason and ineligible classification",
+        "Every affected decision ID in an event resolves to a unique decision in DECISIONS.json",
+        "Every cohort_manifest is no-apply in both registry metadata and the referenced manifest body, including draft records",
+        "Decision event timestamps include an explicit timezone",
+        "Run-ledger content is pinned by the latest decision event and every later ledger revision advances the hash chain",
+        "CI compares decision-event and run-ledger byte prefixes to the PR base and rejects rewrites or truncation",
+        "CI compares the narrative design-decision log, decision-event log, and run ledger byte prefixes to the PR base and rejects rewrites or truncation",
+        "E-009 ten-repetition capacity parameters and all acceptance thresholds are stored in a frozen manifest",
+        "The manual E-009 workflow consumes that manifest instead of duplicating CLI values and the result records the manifest Git blob SHA-1",
+        "The capacity gate evaluates thresholds supplied by the manifest and regression tests prove configuration overrides are honored",
+        "The manual E-009 capacity workflow validates the frozen registry and decision chain before starting a run"
+      ],
+      "expected_outputs": [
+        "Git-blob-pinned preregistration registry",
+        "Hash-chained decision event log",
+        "Standard-library preregistration validator",
+        "Negative regression suite and CI enforcement"
+      ],
+      "max_unchanged_retries": 2,
+      "replan_after_failures": 2,
+      "stop_conditions": [
+        "Never rewrite historical run manifests or raw artifacts"
+      ],
+      "evidence_ids": [
+        "CI-RUN-44441229102",
+        "DECISION-PREREG-E009-CAPACITY-2026-11-19",
+        "DECISION-RUN-LEDGER-PIN-2026-11-19-2"
+      ]
+    },
+    {
+      "id": "M0-003",
+      "title": "Generate scorecards, test counts, and evidence summaries from source artifacts",
+      "milestone": "M0",
+      "status": "complete",
+      "priority": 6,
+      "depends_on": [
+        "CP-005",
+        "CP-007"
+      ],
+      "owner": "verification",
+      "scope": [
+        "project-control/PROGRESS.json",
+        "project-control/RUN_LEDGER.jsonl",
+        "scripts/",
+        "REPORT.md",
+        "research/evidence-index.md",
+        "scripts/ci.py",
+        "scripts/generate_scorecard.py",
+        "scripts/test_scorecard.py",
+        ".github/workflows/ci.yml"
+      ],
+      "acceptance": [
+        "Test counts are parsed from CI logs/artifacts rather than hand-entered",
+        "Scorecard claims bind to exact run IDs and source revisions",
+        "Failed/canceled/ineligible runs remain visible and are not silently excluded",
+        "A CI negative test rejects manual edits to generated metrics without source evidence",
+        "The fast runner emits a JSON summary with workflow run ID, attempt, PR-head SHA, checkout SHA, base SHA, per-suite status, output hash, elapsed time, test counts, and skipped counts",
+        "Test counts are parsed from unittest output and validated against per-suite records; unknown values are not coerced to zero",
+        "The scorecard is deterministically derived from the CI summary, append-only run ledger, and progress register, and pins SHA-256 hashes of all three source artifacts",
+        "Scorecard history includes successful, failed, cancelled, and ineligible ledger events without filtering negative outcomes",
+        "Every verified completion claim in the scorecard resolves to existing immutable ledger evidence",
+        "Negative tests reject manual edits to generated test counts, run IDs, source revisions, and claim evidence without changing the source artifacts",
+        "The fast workflow generates and uploads both the raw CI summary and validated machine-readable scorecard, including when a suite fails",
+        "Suites without unittest count output retain null/unknown test counts; control-plane negative self-tests are reported as a separate metric"
+      ],
+      "expected_outputs": [
+        "Machine-readable CI suite/test summary artifact",
+        "Source-hash-pinned evidence scorecard artifact",
+        "Negative scorecard provenance and tamper tests",
+        "Claims-lint integration"
+      ],
+      "max_unchanged_retries": 2,
+      "replan_after_failures": 2,
+      "stop_conditions": [
+        "Do not infer missing metrics or convert unknown values to zero"
+      ],
+      "evidence_ids": [
+        "CI-RUN-44443670754",
+        "ARTIFACT-14491996926",
+        "fast-ci-scorecard.json@69cfa780e2a138fe40b8ae762784bc904d148e8ca2226271191c9b113f911948"
+      ]
+    },
+    {
+      "id": "M3-001",
+      "title": "Approve and preregister a decision-grade model evaluation cohort",
+      "milestone": "M3",
+      "status": "blocked",
+      "priority": 30,
+      "depends_on": [
+        "M2-004",
+        "M3-000",
+        "M3-003"
+      ],
+      "owner": "owner-approval",
+      "scope": [
+        "experiments/e007/dispatch.json",
+        "experiments/e007/",
+        "project-control/BLOCKERS.json"
+      ],
+      "acceptance": [
+        "The execution cost ceiling is zero paid spend and is restricted to GitHub Actions free usage for this public repository; paid API/GPU use is prohibited",
+        "A qualifying isolated agent/evaluator execution path is implemented and independently verified",
+        "Strong/medium/weak model identities and immutable versions/digests are pinned",
+        "Three representative tasks and the 2x2 proposal/disclosure design are preregistered with randomized repetitions and immutable hashes",
+        "No-apply and external-oracle isolation are verified before dispatch"
+      ],
+      "expected_outputs": [
+        "Approved bounded execution budget",
+        "Preregistered model/task cohort",
+        "Immutable manifest hashes"
+      ],
+      "max_unchanged_retries": 1,
+      "replan_after_failures": 2,
+      "stop_conditions": [
+        "Do not launch paid API/GPU workloads; the owner-approved ceiling is zero paid spend",
+        "Do not treat CPU-only Qwen3 diagnostics as M3 acceptance",
+        "Do not dispatch while the evaluator shares agent process, filesystem, or network trust zones"
+      ],
+      "evidence_ids": [
+        "experiments/e007/evaluator/README.md",
+        "experiments/e007/evaluator/boundary.py",
+        "experiments/e007/evaluator/test_boundary.py",
+        "PR-89",
+        "run:44489886038",
+        "PR-93",
+        "run:44494715332",
+        "M3-000-TOPOLOGY-SMOKE-2026-11-19-001"
+      ]
+    },
+    {
+      "id": "M3-002",
+      "title": "Run and independently score real-agent proposal/validate/plan cohorts",
+      "milestone": "M3",
+      "status": "pending",
+      "priority": 31,
+      "depends_on": [
+        "M3-001"
+      ],
+      "owner": "verification",
+      "scope": [
+        "experiments/e007/",
+        "experiments/e009/",
+        "research/evidence-index.md"
+      ],
+      "acceptance": [
+        "Operation-addition, backward-compatible field-addition, and tenant-isolation tasks are evaluated",
+        "Proposal, semantic validation, and safe plan use the exact same candidate hash",
+        "Strong model reaches the preregistered success threshold; weaker models are reported separately without pooling",
+        "All failures, timeouts, invalid trials, and ineligible runs remain visible in raw traces"
+      ],
+      "expected_outputs": [
+        "Raw traces and provider telemetry",
+        "Independent oracle results",
+        "Model-tier scorecard with uncertainty"
+      ],
+      "max_unchanged_retries": 2,
+      "replan_after_failures": 2,
+      "stop_conditions": [
+        "No apply or deployment during model evaluation"
+      ],
+      "evidence_ids": []
+    },
+    {
+      "id": "M4-001",
+      "title": "Separate agent-writer and trusted deployment-controller authority",
+      "milestone": "M4",
+      "status": "pending",
+      "priority": 40,
+      "depends_on": [
+        "M2-004",
+        "M3-002"
+      ],
+      "owner": "security",
+      "scope": [
+        "src/agent_native/authz/",
+        "src/agent_native/deployment/",
+        "tests/security/"
+      ],
+      "acceptance": [
+        "Agent-writer principal can propose, validate, and plan but cannot invoke service.apply",
+        "Deployment controller has a separate principal and explicit dev-only enablement",
+        "Controller rejects missing, stale, or mismatched plan hashes",
+        "Negative tests prove writer cannot acquire controller authority"
+      ],
+      "expected_outputs": [
+        "Separate controller interface and principal",
+        "Capability separation tests",
+        "Threat-model update"
+      ],
+      "max_unchanged_retries": 2,
+      "replan_after_failures": 2,
+      "stop_conditions": [
+        "No production apply path in v0.1",
+        "Trust-boundary changes require two independent reviews and new security tests"
+      ],
+      "evidence_ids": []
+    },
+    {
+      "id": "M4-002",
+      "title": "Implement hash-bound dev apply, health gates, atomic publication, and rollback",
+      "milestone": "M4",
+      "status": "pending",
+      "priority": 41,
+      "depends_on": [
+        "M4-001"
+      ],
+      "owner": "core",
+      "scope": [
+        "src/agent_native/deployment/",
+        "src/agent_native/runtime/",
+        "tests/failure_injection/"
+      ],
+      "acceptance": [
+        "Apply requires explicit dev-only enablement and exact validated plan hash",
+        "Conformance and health checks pass before publication",
+        "Publication is atomic for active runtime readers",
+        "Failure injection proves rollback restores the previous revision and audit records every transition"
+      ],
+      "expected_outputs": [
+        "Dev-only deployment controller",
+        "Atomic publication and rollback implementation",
+        "Failure-injection report"
+      ],
+      "max_unchanged_retries": 2,
+      "replan_after_failures": 2,
+      "stop_conditions": [
+        "No production deployment or multi-node claim"
+      ],
+      "evidence_ids": []
+    },
+    {
+      "id": "M5-001",
+      "title": "Close or explicitly scope identity, audit atomicity, and security findings",
+      "milestone": "M5",
+      "status": "pending",
+      "priority": 50,
+      "depends_on": [
+        "M4-002"
+      ],
+      "owner": "security",
+      "scope": [
+        "src/agent_native/identity/",
+        "src/agent_native/audit/",
+        "tests/security/",
+        "project-control/BLOCKERS.json"
+      ],
+      "acceptance": [
+        "F-01 uses a verifiable replaceable identity mechanism with fail-closed invalid/expired/revoked cases",
+        "F-03 business-state and audit writes have defined atomicity and recovery semantics",
+        "Audit retention, access control, and tamper-evidence limitations are explicitly documented",
+        "All remaining security findings have owner, evidence, and release disposition"
+      ],
+      "expected_outputs": [
+        "Identity adapter and regression tests",
+        "Atomic audit/business-state evidence",
+        "Security findings disposition"
+      ],
+      "max_unchanged_retries": 2,
+      "replan_after_failures": 2,
+      "stop_conditions": [
+        "Do not claim production security certification"
+      ],
+      "evidence_ids": []
+    },
+    {
+      "id": "M5-002",
+      "title": "Complete v0.1 quickstart, security/limitations docs, and reproducible release artifact",
+      "milestone": "M5",
+      "status": "pending",
+      "priority": 51,
+      "depends_on": [
+        "M1-004",
+        "M2-004",
+        "M3-002",
+        "M4-002",
+        "M5-001"
+      ],
+      "owner": "release",
+      "scope": [
+        "README.md",
+        "docs/",
+        "project-control/",
+        "release/"
+      ],
+      "acceptance": [
+        "A clean environment completes the quickstart in ten minutes or less",
+        "Security model, threat boundaries, and unsupported production features are explicit",
+        "Version, source revision, build inputs, and release artifact hashes are reproducible",
+        "Release candidate passes all required checks and review gates"
+      ],
+      "expected_outputs": [
+        "10-minute quickstart evidence",
+        "Security and limitations documentation",
+        "Reproducible v0.1.0 artifact and checksum"
+      ],
+      "max_unchanged_retries": 2,
+      "replan_after_failures": 2,
+      "stop_conditions": [
+        "No release publication without explicit owner approval"
+      ],
+      "evidence_ids": []
+    },
+    {
+      "id": "CP-008",
+      "title": "Prove a fresh agent can resume from the committed execution checkpoint",
+      "milestone": "C0",
+      "status": "complete",
+      "priority": 8,
+      "depends_on": [
+        "CP-001",
+        "CP-002"
+      ],
+      "owner": "integrator",
+      "scope": [
+        "project_control.py",
+        "project-control/HANDOFF.md",
+        "scripts/test_project_control.py"
+      ],
+      "acceptance": [
+        "python project_control.py resume emits a machine-readable checkpoint from committed repository state",
+        "Resume rejects active tasks whose dependencies are incomplete",
+        "Resume rejects invalid control-plane state and active work beyond the WIP limit",
+        "A fresh process can read the handoff, validate state, and recover active task contracts and next action"
+      ],
+      "expected_outputs": [
+        "Stateless resume command",
+        "Resume checkpoint regression tests",
+        "Updated handoff protocol"
+      ],
+      "max_unchanged_retries": 2,
+      "replan_after_failures": 2,
+      "stop_conditions": [
+        "Do not infer completion or authority from prose-only handoff notes"
+      ],
+      "evidence_ids": [
+        "run:44447117325",
+        "resume command: machine-readable checkpoint",
+        "negative dependency test passed",
+        "Layer 0 and Layer 1 passed"
+      ]
+    },
+    {
+      "id": "CP-009",
+      "title": "Add dependency-aware scheduling, WIP enforcement, and retry recovery planning",
+      "milestone": "C2",
+      "status": "complete",
+      "priority": 9,
+      "depends_on": [
+        "CP-008"
+      ],
+      "owner": "integrator",
+      "scope": [
+        "project_control.py",
+        "scripts/test_project_control.py",
+        "project-control/TASKS.json",
+        "project-control/STATE.json",
+        "project-control/HANDOFF.md"
+      ],
+      "acceptance": [
+        "Scheduler emits only pending/ready tasks whose dependencies are complete and whose milestone is ready or in_progress",
+        "Scheduler never selects work beyond the configured WIP limit",
+        "Repeated identical task-attempt failures and no-progress attempts produce a replan-required result and are not retried automatically",
+        "A scheduled task must declare its working branch, base branch, and integration owner",
+        "Scheduling is deterministic, machine-readable, and does not mutate repository state",
+        "Recovery thresholds are evaluated for active tasks as well as pending tasks; a threshold breach emits a stop-and-replan result"
+      ],
+      "expected_outputs": [
+        "project_control.py schedule command",
+        "scheduler and recovery unit tests",
+        "branch/integration ownership metadata",
+        "updated handoff"
+      ],
+      "max_unchanged_retries": 2,
+      "replan_after_failures": 2,
+      "stop_conditions": [
+        "Do not auto-merge, rewrite shared history, or change protected repository settings",
+        "Do not reset a failed task without a recorded replan"
+      ],
+      "execution": {
+        "branch": "feat/control-plane-scheduler",
+        "base_branch": "research/reboot-core",
+        "integration_owner": "integrator"
+      },
+      "evidence_ids": [
+        "CP-009-SCHEDULER-CI-001",
+        "run:44463121689",
+        "project_control.py#build_schedule_plan",
+        "project_control.py#command_schedule",
+        "scripts/test_project_control.py",
+        "PR-84"
+      ]
+    },
+    {
+      "id": "CP-010",
+      "title": "Complete independent review and merge-base verification for trust-boundary integration",
+      "milestone": "C3",
+      "status": "in_progress",
+      "priority": 10,
+      "depends_on": [
+        "CP-009",
+        "M2-003"
+      ],
+      "owner": "owner-approval",
+      "scope": [
+        ".github/workflows/ci.yml",
+        "project-control/POLICY.json",
+        "project-control/BLOCKERS.json",
+        "pull-request:81"
+      ],
+      "acceptance": [
+        "Peer review records, when present, are separate from implementation commits and attributable to distinct reviewers",
+        "Trust-boundary implementation PRs require two latest APPROVED reviews from distinct non-author human reviewers by default",
+        "CI supports a narrowly scoped repository-owner waiver comment bound to the exact current PR head; it does not count as peer review",
+        "CI rejects trust-boundary PRs with neither two independent approvals nor a valid exact-head owner waiver",
+        "CI rejects PR heads that do not contain the latest target branch",
+        "M2-003 is integrated only after the default reviews or a documented owner waiver and fresh Layer 0/Layer 1 checks",
+        "Approvals and waivers are bound to the current PR head SHA; stale records after a new commit do not count",
+        "Review submission or dismissal events rerun the review gate and applicable CI layers"
+      ],
+      "expected_outputs": [
+        "Independent review enforcement in CI",
+        "Exact-head owner-waiver path with audit record",
+        "Merge-base freshness gate",
+        "Integrated M2-003 Gateway under peer review or explicit owner exception",
+        "C3 remains incomplete when an owner waiver substitutes for peer review"
+      ],
+      "max_unchanged_retries": 1,
+      "replan_after_failures": 2,
+      "stop_conditions": [
+        "Do not self-approve or count bot reviews",
+        "Do not represent an owner waiver as independent peer review",
+        "Do not merge to main"
+      ],
+      "execution": {
+        "branch": "feat/control-plane-scheduler",
+        "base_branch": "research/reboot-core",
+        "integration_owner": "integrator"
+      },
+      "evidence_ids": [
+        ".github/workflows/ci.yml#independent-review-gate",
+        ".github/workflows/ci.yml#merge-base-freshness",
+        "PR-81",
+        "PR-90",
+        "run:44489229689",
+        "run:44489986238",
+        "M2-OWNER-WAIVER-CI-001"
+      ]
+    },
+    {
+      "id": "M3-000",
+      "title": "Build a no-cost isolated agent/evaluator execution topology",
+      "milestone": "M3",
+      "status": "complete",
+      "priority": 29,
+      "depends_on": [
+        "M2-004"
+      ],
+      "owner": "verification",
+      "scope": [
+        ".github/workflows/m3-evaluator.yml",
+        "experiments/e007/evaluator/",
+        "scripts/",
+        "tests/",
+        "experiments/e007/evaluator/sandbox_probe.py"
+      ],
+      "acceptance": [
+        "The agent and evaluator run in separate ephemeral GitHub-hosted jobs/VMs with no shared process or filesystem namespace",
+        "The agent job receives no oracle file, oracle path, oracle key, or evaluator-only environment secret",
+        "The agent job exports only an allowlisted candidate artifact and raw telemetry; the evaluator reads candidate JSON as data and never executes candidate content as code",
+        "The agent and evaluator containers are non-root, resource-limited, read-only except for explicit output mounts, and have network disabled during untrusted execution/scoring",
+        "The evaluator job alone references the m3-evaluator environment; the topology smoke uses a synthetic oracle only, and actual environment protection/hidden-oracle custody remains a separate owner setup gate",
+        "The topology smoke runs only on research/reboot-core pushes affecting evaluator paths or by manual dispatch on that branch; real model cohort dispatch remains a separate manual-only workflow and is not enabled",
+        "Workflow and unit tests cover artifact allowlisting, oracle non-disclosure, separation, negative paths, and zero paid API/GPU usage",
+        "Both containers emit runtime sandbox attestation proving non-root UID, read-only root, noexec /tmp, no-new-privileges, zero effective capabilities, blocked outbound network, and cgroup memory/CPU/PID limits"
+      ],
+      "expected_outputs": [
+        "Research-branch synthetic evaluator topology-smoke workflow; the real model cohort remains a separate manual-only workflow",
+        "Separate agent/evaluator GitHub-hosted job and allowlisted artifact contract",
+        "Resource-limited no-network agent and evaluator containers",
+        "Synthetic evaluator-only oracle for topology smoke; actual protected hidden-oracle custody remains a separate setup gate",
+        "Isolation and workflow contract regression tests",
+        "Runtime sandbox attestation in the synthetic evaluator score without oracle path/content"
+      ],
+      "max_unchanged_retries": 2,
+      "replan_after_failures": 2,
+      "stop_conditions": [
+        "Do not incur paid API/GPU spend; use only GitHub Actions free usage for this public repository",
+        "Do not place plaintext hidden-oracle data in the repository, agent workspace, or shared artifacts",
+        "Do not dispatch a real model cohort or execute hidden-oracle scoring in this task; the synthetic topology smoke is not M3 acceptance",
+        "Do not claim filesystem preflight checks alone establish process/container/network isolation"
+      ],
+      "evidence_ids": [
+        "PR-89",
+        "run:44489886038",
+        "experiments/e007/evaluator/README.md",
+        "experiments/e007/evaluator/boundary.py",
+        "experiments/e007/evaluator/test_boundary.py",
+        "run:44493638711",
+        "artifact:14514595444",
+        "artifact:14513633369",
+        "PR-93",
+        "run:44494232446",
+        "run:44494715332",
+        "artifact:14514820980",
+        "artifact:14514342990",
+        "merge:ec3975ff11f33516e0d98e349283cbf7b3f19789",
+        "run:44494715310"
+      ],
+      "execution": {
+        "branch": "feat/m3-sandbox-runtime-probes",
+        "base_branch": "research/reboot-core",
+        "integration_owner": "integrator"
+      }
+    },
+    {
+      "id": "M3-003",
+      "title": "Qualify zero-cost CPU model tiers for the E007 agent harness",
+      "milestone": "M3",
+      "status": "complete",
+      "priority": 30,
+      "depends_on": [
+        "M3-000"
+      ],
+      "owner": "verification",
+      "scope": [
+        "research/M3_MODEL_FEASIBILITY.md",
+        "experiments/e007/m3_model_smoke.py",
+        "experiments/e007/model_candidates.json",
+        ".github/workflows/m3-model-feasibility.yml",
+        "experiments/e009/local_agent.py",
+        "tests/test_m3_model_feasibility.py",
+        "research/M3_PREFLIGHT.md",
+        "project-control/TASKS.json",
+        "project-control/STATE.json",
+        "project-control/BLOCKERS.json",
+        "project-control/HANDOFF.md",
+        "project-control/OWNER_ACTIONS.md",
+        "experiments/e007/model-lock.json"
+      ],
+      "acceptance": [
+        "Candidate tiers use public open-weight models with explicit licenses, model tags, quantization, runtime version, and immutable manifest digests",
+        "The existing E009 local agent harness runs on a free public GitHub-hosted CPU runner; no paid API or GPU is used",
+        "The agent container has no external network, no apply capability, and only the existing AgentGateway tool surface; public model weights are downloaded before sandbox execution",
+        "Each tier uses the same task, proposal/disclosure arm, sampling parameters, token/tool/wall-clock budgets, and no automatic retries",
+        "Raw run.json, provider telemetry, tool trace, prompt-state trace, model manifest, and sandbox attestation are retained for every tier, including failures",
+        "The smoke records whether the full inspect → propose_delta → validate → plan flow succeeds with one candidate hash; no apply is invoked",
+        "The report distinguishes this E009 feasibility pilot from the three-task hidden-oracle M3 cohort; no cohort is preregistered or dispatched by this task"
+      ],
+      "expected_outputs": [
+        "Candidate model-tier feasibility report with official model/license/runtime references",
+        "Pinned Ollama image and per-model manifest digests",
+        "No-network CPU-only real-agent feasibility workflow",
+        "Per-model raw traces and a comparative scorecard with failures preserved",
+        "Committed model-lock.json with full per-model manifest SHA-256 and config digests, verified on a second no-network run"
+      ],
+      "max_unchanged_retries": 1,
+      "replan_after_failures": 2,
+      "stop_conditions": [
+        "Do not incur paid API/GPU spend; use only GitHub Actions free usage for this public repository",
+        "Do not expose or create a hidden benchmark oracle in this feasibility task",
+        "Do not enable apply or deployment; every run must remain proposal/validate/plan only",
+        "Do not allow external network access during model inference or agent tool execution",
+        "Do not select or freeze a cohort model until its manifest digest and tool-call behavior are verified"
+      ],
+      "evidence_ids": [
+        "M3-000-TOPOLOGY-SMOKE-2026-11-19-001",
+        "https://docs.github.com/en/actions/reference/runners/github-hosted-runners",
+        "https://ollama.com/ibm/granite4",
+        "https://github.com/ollama/ollama/issues/19694",
+        "https://ollama.com/ibm/granite4:350m-h-q4_K_M",
+        "https://ollama.com/ibm/granite4:1b-h-q4_K_M",
+        "https://ollama.com/ibm/granite4:3b-h",
+        "https://huggingface.co/ibm-granite/granite-4.0-h-350m",
+        "https://huggingface.co/ibm-granite/granite-4.0-h-1b",
+        "https://huggingface.co/ibm-granite/granite-4.0-h-micro",
+        "https://docs.ollama.com/capabilities/tool-calling",
+        "https://github.com/ggml-org/llama.cpp/issues/25986",
+        "run:44529848174",
+        "artifact:14533985747",
+        "run:44529847920",
+        "0/6 full lifecycle completions; no model qualified",
+        "model-lock SHA-256 8dd6e4e2acbea225dbd4fa2b4428f3691f11176be862539430aee0aced67bc17 verified"
+      ],
+      "execution": {
+        "branch": "feat/m3-model-feasibility",
+        "base_branch": "research/reboot-core",
+        "integration_owner": "integrator"
+      }
+    },
+    {
+      "id": "M3-004",
+      "title": "Expose progressive and upfront Gateway tool schemas as native provider functions",
+      "milestone": "M3",
+      "status": "complete",
+      "priority": 32,
+      "depends_on": [
+        "M3-003"
+      ],
+      "owner": "core",
+      "scope": [
+        "experiments/e009/local_agent.py",
+        "experiments/e009/test_local_agent.py",
+        "experiments/e009/agent_gateway.py",
+        "research/M3_MODEL_FEASIBILITY.md"
+      ],
+      "acceptance": [
+        "The provider receives one native function definition per currently disclosed Gateway tool, with that tool's exact input schema",
+        "Progressive mode initially exposes only interface.describe and adds a tool definition only after its schema is discovered",
+        "Upfront mode exposes all declared Gateway tools and their exact schemas before the first model turn",
+        "Provider function calls map to the existing agent.invoke Gateway envelope without widening Gateway authority",
+        "Calls to undiscovered or unexposed tools fail closed and remain visible in raw traces",
+        "Deterministic tests cover progressive discovery, upfront disclosure, schema mapping, unknown-tool rejection, and tool-result continuation",
+        "The existing no-apply and no-network inference boundaries remain unchanged"
+      ],
+      "expected_outputs": [
+        "Provider-native tool schema adapter",
+        "Progressive/upfront schema regression tests",
+        "Fresh locked CPU feasibility run with raw traces"
+      ],
+      "max_unchanged_retries": 1,
+      "replan_after_failures": 2,
+      "stop_conditions": [
+        "Do not weaken the Gateway's tool allowlist or authorization checks",
+        "Do not treat a harness-only pass as model qualification",
+        "Do not enable apply or hidden-oracle access"
+      ],
+      "evidence_ids": [
+        "run:44529848174",
+        "artifact:14533985747",
+        "provider telemetry: tool_definition_count=1",
+        "progressive 1B repeated interface.describe despite retained schema",
+        "commit:20b5fb8565f24e3fe0d566dde3e3aa7120c38dc3",
+        "commit:25d3a631c87cb02d5379df5710dc5024de9481cc",
+        "commit:2e7b19da53132600784dfd5a23921792d16667c8",
+        "run:44538804299",
+        "commit:6ff4c3fbdd9978e304b31b5b8d4f9766660efe84",
+        "PR:#102 merged as 3ac47aeb0aa4c1ad8763396e5dffc956483a71e5",
+        "Layer 0: 143 E-009 tests passed",
+        "Layer 1: native/container/database and PostgreSQL parity passed"
+      ],
+      "execution": {
+        "branch": "feat/e009-native-provider-tool-schemas",
+        "base_branch": "research/reboot-core",
+        "integration_owner": "integrator"
+      }
+    },
+    {
+      "id": "M3-005",
+      "title": "Re-run the locked CPU feasibility matrix after provider-native schema delivery",
+      "milestone": "M3",
+      "status": "complete",
+      "priority": 31,
+      "depends_on": [
+        "M3-004"
+      ],
+      "owner": "core",
+      "scope": [
+        ".github/workflows/m3-model-feasibility.yml",
+        "experiments/e009/local_agent.py",
+        "experiments/e007/model-lock.json",
+        "research/M3_MODEL_FEASIBILITY.md"
+      ],
+      "acceptance": [
+        "Run the unchanged three-tier × progressive/upfront matrix on the integrated provider-native schema adapter",
+        "Verify the same pinned Ollama runtime, model manifest digests, and model-lock SHA-256 are used",
+        "Retain all six raw provider responses, tool traces, prompt states, model manifests, and runtime logs",
+        "Report whether any run completes inspect, proposal, semantic validation, and planning; do not equate a Gateway-accepted proposal with lifecycle completion",
+        "Keep the fixed token/time budgets, no-apply policy, no hidden oracle, and zero paid API/GPU spend unchanged",
+        "Do not select or preregister a model unless a full run passes the local verifier and the separate evaluator gate"
+      ],
+      "expected_outputs": [
+        "Fresh M3 CPU feasibility artifact",
+        "Per-cell failure/success classification",
+        "Updated M3 model feasibility report"
+      ],
+      "max_unchanged_retries": 1,
+      "replan_after_failures": 2,
+      "stop_conditions": [
+        "Do not increase token/time budgets or change cohort post hoc",
+        "Do not enable apply or hidden-oracle access",
+        "Do not claim model qualification from harness tests alone"
+      ],
+      "execution": {
+        "branch": "feat/m3-locked-cpu-rerun",
+        "base_branch": "research/reboot-core",
+        "integration_owner": "integrator"
+      },
+      "evidence_ids": [
+        "PR:#102",
+        "run:44538804299",
+        "run:44539287065",
+        "model-lock SHA-256 8dd6e4e2acbea225dbd4fa2b4428f3691f11176be862539430aee0aced67bc17",
+        "run:44539287065",
+        "artifact:14538178152",
+        "artifact-sha256:94d2d6d3ddee3f5a11467601bacbbe5619a7dda95f603f9022846718c2f6c8d4",
+        "source-commit:3ac47aeb0aa4c1ad8763396e5dffc956483a71e5",
+        "model-lock SHA-256 8dd6e4e2acbea225dbd4fa2b4428f3691f11176be862539430aee0aced67bc17",
+        "0/6 full lifecycle completions; no model qualified"
+      ]
+    },
+    {
+      "id": "M3-006",
+      "title": "Research a cross-family shortlist of small CPU tool-calling models",
+      "milestone": "M3",
+      "status": "complete",
+      "priority": 33,
+      "depends_on": [
+        "M3-003",
+        "M3-004"
+      ],
+      "owner": "research",
+      "scope": [
+        "research/M3_ALTERNATIVE_MODEL_SHORTLIST.md",
+        "research/M3_MODEL_FEASIBILITY.md"
+      ],
+      "acceptance": [
+        "Shortlist at least two independent open model families with official Ollama tool/function-calling support",
+        "Record exact Ollama tags, published download sizes, context metadata, and license claims only where official sources state them",
+        "Select nominal weak/medium/strong candidates by model size without claiming a quality ranking",
+        "Record at least one resource-heavier reserve candidate and explain its fit risk against the 10 GiB model-server limit",
+        "Do not alter the current pinned model lock, candidate manifest, token budgets, or active M3-005 run",
+        "Explicitly state that model capability and qualification require the preregistered no-network trial and local verifier"
+      ],
+      "expected_outputs": [
+        "Alternative CPU model shortlist with official source links",
+        "Separate follow-up task for a new immutable cohort lock"
+      ],
+      "max_unchanged_retries": 1,
+      "replan_after_failures": 2,
+      "stop_conditions": [
+        "Do not change or replace the active M3-005 cohort post hoc",
+        "Do not claim tool-capability badges prove multi-step agent competence",
+        "Do not use paid APIs or GPU"
+      ],
+      "evidence_ids": [
+        "https://ollama.com/library/qwen3",
+        "https://ollama.com/library/granite4.2",
+        "https://ollama.com/library/gemma4",
+        "Qwen3 1.7b 1.4GB / 4b 2.5GB",
+        "Granite4.2 3b 2.2GB",
+        "Gemma4 e2b 4.6–7.5GB",
+        "commit:13dc637f1e8b3dc1a2739e099338f15a89a1dfc2",
+        "https://github.com/mojtaba-arvin/agent-native/commit/13dc637f1e8b3dc1a2739e099338f15a89a1dfc2"
+      ]
+    },
+    {
+      "id": "M3-007",
+      "title": "Freeze and verify a separate alternate CPU model cohort",
+      "milestone": "M3",
+      "status": "pending",
+      "priority": 34,
+      "depends_on": [
+        "M3-005",
+        "M3-006",
+        "M3-008"
+      ],
+      "owner": "research",
+      "scope": [
+        "experiments/e007/model_candidates_v2.json",
+        "experiments/e007/model-lock-v2.json",
+        "project-control/PREREGISTRATIONS.json",
+        "research/M3_MODEL_FEASIBILITY.md"
+      ],
+      "acceptance": [
+        "Do not start until M3-005 is complete and the alternate cohort is separately preregistered",
+        "Pin exact model tags, immutable manifest digests, config digests, quantization, and runtime image digest",
+        "Keep the zero-paid-spend CPU-only boundary, no-network inference, no-apply, fixed resource limits, and raw artifact retention",
+        "Run a second no-network verification of the exact model-lock bytes before treating the cohort as executable",
+        "Preserve the original Granite 4.0 cohort and all its failed traces unchanged",
+        "Report the new cohort independently; do not pool it with prior runs or relax success thresholds"
+      ],
+      "expected_outputs": [
+        "Versioned alternate candidate manifest",
+        "Versioned immutable model lock",
+        "New preregistration and decision-event pin",
+        "Separate CPU feasibility artifact"
+      ],
+      "max_unchanged_retries": 1,
+      "replan_after_failures": 2,
+      "stop_conditions": [
+        "Do not modify the original model-lock or preregistered cohort",
+        "Do not dispatch without exact manifest verification",
+        "Do not select a model without full local verification and evaluator gate"
+      ]
+    },
+    {
+      "id": "CP-011",
+      "title": "Exclude documentation-only changes from the expensive M3 CPU feasibility workflow",
+      "milestone": "C4",
+      "status": "complete",
+      "priority": 12,
+      "depends_on": [
+        "CP-007"
+      ],
+      "owner": "ci",
+      "scope": [
+        ".github/workflows/m3-model-feasibility.yml"
+      ],
+      "acceptance": [
+        "The expensive model workflow triggers on executable harness, model candidate, and sandbox input changes",
+        "Documentation-only changes to the M3 report do not trigger a six-cell CPU model run",
+        "Changes to the workflow definition itself do not trigger an automatic model run; workflow_dispatch remains available",
+        "A docs-only workflow update is verified to run ordinary CI without starting M3 feasibility",
+        "No model lock, token budget, cohort, or acceptance threshold is changed"
+      ],
+      "expected_outputs": [
+        "Narrowed M3 workflow path filter",
+        "Evidence that docs-only workflow changes do not launch model trials"
+      ],
+      "max_unchanged_retries": 1,
+      "replan_after_failures": 2,
+      "stop_conditions": [
+        "Do not suppress runs caused by executable harness or model-lock changes",
+        "Do not add cancellation that discards in-flight raw evidence"
+      ],
+      "evidence_ids": [
+        "commit:280b32e3ef42521880bd170c1c5c5a944d1a99d2",
+        "run:44541307333",
+        "duplicate-run:44541147095"
+      ]
+    },
+    {
+      "id": "M3-008",
+      "title": "Deduplicate repeated discovery and inspection calls under the fixed E009 token budget",
+      "milestone": "M3",
+      "status": "in_progress",
+      "priority": 30,
+      "depends_on": [
+        "M3-005",
+        "M3-004"
+      ],
+      "owner": "core",
+      "scope": [
+        "experiments/e009/local_agent.py",
+        "experiments/e009/test_local_agent.py",
+        "research/M3_MODEL_FEASIBILITY.md"
+      ],
+      "acceptance": [
+        "After a successful interface.describe for an exposed tool, an identical repeat is intercepted locally with a machine-readable SCHEMA_ALREADY_DISCOVERED result and a direct next action to call the now-exposed native function",
+        "Repeated identical read-only service.inspect calls do not cause repeated Gateway round trips or duplicate full inspection payloads in the compacted prompt state",
+        "The compaction ledger deduplicates identical successful tool outcomes by stable request identity while preserving the exact discovered schema, base revision, and latest next_actions",
+        "Raw traces distinguish runner-intercepted duplicate calls from Gateway-executed calls and retain the original provider request",
+        "Deterministic tests cover duplicate schema discovery, duplicate inspection, deduplicated compaction, exact schema retention, and continuation to propose/validate/plan",
+        "The preregistered 12,000 input-token budget, per-trial wall-clock budget, model lock, no-network/no-apply boundaries, and candidate cohort remain unchanged"
+      ],
+      "expected_outputs": [
+        "Runner-side duplicate discovery guard",
+        "Deduplicated compact state ledger",
+        "Regression tests and exact trace evidence",
+        "Fresh locked CPU feasibility rerun after deterministic tests pass"
+      ],
+      "max_unchanged_retries": 1,
+      "replan_after_failures": 2,
+      "stop_conditions": [
+        "Do not increase the token or wall-clock budget",
+        "Do not hide provider tool calls or fabricate Gateway success",
+        "Do not bypass the Gateway or expose service.apply",
+        "Do not alter the active model lock or merge duplicate-run evidence into the preregistered cohort"
+      ],
+      "execution": {
+        "branch": "feat/m3-progressive-deduplication",
+        "base_branch": "research/reboot-core",
+        "integration_owner": "integrator"
+      },
+      "evidence_ids": [
+        "run:44539287065",
+        "artifact:14538178152",
+        "progressive repeated interface.describe ×6 despite native service.inspect being exposed",
+        "upfront 3B repeated inspect and exceeded fixed input-token budget after successful validation"
+      ]
+    }
+  ]
+}

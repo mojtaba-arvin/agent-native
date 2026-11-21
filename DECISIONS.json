@@ -1,0 +1,483 @@
+{
+  "schema_version": 1,
+  "project": "agent-native",
+  "product_type": "independent_backend_framework",
+  "primary_user": "ai_agent",
+  "status": "active_research",
+  "decisions": [
+    {
+      "id": "D-0001",
+      "topic": "product_identity",
+      "status": "decided",
+      "value": "Build a new backend framework with its own programming model and runtime semantics.",
+      "evidence": "Explicit project requirement.",
+      "constraints": [
+        "not_a_wrapper",
+        "not_an_adapter",
+        "not_a_framework_manager",
+        "not_a_codegen_layer_for_existing_backend_frameworks"
+      ]
+    },
+    {
+      "id": "D-0002",
+      "topic": "primary_user",
+      "status": "decided",
+      "value": "AI agents across capability levels are the primary authors and operators."
+    },
+    {
+      "id": "D-0003",
+      "topic": "implementation_language",
+      "status": "open",
+      "candidates": [
+        "Rust",
+        "Go",
+        "Zig",
+        "OCaml",
+        "Gleam",
+        "Elixir",
+        "WASM-oriented toolchains",
+        "purpose-built language"
+      ]
+    },
+    {
+      "id": "D-0004",
+      "topic": "service_language_and_syntax",
+      "status": "open",
+      "candidates": [
+        "existing_language",
+        "purpose_built_dsl",
+        "purpose_built_language",
+        "structured_ir",
+        "hybrid"
+      ]
+    },
+    {
+      "id": "D-0005",
+      "topic": "execution_substrate",
+      "status": "open",
+      "candidates": [
+        "native_runtime",
+        "bytecode_vm",
+        "wasm_component_runtime",
+        "actor_runtime",
+        "hybrid"
+      ]
+    },
+    {
+      "id": "D-0006",
+      "topic": "existing_backend_framework_dependency",
+      "status": "decided",
+      "value": "No existing backend framework may own or implement the core service model or runtime."
+    },
+    {
+      "id": "D-0007",
+      "topic": "service_representation",
+      "status": "open",
+      "value": "No service representation is selected.",
+      "candidates": [
+        "purpose_built_textual_dsl",
+        "structured_ir",
+        "conventional_language_baselines",
+        "hybrid"
+      ],
+      "evidence": [
+        "E-001 parser and canonical IR prototype",
+        "Equivalent structured IR fixture",
+        "Go and Rust domain-service baselines"
+      ],
+      "reason": "No agent-authored task study, hidden acceptance evaluation, or repeated agent-cost measurements have been completed."
+    },
+    {
+      "id": "D-0008",
+      "topic": "runtime_substrate",
+      "status": "open",
+      "value": "No runtime substrate is selected.",
+      "candidates": [
+        "native_go",
+        "native_rust",
+        "wasi_preview_2",
+        "wasi_preview_3",
+        "beam_otp",
+        "hybrid"
+      ],
+      "evidence": [
+        "E-002 shared HTTP conformance passes for Go, Rust, WASI P2, and BEAM",
+        "Initial three-repetition CI smoke matrix",
+        "Second three-repetition smoke matrix using pinned toolchains and committed Cargo.lock files",
+        "Four-candidate black-box conformance now rejects ambiguous raw query encodings and parameter ordering consistently across Go, Rust, WASI P2, and BEAM",
+        "Benchmark runner rejects runs with non-200 responses, unexpected bodies, transport failures, or candidate exit during load"
+      ],
+      "reason": "Both shared GitHub-hosted CI smoke matrices are explicitly not decision-grade; representative persistence, serialization, authorization, inter-service, cancellation, and fault-injection workloads plus controlled dedicated-machine measurements remain outstanding."
+    },
+    {
+      "id": "D-0009",
+      "topic": "concurrency_and_failure_semantics",
+      "status": "open",
+      "value": "The E-003 reference model is provisional and does not yet define production semantics.",
+      "evidence": [
+        "Bounded admission and concurrency tests",
+        "Deadlines, cancellation, retries, worker crash, idempotency, and shutdown tests",
+        "Strict validation of task/worker identities, concurrency limits, deadlines, retry counts, outcomes, and results",
+        "Running cancellation and deadline expiry retain worker/outstanding capacity until explicit worker finish/crash acknowledgement"
+      ],
+      "reason": "Production cancellation transport, bounded worker kill escalation, durable persistence, distributed atomicity, fairness, leases, clock skew, multi-process fault injection, and production runtime enforcement remain unresolved."
+    },
+    {
+      "id": "D-0010",
+      "topic": "security_and_capability_enforcement",
+      "status": "open",
+      "value": "The E-004 reference model is a provisional policy contract; no production authorization, sandbox, or secret-management architecture is selected.",
+      "evidence": [
+        "Default-deny principal/tenant/capability model",
+        "Effect allowlist and resource-scope checks",
+        "Expiry and strict delegation attenuation tests",
+        "Threat model and machine-readable requirements",
+        "Canonical resource path checks reject percent-encoded paths, backslashes, control characters, dot segments, and non-NFC Unicode",
+        "Delegation compares normalized scopes so trailing-slash equivalence cannot masquerade as attenuation",
+        "Typed trusted time, grant expiry/depth, and immutable effect allowlist validation"
+      ],
+      "reason": "Cryptographic grants, revocation, workload identity, storage isolation, sandbox enforcement, network egress, secrets, resource quotas, human approval integration, and production authorization integration remain unimplemented."
+    },
+    {
+      "id": "D-0011",
+      "topic": "agent_facing_interface",
+      "status": "open",
+      "value": "The E-005 progressive-disclosure tool surface is a reference prototype; no transport or protocol is selected.",
+      "candidates": [
+        "native_typed_tools",
+        "json_rpc_style_protocol",
+        "mcp_compatible_exposure",
+        "cli_workflow",
+        "hybrid"
+      ],
+      "evidence": [
+        "Compact tool catalog",
+        "Immutable content-addressed proposals",
+        "Read-only validation and planning",
+        "Apply disabled by default",
+        "Automated safety-oriented interface tests"
+      ],
+      "reason": "Constrained/general/advanced agent trials, token and tool-call measurements, authenticated approval, and trusted mutation semantics remain outstanding."
+    },
+    {
+      "id": "D-0012",
+      "topic": "durable_execution_and_persistence",
+      "status": "open",
+      "value": "E-006 SQLite implementation is a single-node semantic reference only; no production persistence or queue substrate is selected.",
+      "candidates": [
+        "embedded_transactional_store",
+        "relational_database",
+        "distributed_log_or_queue",
+        "outbox_inbox_hybrid"
+      ],
+      "evidence": [
+        "Durable idempotent submission",
+        "Lease expiry with monotonic fencing tokens",
+        "Crash rollback across local state/effect ledger/task completion",
+        "Concurrent claim and process-reopen tests",
+        "Strict type and finite-JSON validation for durable task, lease, retry, and local-effect inputs",
+        "SQLite write-transaction race test proves cancellation fencing and local effect/task completion have one serialized winner"
+      ],
+      "reason": "External side-effect delivery, multi-node coordination, authenticated worker identity, production cancellation transport, retention, schema evolution, recovery operations, and representative workload measurements remain outstanding."
+    },
+    {
+      "id": "D-0013",
+      "topic": "agent_benchmark_corpus_and_oracles",
+      "status": "open",
+      "value": "E-007 defines public task statements and trace metrics only; acceptance oracles must remain outside the agent-visible workspace.",
+      "evidence": [
+        "Ten machine-readable task definitions",
+        "Provider-neutral trace schema",
+        "Metrics aggregation tests for tokens, tools, repairs, interventions, cost, wall time, and acceptance",
+        "Trace aggregator validates retry and failure metadata types and rejects unknown fields and non-finite telemetry"
+      ],
+      "reason": "Isolated evaluator workspaces, external oracle packaging, provider telemetry adapters, pinned agent cohorts, and repeated trials remain outstanding."
+    },
+    {
+      "id": "D-0014",
+      "topic": "external_effect_delivery_semantics",
+      "status": "open",
+      "value": "The E-008 reference model demonstrates producer outbox atomicity, fenced at-least-once relay delivery, and consumer inbox deduplication. Arbitrary external side effects are not exactly-once.",
+      "evidence": [
+        "Producer state and outbox insert rollback together at injected crash points",
+        "Relay lease fencing rejects stale ack/retry",
+        "Publish-before-ack crash causes redelivery while consumer inbox applies local state once",
+        "Semantic envelope binds payload, state key, and amount",
+        "Finite retry budget and terminal failure state are tested"
+      ],
+      "reason": "No real broker, separate producer/consumer databases, multi-node failure model, external API idempotency adapter, distributed observability, or production recovery policy is implemented."
+    },
+    {
+      "id": "D-0015",
+      "topic": "v0_1_capacity_envelope_and_rust_go_selection_rule",
+      "status": "decided",
+      "value": "Pre-register a one-service-replica capacity acceptance hypothesis of 1 vCPU, 1 GiB service memory, 100 completed control-plane requests/second at concurrency 32, p99 <= 100 ms, sustained CPU <= 50% of one vCPU, and <= 25 cgroup CPU-seconds per 5,000 completed requests. Compare Rust/Tokio+Hyper with Go/net/http only after identical product-workload semantics and all hard gates pass. No runtime is selected by this decision.",
+      "constraints": [
+        "Inference and external provider calls are outside the measured runtime path",
+        "Use the authenticated Agent/tool-execution control-plane request mix",
+        "Use 10 randomized repetitions per candidate with 5,000 measured requests and 250 warm-up requests per repetition",
+        "Use controlled one-vCPU host and cgroup v2 accounting for capacity claims",
+        "All functional, security, data-integrity and registered failure assertions are hard gates",
+        "No score or selection when required evidence is missing",
+        "Select only with at least 5 weighted-score points advantage, paired 95% bootstrap confidence interval excluding zero, and no rank reversal under +/-20% weight sensitivity"
+      ],
+      "capacity_envelope": {
+        "service_vcpu": 1,
+        "service_memory_bytes": 1073741824,
+        "completed_requests_per_second": 100,
+        "concurrency": 32,
+        "p99_latency_ms": 100,
+        "sustained_cpu_fraction": 0.5,
+        "cpu_seconds_per_5000_completed_requests": 25,
+        "repetitions_per_candidate": 10,
+        "requests_per_repetition": 5000,
+        "warmup_requests_per_repetition": 250
+      },
+      "runtime_candidates": [
+        "Rust/Tokio + Hyper",
+        "Go/net/http"
+      ],
+      "weighted_criteria": {
+        "p99_latency": 25,
+        "completed_throughput": 20,
+        "peak_service_cgroup_memory": 15,
+        "cgroup_cpu_time": 10,
+        "ecosystem_operability": 10,
+        "failure_semantics": 10,
+        "startup_time": 5,
+        "deployable_artifact_size": 5
+      },
+      "selection_rule": {
+        "hard_gates_required": true,
+        "minimum_score_margin_points": 5,
+        "confidence_interval": "paired bootstrap 95% interval for score difference must exclude zero",
+        "weight_sensitivity": "vary each weight by +/-20%, renormalize to 100; ordering must not reverse",
+        "if_both_pass": "select higher score only when margin, confidence interval, and sensitivity requirements all pass; otherwise no winner",
+        "if_neither_pass": "select neither",
+        "if_one_pass_with_complete_evidence": "select the sole eligible candidate",
+        "if_evidence_missing": "no selection; missing evidence is not measured, never zero",
+        "current_runtime_selection": "none",
+        "bootstrap_resamples": 10000,
+        "bootstrap_seed": "preregistered before the cohort"
+      },
+      "evidence": [
+        "docs/T02_SLO_AND_RUNTIME.md",
+        "experiments/e002/control-plane-workload.md",
+        "experiments/e002/decision-matrix.md",
+        "experiments/e002/cpu-gate-analysis.md",
+        "experiments/e009/performance-evidence-2026-11-18.md"
+      ],
+      "request_mix": [
+        {
+          "share_percent": 60,
+          "operation": "authorized_read",
+          "required_semantics": [
+            "authentication",
+            "tenant_resolution",
+            "contract_validation",
+            "read_authorization",
+            "durable_audit"
+          ]
+        },
+        {
+          "share_percent": 20,
+          "operation": "validate_plan",
+          "required_semantics": [
+            "authentication",
+            "tenant_resolution",
+            "contract_validation",
+            "non_mutating_plan",
+            "durable_audit"
+          ]
+        },
+        {
+          "share_percent": 10,
+          "operation": "job_admission",
+          "required_semantics": [
+            "authentication",
+            "idempotency_validation",
+            "submission_authorization",
+            "atomic_job_outbox_audit_idempotency_persistence"
+          ]
+        },
+        {
+          "share_percent": 10,
+          "operation": "expected_denial",
+          "required_semantics": [
+            "default_deny",
+            "durable_deny_audit",
+            "no_business_mutation"
+          ]
+        }
+      ],
+      "hard_gates": [
+        "100_percent_shared_black_box_positive_negative_and_failure_contract_conformance",
+        "zero_authorization_tenant_isolation_audit_ordering_idempotency_or_data_integrity_violations",
+        "100_percent_registered_deadline_overload_cancellation_worker_crash_retry_duplicate_delivery_deduplication_and_recovery_assertions",
+        "each_repetition_completed_throughput_at_least_100_requests_per_second",
+        "each_repetition_p99_at_most_100_milliseconds",
+        "each_5000_completed_request_repetition_cgroup_cpu_at_most_25_seconds",
+        "service_cgroup_peak_memory_at_most_1_gibibyte_and_no_oom_events",
+        "identical_host_workload_storage_durability_and_measurement_boundary"
+      ],
+      "measurement_protocol": {
+        "repetitions_per_candidate": 10,
+        "measured_requests_per_repetition": 5000,
+        "warmup_requests_per_repetition": 250,
+        "concurrency": 32,
+        "arrival_model": "rate-controlled open-loop",
+        "candidate_order": "randomized",
+        "cpu_accounting": "cgroup v2 cpu.stat",
+        "memory_accounting": "cgroup v2 memory peak and memory.events",
+        "capacity_host": "controlled one-vCPU host",
+        "shared_host_results": "diagnostic_only",
+        "expected_4xx_denials_count_as_completed": true,
+        "inference_and_external_provider_calls_in_runtime_path": false,
+        "paired_workload_seeds": true,
+        "randomize_candidate_order_within_pair": true
+      },
+      "historical_cpu_screen": {
+        "cpu_seconds_per_5000_requests": 0.5,
+        "workload": "trivial in-memory GET /work?ms=0",
+        "status": "historical-only; retired as prospective product eligibility gate",
+        "retroactive_rescoring": false
+      }
+    },
+    {
+      "id": "D-0016",
+      "topic": "runtime_selection",
+      "status": "decided",
+      "task": "T10 (#114)",
+      "value": "No v0.1 runtime is selected. Defer selection until Rust/Tokio + Hyper and Go/net/http are compared on the registered authenticated control-plane workload and every T02 hard gate has complete, comparable evidence.",
+      "selection": {
+        "outcome": "no_selection",
+        "runtime": null,
+        "reason": "The T09 cohort measures a trivial closed-loop HTTP probe, not the preregistered product workload. Required product semantics, open-loop capacity behavior, 1-GiB memory envelope, controlled-host isolation, security/integrity assertions, and failure-semantics evidence are not measured.",
+        "weighted_score": "not_calculated"
+      },
+      "runtime_candidates": [
+        "Rust/Tokio + Hyper",
+        "Go/net/http"
+      ],
+      "exploratory_candidates": [
+        "WASI P2 / Wasmtime",
+        "Elixir/BEAM"
+      ],
+      "observed_tradeoffs": {
+        "Go/net-http": {
+          "throughput_mean_requests_per_second": 10514.85,
+          "throughput_sample_sd_requests_per_second": 367.04,
+          "p99_mean_ms": 4.575,
+          "p99_sample_sd_ms": 0.33,
+          "cpu_mean_seconds_per_5000": 0.2935,
+          "cpu_sample_sd_seconds_per_5000": 0.0095,
+          "peak_cgroup_memory_median_mib": 7.24,
+          "functional_repetitions_passed": 10,
+          "functional_repetitions_total": 10,
+          "median_throughput_requests_per_second": 10630.32,
+          "median_p99_ms": 4.6172,
+          "median_cpu_seconds_per_5000": 0.2896,
+          "median_startup_ms": 15.02
+        },
+        "Rust/Tokio + Hyper": {
+          "throughput_mean_requests_per_second": 10371.6,
+          "throughput_sample_sd_requests_per_second": 376.13,
+          "p99_mean_ms": 4.609,
+          "p99_sample_sd_ms": 0.197,
+          "cpu_mean_seconds_per_5000": 0.2628,
+          "cpu_sample_sd_seconds_per_5000": 0.0054,
+          "peak_cgroup_memory_median_mib": 4.15,
+          "functional_repetitions_passed": 10,
+          "functional_repetitions_total": 10,
+          "median_throughput_requests_per_second": 10384.34,
+          "median_p99_ms": 4.6634,
+          "median_cpu_seconds_per_5000": 0.2612,
+          "median_startup_ms": 14.82
+        },
+        "WASI P2 / Wasmtime": {
+          "throughput_mean_requests_per_second": 6428.7,
+          "throughput_sample_sd_requests_per_second": 115.64,
+          "p99_mean_ms": 7.672,
+          "p99_sample_sd_ms": 0.26,
+          "cpu_mean_seconds_per_5000": 0.7744,
+          "cpu_sample_sd_seconds_per_5000": 0.0122,
+          "peak_cgroup_memory_median_mib": 21.5,
+          "functional_repetitions_passed": 10,
+          "functional_repetitions_total": 10
+        },
+        "Elixir/BEAM": {
+          "throughput_mean_requests_per_second": 9795.92,
+          "throughput_sample_sd_requests_per_second": 429.49,
+          "p99_mean_ms": 5.014,
+          "p99_sample_sd_ms": 0.237,
+          "cpu_mean_seconds_per_5000": 0.4874,
+          "cpu_sample_sd_seconds_per_5000": 0.0165,
+          "peak_cgroup_memory_median_mib": 46.83,
+          "functional_repetitions_passed": 10,
+          "functional_repetitions_total": 10
+        }
+      },
+      "rejected_alternatives": [
+        {
+          "classification": "rejected",
+          "alternative": "Select Go because it led T09 probe throughput.",
+          "reason": "The small throughput lead was measured on a closed-loop in-memory endpoint and does not establish the registered authenticated control-plane workload or any missing hard gate."
+        },
+        {
+          "classification": "rejected",
+          "alternative": "Select Rust because it used less T09 probe CPU and memory.",
+          "reason": "The CPU and memory observations are specific to the trivial probe and do not prove product workload eligibility."
+        },
+        {
+          "classification": "rejected",
+          "alternative": "Calculate a weighted score from T09 and declare the highest score a winner.",
+          "reason": "T02 prohibits scoring when comparable required measurements or hard-gate evidence are missing."
+        },
+        {
+          "classification": "rejected",
+          "alternative": "Eliminate Go, Rust, WASI, or BEAM as an architecture based on this cohort.",
+          "reason": "The cohort is not representative of the product boundary; no architecture is eliminated. WASI and BEAM are exploratory candidates outside T02's formal Rust-versus-Go pair."
+        }
+      ],
+      "eligibility_assessment": {
+        "authenticated_control_plane_workload": "not_measured",
+        "authorization_and_tenant_isolation": "not_measured",
+        "durable_audit_and_postgresql": "not_measured",
+        "atomic_job_outbox_idempotency": "not_measured",
+        "rate_controlled_open_loop_100_requests_per_second": "not_measured",
+        "one_vcpu_one_gib_product_envelope": "incomplete_2_gib_was_used",
+        "security_integrity_and_failure_semantics_hard_gates": "not_measured",
+        "controlled_exclusive_host": "not_established",
+        "comparable_complete_weighted_score_inputs": "not_measured",
+        "weighted_score": "not_calculated"
+      },
+      "source_evidence": {
+        "source_sha": "acfd8d0f775d46b4f0dea39ade423e445efc8fd5",
+        "workflow_run": 44741277036,
+        "artifact_id": 14630464028,
+        "artifact_url": "https://github.com/mojtaba-arvin/agent-native/actions/runs/44741277036/artifacts/14630464028",
+        "decision_grade": false,
+        "workload": "in-memory GET /work?ms=0",
+        "arrival_model": "closed-loop",
+        "service_cpu_limit": "1 vCPU",
+        "service_memory_limit_bytes": 2147483648,
+        "host": "ephemeral shared GitHub-hosted Ubuntu 26.04.1 x86_64 VM"
+      },
+      "constraints": [
+        "Apply docs/T02_SLO_AND_RUNTIME.md without changing its registered workload, thresholds, hard gates, weights, or Rust-versus-Go candidate boundary.",
+        "Treat T09 throughput, latency, CPU, and cgroup memory as observed diagnostic trade-offs for its trivial endpoint only.",
+        "Do not claim that T09 met the product capacity envelope or production SLO.",
+        "Do not select or eliminate any candidate architecture from the T09 cohort.",
+        "Missing product evidence remains not measured, never zero or a pass.",
+        "Do not calculate a weighted score or select a runtime until the complete T02 comparison is decision-grade."
+      ],
+      "evidence": [
+        "docs/T02_SLO_AND_RUNTIME.md",
+        "docs/T10_RUNTIME_DECISION.md",
+        "experiments/e002/T09-evidence.md",
+        "https://github.com/mojtaba-arvin/agent-native/actions/runs/44741277036",
+        "https://github.com/mojtaba-arvin/agent-native/actions/runs/44741277036/artifacts/14630464028"
+      ]
+    }
+  ]
+}

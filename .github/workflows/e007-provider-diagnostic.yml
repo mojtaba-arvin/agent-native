@@ -1,0 +1,131 @@
+name: E-007 single-cell provider failure diagnostic
+
+on:
+  push:
+    branches:
+      - research/reboot-core
+    paths:
+      - "experiments/e007/provider-diagnostic-request.json"
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: e007-provider-diagnostic-research-reboot-core
+  cancel-in-progress: false
+
+jobs:
+  reproduce-one-cell:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Validate one-cell diagnostic request and explicit commit
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          event = json.loads(Path(os.environ["GITHUB_EVENT_PATH"]).read_text())
+          subject = event["head_commit"]["message"].splitlines()[0]
+          if event.get("ref") != "refs/heads/research/reboot-core" or subject != "experiment(e007): diagnose one Qwen3 provider failure":
+              raise SystemExit("not the explicit one-cell provider diagnostic commit")
+          request = json.loads(Path("experiments/e007/provider-diagnostic-request.json").read_text())
+          expected = {
+              "schema_version": 1,
+              "request_id": "e007-provider-http500-repro-a-20261118-attempt2",
+              "branch": "research/reboot-core",
+              "workflow": "e007-provider-diagnostic.yml",
+              "model": "qwen3:8b",
+              "case_path": "experiments/e007/evals/e007-factorial-a-snapshot-per-operation-v1.eval.json",
+              "arm": "upfront",
+              "repetitions": 1,
+              "temperature": 0,
+              "top_p": 1,
+              "seed": 42,
+              "num_ctx": 16384,
+              "num_predict": 2048,
+              "max_input_tokens": 120000,
+              "max_output_tokens": 6000,
+              "max_tool_calls": 20,
+              "max_wall_seconds": 3000,
+              "no_apply": True,
+          }
+          if request != expected:
+              raise SystemExit("provider diagnostic marker does not match the pinned one-cell request")
+          PY
+          python -m unittest discover -s experiments/e007 -v
+          python -m unittest discover -s experiments/e009 -v
+      - name: Install Ollama
+        run: |
+          curl --fail --silent --show-error --location https://ollama.com/install.sh | sh
+          ollama --version | tee /tmp/ollama-version.txt
+      - name: Start Ollama and pull pinned model
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo systemctl stop ollama.service 2>/dev/null || true
+          OLLAMA_NUM_PARALLEL=1 OLLAMA_GO_TEMPLATE=false OLLAMA_HOST=127.0.0.1:11434 ollama serve > /tmp/ollama-serve.log 2>&1 &
+          for attempt in $(seq 1 60); do
+            if ollama list >/dev/null 2>&1; then break; fi
+            sleep 2
+          done
+          ollama list
+          ollama pull qwen3:8b
+          ollama show qwen3:8b --modelfile > /tmp/qwen3-modelfile.txt
+          ollama list > /tmp/ollama-models.txt
+      - name: Run one-cell diagnostic with unchanged E-007 budgets
+        run: |
+          python experiments/e007/eval_runner.py \
+            --case experiments/e007/evals/e007-factorial-a-snapshot-per-operation-v1.eval.json \
+            --model qwen3:8b --arm upfront --repetitions 1 \
+            --max-input-tokens 120000 --max-output-tokens 6000 \
+            --max-tool-calls 20 --max-wall-seconds 3000 \
+            --num-ctx 16384 --num-predict 2048 \
+            --temperature 0 --top-p 1 --seed 42 \
+            --output-dir /tmp/e007-provider-diagnostic
+      - name: Preserve diagnostic artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e007-provider-http500-diagnostic
+          path: |
+            /tmp/e007-provider-diagnostic/
+            /tmp/ollama-version.txt
+            /tmp/ollama-models.txt
+            /tmp/qwen3-modelfile.txt
+            /tmp/ollama-serve.log
+          if-no-files-found: warn
+          retention-days: 30
+      - name: Publish diagnostic result to issue #61
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const { data: run } = await github.rest.actions.getWorkflowRun({
+              owner, repo, run_id: context.runId
+            });
+            const { data: listed } = await github.rest.actions.listWorkflowRunArtifacts({
+              owner, repo, run_id: context.runId
+            });
+            const artifact = listed.artifacts.find(item => item.name === 'e007-provider-http500-diagnostic');
+            const artifactLine = artifact
+              ? '[diagnostic artifact ' + artifact.id + '](https://github.com/' + owner + '/' + repo + '/actions/runs/' + context.runId + '/artifacts/' + artifact.id + ')'
+              : 'No diagnostic artifact was uploaded.';
+            const body = [
+              '## E-007 one-cell provider diagnostic',
+              '',
+              'Run: ' + run.html_url,
+              'Conclusion: ' + (run.conclusion || run.status),
+              'Pinned commit: `' + context.sha + '`',
+              artifactLine,
+              '',
+              'This is one diagnostic repetition of cell A only, not a factorial result or acceptance evidence. The model and all token/tool/time ceilings match the previous cohort. Inspect result.json and the Ollama error detail before deciding whether another full cohort is justified.'
+            ].join('\n');
+            await github.rest.issues.createComment({ owner, repo, issue_number: 61, body });

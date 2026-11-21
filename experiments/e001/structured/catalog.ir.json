@@ -1,0 +1,71 @@
+{
+  "ir_version": 1,
+  "service": {
+    "name": "Catalog",
+    "version": "1"
+  },
+  "operations": [
+    {
+      "name": "create_item",
+      "method": "POST",
+      "path": "/items",
+      "input": [
+        {
+          "name": "name",
+          "type": "String",
+          "source": "body"
+        }
+      ],
+      "output": "Item",
+      "effects": [
+        "repository.write"
+      ],
+      "capability": "items.create",
+      "errors": [
+        "InvalidInput",
+        "Unauthorized"
+      ],
+      "validation": [
+        "name.non_empty"
+      ]
+    },
+    {
+      "name": "get_item",
+      "method": "GET",
+      "path": "/items/{id}",
+      "input": [
+        {
+          "name": "id",
+          "type": "UUID",
+          "source": "path"
+        }
+      ],
+      "output": "Item",
+      "effects": [
+        "repository.read"
+      ],
+      "capability": "items.read",
+      "errors": [
+        "InvalidInput",
+        "NotFound",
+        "Unauthorized"
+      ],
+      "validation": []
+    }
+  ],
+  "types": [
+    {
+      "name": "Item",
+      "fields": [
+        {
+          "name": "id",
+          "type": "UUID"
+        },
+        {
+          "name": "name",
+          "type": "String"
+        }
+      ]
+    }
+  ]
+}

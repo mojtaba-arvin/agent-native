@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "snapshot": "2026-11-16",
+  "source": {
+    "workflow_run_id": 43850570600,
+    "workflow_run_url": "https://github.com/mojtaba-arvin/agent-native/actions/runs/43850570600",
+    "artifact_id": 14218045322,
+    "artifact_name": "e002-initial-runtime-matrix",
+    "source_commit": "24b2d06d49ce2a2d0ae7628044f618992492faf9",
+    "runner": "GitHub-hosted ubuntu-latest"
+  },
+  "toolchains": {
+    "go": "1.23.12",
+    "rust": "1.100.0",
+    "wasmtime": "50.0.1",
+    "elixir": "1.20.5",
+    "otp": "29.1.2",
+    "python": "3.11.18"
+  },
+  "protocol": {
+    "requests_per_candidate_per_repetition": 1000,
+    "concurrency": 32,
+    "warmup_requests": 100,
+    "repetitions": 3,
+    "randomization_seed": 20261116,
+    "request": "GET /work?ms=0",
+    "status_counts": "1000 HTTP 200 responses in every repetition"
+  },
+  "results": {
+    "rust-tokio-hyper": {
+      "median_throughput_rps": 4008.54,
+      "median_p50_ms": 7.271,
+      "median_p95_ms": 13.344,
+      "median_p99_ms": 16.035,
+      "median_cpu_seconds_sampled": 0.10,
+      "median_peak_process_tree_rss_bytes_sampled": 4112384
+    },
+    "beam-elixir-otp": {
+      "median_throughput_rps": 3750.60,
+      "median_p50_ms": 7.880,
+      "median_p95_ms": 14.374,
+      "median_p99_ms": 17.307,
+      "median_cpu_seconds_sampled": 0.29,
+      "median_peak_process_tree_rss_bytes_sampled": 96370688
+    },
+    "go-net-http": {
+      "median_throughput_rps": 3706.83,
+      "median_p50_ms": 7.984,
+      "median_p95_ms": 14.425,
+      "median_p99_ms": 18.689,
+      "median_cpu_seconds_sampled": 0.16,
+      "median_peak_process_tree_rss_bytes_sampled": 12476416
+    },
+    "wasi-p2-wasmtime-50.0.1": {
+      "median_throughput_rps": 3319.26,
+      "median_p50_ms": 8.919,
+      "median_p95_ms": 16.576,
+      "median_p99_ms": 19.880,
+      "median_cpu_seconds_sampled": 0.30,
+      "median_peak_process_tree_rss_bytes_sampled": 29380608
+    }
+  },
+  "interpretation": {
+    "decision_grade": false,
+    "runtime_selection": null,
+    "limitations": [
+      "Only three repetitions on a shared GitHub-hosted runner.",
+      "Single trivial in-memory endpoint; no database, serialization-heavy payload, auth policy, or inter-service traffic.",
+      "CPU time is read from /proc tick counters and is coarse for these short runs.",
+      "RSS is sampled every 20 ms and can miss short-lived peaks.",
+      "WASI numbers include the Wasmtime CLI host; BEAM numbers include the Mix/BEAM process tree.",
+      "No confidence intervals, CPU pinning, frequency control, or dedicated-machine isolation."
+    ]
+  }
+}

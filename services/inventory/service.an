@@ -1,0 +1,83 @@
+service Inventory {
+  version: "1";
+
+  type StockItem {
+    sku: String;
+    quantity: Integer;
+    warehouse_id: String;
+  }
+
+  type EventReceipt {
+    id: UUID;
+    state: String;
+  }
+
+  operation list_stock {
+    method: GET;
+    path: "/stock";
+    input {
+      warehouse_id: String from query;
+    }
+    output: List<StockItem>;
+    errors: [InvalidInput, Unauthorized];
+    validation: [];
+    effects: [repository.read];
+    capability: "stock.read";
+  }
+
+  operation create_stock {
+    method: POST;
+    path: "/stock";
+    input {
+      sku: String from body;
+      quantity: Integer from body;
+      warehouse_id: String from body;
+    }
+    output: StockItem;
+    errors: [Conflict, InvalidInput, Unauthorized];
+    validation: [];
+    effects: [repository.write];
+    capability: "stock.write";
+  }
+
+  operation update_stock {
+    method: PATCH;
+    path: "/stock/{sku}";
+    input {
+      sku: String from path;
+      quantity: Integer from body;
+    }
+    output: StockItem;
+    errors: [InvalidInput, NotFound, Unauthorized];
+    validation: [];
+    effects: [repository.write];
+    capability: "stock.write";
+  }
+
+  operation delete_stock {
+    method: DELETE;
+    path: "/stock/{sku}";
+    input {
+      sku: String from path;
+    }
+    output: String;
+    errors: [InvalidInput, NotFound, Unauthorized];
+    validation: [];
+    effects: [repository.write];
+    capability: "stock.write";
+  }
+
+  operation publish_stock_event {
+    method: POST;
+    path: "/stock/events";
+    input {
+      sku: String from body;
+      quantity: Integer from body;
+    }
+    output: EventReceipt;
+    errors: [InvalidInput, ServiceUnavailable, Unauthorized];
+    validation: [];
+    effects: [event.publish];
+    capability: "stock.events.publish";
+  }
+}

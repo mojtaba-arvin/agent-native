@@ -1,0 +1,68 @@
+# E-001 executable syntax prototype
+
+Status: disposable research instrument; **not** the selected language, compiler architecture, or runtime.
+
+This prototype tests one narrow question: can a small textual service declaration be parsed into a deterministic, typed-shape intermediate representation with useful source diagnostics?
+
+It deliberately implements no HTTP server, database, network stack, framework adapter, or production runtime. Python is used only as a throwaway parser harness because this experiment concerns the representation, not the implementation language. That choice creates no implementation-language decision.
+
+## Run
+
+Requires Python 3.11+ and no third-party packages.
+
+```sh
+python -m unittest discover -s experiments/e001/prototype -v
+python experiments/e001/prototype/agent_native.py experiments/e001/examples/catalog.an
+```
+
+The CLI emits canonical JSON to stdout and diagnostics to stderr. Exit status is non-zero for invalid input.
+
+## Experimental limits
+
+- Grammar covers service identity and operation contracts only.
+- Types are opaque identifiers; no type checker or name resolution exists yet.
+- Effects and capabilities are declared, not enforced.
+- No claims about agent productivity, security, performance, or syntax superiority.
+- Parser diagnostics have stable codes and line/column locations, but remediation quality remains to be tested.
+
+## Next falsifiable tests
+
+1. Compare this textual form against the same contract represented as structured JSON IR.
+2. Have constrained, general, and advanced agents implement a hidden-test workload from a clean checkout.
+3. Record tokens, tool calls, wall time, edits, parse/repair loops, and acceptance results.
+4. Add a follow-up schema evolution task before considering any representation decision.
+
+
+## Conventional-language contract baselines
+
+- `baselines/go/`: standard-library Go domain service with explicit repository and authorization interfaces, deterministic error codes, validation, and in-memory storage.
+- `baselines/rust/`: equivalent Rust domain service with traits, explicit authorization, deterministic errors, validation, and in-memory storage.
+
+These are implementation baselines for measuring how agents express the same contract in conventional languages. They use no HTTP/backend framework and are not Agent Native's product implementation language. The DSL parser remains a contract front-end prototype; it does not yet execute the service or prove end-to-end task-cost advantages.
+
+
+## Reproducibility pins
+
+- Go baseline: Go 1.23.12.
+- Rust baseline: Rust/Cargo 1.100.0 with committed `Cargo.lock`.
+- The parser harness uses Python 3.11.18 in CI.
+
+
+## Disposable IR reference executor
+
+`prototype/runtime.py` interprets the fixed catalog task from the parsed IR, derives routes from the declared method/path, validates typed inputs, enforces the trusted effect allowlist, calls the E-004 policy reference model, and executes in-memory create/get operations. It is intentionally a task-specific reference executor, not the product runtime and not a language/runtime selection. Its purpose is to test whether the textual and structured contracts contain enough information to drive observable behavior.
+
+
+## HTTP end-to-end slice
+
+`prototype/http_server.py` exposes the task-specific reference executor through Python's standard-library HTTP server. Routes are derived from the DSL/IR, while identity is supplied by a separate trusted test provider. Tests exercise real loopback HTTP requests for create/get, authentication failure, validation, method mismatch, and missing routes. The static bearer-token provider is test-only; this is not production authentication or the selected product runtime.
+
+
+## HTTP adapter request hardening
+
+The disposable loopback adapter now bounds request bodies to 1 MiB, rejects truncated/negative/oversized bodies, duplicate JSON object keys, and non-finite JSON constants, and routes PUT/PATCH through the framework method-mismatch path instead of the HTTP server's default 501 response. These are prototype adapter controls, not a production server or selected runtime.
+
+
+## Declared error completeness
+
+Semantic IR validation now requires every operation to declare `Unauthorized`, because the runtime enforces a capability decision for every operation. Operations with input fields must also declare `InvalidInput`, because typed input validation can reject those fields. The catalog source and structured-IR fixture were updated together, preventing the reference executor from turning expected authorization/input failures into undeclared 500 errors.

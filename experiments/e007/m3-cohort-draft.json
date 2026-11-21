@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "cohort_id": "M3-AGENT-CAPABILITY-2026-11-DRAFT",
+  "status": "draft",
+  "preregistered": false,
+  "execution_allowed": false,
+  "no_apply": true,
+  "tasks": [
+    {
+      "task_id": "m3-operation-add-v1",
+      "public_task": "experiments/e007/tasks/operation-addition.md",
+      "oracle_location": "separate evaluator sandbox; not stored in agent-visible repository"
+    },
+    {
+      "task_id": "m3-compatible-field-add-v1",
+      "public_task": "experiments/e007/tasks/compatible-field-addition.md",
+      "oracle_location": "separate evaluator sandbox; not stored in agent-visible repository"
+    },
+    {
+      "task_id": "m3-tenant-isolation-v1",
+      "public_task": "experiments/e007/tasks/tenant-isolation.md",
+      "oracle_location": "separate evaluator sandbox; not stored in agent-visible repository"
+    }
+  ],
+  "model_tiers": {
+    "strong": null,
+    "medium": null,
+    "weak": null
+  },
+  "model_provider": null,
+  "immutable_model_versions": null,
+  "repetitions_per_cell": null,
+  "randomized_order": null,
+  "sampling_parameters": null,
+  "token_tool_wall_time_budgets": null,
+  "per_run_cost_ceiling_usd": null,
+  "cohort_cost_ceiling_usd": null,
+  "runner": {
+    "kind": null,
+    "image_digest": null,
+    "hardware": null
+  },
+  "evaluator_isolation": {
+    "implemented": false,
+    "required": true,
+    "agent_oracle_separation_required": true,
+    "scaffolded": true,
+    "architecture": "separate protected evaluator job with an owner-only oracle file outside the agent workspace",
+    "owner_setup_required": [
+      "protected GitHub Environment named m3-evaluator",
+      "oracle decryption key available only to the evaluator job",
+      "isolated ephemeral runner/container image with a pinned digest"
+    ]
+  },
+  "candidate_hash_continuity": {
+    "proposal_validation_plan_required": true
+  },
+  "raw_artifact_policy": {
+    "preserve_failures": true,
+    "preserve_timeouts": true,
+    "preserve_ineligible": true,
+    "unknown_cost_is_not_zero": true
+  },
+  "notes": [
+    "This is a planning draft, not a frozen preregistration.",
+    "Do not add this draft to PREREGISTRATIONS.json until all model, task, repetition, cost, runner, and evaluator-isolation fields are fixed.",
+    "No provider credentials or hidden oracle material belongs in the public repository."
+  ]
+}
