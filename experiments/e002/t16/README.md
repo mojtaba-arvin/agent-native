@@ -7,7 +7,7 @@ generator. It does not claim a benchmark result until the controlled-host matrix
 
 ## Quickstart: one command on a dedicated Linux host
 
-The recommended operator flow requires only Docker Engine/CLI, curl, and
+The recommended operator flow requires only a rootful Docker Engine/CLI on Linux x86_64, curl, and
 GH_TOKEN on the host. Do not clone the repository, install Python/Git/gh/psql,
 download artifacts, create PostgreSQL, or upload evidence manually.
 
@@ -21,7 +21,9 @@ host matrix, and publishes all evidence to a new t16-results branch. It prints
 the result URL when finished. Detailed behavior and the evidence layout are
 documented in the One-command dedicated Linux execution section below.
 
-## Manual fallback: pre-registration (not needed for the one-command flow)
+## Legacy manual preparation notes (historical; do not use for current runs)
+
+The following manual instructions describe the earlier runner interface and are retained only as historical context. They are not a supported execution path for the current digest-pinned runner. Use the one-command launcher above.
 
 On the dedicated Linux host, create an operator attestation JSON file:
 
@@ -77,7 +79,7 @@ machine as a repository runner. A disposable ephemeral/JIT runner is an
 alternative only if its host is dedicated and destroyed/reimaged after the
 single job; do not expose long-lived credentials to it.
 
-## Manual fallback: controlled-host setup (not needed for the one-command flow)
+### Legacy manual controlled-host setup (historical only)
 
 The host must be a dedicated physical Linux machine with at least three
 available CPUs, cgroup v2, Docker, taskset, and psql. The PostgreSQL container
