@@ -32,6 +32,7 @@ git cat-file -e "$SOURCE_SHA:$DOCKERFILE" 2>/dev/null || fail "Dockerfile is not
 committed_hash="$(git show "$SOURCE_SHA:$DOCKERFILE" | sha256sum | awk '{print $1}')"
 working_hash="$(sha256sum "$DOCKERFILE" | awk '{print $1}')"
 [[ "$committed_hash" == "$working_hash" ]] || fail "working Dockerfile differs from the Dockerfile committed at $SOURCE_SHA"
+grep -Fq '"docker", "build", "--file", "experiments/e002/t16/Dockerfile"' "$T16_DIR/run.py" || fail "run.py no longer builds from the exact committed Dockerfile path"
 
 # Require immutable digests on every FROM reference. ARG-based or mutable
 # aliases are deliberately not accepted by this benchmark runner.
