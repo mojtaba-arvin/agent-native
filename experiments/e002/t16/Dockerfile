@@ -8,7 +8,7 @@ WORKDIR /src/experiments/e002/go
 COPY experiments/e002/go/ ./
 RUN go build -trimpath -ldflags="-buildid=" -o /out/e002-go .
 
-FROM golang:1.23.12-bookworm AS loadgen-build
+FROM ${GO_IMAGE} AS loadgen-build
 WORKDIR /src/experiments/e002/t16/loadgen
 COPY experiments/e002/t16/loadgen/ ./
 RUN go build -trimpath -ldflags="-buildid=" -o /out/t16-loadgen .
