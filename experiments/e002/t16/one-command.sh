@@ -47,5 +47,6 @@ docker run --rm --privileged --pid=host --cgroupns=host --network=host \
   --volume /sys/fs/cgroup:/sys/fs/cgroup \
   --volume /etc/machine-id:/host-machine-id:ro \
   --volume /tmp:/tmp \
+  --volume "$DOCKER_CONFIG_DIR:/root/.docker:ro" \
   --env GH_TOKEN --env T16_SOURCE_SHA="$SOURCE_SHA" --env T16_IMAGE_REF="$IMAGE_REF" \
   --entrypoint python3 "$IMAGE_REF" /usr/local/bin/t16-one-command-runner.py
