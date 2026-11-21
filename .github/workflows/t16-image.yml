@@ -131,7 +131,7 @@ jobs:
           retention-days: 90
 
   publish:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/task/T16-image-digest-pipeline'
+    if: github.ref == 'refs/heads/task/T16-image-digest-pipeline' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     needs: validate-and-build
     runs-on: ubuntu-latest
     timeout-minutes: 35
