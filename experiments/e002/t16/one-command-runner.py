@@ -73,6 +73,17 @@ def wait_postgres(dsn):
     raise TimeoutError("T16 PostgreSQL container failed readiness checks.")
 
 
+def stream_process(args, log_path):
+    with log_path.open("w", encoding="utf-8") as log:
+        process = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                   text=True, bufsize=1)
+        for line in process.stdout:
+            safe = re.sub(r"(T16_READ_TOKEN|T16_DENY_TOKEN)=[^ '\"]+", r"\1=[REDACTED]", line)
+            print(safe, end="", flush=True)
+            log.write(safe)
+        return process.wait()
+
+
 def publish_evidence(evidence, run_id, source_sha):
     branch = "t16-results/%s-%s" % (run_id, source_sha[:8])
     staging = Path(tempfile.mkdtemp(prefix="t16-results-"))
@@ -126,6 +137,7 @@ def main():
     run_id = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ") + "-" + uuid.uuid4().hex[:8]
     evidence = root / "experiments/e002/t16/evidence" / run_id
     evidence.mkdir(parents=True)
+    (evidence / "image-lock.json").write_text(json.dumps(LOCK, indent=2, sort_keys=True) + "\n")
     machine_id = Path("/host-machine-id").read_text().strip() if Path("/host-machine-id").exists() else platform.node()
     host_id = hashlib.sha256(machine_id.encode()).hexdigest()[:24]
     operator = github_login()
@@ -134,6 +146,7 @@ def main():
                    "attestation_basis": "operator declaration for this one-command invocation"}
     attestation_path = Path(tempfile.mkdtemp(prefix="t16-attestation-")) / "host.json"
     attestation_path.write_text(json.dumps(attestation, indent=2) + "\n")
+    (evidence / "operator-attestation.json").write_text(json.dumps(attestation, indent=2, sort_keys=True) + "\n")
     pg_image = LOCK.get("base_images", {}).get("postgres", "")
     if not re.fullmatch(r"postgres:16[.]4@sha256:[0-9a-f]{64}", pg_image):
         raise RuntimeError("Image lock lacks the immutable PostgreSQL 16.4 base image.")
@@ -161,11 +174,8 @@ def main():
         (evidence / "preflight.log").write_text(pre.stdout or "")
         if pre.returncode:
             raise RuntimeError("Preflight failed; diagnostics will be published.")
-        result = run(runner, check=False, capture=True)
-        output = result.stdout or ""
-        output = re.sub(r"(T16_READ_TOKEN|T16_DENY_TOKEN)=[^ '\"]+", r"\1=[REDACTED]", output)
-        (evidence / "execution.log").write_text(output)
-        if result.returncode:
+        result_code = stream_process(runner, evidence / "execution.log")
+        if result_code:
             raise RuntimeError("T16 runner failed; partial evidence will be published.")
         results_file = evidence / "results.json"
         if not results_file.is_file():
