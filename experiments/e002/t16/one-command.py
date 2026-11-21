@@ -11,7 +11,6 @@ import uuid
 import zipfile
 from io import BytesIO
 import requests
-from one_command_common import validate_lock
 
 API = "https://api.github.com"
 REPO = os.environ.get("T16_REPOSITORY", "mojtaba-arvin/agent-native")
@@ -31,6 +30,21 @@ def api(method, path, **kwargs):
 
 def docker(*args, check=True):
     return subprocess.run(["docker", *args], check=check, text=True)
+
+
+def validate_lock(lock, sha):
+    import re
+    if lock.get("source_sha") != sha or not re.fullmatch(r"[0-9a-f]{40}", sha):
+        raise RuntimeError("Image-lock source SHA is invalid or inconsistent.")
+    name = "ghcr.io/mojtaba-arvin/agent-native-t16"
+    digest = lock.get("image_digest", "")
+    if lock.get("image_name") != name or not re.fullmatch(r"sha256:[0-9a-f]{64}", digest):
+        raise RuntimeError("Image-lock package name or digest is invalid.")
+    if lock.get("image_ref") != name + "@" + digest or lock.get("image_tag") != sha:
+        raise RuntimeError("Image-lock is not pinned to exact source SHA and digest.")
+    if lock.get("dockerfile_path") != "experiments/e002/t16/Dockerfile":
+        raise RuntimeError("Unexpected Dockerfile path in image-lock.")
+    return lock
 
 
 def build_and_get_lock():
