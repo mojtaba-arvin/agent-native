@@ -67,9 +67,11 @@ def successful_image_for_sha(source_sha):
 
 def build_and_get_lock():
     login = api("GET", "/user").json()["login"]
-    from urllib.parse import quote
-    branch_info = api("GET", "/repos/%s/branches/%s" % (REPO, quote(BRANCH, safe=""))).json()
-    current_sha = branch_info["commit"]["sha"]
+    branch_commits = api("GET", "/repos/%s/commits" % REPO,
+                         params={"sha": BRANCH, "per_page": 1}).json()
+    if not branch_commits:
+        raise RuntimeError("The T16 source branch has no commits.")
+    current_sha = branch_commits[0]["sha"]
     cached = successful_image_for_sha(current_sha)
     if cached:
         return cached[0], cached[1], login
