@@ -70,7 +70,7 @@ jobs:
           set -euo pipefail
           resolve() {
             local name="$1" tag="$2" digest
-            digest="$(docker buildx imagetools inspect "$tag" | sed -n 's/^Digest: //p' | head -n 1)"
+            digest="$(docker buildx imagetools inspect "$tag" | awk '$1 == "Digest:" {print $2; exit}')"
             test -n "$digest"
             echo "$name=$tag@$digest" >> "$GITHUB_OUTPUT"
           }
