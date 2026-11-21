@@ -3,7 +3,10 @@ set -Eeuo pipefail
 REPOSITORY="mojtaba-arvin/agent-native"
 BRANCH="task/T16-image-digest-pipeline"
 RAW_BASE="https://raw.githubusercontent.com/$REPOSITORY/$BRANCH/experiments/e002/t16"
-: "$GH_TOKEN"
+if [[ -z "${GH_TOKEN:-}" ]]; then
+  echo "Export GH_TOKEN with a GitHub classic PAT (public_repo/repo and read:packages)." >&2
+  exit 2
+fi
 command -v docker >/dev/null 2>&1 || { echo "Docker Engine/CLI is required." >&2; exit 2; }
 command -v curl >/dev/null 2>&1 || { echo "curl is required." >&2; exit 2; }
 docker info >/dev/null 2>&1 || { echo "Docker daemon is unavailable." >&2; exit 2; }
