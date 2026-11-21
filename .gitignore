@@ -26,7 +26,13 @@ build/
 dist/
 *.egg-info/
 
-# T16 controlled-host runtime evidence (publish as a Release asset; never commit)
+# T16 controlled-host runtime evidence (publish the archive as a Release asset; never commit)
+experiments/e002/t16/prereg.json
+experiments/e002/t16/host.json
+experiments/e002/t16/protocol.json
+experiments/e002/t16/results.json
+experiments/e002/t16/report.md
+experiments/e002/t16/evidence-manifest.json
 experiments/e002/t16/attestation.json
 experiments/e002/t16/ledger.jsonl
 experiments/e002/t16/t16-evidence.tar.gz
