@@ -153,8 +153,7 @@ class T16RunnerUnitTests(unittest.TestCase):
     def test_image_verifier_accepts_exact_digest_and_checks_attestation(self):
         image_ref = "ghcr.io/mojtaba-arvin/agent-native-t16@sha256:" + "b" * 64
         source_sha = "a" * 40
-        with mock.patch("run.shutil.which", return_value="/usr/bin/gh"), \\
-             mock.patch("run.run_command", side_effect=["", source_sha, "https://github.com/mojtaba-arvin/agent-native", json.dumps([image_ref]), "verified"]) as command:
+        with mock.patch("run.shutil.which", return_value="/usr/bin/gh"), mock.patch("run.run_command", side_effect=["", source_sha, "https://github.com/mojtaba-arvin/agent-native", json.dumps([image_ref]), "verified"]) as command:
             identity = verify_image_identity(image_ref, source_sha)
         self.assertEqual(identity["image_ref"], image_ref)
         self.assertEqual(identity["image_digest"], "sha256:" + "b" * 64)
