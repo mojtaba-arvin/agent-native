@@ -5,7 +5,7 @@ REPOSITORY="mojtaba-arvin/agent-native"
 ROOT="$(git rev-parse --show-toplevel)"
 cd "$ROOT"
 
-IMAGE_LOCK="${T16_IMAGE_LOCK:-experiments/e002/t16/image-lock.json}"
+IMAGE_LOCK="${T16_IMAGE_LOCK:-/tmp/t16-image-lock/image-lock.json}"
 HOST_ATTESTATION="${T16_HOST_ATTESTATION:-}"
 OUTPUT="${T16_OUTPUT:-experiments/e002/t16}"
 
