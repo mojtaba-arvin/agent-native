@@ -133,7 +133,8 @@ def read_memory_events(path: Path) -> dict[str, int]:
 
 
 def run_loadgen_container(name: str, arguments: list[str], cpu: int, output: Path,
-                          read_token: str, deny_token: str, image_ref: str, timeout: int = 180) -> dict[str, Any]:
+                          read_token: str, deny_token: str, image_ref: str, timeout: int = 180,
+                          allow_functional_failure: bool = False) -> dict[str, Any]:
     container = name
     try:
         run_command([
@@ -148,9 +149,9 @@ def run_loadgen_container(name: str, arguments: list[str], cpu: int, output: Pat
         limits = verify_candidate_cgroup(cgroup, cpu)
         exit_code = run_command(["docker", "wait", container], timeout=timeout)
         logs = run_command(["docker", "logs", container], timeout=15, allow_failure=True)
-        if exit_code != "0":
+        if exit_code != "0" and not allow_functional_failure:
             raise RuntimeError(f"load generator exited {exit_code}: {logs[-3000:]}")
-        return {"path": str(cgroup), "limits": limits, "logs": logs[-4000:]}
+        return {"path": str(cgroup), "limits": limits, "logs": logs[-4000:], "exit_code": int(exit_code)}
     finally:
         run_command(["docker", "rm", "--force", container], timeout=60, allow_failure=True)
 
@@ -541,12 +542,17 @@ def main() -> int:
                     loadgen_measured = run_loadgen_container(
                         f"t16-loadgen-measured-{uuid.uuid4().hex[:8]}",
                         measured_arguments, host["load_generator_cpu"], output, read_token, deny_token, args.image_ref,
+                        allow_functional_failure=True,
                     )
                     if any(path == str(candidate_cgroup) or path == str(postgres_cgroup) for path in (loadgen_warmup["path"], loadgen_measured["path"])):
                         raise RuntimeError("load generator shares the candidate or PostgreSQL cgroup")
                     cpu_after = read_cpu_usage(candidate_cgroup)
                     events_after = read_memory_events(candidate_cgroup)
                     summary = json.loads(prefix.with_suffix(".json").read_text(encoding="utf-8"))
+                    if loadgen_measured["exit_code"] not in (0, 2):
+                        raise RuntimeError(f"unexpected load-generator exit code: {loadgen_measured['exit_code']}")
+                    if (loadgen_measured["exit_code"] == 0) != bool(summary.get("functional_success")):
+                        raise RuntimeError("load-generator exit status disagrees with its measured summary")
                     memory_peak = int((candidate_cgroup / "memory.peak").read_text(encoding="ascii").strip())
                     oom_delta = sum(
                         events_after.get(key, 0) - events_before.get(key, 0)
@@ -603,8 +609,8 @@ def main() -> int:
                             "memory_events_after": events_after,
                         },
                     }
-                    if record["functional_conformance"] is not True:
-                        raise RuntimeError(f"{candidate} {run_id} failed functional request conformance")
+                    # A full offered sample with recorded responses is a completed measurement
+                    # even when functional conformance fails. Keep its metrics and fail its SLO.
                     runs.append(record)
                     with ledger_path.open("a", encoding="utf-8") as handle:
                         handle.write(json.dumps(record, sort_keys=True) + "\n")
