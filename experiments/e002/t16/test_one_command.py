@@ -14,7 +14,7 @@ class OneCommandTests(unittest.TestCase):
 
     def test_evidence_is_a_release_asset_not_a_git_branch(self):
         source = Path(__file__).with_name("one-command-runner.py").read_text()
-        self.assertIn('"/releases"', source)
+        self.assertIn('"/repos/%s/releases"', source)
         self.assertIn("upload_url", source)
         self.assertIn("tarfile.open", source)
         self.assertNotIn('git", "-C", str(staging), "push"', source)
@@ -22,7 +22,7 @@ class OneCommandTests(unittest.TestCase):
     def test_postgres_reuses_the_same_digest_pinned_image(self):
         source = Path(__file__).with_name("one-command-runner.py").read_text()
         self.assertIn("pg_image = IMAGE_REF", source)
-        self.assertIn('"--entrypoint", "docker-entrypoint.sh"', source)
+        self.assertIn('"--entrypoint", "/usr/local/bin/docker-entrypoint.sh"', source)
 
 
 if __name__ == "__main__":
