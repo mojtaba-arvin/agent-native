@@ -260,7 +260,7 @@ def main():
         print("T16 per-attempt SLO result: %d/20 passed; see report.md for cohort details." % slo_passed, flush=True)
     finally:
         if pg_started:
-            run(["docker", "rm", "--force", pg_name], check=False)
+            run(["docker", "rm", "--force", "--volumes", pg_name], check=False)
         metadata = {"status": status, "source_sha": sha, "image_ref": IMAGE_REF,
                     "build_run_url": build_run_url, "build_run_id": build_run_id,
                     "host_attestation": attestation, "finished_at": dt.datetime.now(dt.timezone.utc).isoformat()}
