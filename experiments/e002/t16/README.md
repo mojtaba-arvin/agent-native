@@ -213,7 +213,7 @@ candidates before recording measured runs.
 ## One-command dedicated Linux execution
 
 The supported operator entry point is one-command.sh. It is designed so the
-host needs only Docker Engine/CLI, curl, and a GitHub token in GH_TOKEN.
+host needs only a rootful Docker Engine/CLI, curl, and a GitHub token in GH_TOKEN. The current published image targets linux/amd64 (x86_64).
 Python, Git, GitHub CLI, psql, taskset, Docker CLI inside the controller,
 and PostgreSQL are supplied or launched by disposable containers; nothing is
 installed into the host operating system.
@@ -253,7 +253,7 @@ root-equivalent access to the host; run only the reviewed, trusted T16 branch
 on the dedicated machine. The host's physical exclusivity is recorded as the
 operator's declaration, not represented as a property that software can prove.
 
-The host still must satisfy the actual T16 contract: Linux, cgroup v2 with
+The host still must satisfy the actual T16 contract: Linux x86_64, a rootful Docker daemon, cgroup v2 with
 CPU/memory/cpuset controllers, at least three available distinct physical CPU
 cores, and sufficient memory for a one-GiB candidate plus the separately
 limited PostgreSQL container. GitHub Actions runners are explicitly rejected.
