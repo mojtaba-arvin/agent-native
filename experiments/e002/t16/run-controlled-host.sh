@@ -7,7 +7,7 @@ cd "$ROOT"
 
 IMAGE_LOCK="${T16_IMAGE_LOCK:-/tmp/t16-image-lock/image-lock.json}"
 HOST_ATTESTATION="${T16_HOST_ATTESTATION:-}"
-OUTPUT="${T16_OUTPUT:-experiments/e002/t16}"
+OUTPUT="${T16_OUTPUT:-experiments/e002/t16/evidence/$(date -u +%Y%m%dT%H%M%SZ)}"
 
 if [[ -z "$HOST_ATTESTATION" ]]; then
   echo "T16_HOST_ATTESTATION must point to the operator's dedicated-host attestation JSON." >&2
