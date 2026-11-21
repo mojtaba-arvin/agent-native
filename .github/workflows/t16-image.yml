@@ -102,7 +102,11 @@ jobs:
             --tag t16-candidates:ci .
       - name: Smoke-test embedded load generator and candidate binaries
         run: |
+          set +e
           docker run --rm --entrypoint /opt/candidates/t16-loadgen t16-candidates:ci --help
+          status=$?
+          set -e
+          test "$status" -eq 2
           docker run --rm --entrypoint /bin/sh t16-candidates:ci -c \
             'test -x /opt/candidates/e002-go && test -x /opt/candidates/e002-rust && test -x /usr/local/bin/t16-candidate'
       - name: Save resolved base-image references
