@@ -159,6 +159,30 @@ def publish_evidence(evidence, run_id, source_sha, image_ref, build_run_id, buil
         archive_path.unlink(missing_ok=True)
 
 
+
+def validate_completed_results(results, evidence, source_sha, image_ref):
+    records = results.get("runs", [])
+    completed = sum(1 for item in records if item.get("status") == "completed")
+    candidate_counts = {
+        name: sum(1 for item in records if item.get("candidate") == name and item.get("status") == "completed")
+        for name in ("go-net-http", "rust-tokio-hyper")
+    }
+    if len(records) != 20 or completed != 20 or candidate_counts != {"go-net-http": 10, "rust-tokio-hyper": 10}:
+        raise RuntimeError("T16 matrix incomplete or imbalanced: %d records, %d completed, cohorts=%s." %
+                           (len(records), completed, candidate_counts))
+    if results.get("source_sha") != source_sha or results.get("image_ref") != image_ref:
+        raise RuntimeError("Results metadata does not match the executed source and image digest.")
+    if not (evidence / "report.md").is_file() or not (evidence / "ledger.jsonl").is_file():
+        raise RuntimeError("T16 report or append-only ledger is missing.")
+    missing_traces = [item.get("raw_trace") for item in records
+                      if not item.get("raw_trace") or not (evidence / item["raw_trace"]).is_file()]
+    if missing_traces:
+        raise RuntimeError("T16 raw request traces are missing: %s" % missing_traces[:3])
+    ledger_records = [line for line in (evidence / "ledger.jsonl").read_text().splitlines() if line.strip()]
+    if len(ledger_records) != 20:
+        raise RuntimeError("T16 append-only ledger does not contain exactly 20 attempts.")
+    return sum(1 for item in records if item.get("slo_pass") is True)
+
 def main():
     if platform.system() != "Linux" or os.getenv("GITHUB_ACTIONS", "").lower() == "true":
         raise RuntimeError("Only a non-GitHub-Runner Linux host is accepted.")
@@ -230,24 +254,7 @@ def main():
         if not results_file.is_file():
             raise RuntimeError("Runner did not produce results.json.")
         results = json.loads(results_file.read_text())
-        records = results.get("runs", [])
-        completed = sum(1 for item in records if item.get("status") == "completed")
-        candidate_counts = {
-            name: sum(1 for item in records if item.get("candidate") == name and item.get("status") == "completed")
-            for name in ("go-net-http", "rust-tokio-hyper")
-        }
-        if len(records) != 20 or completed != 20 or candidate_counts != {"go-net-http": 10, "rust-tokio-hyper": 10}:
-            raise RuntimeError("T16 matrix incomplete or imbalanced: %d records, %d completed, cohorts=%s." %
-                               (len(records), completed, candidate_counts))
-        if results.get("source_sha") != sha or results.get("image_ref") != IMAGE_REF:
-            raise RuntimeError("Results metadata does not match the executed source and image digest.")
-        if not (evidence / "report.md").is_file() or not (evidence / "ledger.jsonl").is_file():
-            raise RuntimeError("T16 report or append-only ledger is missing.")
-        missing_traces = [item.get("raw_trace") for item in records
-                          if not item.get("raw_trace") or not (evidence / item["raw_trace"]).is_file()]
-        if missing_traces:
-            raise RuntimeError("T16 raw request traces are missing: %s" % missing_traces[:3])
-        slo_passed = sum(1 for item in records if item.get("slo_pass") is True)
+        slo_passed = validate_completed_results(results, evidence, sha, IMAGE_REF)
         status = "completed"
         print("T16 matrix completed: 20/20 attempts recorded.", flush=True)
         print("T16 per-attempt SLO result: %d/20 passed; see report.md for cohort details." % slo_passed, flush=True)
