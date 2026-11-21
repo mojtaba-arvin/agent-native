@@ -17,7 +17,7 @@ SECURITY_OPTIONS="$(docker info --format '{{json .SecurityOptions}}')"
 
 echo "Checking the latest T16 source revision..."
 SOURCE_SHA="$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
-  "$API/commits?sha=$BRANCH&per_page=1" | sed -n 's/.*"sha":[[:space:]]*"\([0-9a-f]\{40\}\)".*/\1/p' | head -n1)"
+  "$API/commits?sha=$BRANCH&per_page=1" | grep -o '"sha":"[0-9a-f]\{40\}"' | head -n1 | cut -d '"' -f4)"
 [[ "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "Could not resolve the current T16 source SHA." >&2; exit 2; }
 
 LOCAL_SHA="$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$IMAGE:t16" 2>/dev/null || true)"
