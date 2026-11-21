@@ -78,7 +78,7 @@ jobs:
         run: cargo test --locked
         working-directory: experiments/e002/rust
       - name: Build both candidate runtimes in the production benchmark image
-        run: docker build --file experiments/e002/t16/Dockerfile --tag t16-candidates-ci .
+        run: docker build --build-arg SOURCE_SHA="$GITHUB_SHA" --build-arg BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)" --file experiments/e002/t16/Dockerfile --tag t16-candidates-ci .
       - name: Verify candidate image includes the pinned PostgreSQL client
         run: docker run --rm --entrypoint psql t16-candidates-ci --version
       - name: Run product conformance against both candidate containers
