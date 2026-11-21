@@ -225,3 +225,5 @@ T16_HOST_ATTESTATION=/secure/path/host-attestation.json \
 ```
 
 The helper validates the lock against the checked-out source and Dockerfile, verifies the GitHub attestation, creates the preregistration/host/protocol manifests, and starts the benchmark with the exact digest. It requires `jq`, `gh`, Docker, PostgreSQL client tools, `taskset`, and Python 3.11+ on the controlled host.
+
+Each helper invocation defaults to a fresh UTC-timestamped directory under `experiments/e002/t16/evidence/`. Prior evidence directories are retained and allowed by the runner's untracked-file guard; image locks and operator attestations remain outside the checkout.
