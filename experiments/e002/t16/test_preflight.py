@@ -57,7 +57,7 @@ class T16PreflightTests(unittest.TestCase):
 
     def test_image_reference_must_use_canonical_repository_package(self):
         ref = "ghcr.io/example/t16@sha256:" + "a" * 64
-        with self.assertRaisesRegex(ValueError, "repository_T16_GHCR_package"):
+        with self.assertRaisesRegex(ValueError, "canonical_T16_GHCR_package"):
             validate_image_ref(ref)
 
     def test_image_tag_must_equal_full_source_sha(self):
