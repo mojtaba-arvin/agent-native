@@ -21,8 +21,8 @@ BUILD_RUN_ID = os.environ["T16_BUILD_RUN_ID"]
 API = "https://api.github.com"
 
 
-def run(args, check=True, capture=False, env=None):
-    return subprocess.run(args, check=check, text=True, env=env,
+def run(args, check=True, capture=False, env=None, cwd=None):
+    return subprocess.run(args, check=check, text=True, env=env, cwd=cwd,
                            stdout=subprocess.PIPE if capture else None,
                            stderr=subprocess.STDOUT if capture else None)
 
@@ -73,10 +73,10 @@ def wait_postgres(dsn):
     raise TimeoutError("T16 PostgreSQL container failed readiness checks.")
 
 
-def stream_process(args, log_path):
+def stream_process(args, log_path, cwd=None):
     with log_path.open("w", encoding="utf-8") as log:
         process = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                                   text=True, bufsize=1)
+                                   text=True, bufsize=1, cwd=cwd)
         for line in process.stdout:
             safe = re.sub(r"(T16_READ_TOKEN|T16_DENY_TOKEN)=[^ '\"]+", r"\1=[REDACTED]", line)
             print(safe, end="", flush=True)
@@ -170,11 +170,11 @@ def main():
                    "--attestation", str(attestation_path), "--output", str(evidence),
                    "--source-sha", sha, "--image-ref", LOCK["image_ref"], "--image-tag", LOCK["image_tag"],
                    "--build-run-url", LOCK["build_run_url"], "--postgres-dsn", dsn,
-                   "--command", prereg_command], check=False, capture=True)
+                   "--command", prereg_command], check=False, capture=True, cwd=str(root))
         (evidence / "preflight.log").write_text(pre.stdout or "")
         if pre.returncode:
             raise RuntimeError("Preflight failed; diagnostics will be published.")
-        result_code = stream_process(runner, evidence / "execution.log")
+        result_code = stream_process(runner, evidence / "execution.log", cwd=str(root))
         if result_code:
             raise RuntimeError("T16 runner failed; partial evidence will be published.")
         results_file = evidence / "results.json"
