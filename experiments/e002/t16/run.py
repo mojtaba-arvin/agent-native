@@ -33,6 +33,14 @@ def utc_now() -> str:
     return dt.datetime.now(dt.timezone.utc).isoformat()
 
 
+def unexpected_untracked_files(untracked: list[str], allowed_files: set[str]) -> list[str]:
+    evidence_prefix = "experiments/e002/t16/evidence/"
+    return sorted(
+        path for path in set(untracked)
+        if path not in allowed_files and not path.startswith(evidence_prefix)
+    )
+
+
 def run_command(command: list[str], *, timeout: int = 300, input_text: str | None = None, allow_failure: bool = False) -> str:
     result = subprocess.run(
         command, input=input_text, check=False, capture_output=True, text=True, timeout=timeout,
@@ -388,7 +396,7 @@ def main() -> int:
             str((output / "host.json").relative_to(root)),
             str((output / "protocol.json").relative_to(root)),
         }
-        unexpected_untracked = sorted(set(untracked) - allowed_evidence)
+        unexpected_untracked = unexpected_untracked_files(untracked, allowed_evidence)
         if unexpected_untracked:
             raise RuntimeError("source checkout contains unexpected untracked files: " + ", ".join(unexpected_untracked))
         if not args.postgres_dsn:
