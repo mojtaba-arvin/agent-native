@@ -159,6 +159,8 @@ def verify_image_identity(image_ref: str, source_sha: str) -> dict[str, str]:
     match = re.fullmatch(r"(?P<name>[a-z0-9][a-z0-9./:_-]*)@sha256:(?P<digest>[0-9a-f]{64})", image_ref)
     if not match:
         raise ValueError("--image-ref must be an immutable image@sha256:digest reference")
+    if match.group("name") != "ghcr.io/mojtaba-arvin/agent-native-t16":
+        raise ValueError("--image-ref must use the canonical T16 GHCR package")
     run_command(["docker", "pull", image_ref], timeout=900)
     revision = run_command(["docker", "image", "inspect", "--format", '{{ index .Config.Labels "org.opencontainers.image.revision" }}', image_ref])
     source_url = run_command(["docker", "image", "inspect", "--format", '{{ index .Config.Labels "org.opencontainers.image.source" }}', image_ref])
