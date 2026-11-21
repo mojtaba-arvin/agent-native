@@ -247,8 +247,10 @@ commit. It also rejects mutable Dockerfile image references before invoking
 the preflight, matrix runner, and unchanged `acceptance/T16.sh`.
 
 The following are runtime evidence or local execution artifacts, not source:
-`attestation.json`, `ledger.jsonl`, `runs/`, `bin/`, `results/`, and
-`t16-evidence.tar.gz`. They are ignored by Git and must never be committed.
+`attestation.json`, `prereg.json`, `host.json`, `protocol.json`,
+`ledger.jsonl`, `results.json`, `report.md`, `evidence-manifest.json`,
+`runs/`, `bin/`, `results/`, and `t16-evidence.tar.gz`. They are ignored
+by Git and must never be committed.
 The evidence archive is the artifact to publish as a GitHub Release asset
 bound to the exact source SHA; do not upload raw result files as source changes.
 Docker's default BuildKit cache remains outside the repository. The ignored
