@@ -191,3 +191,50 @@ candidates before recording measured runs.
   controlled-host runner repeats end-to-end conformance on the attested host before measuring.
 - Shared GitHub-hosted CI is suitable for deterministic unit tests and
   compilation only; its measurements cannot satisfy the dedicated-host gate.
+
+
+## One-command dedicated Linux execution
+
+The supported operator entry point is one-command.sh. It is designed so the
+host needs only Docker Engine/CLI, curl, and a GitHub token in GH_TOKEN.
+Python, Git, GitHub CLI, psql, taskset, Docker CLI inside the controller,
+and PostgreSQL are supplied or launched by disposable containers; nothing is
+installed into the host operating system.
+
+Set GH_TOKEN once in the shell using a token for this repository. It needs
+repository Contents read/write (to trigger the build and publish the results),
+Actions read (to inspect the build and download its image-lock artifact), and
+Packages read if the GHCR package is private. The token must also be allowed to
+read GitHub build attestations. Do not paste the token into the command line or
+commit it to the repository.
+
+From the dedicated Linux host, run:
+
+    curl -fsSL https://raw.githubusercontent.com/mojtaba-arvin/agent-native/task/T16-image-digest-pipeline/experiments/e002/t16/one-command.sh | bash
+
+The launcher creates a unique, small trigger commit on the T16 work branch.
+That push starts the existing image workflow; the launcher waits for both the
+image-validation and publish jobs, downloads the resulting image lock, checks
+its source SHA and immutable digest, and launches the controller from that
+exact image. The controller starts PostgreSQL on a separate physical core,
+creates the operator declaration from the authenticated GitHub identity,
+runs preflight and the 20-attempt matrix, verifies the image attestation, and
+publishes the evidence to a new branch named t16-results/<run-id>-<sha>.
+
+At completion, the command prints a direct link to the evidence directory in
+that branch. The directory includes preregistration, host manifest, protocol,
+raw request traces, per-attempt ledger, aggregate results, report, execution
+logs, metadata, and SHA-256 checksums. Each invocation gets a new branch; prior
+results are not overwritten. Failed or partial runs are also published with a
+failed status when the controller has reached evidence initialization.
+
+The controller uses the Docker socket and privileged host PID/cgroup access to
+measure sibling containers and read host cgroup-v2 accounting. This is
+root-equivalent access to the host; run only the reviewed, trusted T16 branch
+on the dedicated machine. The host's physical exclusivity is recorded as the
+operator's declaration, not represented as a property that software can prove.
+
+The host still must satisfy the actual T16 contract: Linux, cgroup v2 with
+CPU/memory/cpuset controllers, at least three available distinct physical CPU
+cores, and sufficient memory for a one-GiB candidate plus the separately
+limited PostgreSQL container. GitHub Actions runners are explicitly rejected.
