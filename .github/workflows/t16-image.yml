@@ -187,6 +187,14 @@ jobs:
           subject-name: ${{ env.IMAGE_NAME }}
           subject-digest: ${{ steps.build.outputs.digest }}
           push-to-registry: true
+      - name: Verify the published image attestation with the embedded GitHub CLI
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          IMAGE_REF="${IMAGE_NAME}@${IMAGE_DIGEST}"
+          docker run --rm --env GH_TOKEN --entrypoint gh "$IMAGE_REF" \
+            attestation verify "oci://$IMAGE_REF" -R "$GITHUB_REPOSITORY"
       - name: Write immutable image lock
         env:
           IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
