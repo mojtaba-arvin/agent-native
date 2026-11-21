@@ -201,12 +201,14 @@ Python, Git, GitHub CLI, psql, taskset, Docker CLI inside the controller,
 and PostgreSQL are supplied or launched by disposable containers; nothing is
 installed into the host operating system.
 
-Set GH_TOKEN once in the shell using a token for this repository. It needs
-repository Contents read/write (to trigger the build and publish the results),
-Actions read (to inspect the build and download its image-lock artifact), and
-Packages read if the GHCR package is private. The token must also be allowed to
-read GitHub build attestations. Do not paste the token into the command line or
-commit it to the repository.
+Set GH_TOKEN once in the shell using a GitHub personal access token (classic).
+For this workflow, grant repository write access (repo scope; public_repo is
+sufficient for a public repository) and read:packages. The token is used to
+create the build-trigger commit, inspect Actions runs/download the image-lock
+artifact, authenticate to GHCR, verify repository attestations, and publish the
+results branch. GitHub Packages currently requires a classic PAT for registry
+authentication; fine-grained PATs do not support Packages access. Do not paste
+the token into the command line or commit it to the repository.
 
 From the dedicated Linux host, run:
 
