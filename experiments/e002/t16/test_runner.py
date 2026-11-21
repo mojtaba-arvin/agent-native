@@ -159,6 +159,12 @@ class T16RunnerUnitTests(unittest.TestCase):
                 verify_image_identity("ghcr.io/example/t16:latest", "a" * 40)
             command.assert_not_called()
 
+    def test_image_verifier_rejects_unapproved_registry_path(self):
+        with mock.patch("run.run_command") as command:
+            with self.assertRaisesRegex(ValueError, "canonical T16 GHCR package"):
+                verify_image_identity("ghcr.io/example/t16@sha256:" + "a" * 64, "a" * 40)
+            command.assert_not_called()
+
     def test_image_verifier_accepts_exact_digest_and_checks_attestation(self):
         image_ref = "ghcr.io/mojtaba-arvin/agent-native-t16@sha256:" + "b" * 64
         source_sha = "a" * 40
