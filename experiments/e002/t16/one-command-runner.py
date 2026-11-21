@@ -117,6 +117,8 @@ def publish_evidence(evidence, run_id, source_sha):
 def main():
     if platform.system() != "Linux" or os.getenv("GITHUB_ACTIONS", "").lower() == "true":
         raise RuntimeError("Only a non-GitHub-Runner Linux host is accepted.")
+    if platform.machine().lower() not in {"x86_64", "amd64"}:
+        raise RuntimeError("The published T16 image currently targets linux/amd64; this host is not x86_64.")
     name = "ghcr.io/mojtaba-arvin/agent-native-t16"
     digest = LOCK.get("image_digest", "")
     sha = LOCK.get("source_sha", "")
