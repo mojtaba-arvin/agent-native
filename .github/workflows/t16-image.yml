@@ -45,7 +45,7 @@ jobs:
           python-version: "3.11.18"
       - name: Compile and test T16 control plane
         run: |
-          python -m py_compile experiments/e002/t16/preflight.py experiments/e002/t16/run.py experiments/e002/t16/one-command-runner.py
+          python -m py_compile experiments/e002/t16/preflight.py experiments/e002/t16/run.py experiments/e002/t16/one-command-runner.py experiments/e002/t16/one_command_common.py
           python -m py_compile experiments/e002/t16/one-command.py
           bash -n experiments/e002/t16/run-controlled-host.sh experiments/e002/t16/one-command.sh
           python -m unittest discover -s experiments/e002/t16 -p "test_*.py" -v
