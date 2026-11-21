@@ -8,6 +8,11 @@ WORKDIR /src/experiments/e002/go
 COPY experiments/e002/go/ ./
 RUN go build -trimpath -ldflags="-buildid=" -o /out/e002-go .
 
+FROM golang:1.23.12-bookworm AS loadgen-build
+WORKDIR /src/experiments/e002/t16/loadgen
+COPY experiments/e002/t16/loadgen/ ./
+RUN go build -trimpath -ldflags="-buildid=" -o /out/t16-loadgen .
+
 FROM ${RUST_IMAGE} AS rust-build
 WORKDIR /src
 COPY experiments/e002/rust/ ./
@@ -32,6 +37,7 @@ LABEL org.opencontainers.image.source="${SOURCE_URL}" \
       org.opencontainers.image.licenses="MIT"
 
 COPY --from=go-build /out/e002-go /opt/candidates/e002-go
+COPY --from=loadgen-build /out/t16-loadgen /opt/candidates/t16-loadgen
 COPY --from=rust-build /src/target/release/agent-native-e002-rust /opt/candidates/e002-rust
 COPY experiments/e002/t16/entrypoint.sh /usr/local/bin/t16-candidate
 RUN chmod 0755 /usr/local/bin/t16-candidate
