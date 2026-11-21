@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sys
 import tempfile
 import unittest
@@ -148,6 +149,19 @@ class T16RunnerUnitTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "immutable"):
                 verify_image_identity("ghcr.io/example/t16:latest", "a" * 40)
             command.assert_not_called()
+
+    def test_image_verifier_accepts_exact_digest_and_checks_attestation(self):
+        image_ref = "ghcr.io/mojtaba-arvin/agent-native-t16@sha256:" + "b" * 64
+        source_sha = "a" * 40
+        with mock.patch("run.shutil.which", return_value="/usr/bin/gh"), \\
+             mock.patch("run.run_command", side_effect=["", source_sha, "https://github.com/mojtaba-arvin/agent-native", json.dumps([image_ref]), "verified"]) as command:
+            identity = verify_image_identity(image_ref, source_sha)
+        self.assertEqual(identity["image_ref"], image_ref)
+        self.assertEqual(identity["image_digest"], "sha256:" + "b" * 64)
+        self.assertEqual(command.call_args_list[-1].args[0], [
+            "gh", "attestation", "verify", "oci://" + image_ref,
+            "-R", "mojtaba-arvin/agent-native",
+        ])
 
     def test_command_runner_can_record_expected_failure_without_raising(self):
         import sys
