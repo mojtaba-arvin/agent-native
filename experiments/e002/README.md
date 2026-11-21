@@ -208,3 +208,20 @@ python experiments/e002/t16/run.py \
 ```
 
 The attestation file must explicitly identify the dedicated physical host, the host operator, and a timezone-qualified attestation timestamp. The PostgreSQL service must already be running in its own one-CPU cgroup on the preregistered physical core. Do not replace the digest with `:t16` or the source-SHA tag when launching a benchmark.
+
+
+For a single-command operator path, keep the downloaded image lock and host-attestation JSON outside the Git checkout (the runner intentionally rejects unexpected untracked files), then use:
+
+```sh
+gh run download <BUILD_RUN_ID> \
+  --repo mojtaba-arvin/agent-native \
+  --name t16-image-lock-<SOURCE_SHA> \
+  --dir /tmp/t16-image-lock
+
+export AGENT_NATIVE_E002_POSTGRES_DSN='postgresql://...'
+T16_IMAGE_LOCK=/tmp/t16-image-lock/image-lock.json \
+T16_HOST_ATTESTATION=/secure/path/host-attestation.json \
+  bash experiments/e002/t16/run-controlled-host.sh
+```
+
+The helper validates the lock against the checked-out source and Dockerfile, verifies the GitHub attestation, creates the preregistration/host/protocol manifests, and starts the benchmark with the exact digest. It requires `jq`, `gh`, Docker, PostgreSQL client tools, `taskset`, and Python 3.11+ on the controlled host.
