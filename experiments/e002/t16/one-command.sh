@@ -11,6 +11,11 @@ command -v docker >/dev/null 2>&1 || { echo "Docker Engine/CLI is required." >&2
 command -v curl >/dev/null 2>&1 || { echo "curl is required." >&2; exit 2; }
 docker info >/dev/null 2>&1 || { echo "Docker daemon is unavailable." >&2; exit 2; }
 [[ -S /var/run/docker.sock ]] || { echo "A local Docker socket at /var/run/docker.sock is required." >&2; exit 2; }
+DOCKER_ENDPOINT="$(docker context inspect "$(docker context show)" --format '{{(index .Endpoints "docker").Host}}')"
+[[ "$DOCKER_ENDPOINT" == "unix:///var/run/docker.sock" ]] || {
+  echo "The active Docker context must target unix:///var/run/docker.sock (got: $DOCKER_ENDPOINT)." >&2
+  exit 2
+}
 [[ "$(uname -s)" == Linux && "$(uname -m)" == x86_64 ]] || { echo "T16 image currently supports Linux x86_64 only." >&2; exit 2; }
 SECURITY_OPTIONS="$(docker info --format '{{json .SecurityOptions}}')"
 [[ "$SECURITY_OPTIONS" != *rootless* ]] || { echo "A rootful Docker daemon is required." >&2; exit 2; }
@@ -28,13 +33,8 @@ SOURCE_SHA="$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H "Accept: applic
   "$API/commits?sha=$BRANCH&per_page=1" | sed -n '1s/^\[{"sha":"\([0-9a-f]\{40\}\)".*/\1/p')"
 [[ "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "Could not resolve the current T16 source SHA." >&2; exit 2; }
 
-LOCAL_SHA="$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$IMAGE:t16" 2>/dev/null || true)"
-if [[ "$LOCAL_SHA" == "$SOURCE_SHA" ]]; then
-  echo "Reusing the locally cached T16 image for $SOURCE_SHA."
-else
-  echo "Pulling the single T16 image; unchanged layers remain cached..."
-  docker pull "$IMAGE:t16"
-fi
+echo "Refreshing the T16 image manifest; already-cached layers will not be downloaded again..."
+docker pull "$IMAGE:t16"
 
 IMAGE_SHA="$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$IMAGE:t16")"
 [[ "$IMAGE_SHA" == "$SOURCE_SHA" ]] || { echo "Published image is not ready for branch HEAD ($SOURCE_SHA); image revision is $IMAGE_SHA." >&2; exit 3; }
