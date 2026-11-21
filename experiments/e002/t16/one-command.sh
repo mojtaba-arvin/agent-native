@@ -42,11 +42,11 @@ IMAGE_REF="$(docker image inspect --format '{{range .RepoDigests}}{{println .}}{
 [[ "$IMAGE_REF" =~ ^ghcr\.io/mojtaba-arvin/agent-native-t16@sha256:[0-9a-f]{64}$ ]] || { echo "Could not resolve the pulled image's immutable RepoDigest." >&2; exit 3; }
 
 echo "Launching the T16 controller from $IMAGE_REF"
-docker run --rm --privileged --pid=host --cgroupns=host --network=host \
+docker run --rm --user 0:0 --privileged --pid=host --cgroupns=host --network=host \
   --volume /var/run/docker.sock:/var/run/docker.sock \
   --volume /sys/fs/cgroup:/sys/fs/cgroup \
   --volume /etc/machine-id:/host-machine-id:ro \
   --volume /tmp:/tmp \
   --volume "$DOCKER_CONFIG_DIR:/root/.docker:ro" \
-  --env GH_TOKEN --env T16_SOURCE_SHA="$SOURCE_SHA" --env T16_IMAGE_REF="$IMAGE_REF" \
+  --env GH_TOKEN --env DOCKER_CONFIG=/root/.docker --env T16_SOURCE_SHA="$SOURCE_SHA" --env T16_IMAGE_REF="$IMAGE_REF" \
   --entrypoint python3 "$IMAGE_REF" /usr/local/bin/t16-one-command-runner.py
