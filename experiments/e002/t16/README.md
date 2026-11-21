@@ -16,10 +16,9 @@ repo) and read:packages scopes, then execute this single command:
 
     curl -fsSL https://raw.githubusercontent.com/mojtaba-arvin/agent-native/task/T16-image-digest-pipeline/experiments/e002/t16/one-command.sh | bash
 
-The script builds or reuses the immutable image, runs the complete controlled
-host matrix, and publishes all evidence to a new t16-results branch. It prints
-the result URL when finished. Detailed behavior and the evidence layout are
-documented in the One-command dedicated Linux execution section below.
+The launcher reuses or pulls one digest-pinned T16 image, runs the complete
+controlled-host matrix, and publishes one compressed evidence archive as a
+GitHub Release asset. Results are not committed to Git or stored on result branches.
 
 ## Legacy manual preparation notes (historical; do not use for current runs)
 
@@ -214,48 +213,32 @@ candidates before recording measured runs.
 
 ## One-command dedicated Linux execution
 
-The supported operator entry point is one-command.sh. It is designed so the
-host needs only a rootful Docker Engine/CLI, curl, and a GitHub token in GH_TOKEN. The current published image targets linux/amd64 (x86_64).
-Python, Git, GitHub CLI, psql, taskset, Docker CLI inside the controller,
-and PostgreSQL are supplied or launched by disposable containers; nothing is
-installed into the host operating system.
+The launcher uses only the host's existing Docker Engine/CLI and curl. It does
+not install packages, start a helper image, or download separate PostgreSQL or
+Docker CLI images. It resolves the current branch SHA through the GitHub API,
+reuses a matching local T16 image when available, otherwise pulls the single
+T16 image, then runs the controller by its immutable RepoDigest. The same image
+digest is reused for PostgreSQL, candidate runtimes, and the load generator.
+Subsequent runs against the same source SHA reuse cached layers; Docker checks
+the registry manifest but does not redownload unchanged layers.
 
-Set GH_TOKEN once in the shell using a GitHub personal access token (classic).
-For this workflow, grant repository write access (repo scope; public_repo is
-sufficient for a public repository) and read:packages. The token is used to
-create the build-trigger commit, inspect Actions runs/download the image-lock
-artifact, authenticate to GHCR, verify repository attestations, and publish the
-results branch. GitHub Packages currently requires a classic PAT for registry
-authentication; fine-grained PATs do not support Packages access. Do not paste
-the token into the command line or commit it to the repository.
+The host must be Linux x86_64 with rootful Docker, the local Docker socket,
+curl, and GH_TOKEN. The token requires public_repo and read:packages. No
+Python, Git, jq, gh, psql, taskset, Go, Rust, or package manager is needed on
+the host.
 
-From the dedicated Linux host, run:
+Run:
 
     curl -fsSL https://raw.githubusercontent.com/mojtaba-arvin/agent-native/task/T16-image-digest-pipeline/experiments/e002/t16/one-command.sh | bash
 
-The launcher creates a unique, small trigger commit on the T16 work branch.
-That push starts the existing image workflow; the launcher waits for both the
-image-validation and publish jobs, downloads the resulting image lock, checks
-its source SHA and immutable digest, and launches the controller from that
-exact image. The controller starts PostgreSQL on a separate physical core,
-creates the operator declaration from the authenticated GitHub identity,
-runs preflight and the 20-attempt matrix, verifies the image attestation, and
-publishes the evidence to a new branch named t16-results/<run-id>-<sha>.
+The launcher verifies that the image revision equals the current source branch
+head and runs it by digest. The controller checks the successful Actions build
+for that SHA, verifies the GitHub image attestation through the benchmark
+runner, starts PostgreSQL from the same digest, performs preregistration and
+all 20 attempts, and uploads one compressed, checksum-manifested evidence
+archive to a GitHub Release asset.
 
-At completion, the command prints a direct link to the evidence directory in
-that branch. The directory includes preregistration, host manifest, protocol,
-raw request traces, per-attempt ledger, aggregate results, report, execution
-logs, metadata, and SHA-256 checksums. Each invocation gets a new branch; prior
-results are not overwritten. Failed or partial runs are also published with a
-failed status when the controller has reached evidence initialization.
-
-The controller uses the Docker socket and privileged host PID/cgroup access to
-measure sibling containers and read host cgroup-v2 accounting. This is
-root-equivalent access to the host; run only the reviewed, trusted T16 branch
-on the dedicated machine. The host's physical exclusivity is recorded as the
-operator's declaration, not represented as a property that software can prove.
-
-The host still must satisfy the actual T16 contract: Linux x86_64, a rootful Docker daemon, cgroup v2 with
-CPU/memory/cpuset controllers, at least three available distinct physical CPU
-cores, and sufficient memory for a one-GiB candidate plus the separately
-limited PostgreSQL container. GitHub Actions runners are explicitly rejected.
+Results, logs, traces, and reports are not committed to Git and no result
+branch is created. The command prints the direct asset URL. Release assets
+remain outside the Git object database and can be deleted independently from
+source history when the project's evidence-retention policy allows it.
