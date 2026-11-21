@@ -17,7 +17,7 @@ SECURITY_OPTIONS="$(docker info --format '{{json .SecurityOptions}}')"
 
 echo "Checking the latest T16 source revision..."
 SOURCE_SHA="$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
-  "$API/commits?sha=$BRANCH&per_page=1" | grep -o '"sha":"[0-9a-f]\{40\}"' | head -n1 | cut -d '"' -f4)"
+  "$API/commits?sha=$BRANCH&per_page=1" | sed -n '1s/^\[{"sha":"\([0-9a-f]\{40\}\)".*/\1/p')"
 [[ "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "Could not resolve the current T16 source SHA." >&2; exit 2; }
 
 LOCAL_SHA="$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$IMAGE:t16" 2>/dev/null || true)"
@@ -30,7 +30,7 @@ fi
 
 IMAGE_SHA="$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$IMAGE:t16")"
 [[ "$IMAGE_SHA" == "$SOURCE_SHA" ]] || { echo "Published image is not ready for branch HEAD ($SOURCE_SHA); image revision is $IMAGE_SHA." >&2; exit 3; }
-IMAGE_REF="$(docker image inspect --format '{{range .RepoDigests}}{{println .}}{{end}}' "$IMAGE:t16" | grep -F "$IMAGE@" | head -n1 | tr -d '\r')"
+IMAGE_REF="$(docker image inspect --format '{{range .RepoDigests}}{{println .}}{{end}}' "$IMAGE:t16" | awk -v prefix="$IMAGE@" 'index($0, prefix) == 1 { print; exit }' | tr -d '\r')"
 [[ "$IMAGE_REF" =~ ^ghcr\.io/mojtaba-arvin/agent-native-t16@sha256:[0-9a-f]{64}$ ]] || { echo "Could not resolve the pulled image's immutable RepoDigest." >&2; exit 3; }
 
 echo "Launching the T16 controller from $IMAGE_REF"
