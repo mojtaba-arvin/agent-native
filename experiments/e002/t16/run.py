@@ -139,7 +139,7 @@ def run_loadgen_container(name: str, arguments: list[str], cpu: int, root: Path,
             "--env", f"T16_READ_TOKEN={read_token}", "--env", f"T16_DENY_TOKEN={deny_token}",
             "-v", f"{root}:/src:ro", "-v", f"{output}:/evidence:rw", "-v", f"{bin_dir}:/out:ro",
             "-w", "/src/experiments/e002/t16/loadgen",
-            "golang:1.23.12-bookworm", "/out/t16-loadgen", *arguments,
+            "golang:1.23.12-bookworm@sha256:167053a2bb901972bf2c1611f8f52c44d5fe7e762e5cab213708d82c421614db", "/out/t16-loadgen", *arguments,
         ], timeout=60)
         cgroup = container_cgroup(container)
         limits = verify_candidate_cgroup(cgroup, cpu)
@@ -463,7 +463,7 @@ def main() -> int:
         bin_dir.mkdir(parents=True, exist_ok=True)
         run_command([
             "docker", "run", "--rm", "-v", f"{root}:/src:ro", "-v", f"{bin_dir}:/out",
-            "-w", "/src/experiments/e002/t16/loadgen", "golang:1.23.12-bookworm",
+            "-w", "/src/experiments/e002/t16/loadgen", "golang:1.23.12-bookworm@sha256:167053a2bb901972bf2c1611f8f52c44d5fe7e762e5cab213708d82c421614db",
             "go", "build", "-trimpath", "-o", "/out/t16-loadgen", ".",
         ], timeout=600)
         loadgen = bin_dir / "t16-loadgen"

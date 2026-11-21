@@ -222,3 +222,37 @@ candidates before recording measured runs.
   controlled-host runner repeats end-to-end conformance on the attested host before measuring.
 - Shared GitHub-hosted CI is suitable for deterministic unit tests and
   compilation only; its measurements cannot satisfy the dedicated-host gate.
+
+
+## Reproducible local orchestration and evidence hygiene
+
+The committed `Dockerfile` is the benchmark's build source. Its Go, Rust, and
+PostgreSQL base images are pinned to immutable multi-platform manifest digests;
+the load-generator build uses the same digest-pinned Go image. Do not replace
+these references with mutable tags or `latest`.
+
+On the dedicated Linux host, check out the exact intended source commit, place
+the truthful operator attestation at `experiments/e002/t16/attestation.json`,
+and start PostgreSQL in its own one-CPU cgroup on the host CPU reserved for
+PostgreSQL. Export `AGENT_NATIVE_E002_POSTGRES_DSN` for that service. Then run:
+
+```bash
+bash experiments/e002/t16/run-all.sh
+```
+
+The script verifies that the worktree is clean, that the checked-out SHA is
+the SHA passed to preflight and the benchmark runner, and that the Dockerfile
+in the worktree is byte-for-byte identical to the Dockerfile stored in that
+commit. It also rejects mutable Dockerfile image references before invoking
+the preflight, matrix runner, and unchanged `acceptance/T16.sh`.
+
+The following are runtime evidence or local execution artifacts, not source:
+`attestation.json`, `prereg.json`, `host.json`, `protocol.json`,
+`ledger.jsonl`, `results.json`, `report.md`, `evidence-manifest.json`,
+`runs/`, `bin/`, `results/`, and `t16-evidence.tar.gz`. They are ignored
+by Git and must never be committed.
+The evidence archive is the artifact to publish as a GitHub Release asset
+bound to the exact source SHA; do not upload raw result files as source changes.
+Docker's default BuildKit cache remains outside the repository. The ignored
+`.docker-buildx-cache/` path is reserved only for an explicitly configured
+local cache and is not part of the benchmark input.
