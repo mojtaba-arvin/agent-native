@@ -34,6 +34,7 @@ class OneCommandTests(unittest.TestCase):
         self.assertIn("upload_url", source)
         self.assertIn("tarfile.open", source)
         self.assertIn('asset.get("state") != "uploaded"', source)
+        self.assertIn("local evidence preserved at:", source)
         self.assertNotIn('git", "-C", str(staging), "push"', source)
 
     def test_postgres_reuses_the_same_digest_pinned_image(self):
