@@ -124,17 +124,17 @@ def read_memory_events(path: Path) -> dict[str, int]:
 
 
 
-def run_loadgen_container(name: str, arguments: list[str], cpu: int, root: Path,
-                          bin_dir: Path, output: Path, read_token: str, deny_token: str, timeout: int = 180) -> dict[str, Any]:
+def run_loadgen_container(name: str, arguments: list[str], cpu: int, output: Path,
+                          read_token: str, deny_token: str, image_ref: str, timeout: int = 180) -> dict[str, Any]:
     container = name
     try:
         run_command([
             "docker", "run", "--detach", "--name", container,
             "--cpus=1", f"--cpuset-cpus={cpu}", "--memory=1g", "--network=host",
             "--env", f"T16_READ_TOKEN={read_token}", "--env", f"T16_DENY_TOKEN={deny_token}",
-            "-v", f"{root}:/src:ro", "-v", f"{output}:/evidence:rw", "-v", f"{bin_dir}:/out:ro",
-            "-w", "/src/experiments/e002/t16/loadgen",
-            "golang:1.23.12-bookworm", "/out/t16-loadgen", *arguments,
+            "-v", f"{output}:/evidence:rw",
+            "--entrypoint", "/opt/candidates/t16-loadgen",
+            image_ref, *arguments,
         ], timeout=60)
         cgroup = container_cgroup(container)
         limits = verify_candidate_cgroup(cgroup, cpu)
@@ -145,6 +145,23 @@ def run_loadgen_container(name: str, arguments: list[str], cpu: int, root: Path,
         return {"path": str(cgroup), "limits": limits, "logs": logs[-4000:]}
     finally:
         run_command(["docker", "rm", "--force", container], timeout=60, allow_failure=True)
+
+
+def verify_image_identity(image_ref: str, source_sha: str) -> dict[str, str]:
+    match = re.fullmatch(r"(?P<name>[a-z0-9][a-z0-9./:_-]*)@sha256:(?P<digest>[0-9a-f]{64})", image_ref)
+    if not match:
+        raise ValueError("--image-ref must be an immutable image@sha256:digest reference")
+    run_command(["docker", "pull", image_ref], timeout=900)
+    revision = run_command(["docker", "image", "inspect", "--format", '{{ index .Config.Labels "org.opencontainers.image.revision" }}', image_ref])
+    source_url = run_command(["docker", "image", "inspect", "--format", '{{ index .Config.Labels "org.opencontainers.image.source" }}', image_ref])
+    repo_digests = json.loads(run_command(["docker", "image", "inspect", "--format", "{{json .RepoDigests}}", image_ref]))
+    if revision != source_sha:
+        raise RuntimeError("image OCI revision label differs from checked-out source SHA")
+    if source_url != "https://github.com/mojtaba-arvin/agent-native":
+        raise RuntimeError("image OCI source label does not identify this repository")
+    if image_ref not in repo_digests:
+        raise RuntimeError("pulled image does not expose the exact preregistered RepoDigest")
+    return {"image_ref": image_ref, "image_digest": "sha256:" + match.group("digest"), "image_name": match.group("name"), "source_sha": revision, "source_url": source_url}
 
 
 def wait_ready(container: str, timeout: float = 30.0) -> float:
@@ -288,12 +305,14 @@ def aggregate(records: list[dict], candidate: str) -> dict[str, Any]:
     }
 
 
-def markdown_report(source_sha: str, prereg_hash: str, records: list[dict], host: dict) -> str:
+def markdown_report(source_sha: str, prereg_hash: str, records: list[dict], host: dict, image_ref: str | None = None, image_digest: str | None = None) -> str:
     lines = [
         "# T16 controlled-host product workload results",
         "",
         f"Source SHA: {source_sha}",
         f"Preregistration SHA-256: {prereg_hash}",
+        "Image: " + (image_ref or "not recorded"),
+        "Image digest: " + (image_digest or "not recorded"),
         f"Host: {host['cpu_model']} / {host['machine']} / kernel {host['kernel_release']}",
         f"PostgreSQL: {host['postgres_version']}; dedicated-host attestation: {host['physical_host_isolation']}",
         "",
@@ -343,7 +362,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, default=Path("experiments/e002/t16"))
     parser.add_argument("--source-sha", default=os.getenv("GITHUB_SHA", ""))
-    parser.add_argument("--image", default="agent-native-t16-candidates:local")
+    parser.add_argument("--image-ref", required=True, help="immutable OCI image@sha256:digest reference")
+    parser.add_argument("--build-run-url", required=True, help="GitHub Actions image build run URL")
     parser.add_argument("--postgres-dsn", default=os.getenv("AGENT_NATIVE_E002_POSTGRES_DSN", ""))
     args = parser.parse_args()
     output = args.output.resolve()
@@ -376,6 +396,10 @@ def main() -> int:
         protocol = json.loads(protocol_path.read_text(encoding="utf-8"))
         if prereg.get("source_sha") != args.source_sha or protocol.get("source_sha") != args.source_sha:
             raise RuntimeError("source SHA differs from preregistered source revision")
+        if prereg.get("image_ref") != args.image_ref or protocol.get("image_ref") != args.image_ref:
+            raise RuntimeError("image reference differs from preregistered immutable image")
+        if prereg.get("build_run_url") != args.build_run_url:
+            raise RuntimeError("build run URL differs from preregistered image provenance")
         if host.get("physical_host_isolation") != "dedicated" or host.get("github_actions_runner") is not False:
             raise RuntimeError("dedicated non-GitHub host attestation is required")
         cpus = [host.get("candidate_cpu"), host.get("load_generator_cpu"), host.get("postgres_cpu")]
@@ -391,6 +415,11 @@ def main() -> int:
             raise RuntimeError("physical CPU topology differs from the preregistered three-core allocation")
         if not shutil.which("docker") or not shutil.which("taskset") or not shutil.which("psql"):
             raise RuntimeError("docker, taskset, and psql are required")
+        image_identity = verify_image_identity(args.image_ref, args.source_sha)
+        if prereg.get("image_digest") != image_identity["image_digest"]:
+            raise RuntimeError("image digest differs from preregistered image digest")
+        if prereg.get("image_name") != image_identity["image_name"]:
+            raise RuntimeError("image name differs from preregistered image name")
         if not Path("/sys/fs/cgroup/cgroup.controllers").is_file():
             raise RuntimeError("cgroup v2 is required")
         controllers = Path("/sys/fs/cgroup/cgroup.controllers").read_text(encoding="ascii").split()
@@ -415,21 +444,8 @@ def main() -> int:
         if not schema.is_file():
             schema = root / "experiments/e002/t16/schema.sql"
         run_command(["psql", args.postgres_dsn, "-X", "-q", "-v", "ON_ERROR_STOP=1", "-f", str(schema)])
-        # Build both candidates from the exact checked-out source revision.
-        run_command([
-            "docker", "build", "--file", "experiments/e002/t16/Dockerfile",
-            "--tag", args.image, ".",
-        ], timeout=1800)
-        bin_dir = output / "bin"
-        bin_dir.mkdir(parents=True, exist_ok=True)
-        run_command([
-            "docker", "run", "--rm", "-v", f"{root}:/src:ro", "-v", f"{bin_dir}:/out",
-            "-w", "/src/experiments/e002/t16/loadgen", "golang:1.23.12-bookworm",
-            "go", "build", "-trimpath", "-o", "/out/t16-loadgen", ".",
-        ], timeout=600)
-        loadgen = bin_dir / "t16-loadgen"
-        if not loadgen.is_file() or not os.access(loadgen, os.X_OK):
-            raise RuntimeError("T16 load generator build did not produce an executable")
+        # Candidate runtimes and the load generator are supplied by the same verified image.
+        # The controlled host never builds benchmark artifacts.
 
         read_token, deny_token = uuid.uuid4().hex + uuid.uuid4().hex, uuid.uuid4().hex + uuid.uuid4().hex
         prereg_hash = prereg.get("sha256")
@@ -468,7 +484,7 @@ def main() -> int:
                         "--env", f"T16_DENY_TOKEN={deny_token}",
                         "--env", "T16_TENANT_ID=tenant-a",
                         "--env", f"T16_PSQL_DSN={args.postgres_dsn}",
-                        args.image, candidate,
+                        args.image_ref, candidate,
                     ], timeout=60)
                     startup_seconds = wait_ready(container)
                     candidate_cgroup = container_cgroup(container)
@@ -496,7 +512,7 @@ def main() -> int:
                     ]
                     loadgen_warmup = run_loadgen_container(
                         f"t16-loadgen-warmup-{uuid.uuid4().hex[:8]}",
-                        warmup_arguments, host["load_generator_cpu"], root, bin_dir, output, read_token, deny_token,
+                        warmup_arguments, host["load_generator_cpu"], output, read_token, deny_token, args.image_ref,
                     )
                     psql(args.postgres_dsn, "SELECT t16_reset()")
                     cpu_before = read_cpu_usage(candidate_cgroup)
@@ -508,7 +524,7 @@ def main() -> int:
                     ]
                     loadgen_measured = run_loadgen_container(
                         f"t16-loadgen-measured-{uuid.uuid4().hex[:8]}",
-                        measured_arguments, host["load_generator_cpu"], root, bin_dir, output, read_token, deny_token,
+                        measured_arguments, host["load_generator_cpu"], output, read_token, deny_token, args.image_ref,
                     )
                     if any(path == str(candidate_cgroup) or path == str(postgres_cgroup) for path in (loadgen_warmup["path"], loadgen_measured["path"])):
                         raise RuntimeError("load generator shares the candidate or PostgreSQL cgroup")
@@ -545,6 +561,9 @@ def main() -> int:
                         "candidate": candidate,
                         "run_id": run_id,
                         "sha": args.source_sha,
+                        "image_ref": args.image_ref,
+                        "image_digest": image_identity["image_digest"],
+                        "build_run_url": args.build_run_url,
                         "prereg_hash": prereg_hash,
                         "command": command,
                         "started_at": run_started,
@@ -586,6 +605,9 @@ def main() -> int:
                             "candidate": candidate,
                             "run_id": run_id,
                             "sha": args.source_sha,
+                            "image_ref": args.image_ref,
+                            "image_digest": image_identity["image_digest"],
+                            "build_run_url": args.build_run_url,
                             "prereg_hash": prereg_hash,
                             "command": command,
                             "started_at": run_started,
@@ -603,7 +625,7 @@ def main() -> int:
                     record["error"] = f"{type(error).__name__}: {error}"
                     runs.append(record)
                     with ledger_path.open("a", encoding="utf-8") as handle:
-                        handle.write(json.dumps(record, sort_keys=True) + "\\n")
+                        handle.write(json.dumps(record, sort_keys=True) + "\n")
                         handle.flush()
                     print(f"T16 {candidate} {repetition}/10 FAILED: {record['error']}", file=sys.stderr, flush=True)
                 finally:
@@ -612,6 +634,9 @@ def main() -> int:
         results = {
             "schema_version": 1,
             "source_sha": args.source_sha,
+            "image_ref": args.image_ref,
+            "image_digest": image_identity["image_digest"],
+            "build_run_url": args.build_run_url,
             "prereg_hash": prereg_hash,
             "candidate_order_seed": SEED,
             "repetitions_per_candidate": REPETITIONS,
@@ -621,7 +646,7 @@ def main() -> int:
             "decision": "No runtime selected; T16 records measured SLO evidence only.",
         }
         (output / "results.json").write_text(json.dumps(results, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-        (output / "report.md").write_text(markdown_report(args.source_sha, prereg_hash, runs, host), encoding="utf-8")
+        (output / "report.md").write_text(markdown_report(args.source_sha, prereg_hash, runs, host, args.image_ref, image_identity["image_digest"]), encoding="utf-8")
         print("T16 matrix complete: 10 repetitions per candidate; results and raw traces written.")
         return 0
     except (OSError, ValueError, RuntimeError, subprocess.TimeoutExpired, json.JSONDecodeError) as error:
