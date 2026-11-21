@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Dispatch image publication, fetch immutable lock, launch controlled-host controller."""
 import datetime as dt
+import base64
 import json
 import os
 import subprocess
@@ -10,6 +11,7 @@ import uuid
 import zipfile
 from io import BytesIO
 import requests
+from one_command_common import validate_lock
 
 API = "https://api.github.com"
 REPO = os.environ.get("T16_REPOSITORY", "mojtaba-arvin/agent-native")
@@ -31,33 +33,23 @@ def docker(*args, check=True):
     return subprocess.run(["docker", *args], check=check, text=True)
 
 
-def validate_lock(lock, sha):
-    import re
-    if lock.get("source_sha") != sha or not re.fullmatch(r"[0-9a-f]{40}", sha):
-        raise RuntimeError("Image-lock source SHA is invalid or inconsistent.")
-    name = "ghcr.io/mojtaba-arvin/agent-native-t16"
-    digest = lock.get("image_digest", "")
-    if lock.get("image_name") != name or not re.fullmatch(r"sha256:[0-9a-f]{64}", digest):
-        raise RuntimeError("Image-lock package name or digest is invalid.")
-    if lock.get("image_ref") != name + "@" + digest or lock.get("image_tag") != sha:
-        raise RuntimeError("Image-lock is not pinned to exact source SHA and digest.")
-    if lock.get("dockerfile_path") != "experiments/e002/t16/Dockerfile":
-        raise RuntimeError("Unexpected Dockerfile path in image-lock.")
-    return lock
-
-
 def build_and_get_lock():
     login = api("GET", "/user").json()["login"]
     started = dt.datetime.now(dt.timezone.utc)
-    api("POST", "/repos/%s/actions/workflows/t16-image.yml/dispatches" % REPO,
-        json={"ref": BRANCH})
-    print("Triggered T16 image publication; waiting for GitHub Actions...", flush=True)
+    trigger_name = ".t16-trigger-" + uuid.uuid4().hex + ".json"
+    trigger_content = json.dumps({"requested_at": started.isoformat(), "requested_by": login,
+                                  "purpose": "publish immutable T16 benchmark image"}).encode()
+    trigger = api("PUT", "/repos/%s/contents/experiments/e002/t16/%s" % (REPO, trigger_name),
+                  json={"message": "ci(t16): trigger immutable image publication",
+                        "content": base64.b64encode(trigger_content).decode(), "branch": BRANCH}).json()
+    trigger_sha = trigger["commit"]["sha"]
+    print("Committed a unique T16 build trigger; waiting for GitHub Actions...", flush=True)
     deadline = time.monotonic() + 3600
     run = None
     while time.monotonic() < deadline:
         runs = api("GET", "/repos/%s/actions/workflows/t16-image.yml/runs" % REPO,
-                   params={"branch": BRANCH, "event": "workflow_dispatch", "per_page": 20}).json()["workflow_runs"]
-        fresh = [r for r in runs if r.get("head_branch") == BRANCH and r.get("created_at", "") >= started.isoformat()]
+                   params={"branch": BRANCH, "event": "push", "per_page": 20}).json()["workflow_runs"]
+        fresh = [r for r in runs if r.get("head_branch") == BRANCH and r.get("head_sha") == trigger_sha]
         if fresh:
             run = fresh[0]
             print("Image workflow %s: %s" % (run["id"], run["status"]), flush=True)
@@ -81,7 +73,7 @@ def build_and_get_lock():
         if archive.namelist() != ["image-lock.json"]:
             raise RuntimeError("Unexpected image-lock artifact contents.")
         lock = json.loads(archive.read("image-lock.json"))
-    return validate_lock(lock, run["head_sha"]), int(run["id"]), login
+    return validate_lock(lock, trigger_sha), int(run["id"]), login
 
 
 def main():
