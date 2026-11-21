@@ -33,11 +33,50 @@ def docker(*args, check=True):
     return subprocess.run(["docker", *args], check=check, text=True)
 
 
+def artifact_lock(run):
+    jobs = api("GET", "/repos/%s/actions/runs/%s/jobs" % (REPO, run["id"])).json()["jobs"]
+    if not any(j.get("name") == "publish" and j.get("conclusion") == "success" for j in jobs):
+        raise RuntimeError("The image publication job did not succeed.")
+    artifact_name = "t16-image-lock-" + run["head_sha"]
+    artifacts = api("GET", "/repos/%s/actions/runs/%s/artifacts" % (REPO, run["id"]),
+                    params={"per_page": 100}).json()["artifacts"]
+    artifact = next((a for a in artifacts if a["name"] == artifact_name and not a["expired"]), None)
+    if not artifact:
+        return None
+    response = S.get(artifact["archive_download_url"], timeout=180)
+    response.raise_for_status()
+    with zipfile.ZipFile(BytesIO(response.content)) as archive:
+        if archive.namelist() != ["image-lock.json"]:
+            raise RuntimeError("Unexpected image-lock artifact contents.")
+        lock = json.loads(archive.read("image-lock.json"))
+    return validate_lock(lock, run["head_sha"])
+
+
+def successful_image_for_sha(source_sha):
+    runs = api("GET", "/repos/%s/actions/workflows/t16-image.yml/runs" % REPO,
+               params={"branch": BRANCH, "event": "push", "per_page": 50}).json()["workflow_runs"]
+    for run in runs:
+        if (run.get("head_branch") == BRANCH and run.get("head_sha") == source_sha
+                and run.get("status") == "completed" and run.get("conclusion") == "success"):
+            lock = artifact_lock(run)
+            if lock:
+                print("Reusing the already-published immutable T16 image for this source SHA.", flush=True)
+                return lock, int(run["id"])
+    return None
+
+
 def build_and_get_lock():
     login = api("GET", "/user").json()["login"]
-    started = dt.datetime.now(dt.timezone.utc)
+    from urllib.parse import quote
+    branch_info = api("GET", "/repos/%s/branches/%s" % (REPO, quote(BRANCH, safe=""))).json()
+    current_sha = branch_info["commit"]["sha"]
+    cached = successful_image_for_sha(current_sha)
+    if cached:
+        return cached[0], cached[1], login
+
     trigger_name = ".t16-trigger-" + uuid.uuid4().hex + ".json"
-    trigger_content = json.dumps({"requested_at": started.isoformat(), "requested_by": login,
+    trigger_content = json.dumps({"requested_at": dt.datetime.now(dt.timezone.utc).isoformat(),
+                                  "requested_by": login,
                                   "purpose": "publish immutable T16 benchmark image"}).encode()
     trigger = api("PUT", "/repos/%s/contents/experiments/e002/t16/%s" % (REPO, trigger_name),
                   json={"message": "ci(t16): trigger immutable image publication",
@@ -48,7 +87,7 @@ def build_and_get_lock():
     run = None
     while time.monotonic() < deadline:
         runs = api("GET", "/repos/%s/actions/workflows/t16-image.yml/runs" % REPO,
-                   params={"branch": BRANCH, "event": "push", "per_page": 20}).json()["workflow_runs"]
+                   params={"branch": BRANCH, "event": "push", "per_page": 50}).json()["workflow_runs"]
         fresh = [r for r in runs if r.get("head_branch") == BRANCH and r.get("head_sha") == trigger_sha]
         if fresh:
             run = fresh[0]
@@ -58,23 +97,10 @@ def build_and_get_lock():
         time.sleep(15)
     if not run or run.get("status") != "completed" or run.get("conclusion") != "success":
         raise RuntimeError("T16 image build/publish workflow did not succeed.")
-    jobs = api("GET", "/repos/%s/actions/runs/%s/jobs" % (REPO, run["id"])).json()["jobs"]
-    if not any(j.get("name") == "publish" and j.get("conclusion") == "success" for j in jobs):
-        raise RuntimeError("The image publication job did not succeed.")
-    artifact_name = "t16-image-lock-" + run["head_sha"]
-    artifacts = api("GET", "/repos/%s/actions/runs/%s/artifacts" % (REPO, run["id"]),
-                    params={"per_page": 100}).json()["artifacts"]
-    artifact = next((a for a in artifacts if a["name"] == artifact_name and not a["expired"]), None)
-    if not artifact:
-        raise RuntimeError("The image-lock artifact is missing.")
-    response = S.get(artifact["archive_download_url"], timeout=180)
-    response.raise_for_status()
-    with zipfile.ZipFile(BytesIO(response.content)) as archive:
-        if archive.namelist() != ["image-lock.json"]:
-            raise RuntimeError("Unexpected image-lock artifact contents.")
-        lock = json.loads(archive.read("image-lock.json"))
-    return validate_lock(lock, trigger_sha), int(run["id"]), login
-
+    lock = artifact_lock(run)
+    if not lock:
+        raise RuntimeError("The successful build did not publish its image-lock artifact.")
+    return lock, int(run["id"]), login
 
 def main():
     lock, build_run_id, username = build_and_get_lock()
