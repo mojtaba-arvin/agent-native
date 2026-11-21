@@ -161,7 +161,7 @@ def main():
             "build_run_url": build_run_url, "build_run_id": build_run_id}
 
     root = Path(tempfile.mkdtemp(prefix="agent-native-t16-")) / "source"
-    run(["git", "clone", "--no-checkout", "https://github.com/%s.git" % REPO, str(root)], env=git_auth_env())
+    run(["git", "clone", "--depth", "1", "--branch", "task/T16-image-digest-pipeline", "https://github.com/%s.git" % REPO, str(root)], env=git_auth_env())
     run(["git", "-C", str(root), "checkout", "--detach", sha])
     if run(["git", "-C", str(root), "rev-parse", "HEAD"], capture=True).stdout.strip() != sha:
         raise RuntimeError("Checked-out source SHA differs from image lock.")
@@ -189,7 +189,7 @@ def main():
     status = "failed"
     try:
         run(["docker", "pull", pg_image])
-        run(["docker", "run", "--detach", "--name", pg_name, "--pid=host", "--network=host", "--entrypoint", "docker-entrypoint.sh",
+        run(["docker", "run", "--detach", "--name", pg_name, "--pid=host", "--network=host", "--entrypoint", "/usr/local/bin/docker-entrypoint.sh",
              "--cpus=1", "--cpuset-cpus=%d" % postgres_cpu, "--memory=2g",
              "--env", "POSTGRES_HOST_AUTH_METHOD=trust", "--env", "POSTGRES_DB=agent_native",
              pg_image, "-c", "listen_addresses=127.0.0.1"])
