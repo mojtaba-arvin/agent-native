@@ -1,0 +1,228 @@
+name: T16 immutable benchmark image
+
+on:
+  pull_request:
+    paths:
+      - "experiments/e002/t16/**"
+      - "experiments/e002/go/**"
+      - "experiments/e002/rust/**"
+      - ".dockerignore"
+      - ".github/workflows/t16-image.yml"
+  push:
+    branches:
+      - "task/T16-image-digest-pipeline"
+    paths:
+      - "experiments/e002/t16/**"
+      - "experiments/e002/go/**"
+      - "experiments/e002/rust/**"
+      - ".dockerignore"
+      - ".github/workflows/t16-image.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: t16-image-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  IMAGE_NAME: ghcr.io/mojtaba-arvin/agent-native-t16
+
+jobs:
+  validate-and-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    outputs:
+      go_image: ${{ steps.base.outputs.go_image }}
+      rust_image: ${{ steps.base.outputs.rust_image }}
+      postgres_image: ${{ steps.base.outputs.postgres_image }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+      - name: Verify exact source checkout
+        run: test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11.18"
+      - name: Compile and test T16 control plane
+        run: |
+          python -m py_compile experiments/e002/t16/preflight.py experiments/e002/t16/run.py experiments/e002/t16/one-command-runner.py
+          bash -n experiments/e002/t16/run-controlled-host.sh experiments/e002/t16/one-command.sh
+          python -m unittest discover -s experiments/e002/t16 -p "test_*.py" -v
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23.12"
+      - name: Test Go candidate
+        run: go test ./...
+        working-directory: experiments/e002/go
+      - name: Test open-loop load generator
+        run: |
+          go test ./...
+          go vet ./...
+        working-directory: experiments/e002/t16/loadgen
+      - uses: dtolnay/rust-toolchain@1.100.0
+      - name: Test Rust candidate
+        run: cargo test --locked
+        working-directory: experiments/e002/rust
+      - uses: docker/setup-buildx-action@v4
+      - name: Resolve upstream base tags to immutable digests
+        id: base
+        shell: bash
+        run: |
+          set -euo pipefail
+          resolve() {
+            local name="$1" tag="$2" digest inspect attempt
+            for attempt in 1 2 3 4 5; do
+              if inspect="$(docker buildx imagetools inspect "$tag" 2>&1)"; then
+                break
+              fi
+              echo "Base image inspection failed for $tag (attempt $attempt/5):" >&2
+              echo "$inspect" >&2
+              sleep "$((attempt * 3))"
+            done
+            digest="$(echo "$inspect" | awk '$1 == "Digest:" {print $2; exit}')"
+            if [[ ! "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+              echo "Could not resolve a sha256 manifest digest for $tag" >&2
+              echo "$inspect" >&2
+              return 1
+            fi
+            echo "$name=$tag@$digest" >> "$GITHUB_OUTPUT"
+          }
+          resolve go_image golang:1.23.12-bookworm
+          resolve rust_image rust:1.100-bookworm
+          resolve postgres_image postgres:16.4
+      - name: Build committed Dockerfile with pinned base images
+        run: |
+          docker build \
+            --build-arg GO_IMAGE="${{ steps.base.outputs.go_image }}" \
+            --build-arg RUST_IMAGE="${{ steps.base.outputs.rust_image }}" \
+            --build-arg POSTGRES_IMAGE="${{ steps.base.outputs.postgres_image }}" \
+            --build-arg SOURCE_SHA="$GITHUB_SHA" \
+            --build-arg BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --file experiments/e002/t16/Dockerfile \
+            --tag t16-candidates:ci .
+      - name: Smoke-test embedded load generator and candidate binaries
+        run: |
+          set +e
+          docker run --rm --entrypoint /opt/candidates/t16-loadgen t16-candidates:ci --help
+          status=$?
+          set -e
+          test "$status" -eq 2
+          docker run --rm --entrypoint /bin/sh t16-candidates:ci -c \
+            'set -eux; test -x /opt/candidates/e002-go; test -x /opt/candidates/e002-rust; test -x /usr/local/bin/t16-candidate; test -f /usr/local/bin/t16-one-command-runner.py; command -v python3; command -v git; command -v gh; command -v taskset; command -v psql; command -v docker; docker --version; gh --version; gh attestation verify --help'
+      - name: Save resolved base-image references
+        env:
+          GO_IMAGE: ${{ steps.base.outputs.go_image }}
+          RUST_IMAGE: ${{ steps.base.outputs.rust_image }}
+          POSTGRES_IMAGE: ${{ steps.base.outputs.postgres_image }}
+        run: |
+          python - <<'PY' > base-images.json
+          import json, os
+          print(json.dumps({
+            "go": os.environ["GO_IMAGE"],
+            "rust": os.environ["RUST_IMAGE"],
+            "postgres": os.environ["POSTGRES_IMAGE"]
+          }, indent=2, sort_keys=True))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: t16-base-image-lock-${{ github.sha }}
+          path: base-images.json
+          if-no-files-found: error
+          retention-days: 90
+
+  publish:
+    if: github.ref == 'refs/heads/task/T16-image-digest-pipeline' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    needs: validate-and-build
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+      - name: Verify exact source checkout
+        run: test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+      - uses: docker/setup-buildx-action@v4
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Set build timestamp
+        id: timestamp
+        run: echo "value=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+      - name: Build and push source-SHA image
+        id: build
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: experiments/e002/t16/Dockerfile
+          push: true
+          pull: true
+          tags: |
+            ${{ env.IMAGE_NAME }}:${{ github.sha }}
+            ${{ env.IMAGE_NAME }}:run-${{ github.run_id }}
+            ${{ env.IMAGE_NAME }}:t16
+          build-args: |
+            GO_IMAGE=${{ needs.validate-and-build.outputs.go_image }}
+            RUST_IMAGE=${{ needs.validate-and-build.outputs.rust_image }}
+            POSTGRES_IMAGE=${{ needs.validate-and-build.outputs.postgres_image }}
+            SOURCE_SHA=${{ github.sha }}
+            BUILD_TIME=${{ steps.timestamp.outputs.value }}
+          sbom: true
+          provenance: mode=max
+      - name: Generate GitHub artifact provenance attestation
+        uses: actions/attest@v4
+        with:
+          subject-name: ${{ env.IMAGE_NAME }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+      - name: Write immutable image lock
+        env:
+          IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
+          GO_IMAGE: ${{ needs.validate-and-build.outputs.go_image }}
+          RUST_IMAGE: ${{ needs.validate-and-build.outputs.rust_image }}
+          POSTGRES_IMAGE: ${{ needs.validate-and-build.outputs.postgres_image }}
+        run: |
+          python - <<'PY' > image-lock.json
+          import json, os
+          digest = os.environ["IMAGE_DIGEST"]
+          if not digest.startswith("sha256:") or len(digest) != 71:
+              raise SystemExit("Buildx did not return a valid sha256 digest")
+          image = os.environ["IMAGE_NAME"]
+          sha = os.environ["GITHUB_SHA"]
+          print(json.dumps({
+            "schema_version": 1,
+            "source_url": "https://github.com/mojtaba-arvin/agent-native",
+            "source_sha": sha,
+            "image_name": image,
+            "image_tag": sha,
+            "image_tags": [sha, "run-" + os.environ["GITHUB_RUN_ID"], "t16"],
+            "image_digest": digest,
+            "image_ref": image + "@" + digest,
+            "build_run_url": os.environ["GITHUB_SERVER_URL"] + "/" + os.environ["GITHUB_REPOSITORY"] + "/actions/runs/" + os.environ["GITHUB_RUN_ID"],
+            "dockerfile_path": "experiments/e002/t16/Dockerfile",
+            "base_images": {
+              "go": os.environ["GO_IMAGE"],
+              "rust": os.environ["RUST_IMAGE"],
+              "postgres": os.environ["POSTGRES_IMAGE"]
+            }
+          }, indent=2, sort_keys=True))
+          PY
+          cat image-lock.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: t16-image-lock-${{ github.sha }}
+          path: image-lock.json
+          if-no-files-found: error
+          retention-days: 90

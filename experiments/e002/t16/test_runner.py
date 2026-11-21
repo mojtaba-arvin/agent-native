@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sys
 import tempfile
 import unittest
@@ -7,10 +8,19 @@ from unittest import mock
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
-from run import aggregate, markdown_report, parse_cpu_list, run_command, run_loadgen_container, verify_candidate_cgroup
+from run import aggregate, markdown_report, parse_cpu_list, run_command, run_loadgen_container, verify_candidate_cgroup, verify_image_identity, unexpected_untracked_files
 
 
 class T16RunnerUnitTests(unittest.TestCase):
+    def test_untracked_evidence_is_scoped_to_t16_evidence_directory(self):
+        untracked = [
+            "experiments/e002/t16/evidence/previous/results.json",
+            "experiments/e002/t16/evidence/current/prereg.json",
+            "unexpected.txt",
+        ]
+        allowed = {"experiments/e002/t16/prereg.json"}
+        self.assertEqual(unexpected_untracked_files(untracked, allowed), ["unexpected.txt"])
+
     def test_cpu_set_parser_handles_ranges_and_disjoint_sets(self):
         self.assertEqual(parse_cpu_list("0-2,4,6-7"), [0, 1, 2, 4, 6, 7])
         self.assertEqual(parse_cpu_list("3"), [3])
@@ -107,10 +117,8 @@ class T16RunnerUnitTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "repo"
             output = root / "experiments/e002/t16"
-            binary = output / "bin"
             root.mkdir()
             output.mkdir(parents=True)
-            binary.mkdir()
             cgroup = Path(directory) / "cgroup"
             cgroup.mkdir()
             calls = []
@@ -129,7 +137,7 @@ class T16RunnerUnitTests(unittest.TestCase):
                  }) as verify:
                 result = run_loadgen_container(
                     "t16-loadgen-test", ["--requests", "10"], 3,
-                    root, binary, output, "read-secret", "deny-secret",
+                    output, "read-secret", "deny-secret", "ghcr.io/example/t16@sha256:" + "a" * 64,
                 )
             self.assertEqual(result["limits"]["cpuset_cpus_effective"], "3")
             verify.assert_called_once_with(cgroup, 3)
@@ -138,10 +146,65 @@ class T16RunnerUnitTests(unittest.TestCase):
             self.assertIn("--cpuset-cpus=3", docker_run)
             self.assertIn("--memory=1g", docker_run)
             self.assertIn(f"{output}:/evidence:rw", docker_run)
-            self.assertIn(f"{root}:/src:ro", docker_run)
+            self.assertIn("--entrypoint", docker_run)
+            self.assertIn("/opt/candidates/t16-loadgen", docker_run)
+            self.assertIn("ghcr.io/example/t16@sha256:" + "a" * 64, docker_run)
             self.assertIn("T16_READ_TOKEN=read-secret", docker_run)
             self.assertIn("T16_DENY_TOKEN=deny-secret", docker_run)
-            self.assertEqual(calls[-1][:4], ["docker", "rm", "--force", "t16-loadgen-test"])
+            self.assertEqual(calls[-1][:5], ["docker", "rm", "--force", "--volumes", "t16-loadgen-test"])
+
+    def test_loadgen_container_preserves_summary_on_functional_failure(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "repo"
+            output = root / "experiments/e002/t16"
+            root.mkdir()
+            output.mkdir(parents=True)
+            cgroup = Path(directory) / "cgroup"
+            cgroup.mkdir()
+            def command(args, **kwargs):
+                if args[:2] == ["docker", "wait"]:
+                    return "2"
+                if args[:2] == ["docker", "logs"]:
+                    return '{"functional_success":false}'
+                return ""
+            with mock.patch("run.run_command", side_effect=command), \
+                 mock.patch("run.container_cgroup", return_value=cgroup), \
+                 mock.patch("run.verify_candidate_cgroup", return_value={
+                     "cpu_max": "100000 100000", "cpuset_cpus_effective": "3",
+                     "memory_max_bytes": 1073741824,
+                 }):
+                result = run_loadgen_container(
+                    "t16-loadgen-failed-sample", ["--requests", "5000"], 3,
+                    output, "read-secret", "deny-secret",
+                    "ghcr.io/example/t16@sha256:" + "a" * 64,
+                    allow_functional_failure=True,
+                )
+            self.assertEqual(result["exit_code"], 2)
+            self.assertIn("functional_success", result["logs"])
+
+    def test_image_verifier_rejects_mutable_tag_before_docker_access(self):
+        with mock.patch("run.run_command") as command:
+            with self.assertRaisesRegex(ValueError, "immutable"):
+                verify_image_identity("ghcr.io/example/t16:latest", "a" * 40)
+            command.assert_not_called()
+
+    def test_image_verifier_rejects_unapproved_registry_path(self):
+        with mock.patch("run.run_command") as command:
+            with self.assertRaisesRegex(ValueError, "canonical T16 GHCR package"):
+                verify_image_identity("ghcr.io/example/t16@sha256:" + "a" * 64, "a" * 40)
+            command.assert_not_called()
+
+    def test_image_verifier_accepts_exact_digest_and_checks_attestation(self):
+        image_ref = "ghcr.io/mojtaba-arvin/agent-native-t16@sha256:" + "b" * 64
+        source_sha = "a" * 40
+        with mock.patch("run.shutil.which", return_value="/usr/bin/gh"), mock.patch("run.run_command", side_effect=["", source_sha, "https://github.com/mojtaba-arvin/agent-native", json.dumps([image_ref]), "verified"]) as command:
+            identity = verify_image_identity(image_ref, source_sha)
+        self.assertEqual(identity["image_ref"], image_ref)
+        self.assertEqual(identity["image_digest"], "sha256:" + "b" * 64)
+        self.assertEqual(command.call_args_list[-1].args[0], [
+            "gh", "attestation", "verify", "oci://" + image_ref,
+            "-R", "mojtaba-arvin/agent-native",
+        ])
 
     def test_command_runner_can_record_expected_failure_without_raising(self):
         import sys

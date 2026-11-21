@@ -4,7 +4,25 @@ This directory contains T16 preparation tooling, the PostgreSQL product contract
 Go and Rust candidate product paths, and a deterministic open-loop workload
 generator. It does not claim a benchmark result until the controlled-host matrix runs.
 
-## Pre-registration
+
+## Quickstart: one command on a dedicated Linux host
+
+The recommended operator flow requires only a rootful Docker Engine/CLI on Linux x86_64, curl, and
+GH_TOKEN on the host. Do not clone the repository, install Python/Git/gh/psql,
+download artifacts, create PostgreSQL, or upload evidence manually.
+
+Set GH_TOKEN to a GitHub personal access token (classic) with public_repo (or
+repo) and read:packages scopes, then execute this single command:
+
+    curl -fsSL https://raw.githubusercontent.com/mojtaba-arvin/agent-native/task/T16-image-digest-pipeline/experiments/e002/t16/one-command.sh | bash
+
+The launcher reuses or pulls one digest-pinned T16 image, runs the complete
+controlled-host matrix, and publishes one compressed evidence archive as a
+GitHub Release asset. Results are not committed to Git or stored on result branches.
+
+## Legacy manual preparation notes (historical; do not use for current runs)
+
+The following manual instructions describe the earlier runner interface and are retained only as historical context. They are not a supported execution path for the current digest-pinned runner. Use the one-command launcher above.
 
 On the dedicated Linux host, create an operator attestation JSON file:
 
@@ -60,7 +78,7 @@ machine as a repository runner. A disposable ephemeral/JIT runner is an
 alternative only if its host is dedicated and destroyed/reimaged after the
 single job; do not expose long-lived credentials to it.
 
-## Controlled-host setup and execution
+### Legacy manual controlled-host setup (historical only)
 
 The host must be a dedicated physical Linux machine with at least three
 available CPUs, cgroup v2, Docker, taskset, and psql. The PostgreSQL container
@@ -191,3 +209,36 @@ candidates before recording measured runs.
   controlled-host runner repeats end-to-end conformance on the attested host before measuring.
 - Shared GitHub-hosted CI is suitable for deterministic unit tests and
   compilation only; its measurements cannot satisfy the dedicated-host gate.
+
+
+## One-command dedicated Linux execution
+
+The launcher uses only the host's existing Docker Engine/CLI and curl. It does
+not install packages, start a helper image, or download separate PostgreSQL or
+Docker CLI images. It resolves the current branch SHA through the GitHub API,
+reuses a matching local T16 image when available, otherwise pulls the single
+T16 image, then runs the controller by its immutable RepoDigest. The same image
+digest is reused for PostgreSQL, candidate runtimes, and the load generator.
+Subsequent runs against the same source SHA reuse cached layers; Docker checks
+the registry manifest but does not redownload unchanged layers.
+
+The host must be Linux x86_64 with rootful Docker, the local Docker socket,
+curl, and GH_TOKEN. The token requires public_repo and read:packages. No
+Python, Git, jq, gh, psql, taskset, Go, Rust, or package manager is needed on
+the host.
+
+Run:
+
+    curl -fsSL https://raw.githubusercontent.com/mojtaba-arvin/agent-native/task/T16-image-digest-pipeline/experiments/e002/t16/one-command.sh | bash
+
+The launcher verifies that the image revision equals the current source branch
+head and runs it by digest. The controller checks the successful Actions build
+for that SHA, verifies the GitHub image attestation through the benchmark
+runner, starts PostgreSQL from the same digest, performs preregistration and
+all 20 attempts, and uploads one compressed, checksum-manifested evidence
+archive to a GitHub Release asset.
+
+Results, logs, traces, and reports are not committed to Git and no result
+branch is created. The command prints the direct asset URL. Release assets
+remain outside the Git object database and can be deleted independently from
+source history when the project's evidence-retention policy allows it.
