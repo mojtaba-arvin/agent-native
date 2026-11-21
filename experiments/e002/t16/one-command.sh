@@ -10,6 +10,7 @@ fi
 command -v docker >/dev/null 2>&1 || { echo "Docker Engine/CLI is required." >&2; exit 2; }
 command -v curl >/dev/null 2>&1 || { echo "curl is required." >&2; exit 2; }
 docker info >/dev/null 2>&1 || { echo "Docker daemon is unavailable." >&2; exit 2; }
+[[ -S /var/run/docker.sock ]] || { echo "T16 requires a local Docker socket at /var/run/docker.sock." >&2; exit 2; }
 SECURITY_OPTIONS="$(docker info --format '{{json .SecurityOptions}}')"
 if [[ "$SECURITY_OPTIONS" == *rootless* ]]; then
   echo "T16 requires a rootful Docker daemon with host PID and cgroup access." >&2
