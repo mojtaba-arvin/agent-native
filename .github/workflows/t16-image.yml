@@ -46,6 +46,7 @@ jobs:
       - name: Compile and test T16 control plane
         run: |
           python -m py_compile experiments/e002/t16/preflight.py experiments/e002/t16/run.py
+          bash -n experiments/e002/t16/run-controlled-host.sh
           python -m unittest discover -s experiments/e002/t16 -p "test_*.py" -v
       - uses: actions/setup-go@v5
         with:
