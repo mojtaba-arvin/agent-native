@@ -151,7 +151,7 @@ class T16RunnerUnitTests(unittest.TestCase):
             self.assertIn("ghcr.io/example/t16@sha256:" + "a" * 64, docker_run)
             self.assertIn("T16_READ_TOKEN=read-secret", docker_run)
             self.assertIn("T16_DENY_TOKEN=deny-secret", docker_run)
-            self.assertEqual(calls[-1][:4], ["docker", "rm", "--force", "t16-loadgen-test"])
+            self.assertEqual(calls[-1][:5], ["docker", "rm", "--force", "--volumes", "t16-loadgen-test"])
 
     def test_loadgen_container_preserves_summary_on_functional_failure(self):
         with tempfile.TemporaryDirectory() as directory:
