@@ -153,14 +153,34 @@ def collect_host(attestation: dict[str, str], pg_version: str) -> dict[str, Any]
     }
 
 
-def build_preregistration(source_sha: str, command: list[str], now: datetime | None = None) -> dict[str, Any]:
+def validate_image_ref(image_ref: str) -> tuple[str, str]:
+    match = re.fullmatch(r"(?P<name>[a-z0-9][a-z0-9./:_-]*)@sha256:(?P<digest>[0-9a-f]{64})", image_ref)
+    if not match:
+        raise ValueError("image_ref_must_be_an_immutable_sha256_digest_reference")
+    return match.group("name"), "sha256:" + match.group("digest")
+
+
+def build_preregistration(
+    source_sha: str, command: list[str], now: datetime | None = None, *,
+    image_ref: str | None = None, image_tag: str | None = None, build_run_url: str = "",
+) -> dict[str, Any]:
+    image_name, image_digest = validate_image_ref(image_ref) if image_ref else (None, None)
+    if build_run_url and not re.fullmatch(r"https://github[.]com/mojtaba-arvin/agent-native/actions/runs/[0-9]+", build_run_url):
+        raise ValueError("build_run_url_must_reference_this_repository_actions_run")
     if not re.fullmatch(r"[0-9a-f]{40}", source_sha):
         raise ValueError("source_sha_must_be_full_40_character_git_sha")
     if not command or any(not item for item in command):
         raise ValueError("benchmark_command_required")
     prereg = {
         "task": "T16",
+        "source_url": "https://github.com/mojtaba-arvin/agent-native",
         "source_sha": source_sha,
+        "image_name": image_name,
+        "image_tag": image_tag or (source_sha if image_ref else None),
+        "image_digest": image_digest,
+        "image_ref": image_ref,
+        "build_run_url": build_run_url or None,
+        "dockerfile_path": "experiments/e002/t16/Dockerfile",
         "preregistered_at": (now or datetime.now(timezone.utc)).astimezone(timezone.utc).isoformat(),
         "command": command,
         "repetitions_per_candidate": 10,
@@ -179,10 +199,13 @@ def build_preregistration(source_sha: str, command: list[str], now: datetime | N
     return prereg
 
 
-def build_protocol(source_sha: str, pg_version: str) -> dict[str, Any]:
+def build_protocol(source_sha: str, pg_version: str, image_ref: str | None = None) -> dict[str, Any]:
+    _, image_digest = validate_image_ref(image_ref) if image_ref else (None, None)
     return {
         "schema_version": 1,
         "source_sha": source_sha,
+        "image_ref": image_ref,
+        "image_digest": image_digest,
         "arrival_model": "open_loop",
         "arrival_schedule": "fixed_rate_100_rps",
         "throughput_measurement": "completed responses divided by the fixed 5000/100-second offer window; completion drain is reported separately",
@@ -213,6 +236,9 @@ def main() -> int:
     parser.add_argument("--source-sha", default=os.getenv("GITHUB_SHA", ""))
     parser.add_argument("--command", required=True,
                         help="exact shell command that will execute the preregistered measurement")
+    parser.add_argument("--image-ref", required=True, help="immutable OCI image@sha256:digest reference")
+    parser.add_argument("--image-tag", default=None, help="informational source-SHA image tag")
+    parser.add_argument("--build-run-url", required=True, help="GitHub Actions build run URL for the image")
     parser.add_argument("--postgres-dsn", default=os.getenv("AGENT_NATIVE_E002_POSTGRES_DSN", ""))
     args = parser.parse_args()
     try:
@@ -221,8 +247,11 @@ def main() -> int:
             raise ValueError("AGENT_NATIVE_E002_POSTGRES_DSN_required")
         pg_version = postgres_version(args.postgres_dsn)
         host = collect_host(attestation, pg_version)
-        prereg = build_preregistration(args.source_sha, shlex.split(args.command))
-        protocol = build_protocol(args.source_sha, pg_version)
+        prereg = build_preregistration(
+            args.source_sha, shlex.split(args.command), image_ref=args.image_ref,
+            image_tag=args.image_tag, build_run_url=args.build_run_url,
+        )
+        protocol = build_protocol(args.source_sha, pg_version, args.image_ref)
         args.output.mkdir(parents=True, exist_ok=True)
         for name, value in (("prereg.json", prereg), ("host.json", host), ("protocol.json", protocol)):
             (args.output / name).write_text(json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8")
