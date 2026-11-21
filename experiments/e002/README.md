@@ -161,3 +161,17 @@ The Go candidate's sampler smoke step passed in [E-002 workflow 44294049076](htt
 The Go sampler smoke passed in [workflow 44294049076](https://github.com/mojtaba-arvin/agent-native/actions/runs/44294049076). The BEAM sampler smoke passed in [workflow 44294310926](https://github.com/mojtaba-arvin/agent-native/actions/runs/44294310926): 100 requests, concurrency 8, warm-up 10, 100/100 HTTP 200, two observed processes, 0.04 CPU seconds, 93,364,224 bytes peak summed RSS, p99 6.66 ms, startup 0.613 s. Four BEAM tests and black-box conformance also passed. This is a short shared-runner instrumentation smoke, not a Go-vs-BEAM comparison or capacity result. The 2,453 requests/s value is especially unsuitable for comparison because the sample contains only 100 measured requests.
 
 The shared durable storage semantics are now specified in [storage-conformance-contract.md](storage-conformance-contract.md). It is a design contract only: no adapter has been implemented or selected. Durable adapter comparison remains blocked on implementing and passing the same atomicity, idempotency, audit, recovery and fault-injection suite.
+
+
+## T16 immutable benchmark image and evidence provenance
+
+The T16 benchmark image is built from the committed `experiments/e002/t16/Dockerfile` by GitHub Actions and published to GHCR. The image contains both native candidate binaries and the Go open-loop load generator. CI resolves the Go, Rust, and PostgreSQL base-image tags to manifest digests and supplies those immutable references as build arguments. The build emits an `image-lock.json` artifact containing the full source SHA, immutable `image@sha256:digest` reference, source-SHA tag, base-image digests, Dockerfile path, and Actions build-run URL.
+
+The controlled-host preflight requires `--image-ref` and `--build-run-url`. The runner pulls that exact digest, verifies the OCI source and revision labels and the registry RepoDigest, and rejects mutable tag-only references. It never builds candidate or load-generator artifacts locally; both candidates and the load generator execute from the same verified image. Image identity and build provenance are included in preregistration, protocol, every ledger record, and final results/report.
+
+GitHub Actions shared runners are used for tests, image build, smoke tests, publication, SBOM, and provenance attestations only. They are not accepted as controlled-host benchmark evidence. Digest pinning identifies the produced artifact but does not by itself guarantee bit-for-bit reproducibility of every upstream build input. Set the GHCR package visibility to public after its first publication so controlled hosts can pull it without a personal token. Verify the registry attestation with:
+
+```sh
+gh attestation verify oci://ghcr.io/mojtaba-arvin/agent-native-t16@sha256:IMAGE_DIGEST \
+  -R mojtaba-arvin/agent-native
+```
