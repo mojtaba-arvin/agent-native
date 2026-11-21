@@ -34,13 +34,29 @@ working_hash="$(sha256sum "$DOCKERFILE" | awk '{print $1}')"
 [[ "$committed_hash" == "$working_hash" ]] || fail "working Dockerfile differs from the Dockerfile committed at $SOURCE_SHA"
 grep -Fq '"docker", "build", "--file", "experiments/e002/t16/Dockerfile"' "$T16_DIR/run.py" || fail "run.py no longer builds from the exact committed Dockerfile path"
 
-# Require immutable digests on every FROM reference. ARG-based or mutable
-# aliases are deliberately not accepted by this benchmark runner.
-if grep -Eiq '^[[:space:]]*FROM[[:space:]].*(latest|\$\{)|^[[:space:]]*FROM[[:space:]]+[^[:space:]]+:[^@[:space:]]+([[:space:]]|$)' "$DOCKERFILE"; then
-  fail "Dockerfile FROM references must be explicit image@sha256:digest references; mutable tags/ARG indirection are rejected"
-fi
-from_count="$(grep -Eic '^[[:space:]]*FROM[[:space:]]+[^[:space:]]+@sha256:[0-9a-f]{64}([[:space:]]|$)' "$DOCKERFILE" || true)"
-[[ "$from_count" -ge 3 ]] || fail "expected digest-pinned Go, Rust, and PostgreSQL FROM references"
+# Require immutable digests on every FROM reference. Parse the image token
+# rather than relying on a grep pattern that can misread tag@digest syntax.
+python3 - "$DOCKERFILE" <<'PY'
+import re
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+refs = []
+for line in path.read_text(encoding="utf-8").splitlines():
+    fields = line.split()
+    if fields and fields[0].upper() == "FROM":
+        if len(fields) < 2:
+            raise SystemExit(f"invalid FROM instruction: {line!r}")
+        refs.append(fields[1])
+if len(refs) != 3:
+    raise SystemExit(f"expected exactly three benchmark base images (Go, Rust, PostgreSQL); found {refs!r}")
+for ref in refs:
+    if not re.fullmatch(r"[^@\\s]+@sha256:[0-9a-f]{64}", ref):
+        raise SystemExit(f"mutable or invalid Docker base image reference: {ref!r}")
+    if "latest" in ref.lower():
+        raise SystemExit(f"latest is forbidden for benchmark base images: {ref!r}")
+PY
 
 # Keep generated files outside Git history. The attestation itself is ignored,
 # while the preflight and runner bind every output to this exact source SHA.
