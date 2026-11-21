@@ -4,7 +4,24 @@ This directory contains T16 preparation tooling, the PostgreSQL product contract
 Go and Rust candidate product paths, and a deterministic open-loop workload
 generator. It does not claim a benchmark result until the controlled-host matrix runs.
 
-## Pre-registration
+
+## Quickstart: one command on a dedicated Linux host
+
+The recommended operator flow requires only Docker Engine/CLI, curl, and
+GH_TOKEN on the host. Do not clone the repository, install Python/Git/gh/psql,
+download artifacts, create PostgreSQL, or upload evidence manually.
+
+Set GH_TOKEN to a GitHub personal access token (classic) with public_repo (or
+repo) and read:packages scopes, then execute this single command:
+
+    curl -fsSL https://raw.githubusercontent.com/mojtaba-arvin/agent-native/task/T16-image-digest-pipeline/experiments/e002/t16/one-command.sh | bash
+
+The script builds or reuses the immutable image, runs the complete controlled
+host matrix, and publishes all evidence to a new t16-results branch. It prints
+the result URL when finished. Detailed behavior and the evidence layout are
+documented in the One-command dedicated Linux execution section below.
+
+## Manual fallback: pre-registration (not needed for the one-command flow)
 
 On the dedicated Linux host, create an operator attestation JSON file:
 
@@ -60,7 +77,7 @@ machine as a repository runner. A disposable ephemeral/JIT runner is an
 alternative only if its host is dedicated and destroyed/reimaged after the
 single job; do not expose long-lived credentials to it.
 
-## Controlled-host setup and execution
+## Manual fallback: controlled-host setup (not needed for the one-command flow)
 
 The host must be a dedicated physical Linux machine with at least three
 available CPUs, cgroup v2, Docker, taskset, and psql. The PostgreSQL container
