@@ -128,21 +128,35 @@ def publish_evidence(evidence, run_id, source_sha, image_ref, build_run_id, buil
         archive.add(evidence, arcname="T16/" + run_id)
     asset_name = "t16-evidence-" + run_id + ".tar.gz"
     tag = "t16-run-" + run_id
-    release = github_api("POST", "/repos/%s/releases" % REPO, {
-        "tag_name": tag, "name": "T16 controlled-host run " + run_id,
-        "body": "Source: %s\nImage: %s\nBuild: %s\nInspect execution-metadata.json in the attached archive." % (source_sha, image_ref, build_url),
-        "draft": False, "prerelease": False})
-    upload_url = release["upload_url"].split("{", 1)[0] + "?name=" + asset_name
-    request = urllib.request.Request(upload_url, data=archive_path.read_bytes(), method="POST", headers={
-        "Authorization": "Bearer " + TOKEN, "Accept": "application/vnd.github+json",
-        "Content-Type": "application/octet-stream"})
     try:
-        with urllib.request.urlopen(request, timeout=900) as response:
-            asset = json.loads(response.read())
-    except urllib.error.HTTPError as exc:
-        raise RuntimeError("Release asset upload failed (%s): %s" % (exc.code, exc.read(2000).decode("utf-8", "replace")))
-    archive_path.unlink(missing_ok=True)
-    return asset.get("browser_download_url") or release["html_url"]
+        release = github_api("POST", "/repos/%s/releases" % REPO, {
+            "tag_name": tag, "target_commitish": source_sha,
+            "name": "T16 controlled-host run " + run_id,
+            "body": "Source: %s\nImage: %s\nBuild: %s\nInspect execution-metadata.json in the attached archive." % (source_sha, image_ref, build_url),
+            "draft": False, "prerelease": False})
+        upload_url = release["upload_url"].split("{", 1)[0] + "?name=" + asset_name
+        archive_size = archive_path.stat().st_size
+        asset = None
+        last_error = None
+        for attempt in range(1, 4):
+            request = urllib.request.Request(upload_url, data=archive_path.read_bytes(), method="POST", headers={
+                "Authorization": "Bearer " + TOKEN, "Accept": "application/vnd.github+json",
+                "Content-Type": "application/octet-stream"})
+            try:
+                with urllib.request.urlopen(request, timeout=900) as response:
+                    asset = json.loads(response.read())
+                break
+            except (urllib.error.HTTPError, urllib.error.URLError) as exc:
+                last_error = exc
+                if attempt < 3:
+                    time.sleep(attempt * 3)
+        if asset is None:
+            raise RuntimeError("Release asset upload failed after 3 attempts: %s" % last_error)
+        if asset.get("state") != "uploaded" or asset.get("name") != asset_name or int(asset.get("size", -1)) != archive_size:
+            raise RuntimeError("GitHub accepted an evidence upload but its asset metadata failed verification.")
+        return asset.get("browser_download_url") or release["html_url"]
+    finally:
+        archive_path.unlink(missing_ok=True)
 
 
 def main():
@@ -216,17 +230,38 @@ def main():
         if not results_file.is_file():
             raise RuntimeError("Runner did not produce results.json.")
         results = json.loads(results_file.read_text())
-        completed = sum(1 for item in results.get("runs", []) if item.get("status") == "completed")
-        if completed != 20:
-            raise RuntimeError("T16 matrix incomplete: %d/20 attempts completed." % completed)
+        records = results.get("runs", [])
+        completed = sum(1 for item in records if item.get("status") == "completed")
+        candidate_counts = {
+            name: sum(1 for item in records if item.get("candidate") == name and item.get("status") == "completed")
+            for name in ("go-net-http", "rust-tokio-hyper")
+        }
+        if len(records) != 20 or completed != 20 or candidate_counts != {"go-net-http": 10, "rust-tokio-hyper": 10}:
+            raise RuntimeError("T16 matrix incomplete or imbalanced: %d records, %d completed, cohorts=%s." %
+                               (len(records), completed, candidate_counts))
+        if results.get("source_sha") != sha or results.get("image_ref") != IMAGE_REF:
+            raise RuntimeError("Results metadata does not match the executed source and image digest.")
+        if not (evidence / "report.md").is_file() or not (evidence / "ledger.jsonl").is_file():
+            raise RuntimeError("T16 report or append-only ledger is missing.")
+        missing_traces = [item.get("raw_trace") for item in records
+                          if not item.get("raw_trace") or not (evidence / item["raw_trace"]).is_file()]
+        if missing_traces:
+            raise RuntimeError("T16 raw request traces are missing: %s" % missing_traces[:3])
+        slo_passed = sum(1 for item in records if item.get("slo_pass") is True)
         status = "completed"
         print("T16 matrix completed: 20/20 attempts recorded.", flush=True)
+        print("T16 per-attempt SLO result: %d/20 passed; see report.md for cohort details." % slo_passed, flush=True)
     finally:
         if pg_started:
             run(["docker", "rm", "--force", pg_name], check=False)
         metadata = {"status": status, "source_sha": sha, "image_ref": IMAGE_REF,
                     "build_run_url": build_run_url, "build_run_id": build_run_id,
                     "host_attestation": attestation, "finished_at": dt.datetime.now(dt.timezone.utc).isoformat()}
+        if status == "completed" and (evidence / "results.json").is_file():
+            result_data = json.loads((evidence / "results.json").read_text())
+            metadata["attempts_recorded"] = len(result_data.get("runs", []))
+            metadata["slo_passed_attempts"] = sum(1 for item in result_data.get("runs", []) if item.get("slo_pass") is True)
+            metadata["benchmark_slo"] = "passed" if metadata["slo_passed_attempts"] == 20 else "failed"
         (evidence / "execution-metadata.json").write_text(json.dumps(metadata, indent=2, sort_keys=True) + "\n")
         try:
             url = publish_evidence(evidence, run_id, sha, IMAGE_REF, build_run_id, build_run_url)
