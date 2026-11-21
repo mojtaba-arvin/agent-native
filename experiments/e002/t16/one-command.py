@@ -103,6 +103,7 @@ def main():
         docker("run", "--rm", "--privileged", "--pid=host", "--cgroupns=host", "--network=host",
                "--volume", "/var/run/docker.sock:/var/run/docker.sock",
                "--volume", "/sys/fs/cgroup:/sys/fs/cgroup",
+               "--volume", "/etc/machine-id:/host-machine-id:ro",
                "--volume", volume + ":/root/.docker", "--env", "GH_TOKEN",
                "--env", "T16_IMAGE_LOCK_JSON=" + json.dumps(lock, separators=(",", ":")),
                "--env", "T16_BUILD_RUN_ID=" + str(build_run_id),
