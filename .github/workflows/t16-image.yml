@@ -19,6 +19,10 @@ on:
       - ".github/workflows/t16-image.yml"
   workflow_dispatch:
 
+concurrency:
+  group: t16-image-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
