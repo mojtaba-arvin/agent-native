@@ -153,6 +153,35 @@ class T16RunnerUnitTests(unittest.TestCase):
             self.assertIn("T16_DENY_TOKEN=deny-secret", docker_run)
             self.assertEqual(calls[-1][:4], ["docker", "rm", "--force", "t16-loadgen-test"])
 
+    def test_loadgen_container_preserves_summary_on_functional_failure(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "repo"
+            output = root / "experiments/e002/t16"
+            root.mkdir()
+            output.mkdir(parents=True)
+            cgroup = Path(directory) / "cgroup"
+            cgroup.mkdir()
+            def command(args, **kwargs):
+                if args[:2] == ["docker", "wait"]:
+                    return "2"
+                if args[:2] == ["docker", "logs"]:
+                    return '{"functional_success":false}'
+                return ""
+            with mock.patch("run.run_command", side_effect=command), \
+                 mock.patch("run.container_cgroup", return_value=cgroup), \
+                 mock.patch("run.verify_candidate_cgroup", return_value={
+                     "cpu_max": "100000 100000", "cpuset_cpus_effective": "3",
+                     "memory_max_bytes": 1073741824,
+                 }):
+                result = run_loadgen_container(
+                    "t16-loadgen-failed-sample", ["--requests", "5000"], 3,
+                    output, "read-secret", "deny-secret",
+                    "ghcr.io/example/t16@sha256:" + "a" * 64,
+                    allow_functional_failure=True,
+                )
+            self.assertEqual(result["exit_code"], 2)
+            self.assertIn("functional_success", result["logs"])
+
     def test_image_verifier_rejects_mutable_tag_before_docker_access(self):
         with mock.patch("run.run_command") as command:
             with self.assertRaisesRegex(ValueError, "immutable"):
