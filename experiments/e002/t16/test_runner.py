@@ -7,7 +7,7 @@ from unittest import mock
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
-from run import aggregate, markdown_report, parse_cpu_list, run_command, run_loadgen_container, verify_candidate_cgroup
+from run import aggregate, markdown_report, parse_cpu_list, run_command, run_loadgen_container, verify_candidate_cgroup, verify_image_identity
 
 
 class T16RunnerUnitTests(unittest.TestCase):
@@ -107,10 +107,8 @@ class T16RunnerUnitTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "repo"
             output = root / "experiments/e002/t16"
-            binary = output / "bin"
             root.mkdir()
             output.mkdir(parents=True)
-            binary.mkdir()
             cgroup = Path(directory) / "cgroup"
             cgroup.mkdir()
             calls = []
@@ -129,7 +127,7 @@ class T16RunnerUnitTests(unittest.TestCase):
                  }) as verify:
                 result = run_loadgen_container(
                     "t16-loadgen-test", ["--requests", "10"], 3,
-                    root, binary, output, "read-secret", "deny-secret",
+                    output, "read-secret", "deny-secret", "ghcr.io/example/t16@sha256:" + "a" * 64,
                 )
             self.assertEqual(result["limits"]["cpuset_cpus_effective"], "3")
             verify.assert_called_once_with(cgroup, 3)
@@ -138,10 +136,18 @@ class T16RunnerUnitTests(unittest.TestCase):
             self.assertIn("--cpuset-cpus=3", docker_run)
             self.assertIn("--memory=1g", docker_run)
             self.assertIn(f"{output}:/evidence:rw", docker_run)
-            self.assertIn(f"{root}:/src:ro", docker_run)
+            self.assertIn("--entrypoint", docker_run)
+            self.assertIn("/opt/candidates/t16-loadgen", docker_run)
+            self.assertIn("ghcr.io/example/t16@sha256:" + "a" * 64, docker_run)
             self.assertIn("T16_READ_TOKEN=read-secret", docker_run)
             self.assertIn("T16_DENY_TOKEN=deny-secret", docker_run)
             self.assertEqual(calls[-1][:4], ["docker", "rm", "--force", "t16-loadgen-test"])
+
+    def test_image_verifier_rejects_mutable_tag_before_docker_access(self):
+        with mock.patch("run.run_command") as command:
+            with self.assertRaisesRegex(ValueError, "immutable"):
+                verify_image_identity("ghcr.io/example/t16:latest", "a" * 40)
+            command.assert_not_called()
 
     def test_command_runner_can_record_expected_failure_without_raising(self):
         import sys
