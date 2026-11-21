@@ -651,7 +651,7 @@ def main() -> int:
                         handle.flush()
                     print(f"T16 {candidate} {repetition}/10 FAILED: {record['error']}", file=sys.stderr, flush=True)
                 finally:
-                    run_command(["docker", "rm", "--force", container], timeout=60, allow_failure=True)
+                    run_command(["docker", "rm", "--force", "--volumes", container], timeout=60, allow_failure=True)
 
         results = {
             "schema_version": 1,
