@@ -161,6 +161,12 @@ def verify_image_identity(image_ref: str, source_sha: str) -> dict[str, str]:
         raise RuntimeError("image OCI source label does not identify this repository")
     if image_ref not in repo_digests:
         raise RuntimeError("pulled image does not expose the exact preregistered RepoDigest")
+    if not shutil.which("gh"):
+        raise RuntimeError("GitHub CLI is required to verify the image build attestation")
+    run_command([
+        "gh", "attestation", "verify", "oci://" + image_ref,
+        "-R", "mojtaba-arvin/agent-native",
+    ], timeout=180)
     return {"image_ref": image_ref, "image_digest": "sha256:" + match.group("digest"), "image_name": match.group("name"), "source_sha": revision, "source_url": source_url}
 
 
@@ -413,8 +419,8 @@ def main() -> int:
         ]
         if len(set(core_keys)) != 3 or core_keys != expected_cores:
             raise RuntimeError("physical CPU topology differs from the preregistered three-core allocation")
-        if not shutil.which("docker") or not shutil.which("taskset") or not shutil.which("psql"):
-            raise RuntimeError("docker, taskset, and psql are required")
+        if not shutil.which("docker") or not shutil.which("taskset") or not shutil.which("psql") or not shutil.which("gh"):
+            raise RuntimeError("docker, taskset, psql, and GitHub CLI are required")
         image_identity = verify_image_identity(args.image_ref, args.source_sha)
         if prereg.get("image_digest") != image_identity["image_digest"]:
             raise RuntimeError("image digest differs from preregistered image digest")
