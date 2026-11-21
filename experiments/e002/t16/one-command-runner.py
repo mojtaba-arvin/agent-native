@@ -116,7 +116,9 @@ def resolve_build_run(source_sha):
 
 
 def publish_evidence(evidence, run_id, source_sha, image_ref, build_run_id, build_url):
-    archive_path = Path(tempfile.mktemp(prefix="t16-evidence-", suffix=".tar.gz"))
+    archive_fd, archive_name = tempfile.mkstemp(prefix="t16-evidence-", suffix=".tar.gz")
+    os.close(archive_fd)
+    archive_path = Path(archive_name)
     checksums = []
     for item in sorted(evidence.rglob("*")):
         if item.is_file() and item.name != "checksums.sha256":
@@ -133,7 +135,7 @@ def publish_evidence(evidence, run_id, source_sha, image_ref, build_run_id, buil
     upload_url = release["upload_url"].split("{", 1)[0] + "?name=" + asset_name
     request = urllib.request.Request(upload_url, data=archive_path.read_bytes(), method="POST", headers={
         "Authorization": "Bearer " + TOKEN, "Accept": "application/vnd.github+json",
-        "Content-Type": "application/gzip"})
+        "Content-Type": "application/octet-stream"})
     try:
         with urllib.request.urlopen(request, timeout=900) as response:
             asset = json.loads(response.read())
@@ -226,9 +228,13 @@ def main():
                     "build_run_url": build_run_url, "build_run_id": build_run_id,
                     "host_attestation": attestation, "finished_at": dt.datetime.now(dt.timezone.utc).isoformat()}
         (evidence / "execution-metadata.json").write_text(json.dumps(metadata, indent=2, sort_keys=True) + "\n")
-        url = publish_evidence(evidence, run_id, sha, IMAGE_REF, build_run_id, build_run_url)
-        print("T16 evidence: " + url, flush=True)
-        print("T16 status: " + status.upper(), flush=True)
+        try:
+            url = publish_evidence(evidence, run_id, sha, IMAGE_REF, build_run_id, build_run_url)
+            print("T16 evidence: " + url, flush=True)
+            print("T16 status: " + status.upper(), flush=True)
+        finally:
+            shutil.rmtree(root.parent, ignore_errors=True)
+            shutil.rmtree(attestation_path.parent, ignore_errors=True)
     return 0 if status == "completed" else 1
 
 
