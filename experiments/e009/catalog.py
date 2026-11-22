@@ -17,6 +17,8 @@ from work_store import AuditCommitError, JobBackpressure, JobConflict, DurableWo
 def build_catalog_handlers(
     repository: SQLiteCatalogRepository,
     work_store: DurableWorkStore | None = None,
+    *,
+    include_plan_operation: bool = False,
 ) -> dict:
     def create_item(context: HandlerContext) -> HandlerResult:
         try:
@@ -127,12 +129,14 @@ def build_catalog_handlers(
             status_code=status,
         )
 
-    return {
+    handlers = {
         "create_item": create_item,
         "get_item": get_item,
         "get_item_by_name": get_item_by_name,
-        "plan_operation": plan_operation,
         "submit_rebuild": submit_rebuild,
         "get_job": get_job,
         "cancel_job": cancel_job,
     }
+    if include_plan_operation:
+        handlers["plan_operation"] = plan_operation
+    return handlers
