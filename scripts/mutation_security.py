@@ -17,6 +17,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "src" / "agent_native" / "security.py"
 
+EXPECTED_TEST_COUNT = 16
+
 MUTANTS = (
     (
         "SEC-TENANT-001",
@@ -75,11 +77,13 @@ def run() -> dict:
             )
             output = completed.stdout + completed.stderr
             match = re.search(r"Ran (\d+) tests?", output)
-            if match is None:
+            if match is None or int(match.group(1)) != EXPECTED_TEST_COUNT:
                 raise RuntimeError(
-                    f"{mutant_id}: targeted tests did not execute correctly: {output[-2000:]}"
+                    f"{mutant_id}: expected {EXPECTED_TEST_COUNT} targeted tests to execute: {output[-2000:]}"
                 )
-            killed = completed.returncode != 0 and "FAILED" in output
+            if "unittest.loader._FailedTest" in output or "ModuleNotFoundError" in output:
+                raise RuntimeError(f"{mutant_id}: test import failed: {output[-2000:]}")
+            killed = completed.returncode != 0 and "FAILED (" in output
             results.append({
                 "mutant_id": mutant_id,
                 "outcome": "killed" if killed else "survived",
