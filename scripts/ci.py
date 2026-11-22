@@ -39,6 +39,7 @@ SUITES = (
     Suite("pilot-protocol", (sys.executable, "-m", "unittest", "discover", "-s", "experiments/pilot", "-p", "test*.py"), ("experiments/pilot/**",)),
     Suite("project-control", (sys.executable, "project_control.py", "validate"), ("project-control/**", "project_control.py")),
     Suite("ci-runner", (sys.executable, "-m", "unittest", "discover", "-s", "scripts", "-p", "test*.py"), ("scripts/**",)),
+    Suite("security-mutation", (sys.executable, "scripts/mutation_security.py"), ("src/agent_native/security.py", "tests/test_authentication.py", "scripts/mutation_security.py")),
     Suite("agent-native-package", (sys.executable, "scripts/package_install_smoke.py"), ("src/agent_native/**", "tests/**", "pyproject.toml", "scripts/package_install_smoke.py", "services/**", "schemas/service-manifest-v1.schema.json", "schemas/service-manifest-v2.schema.json", "src/agent_native/handlers.py")),
 )
 DEPENDENCIES = {
@@ -46,6 +47,7 @@ DEPENDENCIES = {
     "experiments/e004/": {"e004-security", "e009-kernel"},
     "experiments/e005/": {"e005-interface", "pilot-protocol"},
     "experiments/e009/": {"e009-kernel", "e010-apply"},
+    "src/agent_native/security.py": {"security-mutation"},
 }
 ALWAYS_ALL = (".github/workflows/", "scripts/ci.py", "scripts/fast.sh")
 
