@@ -134,6 +134,8 @@ def create_server(
             self.send_header("Content-Length", str(len(encoded)))
             self.send_header("Connection", "close")
             self.send_header("X-Request-ID", request_id)
+            # The same root correlation identifier is persisted in audit_events.request_id.
+            self.send_header("X-Trace-ID", request_id)
             revision = getattr(self, "_runtime_revision", None)
             if revision is not None:
                 self.send_header("X-Runtime-Revision", str(revision))
