@@ -251,6 +251,8 @@ class LocalAgentRunnerTests(unittest.TestCase):
         change_set_id = digest(proposal)
         calls = [
             ("interface.describe", {"name": "service.inspect"}),
+            # The repeated request must be intercepted locally after discovery.
+            ("interface.describe", {"name": "service.inspect"}),
             ("service.inspect", {"service_id": SERVICE_ID}),
         ]
         calls.extend(
@@ -353,6 +355,22 @@ class LocalAgentRunnerTests(unittest.TestCase):
                 )
                 run_dir = Path(result["candidate_path"]).parent
                 self.assertTrue((run_dir / "tool-trace.jsonl").is_file())
+                trace_events = [
+                    json.loads(line)
+                    for line in (run_dir / "tool-trace.jsonl").read_text(encoding="utf-8").splitlines()
+                ]
+                self.assertEqual(
+                    [event["execution_origin"] for event in trace_events[:3]],
+                    ["gateway", "runner_duplicate_guard", "gateway"],
+                )
+                self.assertEqual(
+                    trace_events[1]["response"]["diagnostics"][0]["code"],
+                    "SCHEMA_ALREADY_DISCOVERED",
+                )
+                self.assertEqual(
+                    trace_events[1]["request"]["arguments"],
+                    {"name": "service.inspect"},
+                )
                 prompt_states = [
                     json.loads(line)
                     for line in (run_dir / "prompt-states.jsonl").read_text(encoding="utf-8").splitlines()
@@ -373,6 +391,7 @@ class LocalAgentRunnerTests(unittest.TestCase):
                 self.assertEqual([item["payload_metadata"]["turn"] for item in provider_rows],
                                  list(range(1, len(provider_rows) + 1)))
                 self.assertTrue(all(item["payload_metadata"]["keep_alive"] == "10m" for item in provider_rows))
+                self.assertIn("service.inspect", provider_rows[1]["payload_metadata"]["tool_definition_names"])
                 self.assertEqual(stat.S_IMODE((run_dir / "candidate.json").stat().st_mode), 0o600)
                 self.assertEqual(stat.S_IMODE(run_dir.stat().st_mode), 0o700)
                 self.assertEqual(Handler.index, len(responses))
@@ -958,6 +977,28 @@ class LocalAgentRunnerTests(unittest.TestCase):
         self.assertEqual(
             deduplicated[0]["next_actions"],
             ["Call service.inspect directly."],
+        )
+
+    def test_compaction_preserves_each_repeated_failed_request(self):
+        outcomes = [
+            {
+                "request_id": "same-failed-request",
+                "tool": "service.inspect",
+                "ok": False,
+                "diagnostics": [{"code": "ARGUMENTS_REQUIRED"}],
+            },
+            {
+                "request_id": "same-failed-request",
+                "tool": "service.inspect",
+                "ok": False,
+                "diagnostics": [{"code": "ARGUMENTS_REQUIRED"}],
+            },
+        ]
+        preserved = _deduplicate_tool_outcomes(outcomes)
+        self.assertEqual(len(preserved), 2)
+        self.assertEqual(
+            [item["diagnostics"][0]["code"] for item in preserved],
+            ["ARGUMENTS_REQUIRED", "ARGUMENTS_REQUIRED"],
         )
 
     def test_progressive_schema_discovery_survives_compaction(self):
