@@ -50,4 +50,4 @@ if "request read timeout" not in readme_source.lower():
 print("T27 acceptance: finite socket read timeout, slow-header/body regressions, and documentation are present.")
 PY
 
-python3 -m unittest experiments.e009.test_http_server
+python3 -m unittest discover -s experiments/e009 -p "test_http_server.py"
