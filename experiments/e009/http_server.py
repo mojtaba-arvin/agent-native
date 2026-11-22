@@ -227,6 +227,9 @@ def create_server(
                     self._send(400, {"error": {"code": "BODY_NOT_ALLOWED"}}, request_id=request_id)
                     return
 
+            # The read budget ends once the complete request is buffered; do not
+            # impose the client-read timeout on application work or response writes.
+            self.connection.settimeout(None)
             response: RuntimeResponse = active_runtime.dispatch(
                 method,
                 self.path,
