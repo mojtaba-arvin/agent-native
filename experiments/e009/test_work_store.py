@@ -365,5 +365,51 @@ class DurableWorkStoreTests(unittest.TestCase):
             self.submit(attempts=True)
 
 
+    def test_recovery_metrics_are_durable_and_count_retries_and_duplicate_delivery(self):
+        job, replayed = self.submit(key="metrics-job", now=1)
+        self.assertFalse(replayed)
+        first_claim = self.store.claim_job(worker_id="worker-a", now=2, lease_seconds=10)
+        self.assertEqual(first_claim["task_id"], job["task_id"])
+        self.store.fail_job(
+            task_id=job["task_id"], worker_id="worker-a",
+            lease_token=first_claim["lease_token"], now=3,
+            error_code="TRANSIENT", retry_delay=0,
+        )
+        second_claim = self.store.claim_job(worker_id="worker-b", now=4, lease_seconds=10)
+        self.store.complete_job(
+            task_id=job["task_id"], worker_id="worker-b",
+            lease_token=second_claim["lease_token"], now=5,
+            result={"items_seen": 0},
+        )
+
+        first_event = self.store.claim_outbox(relay_id="relay-a", now=6, lease_seconds=1)
+        self.assertIsNotNone(first_event)
+        envelope = first_event["payload"]
+        first_delivery = self.store.consume_delta_event(
+            consumer_id="metrics-consumer", event_id=first_event["event_id"],
+            payload=envelope, now=6,
+        )
+        duplicate_delivery = self.store.consume_delta_event(
+            consumer_id="metrics-consumer", event_id=first_event["event_id"],
+            payload=envelope, now=7,
+        )
+        self.assertFalse(first_delivery["duplicate"])
+        self.assertTrue(duplicate_delivery["duplicate"])
+        reclaimed = self.store.claim_outbox(relay_id="relay-b", now=7, lease_seconds=5)
+        self.assertEqual(reclaimed["event_id"], first_event["event_id"])
+        self.store.ack_outbox(
+            event_id=reclaimed["event_id"], relay_id="relay-b",
+            lease_token=reclaimed["lease_token"], now=8,
+        )
+
+        metrics_before = self.store.recovery_metrics(now=8)
+        self.assertEqual(metrics_before["jobs"]["multi_attempt_jobs"], 1)
+        self.assertGreaterEqual(metrics_before["outbox"]["redeliveries"], 1)
+        self.assertEqual(metrics_before["inbox"]["duplicate_deliveries"], 1)
+
+        reopened = DurableWorkStore(self.database)
+        metrics_after = reopened.recovery_metrics(now=8)
+        self.assertEqual(metrics_after, metrics_before)
+
 if __name__ == "__main__":
     unittest.main()
