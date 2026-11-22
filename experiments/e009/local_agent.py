@@ -808,18 +808,35 @@ def _compact_tool_outcome(
 
 
 def _deduplicate_tool_outcomes(tool_outcomes: list[dict]) -> list[dict]:
-    """Collapse repeated calls by stable request ID while preserving the latest guidance."""
+    """Collapse repeats of successful requests without hiding repeated failures."""
     compacted = []
-    positions = {}
-    for outcome in tool_outcomes:
+    successful_positions = {}
+    for index, outcome in enumerate(tool_outcomes):
         request_id = outcome.get("request_id") if isinstance(outcome, dict) else None
-        key = f"request:{request_id}" if isinstance(request_id, str) else f"outcome:{digest(outcome)}"
-        if key not in positions:
+        successful = isinstance(outcome, dict) and outcome.get("ok") is True
+        if isinstance(request_id, str):
+            key = f"request:{request_id}"
+            position = successful_positions.get(key)
+            if position is None and not successful:
+                # A failed request has no successful result to compact against.
+                # Preserve every occurrence so repeated model errors remain visible.
+                key = f"failed:{request_id}:{index}"
+        elif successful:
+            key = f"outcome:{digest(outcome)}"
+            position = successful_positions.get(key)
+        else:
+            key = f"failed-outcome:{index}"
+            position = None
+
+        if key not in successful_positions and (successful or position is None):
             item = dict(outcome)
-            positions[key] = len(compacted)
             compacted.append(item)
+            if successful:
+                successful_positions[key] = len(compacted) - 1
             continue
-        item = compacted[positions[key]]
+
+        position = successful_positions[key]
+        item = compacted[position]
         item["repeat_count"] = item.get("repeat_count", 1) + 1
         item["latest_ok"] = outcome.get("ok")
         for field in ("diagnostics", "next_actions", "latest_diagnostics"):
@@ -827,7 +844,7 @@ def _deduplicate_tool_outcomes(tool_outcomes: list[dict]) -> list[dict]:
                 item[field] = outcome[field]
         # Keep the first exact schema/result snapshot; only fill fields that were absent.
         for field, value in outcome.items():
-            if field not in item and field not in {"repeat_count"}:
+            if field not in item and field != "repeat_count":
                 item[field] = value
     return compacted[-12:]
 
