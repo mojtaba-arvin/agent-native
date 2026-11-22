@@ -20,6 +20,11 @@ SPEC.loader.exec_module(RUNNER)
 class OneCommandTests(unittest.TestCase):
     def test_launcher_uses_one_cached_image_without_installing_host_tools(self):
         source = Path(__file__).with_name("one-command.sh").read_text()
+        self.assertIn('API="https://api.github.com"', source)
+        self.assertIn('"$API/user"', source)
+        self.assertIn('"$API/repos/$REPOSITORY/commits?sha=$BRANCH&per_page=1"', source)
+        self.assertIn("set +x", source)
+        self.assertNotIn('API="https://api.github.com/repos/$REPOSITORY"', source)
         self.assertIn('docker pull "$IMAGE:t16"', source)
         self.assertNotIn("apk add", source)
         self.assertNotIn("docker:27.5.1-cli", source)
