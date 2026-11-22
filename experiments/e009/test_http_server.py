@@ -624,7 +624,7 @@ class KernelHTTPServerTests(unittest.TestCase):
         status, headers, body = self.request("GET", "/items/by-name/not-found")
         self.assertEqual(status, 404, body)
         self.assertEqual(headers.get("X-Trace-ID"), headers.get("X-Request-ID"))
-        events = self.audit.list_events()
+        events = self.audit_sink.list_events()
         self.assertTrue(any(
             event["request_id"] == headers["X-Trace-ID"]
             for event in events
