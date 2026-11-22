@@ -620,5 +620,15 @@ class KernelHTTPServerTests(unittest.TestCase):
 
 
 
+    def test_trace_header_matches_persisted_audit_request_correlation(self):
+        status, headers, body = self.request("GET", "/items/by-name/not-found")
+        self.assertEqual(status, 404, body)
+        self.assertEqual(headers.get("X-Trace-ID"), headers.get("X-Request-ID"))
+        events = self.audit.list_events()
+        self.assertTrue(any(
+            event["request_id"] == headers["X-Trace-ID"]
+            for event in events
+        ))
+
 if __name__ == "__main__":
     unittest.main()
