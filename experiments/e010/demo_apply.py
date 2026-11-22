@@ -139,6 +139,16 @@ class SandboxApplyCoordinator:
             raise ValueError("sandbox_runtime_smoke_test_failed")
 
         published_runtime = self._build_runtime(ir)
+        published_smoke = published_runtime.dispatch(
+            "GET",
+            "/items/by-normalized-name/BLUE-LAMP",
+            {},
+            self.identity,
+            request_id=f"{request_id}-runtime-smoke",
+        )
+        if published_smoke.status_code != 200 or published_smoke.body.get("data", {}).get("name") != "blue-lamp":
+            raise ValueError("sandbox_runtime_smoke_test_failed")
+
         self.audit_sink({
             "principal_id": self.identity.principal_id,
             "tenant_id": self.identity.tenant_id,
