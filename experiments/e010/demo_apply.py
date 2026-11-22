@@ -91,7 +91,7 @@ class SandboxApplyCoordinator:
             repository=self.repository,
             trusted_effects=TRUSTED_EFFECTS,
             clock=lambda: self.now,
-            audit_sink=self.audit_sink if audit_sink is None else audit_sink,
+            audit_sink=self.audit_sink if audit_sink is None else (None if audit_sink is False else audit_sink),
         )
 
     def apply(self, proposal: dict, context: dict) -> dict:
