@@ -5,7 +5,7 @@
 
 ## Decision
 
-Do not rank or select Go, Rust, WASI P2, or BEAM from the current E-002 measurements. Retain all four candidates. The current executable black-box contract and load runner exercise a deliberately small HTTP server (/health, /work, /stream) and do not exercise the proposed Agent Native control-plane lifecycle. The product workload specification is materially different: authentication, trusted tenant resolution, contract validation, default-deny authorization, validate/plan, durable job admission, outbox, idempotency, and audit.
+Do not rank or select Go, Rust, WASI P2, or BEAM from the current E-002 measurements. Retain all four candidates. The Go, Rust, WASI P2, and BEAM candidate probes still exercise a deliberately small HTTP server (/health, /work, /stream). The Python reference host now has an executable product control-plane workload (60/20/10/10 mix), but the candidate ports do not yet implement it. The product workload specification is materially different: authentication, trusted tenant resolution, contract validation, default-deny authorization, validate/plan, durable job admission, outbox, idempotency, and audit.
 
 The current matrix runner is a valid harness for its toy workload, not a product benchmark. The workflow's benchmark-matrix job has been skipped in recent ordinary CI; candidate build and conformance success is not a capacity result. Short 100-request sampler smokes are instrumentation checks only.
 
@@ -36,7 +36,7 @@ The current matrix runner is a valid harness for its toy workload, not a product
 - Do not select a language or runtime from the existing toy workload.
 - Do not select SQLite/PostgreSQL/embedded KV from unnormalized durability modes.
 - Keep runtime, storage adapter, and transport as separate experimental factors.
-- First implement one semantically correct product workload on the existing reference host; then port the same contract to each candidate.
+- The Python reference product workload is now implemented on the existing E-009 host; next port the exact same request classes and failure semantics to each candidate.
 - Use the cgroup v2 CPU controller for controlled accounting. Keep the /proc sampler as diagnostic telemetry only; its 5 ms polling can miss short-lived descendants and process reparenting.
 
 ## Next measurable milestone
@@ -48,3 +48,10 @@ A candidate is eligible for the product benchmark only after it passes:
 - a harness self-test that proves cgroup membership covers the full candidate process tree.
 
 Until then, publish only build/conformance and sampler smoke results. No weighted score or architecture winner is permitted.
+
+
+## Reference workload implementation update — 2026-11-22
+
+The Python reference host now has a benchmark-only `plan_operation` endpoint backed by the same E-009 runtime, trusted identity resolution, default-deny policy engine, and durable audit sink. The benchmark-only contract is isolated in `experiments/e009/benchmark_catalog.an`; the ordinary six-operation agent-evaluation contract in `catalog.an` is unchanged. The load runner now uses the registered seeded 60/20/10/10 mix instead of the former 60% item-read / 20% job-read / 10% job-admission / 10% unauthenticated-read diagnostic mix.
+
+This closes the reference-host workload gap only. No Go/Rust/WASI/BEAM candidate has product parity yet, and no controlled-host capacity result is produced by this change.
