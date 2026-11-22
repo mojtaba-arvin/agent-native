@@ -376,11 +376,7 @@ class DurableWorkStoreTests(unittest.TestCase):
             error_code="TRANSIENT", retry_delay=0,
         )
         second_claim = self.store.claim_job(worker_id="worker-b", now=4, lease_seconds=10)
-        self.store.complete_job(
-            task_id=job["task_id"], worker_id="worker-b",
-            lease_token=second_claim["lease_token"], now=5,
-            result={"items_seen": 0},
-        )
+        self.assertEqual(second_claim["attempts"], 2)
 
         first_event = self.store.claim_outbox(relay_id="relay-a", now=6, lease_seconds=1)
         self.assertIsNotNone(first_event)
