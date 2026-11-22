@@ -111,6 +111,37 @@ class CallLifecycleTests(unittest.TestCase):
         with self.assertRaises(InvalidTransition):
             call.transition(CallState.ACCEPTED)
 
+    def test_constructor_rejects_non_enum_state(self):
+        with self.assertRaisesRegex(InvalidTransition, "unknown_state"):
+            CallLifecycle(state="completed")
+
+    def test_constructor_rejects_inconsistent_history(self):
+        with self.assertRaisesRegex(InvalidTransition, "terminal_state_mismatch"):
+            CallLifecycle(state=CallState.COMPLETED)
+
+    def test_constructor_rejects_illegal_history_transition(self):
+        with self.assertRaisesRegex(InvalidTransition, "invalid_history_transition"):
+            CallLifecycle(
+                state=CallState.COMPLETED,
+                history=(CallState.CREATED, CallState.COMPLETED),
+            )
+
+    def test_constructor_rejects_non_tuple_history(self):
+        with self.assertRaisesRegex(InvalidTransition, "history_must_be_nonempty_tuple"):
+            CallLifecycle(history=[CallState.CREATED])
+
+    def test_lifecycle_state_and_history_cannot_be_mutated_directly(self):
+        from dataclasses import FrozenInstanceError
+
+        call = CallLifecycle()
+        with self.assertRaises(FrozenInstanceError):
+            call.state = CallState.COMPLETED
+        with self.assertRaises(FrozenInstanceError):
+            call.history = (CallState.CREATED, CallState.COMPLETED)
+        call.transition(CallState.ACCEPTED)
+        self.assertEqual(call.state, CallState.ACCEPTED)
+        self.assertEqual(call.history, (CallState.CREATED, CallState.ACCEPTED))
+
 
 class DeadlineTests(unittest.TestCase):
     def test_receiver_caps_and_each_hop_subtracts_elapsed_time(self):
