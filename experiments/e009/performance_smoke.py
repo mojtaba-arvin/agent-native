@@ -402,6 +402,7 @@ def main():
                 "--volume", f"{temp}:/data",
                 "--workdir", "/workspace",
                 "--env", f"AGENT_NATIVE_DEMO_TOKEN={token}",
+                "--env", "AGENT_NATIVE_PRODUCT_WORKLOAD=1",
                 "--env", "AGENT_NATIVE_ALLOW_NON_LOOPBACK=1",
                 "python:3.11-slim",
                 "python", "experiments/e009/serve.py",
