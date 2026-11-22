@@ -28,5 +28,4 @@ for path in sorted(schema_dir.glob("*.schema.json")):
         raise SystemExit(f"T33 acceptance: invalid packaged schema: {path}")
 print("T33 acceptance: all published Draft 2020-12 schemas are packaged and parseable.")
 PY
-python3 -m pip install --no-deps --no-build-isolation .
 python3 -m unittest discover -s tests -p "test_cli.py" -v
