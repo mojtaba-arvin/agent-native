@@ -67,7 +67,7 @@ class WorkflowConcurrencyTests(unittest.TestCase):
             expected = "\n".join((
                 f"  {lane}:",
                 "    concurrency:",
-                f"      group: agent-native-{lane}-${{ github.event.pull_request.number || github.ref }}",
+                "      group: agent-native-" + lane + "-${{ github.event.pull_request.number || github.ref }}",
                 "      cancel-in-progress: false",
             ))
             self.assertIn(expected, workflow, f"{lane} must have an isolated non-cancelling concurrency group")
