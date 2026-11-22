@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
+# Never allow bash -x (including an invoking shell's xtrace) to expose credentials.
+set +x
 
 REPOSITORY="mojtaba-arvin/agent-native"
 BRANCH="task/T16-image-digest-pipeline"
 IMAGE="ghcr.io/mojtaba-arvin/agent-native-t16"
-API="https://api.github.com/repos/$REPOSITORY"
+API="https://api.github.com"
 
 : "${GH_TOKEN:?Export GH_TOKEN with public_repo and read:packages scopes.}"
 command -v docker >/dev/null 2>&1 || { echo "Docker Engine/CLI is required." >&2; exit 2; }
@@ -30,7 +32,7 @@ printf '%s' "$GH_TOKEN" | docker login ghcr.io --username "$GH_USERNAME" --passw
 
 echo "Checking the latest T16 source revision..."
 SOURCE_SHA="$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
-  "$API/commits?sha=$BRANCH&per_page=1" | sed -n '1s/^\[{"sha":"\([0-9a-f]\{40\}\)".*/\1/p')"
+  "$API/repos/$REPOSITORY/commits?sha=$BRANCH&per_page=1" | sed -n '1s/^\[{"sha":"\([0-9a-f]\{40\}\)".*/\1/p')"
 [[ "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "Could not resolve the current T16 source SHA." >&2; exit 2; }
 
 echo "Refreshing the T16 image manifest; already-cached layers will not be downloaded again..."
