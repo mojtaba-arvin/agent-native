@@ -114,7 +114,7 @@ class ProductControlPlaneIntegrationTests(unittest.TestCase):
             {"operation_name": "get_item", "base_revision": self.base_revision},
         )
         self.assertEqual(denied_status, 403, denied)
-        self.assertEqual(denied["error"]["code"], "FORBIDDEN")
+        self.assertEqual(denied["error"]["code"], "UNAUTHORIZED")
         self.assertEqual(denied_headers.get("X-Trace-ID"), denied_headers.get("X-Request-ID"))
 
         connection = sqlite3.connect(self.database)
