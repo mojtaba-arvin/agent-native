@@ -133,7 +133,7 @@ def main() -> None:
         parser.error(str(error))
     runtime = ServiceRuntime(
         ir,
-        handlers=build_catalog_handlers(repository, work_store),
+        handlers=build_catalog_handlers(repository, work_store, include_plan_operation=product_workload),
         repository=repository,
         trusted_effects={"repository.read", "repository.write", "queue.submit", "queue.read", "queue.cancel", "contract.read"},
         audit_sink=audit_sink,
