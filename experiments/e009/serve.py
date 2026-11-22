@@ -135,7 +135,7 @@ def main() -> None:
         ir,
         handlers=build_catalog_handlers(repository, work_store),
         repository=repository,
-        trusted_effects={"repository.read", "repository.write", "queue.submit", "queue.read", "queue.cancel"},
+        trusted_effects={"repository.read", "repository.write", "queue.submit", "queue.read", "queue.cancel", "contract.read"},
         audit_sink=audit_sink,
     )
     server = create_server(
