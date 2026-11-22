@@ -5,6 +5,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import venv
 from pathlib import Path
 
 
@@ -28,6 +29,25 @@ service catalog {
 
 
 class UnifiedCLITests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.install_root = tempfile.TemporaryDirectory(prefix="agent-native-cli-venv-")
+        cls.environment = Path(cls.install_root.name) / "venv"
+        venv.EnvBuilder(with_pip=True, clear=True).create(cls.environment)
+        cls.cli_python = cls.environment / ("Scripts/python.exe" if sys.platform == "win32" else "bin/python")
+        subprocess.run(
+            [str(cls.cli_python), "-m", "pip", "install", "--no-deps", str(Path(__file__).resolve().parents[1])],
+            cwd=Path(__file__).resolve().parents[1],
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=180,
+        )
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.install_root.cleanup()
+
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
         self.root = Path(self.temporary.name)
@@ -39,17 +59,17 @@ class UnifiedCLITests(unittest.TestCase):
 
     def invoke(self, *arguments):
         return subprocess.run(
-            [sys.executable, "-I", "-m", "agent_native.cli", *arguments],
+            [str(self.cli_python), "-I", "-m", "agent_native.cli", *arguments],
             cwd=self.root,
             capture_output=True,
             text=True,
             timeout=10,
         )
 
-    def test_help_exposes_all_five_commands(self):
+    def test_help_exposes_all_seven_commands(self):
         result = self.invoke("--help")
         self.assertEqual(result.returncode, 0)
-        for command in ("check", "run", "inspect", "worker", "audit"):
+        for command in ("check", "run", "inspect", "worker", "audit", "diagnose", "schema"):
             self.assertIn(command, result.stdout)
 
     def test_check_and_inspect_use_explicit_service_path(self):
