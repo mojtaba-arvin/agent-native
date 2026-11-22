@@ -125,10 +125,10 @@ class ProductControlPlaneIntegrationTests(unittest.TestCase):
             ).fetchall()
         finally:
             connection.close()
-        self.assertEqual([event[1] for event in events], ["allow", "deny"])
+        self.assertEqual([event[1] for event in events], ["allow", "allow", "deny"])
         self.assertEqual(events[0][0], headers["X-Trace-ID"])
-        self.assertEqual(events[1][0], denied_headers["X-Trace-ID"])
-        self.assertEqual(events[1][2], "MISSING_CAPABILITY")
+        self.assertEqual(events[2][0], denied_headers["X-Trace-ID"])
+        self.assertEqual(events[2][2], "MISSING_CAPABILITY")
 
 
 if __name__ == "__main__":
