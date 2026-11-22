@@ -451,9 +451,10 @@ def main():
             if base is None:
                 raise RuntimeError("E-009 server startup deadline exceeded")
 
-            status, payload = request(base, "POST", "/items", token,
-                                      body={"name": "perf-seed-" + uuid.uuid4().hex},
-                                      key="seed-item-" + uuid.uuid4().hex)
+            status, payload = request(
+                base, "POST", "/items", token,
+                body={"name": "perf-seed-item"}, key="seed-item",
+            )
             if status != 201:
                 raise RuntimeError(f"seed item failed: HTTP {status} {payload[:200]!r}")
             item_id = find_id(json.loads(payload))
@@ -615,8 +616,9 @@ def main():
                     "client_concurrency": args.concurrency,
                     "arrival_mode": "saturated_closed_loop" if args.target_rps == 0 else "open_loop",
                     "target_rps": args.target_rps or None,
-                    "mix": {"authorized_item_read": 0.6, "authorized_job_read": 0.2,
-                            "durable_job_admission": 0.1, "unauthenticated_read": 0.1},
+                    "seed": WORKLOAD_SEED,
+                    "mix": {"authorized_read": 0.6, "validate_plan": 0.2,
+                            "job_admission": 0.1, "expected_denial": 0.1},
                     "database": "file-backed SQLite WAL via E-009 serve.py",
                     "server_max_concurrency": server_concurrency,
                     "audit_batch_delay_ms": args.audit_batch_delay_ms,
