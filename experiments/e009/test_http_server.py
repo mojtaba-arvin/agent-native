@@ -566,6 +566,8 @@ class KernelHTTPServerTests(unittest.TestCase):
                 + b"X-Stalled: "
             )
             time.sleep(0.4)
+            stalled.settimeout(2)
+            self.assertEqual(stalled.recv(1), b"")
             status, _headers, body = self.request("GET", "/items/by-name/not-found")
             self.assertEqual(status, 404, body)
         finally:
