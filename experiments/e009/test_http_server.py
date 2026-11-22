@@ -561,8 +561,8 @@ class KernelHTTPServerTests(unittest.TestCase):
         self.base_url = f"http://127.0.0.1:{server.server_port}"
         try:
             stalled.sendall(
-                b"GET /items/by-name/not-found HTTP/1.1\\r\\n"
-                + f"Host: 127.0.0.1:{server.server_port}\\r\\n".encode()
+                b"GET /items/by-name/not-found HTTP/1.1\r\n"
+                + f"Host: 127.0.0.1:{server.server_port}\r\n".encode()
                 + b"X-Stalled: "
             )
             time.sleep(0.4)
@@ -588,12 +588,12 @@ class KernelHTTPServerTests(unittest.TestCase):
         self.base_url = f"http://127.0.0.1:{server.server_port}"
         try:
             stalled.sendall(
-                b"POST /items HTTP/1.1\\r\\n"
-                + f"Host: 127.0.0.1:{server.server_port}\\r\\n".encode()
-                + b"Authorization: Bearer test-token-aaaaaaaaaaaaaaaaaaaaaaaa\\r\\n"
-                + b"Content-Type: application/json\\r\\n"
-                + b"Idempotency-Key: stalled-body-001\\r\\n"
-                + b"Content-Length: 20\\r\\nConnection: close\\r\\n\\r\\n"
+                b"POST /items HTTP/1.1\r\n"
+                + f"Host: 127.0.0.1:{server.server_port}\r\n".encode()
+                + b"Authorization: Bearer test-token-aaaaaaaaaaaaaaaaaaaaaaaa\r\n"
+                + b"Content-Type: application/json\r\n"
+                + b"Idempotency-Key: stalled-body-001\r\n"
+                + b"Content-Length: 20\r\nConnection: close\r\n\r\n"
                 + b"{"
             )
             time.sleep(0.4)
