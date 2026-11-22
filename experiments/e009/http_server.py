@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 import socket
 import threading
 import uuid
@@ -14,6 +15,7 @@ from kernel import RuntimeRegistry, RuntimeResponse, ServiceRuntime
 
 
 MAX_REQUEST_BODY_BYTES = 1_048_576
+DEFAULT_REQUEST_READ_TIMEOUT_SECONDS = 5.0
 
 
 def _reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict:
@@ -45,10 +47,25 @@ class BoundedThreadingHTTPServer(ThreadingHTTPServer):
     daemon_threads = False
     block_on_close = True
 
-    def __init__(self, server_address, request_handler, *, max_concurrency: int):
+    def __init__(
+        self,
+        server_address,
+        request_handler,
+        *,
+        max_concurrency: int,
+        request_read_timeout: float,
+    ):
         if type(max_concurrency) is not int or max_concurrency < 1:
             raise ValueError("max_concurrency_must_be_positive_integer")
+        if (
+            isinstance(request_read_timeout, bool)
+            or not isinstance(request_read_timeout, (int, float))
+            or not math.isfinite(request_read_timeout)
+            or request_read_timeout <= 0
+        ):
+            raise ValueError("request_read_timeout_must_be_positive_finite_number")
         self.max_concurrency = max_concurrency
+        self.request_read_timeout = float(request_read_timeout)
         # TCPServer calls listen(request_queue_size) inside super().__init__;
         # set the backlog before socket activation, not after construction.
         self.request_queue_size = max_concurrency
@@ -74,6 +91,9 @@ class BoundedThreadingHTTPServer(ThreadingHTTPServer):
                 self.shutdown_request(request)
             return
         try:
+            # Bound request-line, header, and body reads before the handler thread
+            # enters BaseHTTPRequestHandler's synchronous parser.
+            request.settimeout(self.request_read_timeout)
             super().process_request(request, client_address)
         except Exception:
             self._admission.release()
@@ -93,6 +113,7 @@ def create_server(
     host: str = "127.0.0.1",
     port: int = 0,
     max_concurrency: int = 64,
+    request_read_timeout: float = DEFAULT_REQUEST_READ_TIMEOUT_SECONDS,
     allow_non_loopback: bool = False,
 ) -> BoundedThreadingHTTPServer:
     if host not in {"127.0.0.1", "localhost"} and not allow_non_loopback:
@@ -246,5 +267,6 @@ def create_server(
         (host, port),
         Handler,
         max_concurrency=max_concurrency,
+        request_read_timeout=request_read_timeout,
     )
     return server
