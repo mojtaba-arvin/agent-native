@@ -979,6 +979,54 @@ class LocalAgentRunnerTests(unittest.TestCase):
             ["Call service.inspect directly."],
         )
 
+    def test_compaction_does_not_merge_different_tools_with_reused_request_id(self):
+        outcomes = [
+            {
+                "request_id": "reused-request",
+                "tool": "interface.describe",
+                "ok": True,
+                "name": "service.inspect",
+                "input_schema": {"type": "object", "properties": {"service_id": {"type": "string"}}},
+            },
+            {
+                "request_id": "reused-request",
+                "tool": "service.inspect",
+                "ok": True,
+                "service_id": "catalog",
+                "result": {"revision": "abc123"},
+            },
+        ]
+        compacted = _deduplicate_tool_outcomes(outcomes)
+        self.assertEqual(len(compacted), 2)
+        self.assertNotIn("repeat_count", compacted[0])
+        self.assertNotIn("repeat_count", compacted[1])
+        self.assertEqual(compacted[0]["tool"], "interface.describe")
+        self.assertEqual(compacted[1]["tool"], "service.inspect")
+
+    def test_compaction_identity_is_unambiguous_when_components_contain_delimiters(self):
+        outcomes = [
+            {
+                "request_id": "gamma",
+                "tool": "alpha:beta",
+                "ok": True,
+                "result": {"origin": "first"},
+            },
+            {
+                "request_id": "beta:gamma",
+                "tool": "alpha",
+                "ok": True,
+                "result": {"origin": "second"},
+            },
+        ]
+        compacted = _deduplicate_tool_outcomes(outcomes)
+        self.assertEqual(len(compacted), 2)
+        self.assertNotIn("repeat_count", compacted[0])
+        self.assertNotIn("repeat_count", compacted[1])
+        self.assertEqual(
+            [item["result"]["origin"] for item in compacted],
+            ["first", "second"],
+        )
+
     def test_compaction_preserves_each_repeated_failed_request(self):
         outcomes = [
             {
