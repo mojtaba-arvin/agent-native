@@ -64,24 +64,20 @@ class WorkflowConcurrencyTests(unittest.TestCase):
         lanes = ("fast", "extended", "models", "benchmark", "performance-confirmation", "lockfiles")
         groups = set()
         for lane in lanes:
-            block = (
-                f"  {lane}:\\n"
-                "    concurrency:\\n"
-                f"      group: agent-native-{lane}-${{ github.event.pull_request.number || github.ref }}\\n"
-                "      cancel-in-progress: false\\n"
-            )
-            self.assertIn(block, workflow, f"{lane} must have an isolated non-cancelling concurrency group")
+            expected = "\n".join((
+                f"  {lane}:",
+                "    concurrency:",
+                f"      group: agent-native-{lane}-${{ github.event.pull_request.number || github.ref }}",
+                "      cancel-in-progress: false",
+            ))
+            self.assertIn(expected, workflow, f"{lane} must have an isolated non-cancelling concurrency group")
             groups.add(f"agent-native-{lane}-<ref>")
         self.assertEqual(len(groups), len(lanes))
 
     def test_scorecard_does_not_turn_an_earlier_gate_skip_into_a_secondary_failure(self):
         workflow = Path(".github/workflows/ci.yml").read_text(encoding="utf-8")
-        self.assertIn(
-            "if: always() && steps.paths.outcome == 'success'\\n"
-            "        run: |\\n"
-            "          if [[ ! -s \\\"$RUNNER_TEMP/fast-ci-summary.json\\\" ]]; then",
-            workflow,
-        )
+        self.assertIn("if: always() && steps.paths.outcome == 'success'", workflow)
+        self.assertIn('if [[ ! -s "$RUNNER_TEMP/fast-ci-summary.json" ]]; then', workflow)
         self.assertIn("if-no-files-found: ignore", workflow)
 
 if __name__ == "__main__":
