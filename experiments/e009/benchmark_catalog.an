@@ -11,6 +11,14 @@ service Catalog {
     state: String;
   }
 
+  type PlanResult {
+    valid: Boolean;
+    will_mutate: Boolean;
+    will_deploy: Boolean;
+    operation: String;
+    revision: String;
+  }
+
   operation get_item {
     method: GET;
     path: "/items/{id}";
@@ -88,13 +96,6 @@ service Catalog {
     validation: [];
     effects: [queue.cancel];
     capability: "jobs.cancel";
-  }
-  type PlanResult {
-    valid: Boolean;
-    will_mutate: Boolean;
-    will_deploy: Boolean;
-    operation: String;
-    revision: String;
   }
 
   operation plan_operation {
