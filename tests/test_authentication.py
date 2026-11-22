@@ -168,6 +168,35 @@ class AuthenticationBoundaryTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.authority.issue_token("user-1", "tenant-a", (grant,))
 
+    def test_expired_grant_is_denied_by_policy_engine_directly(self):
+        operation = OperationContract("get_item", "items.read", frozenset({"repository.read"}))
+        context = RequestContext(
+            principal_id="user-1",
+            tenant_id="tenant-a",
+            now=self.now,
+            grants=(self.grant(expiry=self.now),),
+        )
+        decision = PolicyEngine().authorize(
+            operation,
+            resource="/items/" + ITEM_ID,
+            requested_effects={"repository.read"},
+            context=context,
+        )
+        self.assertFalse(decision.allowed)
+        self.assertEqual(decision.reason_code, "EXPIRED_GRANT")
+
+    def test_canonical_signature_mismatch_is_unauthenticated(self):
+        import base64
+
+        token = self.token((self.grant(),))
+        header, claims, signature = token.split(".")
+        decoded = base64.urlsafe_b64decode(signature + "=" * (-len(signature) % 4))
+        tampered = bytes([decoded[0] ^ 1]) + decoded[1:]
+        changed_signature = base64.urlsafe_b64encode(tampered).rstrip(b"=").decode("ascii")
+        response = self.dispatch("Bearer " + ".".join((header, claims, changed_signature)))
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(self.repository.calls, [])
+
     def test_resource_prefix_requires_segment_boundary(self):
         operation = OperationContract("get_item", "items.read", frozenset({"repository.read"}))
         context = RequestContext(
