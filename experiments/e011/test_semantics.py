@@ -69,10 +69,40 @@ class CallLifecycleTests(unittest.TestCase):
     def test_cancellation_does_not_mean_stopped_until_acknowledged(self):
         call = CallLifecycle()
         call.transition(CallState.ACCEPTED)
+        self.assertTrue(call.capacity_held)
         call.transition(CallState.CANCEL_REQUESTED)
+        self.assertTrue(call.capacity_held)
         self.assertEqual(retry_action(call.state, operation_retryable=True), "reconcile_same_key")
         call.transition(CallState.CANCELLED_AND_STOPPED)
+        self.assertFalse(call.capacity_held)
         self.assertEqual(retry_action(call.state, operation_retryable=True), "return_recorded_outcome")
+
+    def test_cancel_race_preserves_a_committed_completion(self):
+        call = CallLifecycle()
+        call.transition(CallState.ACCEPTED)
+        call.transition(CallState.CANCEL_REQUESTED)
+        # The effect can commit before the cancellation acknowledgement arrives.
+        call.transition(CallState.COMPLETED)
+        self.assertFalse(call.capacity_held)
+        self.assertEqual(retry_action(call.state, operation_retryable=True), "return_recorded_outcome")
+
+    def test_unknown_outcome_keeps_capacity_until_reconciled(self):
+        call = CallLifecycle()
+        call.transition(CallState.ACCEPTED)
+        call.transition(CallState.OUTCOME_UNKNOWN)
+        self.assertTrue(call.capacity_held)
+        self.assertEqual(retry_action(call.state, operation_retryable=True), "reconcile_same_key")
+        call.transition(CallState.FAILED_BEFORE_EFFECT)
+        self.assertFalse(call.capacity_held)
+        self.assertEqual(retry_action(call.state, operation_retryable=True), "retry_same_key")
+
+    def test_non_enum_transition_is_rejected_without_corrupting_history(self):
+        call = CallLifecycle()
+        before = call.history
+        with self.assertRaisesRegex(InvalidTransition, "unknown_state"):
+            call.transition("completed")
+        self.assertEqual(call.state, CallState.CREATED)
+        self.assertEqual(call.history, before)
 
     def test_invalid_terminal_transition_is_rejected(self):
         call = CallLifecycle()
@@ -87,6 +117,19 @@ class DeadlineTests(unittest.TestCase):
         budget = DeadlineBudget.receive(900, local_cap_ms=500)
         self.assertEqual(budget.after_elapsed(120).remaining_ms, 380)
         self.assertEqual(budget.after_elapsed(700).remaining_ms, 0)
+
+    def test_exhausted_deadline_cannot_start_another_hop(self):
+        budget = DeadlineBudget.receive(250, local_cap_ms=100).after_elapsed(100)
+        self.assertTrue(budget.exhausted)
+        self.assertFalse(budget.can_dispatch)
+        remaining = budget.after_elapsed(1)
+        self.assertEqual(remaining.remaining_ms, 0)
+        self.assertTrue(remaining.exhausted)
+
+    def test_zero_deadline_is_valid_but_never_dispatchable(self):
+        budget = DeadlineBudget.receive(0, local_cap_ms=500)
+        self.assertTrue(budget.exhausted)
+        self.assertFalse(budget.can_dispatch)
 
 
 class CapabilityTests(unittest.TestCase):
