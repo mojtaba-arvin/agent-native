@@ -57,18 +57,37 @@ _ALLOWED: dict[CallState, frozenset[CallState]] = {
 }
 
 
-@dataclass
+@dataclass(frozen=True)
 class CallLifecycle:
+    """Immutable lifecycle snapshot; changes are possible only via transition()."""
+
     state: CallState = CallState.CREATED
     history: tuple[CallState, ...] = (CallState.CREATED,)
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.state, CallState):
+            raise InvalidTransition(f"unknown_state:{self.state!r}")
+        if not isinstance(self.history, tuple) or not self.history:
+            raise InvalidTransition("history_must_be_nonempty_tuple")
+        if self.history[0] is not CallState.CREATED:
+            raise InvalidTransition("history_must_start_created")
+        previous = self.history[0]
+        for current in self.history[1:]:
+            if not isinstance(current, CallState):
+                raise InvalidTransition(f"unknown_history_state:{current!r}")
+            if current not in _ALLOWED[previous]:
+                raise InvalidTransition(f"invalid_history_transition:{previous.value}->{current.value}")
+            previous = current
+        if previous is not self.state:
+            raise InvalidTransition("history_terminal_state_mismatch")
 
     def transition(self, next_state: CallState) -> None:
         if not isinstance(next_state, CallState):
             raise InvalidTransition(f"unknown_state:{next_state!r}")
         if next_state not in _ALLOWED[self.state]:
             raise InvalidTransition(f"{self.state.value}->{next_state.value}")
-        self.state = next_state
-        self.history = (*self.history, next_state)
+        object.__setattr__(self, "state", next_state)
+        object.__setattr__(self, "history", (*self.history, next_state))
 
     @property
     def capacity_held(self) -> bool:
