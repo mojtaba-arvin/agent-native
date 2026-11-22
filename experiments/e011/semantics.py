@@ -63,10 +63,21 @@ class CallLifecycle:
     history: tuple[CallState, ...] = (CallState.CREATED,)
 
     def transition(self, next_state: CallState) -> None:
+        if not isinstance(next_state, CallState):
+            raise InvalidTransition(f"unknown_state:{next_state!r}")
         if next_state not in _ALLOWED[self.state]:
             raise InvalidTransition(f"{self.state.value}->{next_state.value}")
         self.state = next_state
         self.history = (*self.history, next_state)
+
+    @property
+    def capacity_held(self) -> bool:
+        """Unknown or cancellation-pending work keeps its admission slot."""
+        return self.state in {
+            CallState.ACCEPTED,
+            CallState.CANCEL_REQUESTED,
+            CallState.OUTCOME_UNKNOWN,
+        }
 
 
 def retry_action(state: CallState, *, operation_retryable: bool) -> str:
@@ -104,6 +115,14 @@ class DeadlineBudget:
         if type(elapsed_ms) is not int or elapsed_ms < 0:
             raise ValueError("invalid_elapsed_ms")
         return DeadlineBudget(max(0, self.remaining_ms - elapsed_ms))
+
+    @property
+    def exhausted(self) -> bool:
+        return self.remaining_ms == 0
+
+    @property
+    def can_dispatch(self) -> bool:
+        return self.remaining_ms > 0
 
 
 @dataclass(frozen=True)
