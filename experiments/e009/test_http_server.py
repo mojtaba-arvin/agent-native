@@ -548,5 +548,73 @@ class KernelHTTPServerTests(unittest.TestCase):
         self.assertEqual(first_result.get("status"), 200)
 
 
+    def test_stalled_partial_header_releases_admission_slot(self):
+        server = create_server(
+            self.runtime, self.identity, max_concurrency=1, request_read_timeout=0.2
+        )
+        thread = threading.Thread(
+            target=server.serve_forever, kwargs={"poll_interval": 0.01}, daemon=True
+        )
+        thread.start()
+        stalled = socket.create_connection(("127.0.0.1", server.server_port), timeout=2)
+        previous_base = self.base_url
+        self.base_url = f"http://127.0.0.1:{server.server_port}"
+        try:
+            stalled.sendall(
+                b"GET /items/by-name/not-found HTTP/1.1\\r\\n"
+                + f"Host: 127.0.0.1:{server.server_port}\\r\\n".encode()
+                + b"X-Stalled: "
+            )
+            time.sleep(0.4)
+            status, _headers, body = self.request("GET", "/items/by-name/not-found")
+            self.assertEqual(status, 404, body)
+        finally:
+            stalled.close()
+            self.base_url = previous_base
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=5)
+
+    def test_stalled_partial_body_releases_admission_slot(self):
+        server = create_server(
+            self.runtime, self.identity, max_concurrency=1, request_read_timeout=0.2
+        )
+        thread = threading.Thread(
+            target=server.serve_forever, kwargs={"poll_interval": 0.01}, daemon=True
+        )
+        thread.start()
+        stalled = socket.create_connection(("127.0.0.1", server.server_port), timeout=2)
+        previous_base = self.base_url
+        self.base_url = f"http://127.0.0.1:{server.server_port}"
+        try:
+            stalled.sendall(
+                b"POST /items HTTP/1.1\\r\\n"
+                + f"Host: 127.0.0.1:{server.server_port}\\r\\n".encode()
+                + b"Authorization: Bearer test-token-aaaaaaaaaaaaaaaaaaaaaaaa\\r\\n"
+                + b"Content-Type: application/json\\r\\n"
+                + b"Idempotency-Key: stalled-body-001\\r\\n"
+                + b"Content-Length: 20\\r\\nConnection: close\\r\\n\\r\\n"
+                + b"{"
+            )
+            time.sleep(0.4)
+            status, _headers, body = self.request("GET", "/items/by-name/not-found")
+            self.assertEqual(status, 404, body)
+        finally:
+            stalled.close()
+            self.base_url = previous_base
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=5)
+
+    def test_request_read_timeout_must_be_positive_and_finite(self):
+        for invalid in (0, -1, float("inf"), float("nan"), True):
+            with self.subTest(invalid=invalid):
+                with self.assertRaisesRegex(ValueError, "request_read_timeout"):
+                    create_server(
+                        self.runtime, self.identity, request_read_timeout=invalid
+                    )
+
+
+
 if __name__ == "__main__":
     unittest.main()
