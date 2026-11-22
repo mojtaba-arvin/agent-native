@@ -182,3 +182,8 @@ This is an in-process publication guarantee only. It does not cover multi-proces
 
 The harness includes both saturated closed-loop diagnostics and a paced open-loop workload. A 100 req/s, 10-repetition run completed 10,000 requests with zero unexpected outcomes; aggregate p99 was 73.82 ms and process-tree CPU was 16.1% of one pinned core, but two repetitions exceeded 100 ms p99. A second 2 ms audit-window cohort had all repetition p99 values below 8.3 ms but used more CPU and did not reduce audit transaction count. A 0.5 ms replication again showed two repetition tail outliers. These shared-runner measurements are diagnostic, not a stable capacity certification; cgroup cpu.max was unlimited and FULL audit durability remained enabled.
 
+
+
+## Recovery metrics and trace correlation
+
+`DurableWorkStore.recovery_metrics()` reports persisted job/outbox state distributions, claim attempts, multi-attempt jobs, outbox redeliveries, inbox message counts, and duplicate deliveries. The duplicate-delivery counter is updated in the same SQLite transaction that recognizes an inbox replay and survives store reconstruction. Metrics collection is read-only. The HTTP host emits both `X-Request-ID` and `X-Trace-ID` with the same generated correlation value; that value is the one written to `audit_events.request_id`. This is request-to-audit correlation for the single-node reference host, not distributed tracing across remote services or a remote tamper-evident audit system.
