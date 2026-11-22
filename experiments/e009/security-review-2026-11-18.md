@@ -94,3 +94,10 @@ The in-process publication gap identified in F-05 now has an executable implemen
 - [E-009 workflow 44341003787](https://github.com/mojtaba-arvin/agent-native/actions/runs/44341003787) passed 124 E-009 tests, plus E-001/E-004/E-010 suites.
 
 Still unproven: hot-reload rollback, cross-process publication, multi-node consistency, runtime-object mutation after publication, and resource-exhaustion resistance.
+
+
+## Follow-up — T27 HTTP read timeout (2026-11-22)
+
+The E-009 HTTP host now applies a positive finite socket read timeout immediately after bounded admission and before the request handler parses the request line or headers. The same socket timeout covers synchronous Content-Length body reads. Stalled partial-header and partial-body integration tests verify that the connection is closed and the single admission slot becomes available for a subsequent authenticated-path request.
+
+The timeout is an inactivity timeout on socket I/O, not an absolute end-to-end request deadline; a client that continuously sends bytes within the timeout may extend the total request duration. The loopback-only default, explicit non-loopback opt-in, semaphore limit, authentication, identity authority, and Gateway/apply boundary are unchanged.
