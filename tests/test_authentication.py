@@ -168,6 +168,23 @@ class AuthenticationBoundaryTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.authority.issue_token("user-1", "tenant-a", (grant,))
 
+    def test_resource_prefix_requires_segment_boundary(self):
+        operation = OperationContract("get_item", "items.read", frozenset({"repository.read"}))
+        context = RequestContext(
+            principal_id="user-1",
+            tenant_id="tenant-a",
+            now=self.now,
+            grants=(self.grant(prefix="/items"),),
+        )
+        decision = PolicyEngine().authorize(
+            operation,
+            resource="/items-admin/" + ITEM_ID,
+            requested_effects={"repository.read"},
+            context=context,
+        )
+        self.assertFalse(decision.allowed)
+        self.assertEqual(decision.reason_code, "RESOURCE_SCOPE")
+
 
 if __name__ == "__main__":
     unittest.main()
