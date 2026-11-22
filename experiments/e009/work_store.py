@@ -122,6 +122,18 @@ class DurableWorkStore:
         self._submit_batches = 0
         self._committed_submissions = 0
         self._largest_submit_batch = 0
+        connection = self._connect()
+        try:
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS durable_inbox_delivery_metrics (
+                    consumer_id TEXT PRIMARY KEY,
+                    duplicate_deliveries INTEGER NOT NULL DEFAULT 0
+                )
+                """
+            )
+        finally:
+            connection.close()
 
     def _enqueue_job_submission(self, item: dict[str, Any]) -> tuple[dict, bool]:
         with self._submit_condition:
@@ -273,6 +285,72 @@ class DurableWorkStore:
                 "committed_submissions": self._committed_submissions,
                 "largest_submit_batch": self._largest_submit_batch,
             }
+
+    def recovery_metrics(self, *, now: int | None = None) -> dict[str, Any]:
+        """Read persisted recovery counters without taking a write transaction."""
+        if now is not None:
+            _integer(now, "now")
+        connection = self._connect()
+        try:
+            connection.execute("PRAGMA query_only = ON")
+            job_states = {
+                row["state"]: int(row["count"])
+                for row in connection.execute(
+                    "SELECT state, COUNT(*) AS count FROM durable_jobs GROUP BY state"
+                )
+            }
+            outbox_states = {
+                row["status"]: int(row["count"])
+                for row in connection.execute(
+                    "SELECT status, COUNT(*) AS count FROM durable_outbox GROUP BY status"
+                )
+            }
+            job_rows = connection.execute(
+                "SELECT COUNT(*) AS total, COALESCE(SUM(attempts), 0) AS attempts, "
+                "COALESCE(SUM(CASE WHEN attempts > 1 THEN 1 ELSE 0 END), 0) AS multi_attempt "
+                "FROM durable_jobs"
+            ).fetchone()
+            outbox_rows = connection.execute(
+                "SELECT COUNT(*) AS total, COALESCE(SUM(attempts), 0) AS attempts, "
+                "COALESCE(SUM(CASE WHEN attempts > 1 THEN attempts - 1 ELSE 0 END), 0) AS redeliveries "
+                "FROM durable_outbox"
+            ).fetchone()
+            inbox_rows = connection.execute(
+                "SELECT COUNT(*) AS total FROM durable_inbox"
+            ).fetchone()
+            duplicate_rows = connection.execute(
+                "SELECT COALESCE(SUM(duplicate_deliveries), 0) AS total "
+                "FROM durable_inbox_delivery_metrics"
+            ).fetchone()
+            expired_leases = 0
+            if now is not None:
+                expired_leases = int(connection.execute(
+                    "SELECT COUNT(*) AS total FROM durable_jobs "
+                    "WHERE state IN ('running', 'cancellation_requested') "
+                    "AND lease_until IS NOT NULL AND lease_until <= ?",
+                    (now,),
+                ).fetchone()["total"])
+            return {
+                "jobs": {
+                    "total": int(job_rows["total"]),
+                    "by_state": job_states,
+                    "claim_attempts": int(job_rows["attempts"]),
+                    "multi_attempt_jobs": int(job_rows["multi_attempt"]),
+                    "expired_active_leases": expired_leases,
+                },
+                "outbox": {
+                    "total": int(outbox_rows["total"]),
+                    "by_state": outbox_states,
+                    "claim_attempts": int(outbox_rows["attempts"]),
+                    "redeliveries": int(outbox_rows["redeliveries"]),
+                },
+                "inbox": {
+                    "messages": int(inbox_rows["total"]),
+                    "duplicate_deliveries": int(duplicate_rows["total"]),
+                },
+            }
+        finally:
+            connection.close()
 
     def _connect(self) -> sqlite3.Connection:
         connection = sqlite3.connect(
@@ -1172,6 +1250,15 @@ class DurableWorkStore:
                     """,
                     (consumer_id, state_key),
                 ).fetchone()
+                connection.execute(
+                    """
+                    INSERT INTO durable_inbox_delivery_metrics(consumer_id, duplicate_deliveries)
+                    VALUES (?, 1)
+                    ON CONFLICT(consumer_id)
+                    DO UPDATE SET duplicate_deliveries = duplicate_deliveries + 1
+                    """,
+                    (consumer_id,),
+                )
                 connection.commit()
                 return {"duplicate": True, "total": total["total"] if total else 0}
 
