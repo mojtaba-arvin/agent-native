@@ -83,6 +83,7 @@ def main() -> None:
     token = os.environ.get("AGENT_NATIVE_DEMO_TOKEN", "")
     if len(token) < 24:
         parser.error("AGENT_NATIVE_DEMO_TOKEN must contain at least 24 characters")
+    product_workload = os.environ.get("AGENT_NATIVE_PRODUCT_WORKLOAD") == "1"
 
     grants = (
         Grant("local-operator", "demo-tenant", "items.read", "/items"),
@@ -90,6 +91,10 @@ def main() -> None:
         Grant("local-operator", "demo-tenant", "jobs.submit", "/items"),
         Grant("local-operator", "demo-tenant", "jobs.read", "/jobs"),
         Grant("local-operator", "demo-tenant", "jobs.cancel", "/jobs"),
+        *(
+            (Grant("local-operator", "demo-tenant", "contracts.plan", "/control"),)
+            if product_workload else ()
+        ),
     )
     trusted_context = RequestContext(
         principal_id="local-operator",
@@ -97,8 +102,17 @@ def main() -> None:
         now=0,
         grants=grants,
     )
-    identity = MemoryIdentityProvider({token: trusted_context})
-    source = (E009_ROOT / "catalog.an").read_text(encoding="utf-8")
+    identities = {token: trusted_context}
+    if product_workload:
+        identities[token + "-read-only"] = RequestContext(
+            principal_id="local-operator",
+            tenant_id="demo-tenant",
+            now=0,
+            grants=(Grant("local-operator", "demo-tenant", "items.read", "/items"),),
+        )
+    identity = MemoryIdentityProvider(identities)
+    source_name = "benchmark_catalog.an" if product_workload else "catalog.an"
+    source = (E009_ROOT / source_name).read_text(encoding="utf-8")
     ir = load_service_ir(source)
     repository = SQLiteCatalogRepository(args.database)
     audit_sink = SQLiteAuditSink(
