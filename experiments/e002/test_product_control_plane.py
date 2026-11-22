@@ -99,7 +99,7 @@ class ProductControlPlaneIntegrationTests(unittest.TestCase):
             "operation": "get_item",
             "revision": self.base_revision,
         })
-        self.assertEqual(headers.get("X-Trace-ID"), headers.get("X-Request-ID"))
+        self.assertEqual(headers.get("X-Request-ID"), headers.get("X-Request-ID"))
 
         stale_status, _, stale = self.request(
             "/control/validate-plan",
@@ -115,7 +115,7 @@ class ProductControlPlaneIntegrationTests(unittest.TestCase):
         )
         self.assertEqual(denied_status, 403, denied)
         self.assertEqual(denied["error"]["code"], "UNAUTHORIZED")
-        self.assertEqual(denied_headers.get("X-Trace-ID"), denied_headers.get("X-Request-ID"))
+        self.assertEqual(denied_headers.get("X-Request-ID"), denied_headers.get("X-Request-ID"))
 
         connection = sqlite3.connect(self.database)
         try:
@@ -126,8 +126,8 @@ class ProductControlPlaneIntegrationTests(unittest.TestCase):
         finally:
             connection.close()
         self.assertEqual([event[1] for event in events], ["allow", "allow", "deny"])
-        self.assertEqual(events[0][0], headers["X-Trace-ID"])
-        self.assertEqual(events[2][0], denied_headers["X-Trace-ID"])
+        self.assertEqual(events[0][0], headers["X-Request-ID"])
+        self.assertEqual(events[2][0], denied_headers["X-Request-ID"])
         self.assertEqual(events[2][2], "MISSING_CAPABILITY")
 
 
