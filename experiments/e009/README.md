@@ -182,3 +182,10 @@ This is an in-process publication guarantee only. It does not cover multi-proces
 
 The harness includes both saturated closed-loop diagnostics and a paced open-loop workload. A 100 req/s, 10-repetition run completed 10,000 requests with zero unexpected outcomes; aggregate p99 was 73.82 ms and process-tree CPU was 16.1% of one pinned core, but two repetitions exceeded 100 ms p99. A second 2 ms audit-window cohort had all repetition p99 values below 8.3 ms but used more CPU and did not reduce audit transaction count. A 0.5 ms replication again showed two repetition tail outliers. These shared-runner measurements are diagnostic, not a stable capacity certification; cgroup cpu.max was unlimited and FULL audit durability remained enabled.
 
+
+
+## E-002 product workload reference path
+
+For the E-002 product request mix, run the same E-009 host with `AGENT_NATIVE_PRODUCT_WORKLOAD=1`. This loads the benchmark-only `benchmark_catalog.an` contract and adds a separately scoped `contracts.plan` grant to the trusted benchmark identity. A second read-only identity is used for the expected-denial class. The normal `catalog.an` and E-009 local-agent task remain unchanged. `experiments/e009/performance_smoke.py` now schedules the seeded 60% authorized-read, 20% validate/plan, 10% durable job-admission, and 10% expected-denial mix. The schedule seed is recorded in source as `WORKLOAD_SEED`; the 10-request block gives exact proportions and randomized ordering.
+
+This is a Python reference workload only. It does not establish candidate parity, a production Gateway full-lifecycle benchmark, or controlled-host capacity. Candidate ports and fault-injection parity remain required before runtime ranking.
