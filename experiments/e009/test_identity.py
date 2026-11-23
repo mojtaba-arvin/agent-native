@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from identity import MemoryIdentityProvider
+from experiments.e009.identity import MemoryIdentityProvider
 from security_model import Grant, RequestContext
 
 
