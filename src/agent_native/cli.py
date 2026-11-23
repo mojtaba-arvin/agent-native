@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import importlib.resources
 import json
 import re
 import sys
@@ -11,10 +12,11 @@ from urllib.parse import urlsplit
 
 
 class CLIError(Exception):
-    def __init__(self, code: str, message: str, exit_code: int = 3):
+    def __init__(self, code: str, message: str, exit_code: int = 3, *, details: dict | None = None):
         super().__init__(message)
         self.code = code
         self.exit_code = exit_code
+        self.details = details or {}
 
 
 class JSONArgumentParser(argparse.ArgumentParser):
@@ -29,15 +31,22 @@ def _emit(value: dict) -> None:
 
 
 def _error(error: CLIError) -> int:
-    print(
-        json.dumps(
-            {"error": {"code": error.code, "message": str(error)}},
-            ensure_ascii=False,
-            sort_keys=True,
-        ),
-        file=sys.stderr,
-    )
+    payload = {"error": {"code": error.code, "message": str(error), **error.details}}
+    print(json.dumps(payload, ensure_ascii=False, sort_keys=True), file=sys.stderr)
     return error.exit_code
+
+
+def _diagnostic_hint(code: str) -> str:
+    hints = {
+        "AN001": "Check the character at the reported location; service contracts use the documented Agent Native DSL tokens.",
+        "AN002": "Compare the declaration with docs/IR_V1.md and add the missing or expected token.",
+        "AN003": "Use the required token kind; identifiers, strings, and punctuation are distinct.",
+        "AN005": "Give each operation a unique name.",
+        "AN016": "Give each record type a unique name.",
+        "AN020": "Declare the referenced record type or use a supported built-in type.",
+        "AN007": "Declare at least one operation in the service.",
+    }
+    return hints.get(code, "Review the reported source location and the v1 contract in docs/IR_V1.md.")
 
 
 def _read_service(path: str):
@@ -53,9 +62,64 @@ def _read_service(path: str):
     except Diagnostic as error:
         raise CLIError(
             error.code,
-            f"{error.message} at {error.token.line}:{error.token.column}",
+            error.message,
+            details={
+                "diagnostics": [{
+                    "code": error.code,
+                    "message": error.message,
+                    "source_span": {
+                        "line": error.token.line,
+                        "column": error.token.column,
+                    },
+                    "fix_hint": _diagnostic_hint(error.code),
+                }]
+            },
         ) from error
     return service_path, ir
+
+
+def _schema_files() -> dict[str, object]:
+    directory = importlib.resources.files("agent_native").joinpath("schemas")
+    try:
+        files = {
+            item.name.removesuffix(".schema.json"): item
+            for item in directory.iterdir()
+            if item.is_file() and item.name.endswith(".schema.json")
+        }
+    except (FileNotFoundError, NotADirectoryError) as error:
+        raise CLIError(
+            "schema_catalog_unavailable",
+            "packaged JSON Schema resources are missing; reinstall the agent-native package",
+        ) from error
+    return dict(sorted(files.items()))
+
+
+def command_schema(args: argparse.Namespace) -> int:
+    schemas = _schema_files()
+    if args.name is None or args.list:
+        _emit({
+            "status": "available",
+            "schemas": [
+                {"name": name, "resource": f"agent_native/schemas/{name}.schema.json"}
+                for name in schemas
+            ],
+        })
+        return 0
+    if not re.fullmatch(r"[a-z0-9-]+", args.name):
+        raise CLIError("invalid_schema_name", "schema name must contain lowercase ASCII letters, digits, and hyphens")
+    resource = schemas.get(args.name)
+    if resource is None:
+        raise CLIError(
+            "schema_not_found",
+            f"unknown schema {args.name!r}",
+            details={"available_schemas": list(schemas)},
+        )
+    try:
+        value = json.loads(resource.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as error:
+        raise CLIError("schema_resource_invalid", f"packaged schema {args.name!r} cannot be read as JSON") from error
+    _emit({"name": args.name, "schema": value})
+    return 0
 
 
 def _route_pattern(template: str) -> re.Pattern[str]:
@@ -70,13 +134,24 @@ def _route_pattern(template: str) -> re.Pattern[str]:
 
 
 def command_check(args: argparse.Namespace) -> int:
-    path, ir = _read_service(args.service)
+    _path, ir = _read_service(args.service)
     _emit({
         "status": "valid",
         "service": ir["service"]["name"],
         "version": ir["service"]["version"],
         "operations": len(ir["operations"]),
         "service_path": args.service,
+    })
+    return 0
+
+
+def command_diagnose(args: argparse.Namespace) -> int:
+    path, ir = _read_service(args.service)
+    _emit({
+        "status": "valid",
+        "service": ir["service"]["name"],
+        "service_path": str(path),
+        "diagnostics": [],
     })
     return 0
 
@@ -194,6 +269,15 @@ def build_parser() -> JSONArgumentParser:
     check = subparsers.add_parser("check", help="validate a service contract")
     check.add_argument("--service", required=True, help="explicit path to a service contract")
     check.set_defaults(handler=command_check)
+
+    diagnose = subparsers.add_parser("diagnose", help="validate a contract and return actionable diagnostics")
+    diagnose.add_argument("--service", required=True, help="explicit path to a service contract")
+    diagnose.set_defaults(handler=command_diagnose)
+
+    schema = subparsers.add_parser("schema", help="discover or print a packaged JSON Schema")
+    schema.add_argument("--list", action="store_true", help="list all packaged schema identifiers")
+    schema.add_argument("--name", help="schema identifier without the .schema.json suffix")
+    schema.set_defaults(handler=command_schema)
 
     inspect = subparsers.add_parser("inspect", help="print canonical service IR")
     inspect.add_argument("--service", required=True, help="explicit path to a service contract")
