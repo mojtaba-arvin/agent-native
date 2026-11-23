@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sys
+import threading
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -36,7 +37,11 @@ NEW_OPERATION = {
 
 
 class SandboxApplyCoordinator:
-    """Builds and publishes a new ServiceRuntime instance inside a private demo directory."""
+    """Publishes one validated demo runtime at a time inside a private directory.
+
+    The lock and idempotency cache are process-local. They are not a cross-process
+    lock, a filesystem sandbox, or a production deployment boundary.
+    """
 
     def __init__(self, root: str | Path):
         self.root = Path(root).expanduser().resolve()
@@ -63,6 +68,8 @@ class SandboxApplyCoordinator:
         )
         self.runtime = self._build_runtime(self.initial_ir)
         self.applied_revision: str | None = None
+        self._applied_result: dict | None = None
+        self._apply_lock = threading.RLock()
 
     def _get_item_by_normalized_name(self, context):
         normalized = str(context.values["name"]).strip().casefold()
@@ -74,7 +81,7 @@ class SandboxApplyCoordinator:
             raise DomainFault("NotFound", "item")
         return item
 
-    def _build_runtime(self, ir: dict) -> ServiceRuntime:
+    def _build_runtime(self, ir: dict, *, audit_sink=None) -> ServiceRuntime:
         handlers = build_catalog_handlers(self.repository)
         if any(item.get("name") == NEW_OPERATION["name"] for item in ir["operations"]):
             handlers[NEW_OPERATION["name"]] = self._get_item_by_normalized_name
@@ -84,10 +91,16 @@ class SandboxApplyCoordinator:
             repository=self.repository,
             trusted_effects=TRUSTED_EFFECTS,
             clock=lambda: self.now,
-            audit_sink=self.audit_sink,
+            audit_sink=self.audit_sink if audit_sink is None else (None if audit_sink is False else audit_sink),
         )
 
     def apply(self, proposal: dict, context: dict) -> dict:
+        # Serialize validation, smoke, audit, and publication. A same-revision
+        # contender observes the committed result instead of publishing twice.
+        with self._apply_lock:
+            return self._apply_locked(proposal, context)
+
+    def _apply_locked(self, proposal: dict, context: dict) -> dict:
         ir = proposal.get("ir")
         if not isinstance(ir, dict) or not isinstance(ir.get("operations"), list):
             raise ValueError("sandbox_apply_ir_missing")
@@ -104,10 +117,38 @@ class SandboxApplyCoordinator:
         if ir != expected_ir:
             raise ValueError("sandbox_apply_contract_not_preserved")
 
-        candidate_runtime = self._build_runtime(ir)
+        revision = digest(ir)
+        if self.applied_revision == revision and self._applied_result is not None:
+            return {**self._applied_result, "replayed": True}
+
         request_id = context.get("request_id")
         if not isinstance(request_id, str) or not request_id:
             raise ValueError("sandbox_apply_request_id_required")
+
+        # Smoke the candidate without writing an audit record. A failed
+        # candidate must not look like an applied revision in the durable log.
+        candidate_runtime = self._build_runtime(ir, audit_sink=False)
+        smoke = candidate_runtime.dispatch(
+            "GET",
+            "/items/by-normalized-name/BLUE-LAMP",
+            {},
+            self.identity,
+            request_id=f"{request_id}-runtime-smoke",
+        )
+        if smoke.status_code != 200 or smoke.body.get("data", {}).get("name") != "blue-lamp":
+            raise ValueError("sandbox_runtime_smoke_test_failed")
+
+        published_runtime = self._build_runtime(ir)
+        published_smoke = published_runtime.dispatch(
+            "GET",
+            "/items/by-normalized-name/BLUE-LAMP",
+            {},
+            self.identity,
+            request_id=f"{request_id}-runtime-smoke",
+        )
+        if published_smoke.status_code != 200 or published_smoke.body.get("data", {}).get("name") != "blue-lamp":
+            raise ValueError("sandbox_runtime_smoke_test_failed")
+
         self.audit_sink({
             "principal_id": self.identity.principal_id,
             "tenant_id": self.identity.tenant_id,
@@ -119,26 +160,18 @@ class SandboxApplyCoordinator:
             "request_id": request_id,
             "timestamp": self.now,
         })
-        previous_runtime = self.runtime
-        self.runtime = candidate_runtime
-        smoke = self.runtime.dispatch(
-            "GET",
-            "/items/by-normalized-name/BLUE-LAMP",
-            {},
-            self.identity,
-            request_id=f"{request_id}-runtime-smoke",
-        )
-        if smoke.status_code != 200 or smoke.body.get("data", {}).get("name") != "blue-lamp":
-            self.runtime = previous_runtime
-            raise ValueError("sandbox_runtime_smoke_test_failed")
-        self.applied_revision = digest(ir)
-        events = self.audit_sink.list_events()
-        return {
+        # These assignments occur under the same process-local lock.
+        self.runtime = published_runtime
+        self.applied_revision = revision
+        result = {
             "applied": True,
             "sandbox_only": True,
-            "revision": self.applied_revision,
+            "revision": revision,
             "runtime_smoke_test": {"status_code": smoke.status_code, "body": smoke.body},
-            "audit_event_count": len(events),
+            "audit_event_count": len(self.audit_sink.list_events()),
             "apply_request_id": request_id,
             "runtime_request_id": f"{request_id}-runtime-smoke",
+            "replayed": False,
         }
+        self._applied_result = result
+        return dict(result)
