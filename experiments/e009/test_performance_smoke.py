@@ -40,6 +40,10 @@ class E009CapacityGateTests(unittest.TestCase):
         self.assertIn("Validate frozen preregistration and decision chain", section)
         self.assertIn("python scripts/check_preregistrations.py", section)
         self.assertIn("--config experiments/e009/capacity-confirmation-v1.json", section)
+        self.assertIn('--trace-output "$RUNNER_TEMP/e009-requests.jsonl"', section)
+        self.assertIn('--manifest-output "$RUNNER_TEMP/e009-run-manifest.json"', section)
+        self.assertIn("${{ runner.temp }}/e009-requests.jsonl", section)
+        self.assertIn("${{ runner.temp }}/e009-run-manifest.json", section)
         self.assertLess(
             section.index("python scripts/check_preregistrations.py"),
             section.index("python experiments/e009/performance_smoke.py"),
