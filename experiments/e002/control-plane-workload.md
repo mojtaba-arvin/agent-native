@@ -144,3 +144,13 @@ The E-009 Python reference host now exposes an isolated benchmark contract in `b
 The validate/plan benchmark operation is a read-only reference operation over the frozen base Catalog contract; it is not a claim that the full agent Gateway proposal lifecycle has been benchmarked. The HTTP host continues to use strict bounded JSON parsing, trusted in-memory identity fixtures, contract validation, default-deny authorization, durable audit, and versioned runtime responses. Integration tests verify valid/stale plan requests, missing-capability denial, and trace-to-audit correlation.
 
 **Remaining E-002 gates:** shared storage adapter conformance across runtimes, all required fault-injection cases under the product mix, Go/Rust/WASI/BEAM workload parity, ten randomized 5,000-request repetitions, and controlled one-vCPU cgroup accounting. Until those gates pass, this is an executable reference workload—not a runtime comparison or capacity certification.
+
+## 10. Request-level evidence artifacts
+
+A preregistered or capacity-gated Python reference run must preserve three linked artifacts:
+
+- **Summary JSON:** aggregate and per-operation metrics, repetitions, audit counters, resource accounting, and gate outcome.
+- **Request JSONL:** one record for every measured request, ordered by repetition and request index. Each record includes the operation class, method/path, expected and actual status, request/response SHA-256 fingerprints, latency, client queue delay, response size, and expectation outcome.
+- **Run manifest JSON:** run ID and UTC interval; exact Git revision and clean/dirty state; SHA-256 pins for the runner, Catalog contract, and seeded schedule; Python/platform metadata; request mix and seed; all cohort parameters; preregistration blob SHA-1 and thresholds; and request-trace SHA-256 plus record count.
+
+Preregistered and capacity-gated runs require all three output paths. They fail closed if the source revision is unavailable or the worktree is dirty. The manual capacity workflow uploads the summary, raw request trace, and run manifest together. The manifest binds the trace by SHA-256 so that the request-level evidence can be checked independently of the aggregate report.
