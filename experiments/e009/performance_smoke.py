@@ -604,7 +604,7 @@ def main():
                     if scheduled_at is not None else 0.0
                 )
                 request_fingerprint = hashlib.sha256(json.dumps(
-                    {"method": method, "path": target, "body": body},
+                    {"method": method, "path": target, "body": body, "idempotency_key": key},
                     sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False,
                 ).encode("utf-8")).hexdigest()
                 return {
