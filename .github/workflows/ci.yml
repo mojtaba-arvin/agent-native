@@ -618,13 +618,18 @@ jobs:
         run: |
           python experiments/e009/performance_smoke.py \
             --config experiments/e009/capacity-confirmation-v1.json \
-            --output "$RUNNER_TEMP/e009-performance.json"
+            --output "$RUNNER_TEMP/e009-performance.json" \
+            --trace-output "$RUNNER_TEMP/e009-requests.jsonl" \
+            --manifest-output "$RUNNER_TEMP/e009-run-manifest.json"
       - name: Upload E-009 performance evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: e009-performance-confirmation-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/e009-performance.json
+          path: |
+            ${{ runner.temp }}/e009-performance.json
+            ${{ runner.temp }}/e009-requests.jsonl
+            ${{ runner.temp }}/e009-run-manifest.json
           if-no-files-found: ignore
           retention-days: 30
       - name: Publish E-009 run and artifact reference to issue #58
