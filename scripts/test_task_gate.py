@@ -73,6 +73,7 @@ class TaskGateTests(unittest.TestCase):
                 [
                     "project-control/PREREGISTRATIONS.json",
                     "project-control/DECISION_EVENTS.jsonl",
+                    ".github/workflows/task-gate.yml",
                 ],
                 kind="process",
                 body="Task: T29",
@@ -98,6 +99,7 @@ class TaskGateTests(unittest.TestCase):
         paths = [
             "project-control/PREREGISTRATIONS.json",
             "project-control/DECISION_EVENTS.jsonl",
+            ".github/workflows/task-gate.yml",
             "project-control/HANDOFF.md",
         ]
         context = make_context(
@@ -109,7 +111,7 @@ class TaskGateTests(unittest.TestCase):
         )
         self.assert_fails(context, "frozen")
         other_task = make_context(
-            paths[:2],
+            paths[:3],
             kind="process",
             body="Task: T30",
             owner_authorized_governance=True,
