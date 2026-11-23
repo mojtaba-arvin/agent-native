@@ -99,11 +99,11 @@
       "record_id": "DECISION-REGISTER-BASELINE-20261119",
       "kind": "decision_register",
       "path": "DECISIONS.json",
-      "git_blob_sha1": "0837f117a1e6a05fa61a385d584f021b89ea8912",
+      "git_blob_sha1": "3a125799d436584264930ce094d47d19c4753d99",
       "status": "frozen",
       "run_ids": [],
-      "decision_event_id": "DECISION-BASELINE-2026-11-19",
-      "notes": "Fourteen structured decisions; only D-0001, D-0002, and D-0006 are decided at this snapshot."
+      "decision_event_id": "DECISION-REGISTER-REFRESH-2026-11-23",
+      "notes": "Current decision-register pin refreshed on 2026-11-23. The original 2026-11-19 baseline event remains immutable and records the historical fourteen-decision snapshot; the current register contains sixteen decisions, including D-0015 and D-0016."
     },
     {
       "record_id": "DESIGN-DECISION-LOG-BASELINE-20261119",
