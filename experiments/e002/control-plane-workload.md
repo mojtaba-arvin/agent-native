@@ -1,6 +1,6 @@
 # E-002 — Product-representative control-plane workload v1
 
-**Status:** workload design proposal; not implemented or benchmarked.  
+**Status:** Python reference workload implemented; not yet benchmarked or ported to candidate runtimes.  
 **Decision boundary:** defines comparable behavior before choosing storage adapters, runtime, protocol, or deployment architecture.  
 **Product scenario:** authenticated Agent/tool-execution control plane.  
 **Inference:** explicitly excluded from the runtime benchmark.
@@ -131,3 +131,16 @@ E-002 can make a product-runtime recommendation only when:
 - No exactly-once claim for arbitrary external effects.
 - No extrapolation from shared hosted runners to production capacity.
 - No candidate is disqualified merely because an adapter has not yet been implemented; mark it not measured until comparable evidence exists.
+
+## 9. Reference workload implementation status
+
+The E-009 Python reference host now exposes an isolated benchmark contract in `benchmark_catalog.an` when `AGENT_NATIVE_PRODUCT_WORKLOAD=1`. Its deterministic seeded schedule is implemented in `experiments/e002/product_workload.py` and preserves exact 60/20/10/10 shares in each ten-request block. The measured path is:
+
+- 60% authenticated tenant-scoped item reads;
+- 20% authenticated, revision-pinned non-mutating validate/plan requests at `POST /control/validate-plan`;
+- 10% atomic durable job admission with job + outbox + idempotency + audit commit;
+- 10% expected missing-capability denials, durably audited with no handler mutation.
+
+The validate/plan benchmark operation is a read-only reference operation over the frozen base Catalog contract; it is not a claim that the full agent Gateway proposal lifecycle has been benchmarked. The HTTP host continues to use strict bounded JSON parsing, trusted in-memory identity fixtures, contract validation, default-deny authorization, durable audit, and versioned runtime responses. Integration tests verify valid/stale plan requests, missing-capability denial, and trace-to-audit correlation.
+
+**Remaining E-002 gates:** shared storage adapter conformance across runtimes, all required fault-injection cases under the product mix, Go/Rust/WASI/BEAM workload parity, ten randomized 5,000-request repetitions, and controlled one-vCPU cgroup accounting. Until those gates pass, this is an executable reference workload—not a runtime comparison or capacity certification.
