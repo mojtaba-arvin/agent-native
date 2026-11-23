@@ -5,6 +5,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import venv
 from pathlib import Path
 
 
@@ -28,6 +29,25 @@ service catalog {
 
 
 class UnifiedCLITests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.install_root = tempfile.TemporaryDirectory(prefix="agent-native-cli-venv-")
+        cls.environment = Path(cls.install_root.name) / "venv"
+        venv.EnvBuilder(with_pip=True, clear=True).create(cls.environment)
+        cls.cli_python = cls.environment / ("Scripts/python.exe" if sys.platform == "win32" else "bin/python")
+        subprocess.run(
+            [str(cls.cli_python), "-m", "pip", "install", "--no-deps", str(Path(__file__).resolve().parents[1])],
+            cwd=Path(__file__).resolve().parents[1],
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=180,
+        )
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.install_root.cleanup()
+
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
         self.root = Path(self.temporary.name)
@@ -39,17 +59,17 @@ class UnifiedCLITests(unittest.TestCase):
 
     def invoke(self, *arguments):
         return subprocess.run(
-            [sys.executable, "-I", "-m", "agent_native.cli", *arguments],
+            [str(self.cli_python), "-I", "-m", "agent_native.cli", *arguments],
             cwd=self.root,
             capture_output=True,
             text=True,
             timeout=10,
         )
 
-    def test_help_exposes_all_five_commands(self):
+    def test_help_exposes_all_seven_commands(self):
         result = self.invoke("--help")
         self.assertEqual(result.returncode, 0)
-        for command in ("check", "run", "inspect", "worker", "audit"):
+        for command in ("check", "run", "inspect", "worker", "audit", "diagnose", "schema"):
             self.assertIn(command, result.stdout)
 
     def test_check_and_inspect_use_explicit_service_path(self):
@@ -117,6 +137,47 @@ class UnifiedCLITests(unittest.TestCase):
         self.assertEqual(result.returncode, 2)
         self.assertEqual(json.loads(result.stderr)["error"]["code"], "invalid_arguments")
 
+
+    def test_schema_discovery_lists_packaged_schemas_and_emits_exact_schema(self):
+        listed = self.invoke("schema", "--list")
+        self.assertEqual(listed.returncode, 0, listed.stderr)
+        names = {item["name"] for item in json.loads(listed.stdout)["schemas"]}
+        self.assertEqual(names, {
+            "gateway-plan-v1", "gateway-proposal-v1", "gateway-validation-v1",
+            "service-ir-v1", "service-manifest-v1", "service-manifest-v2",
+        })
+        selected = self.invoke("schema", "--name", "service-ir-v1")
+        self.assertEqual(selected.returncode, 0, selected.stderr)
+        schema = json.loads(selected.stdout)["schema"]
+        self.assertEqual(schema["title"], "Agent Native Service IR v1")
+        self.assertEqual(schema["$schema"], "https://json-schema.org/draft/2020-12/schema")
+
+    def test_unknown_schema_returns_available_identifiers(self):
+        result = self.invoke("schema", "--name", "not-a-schema")
+        self.assertEqual(result.returncode, 3)
+        error = json.loads(result.stderr)["error"]
+        self.assertEqual(error["code"], "schema_not_found")
+        self.assertIn("service-ir-v1", error["available_schemas"])
+
+    def test_diagnose_returns_empty_diagnostics_for_valid_contract(self):
+        result = self.invoke("diagnose", "--service", str(self.service))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["status"], "valid")
+        self.assertEqual(payload["diagnostics"], [])
+
+    def test_parser_failure_includes_stable_code_location_and_fix_hint(self):
+        invalid = self.root / "invalid.an"
+        invalid.write_text(SERVICE.replace("id: String from path;", "id: MissingRecord from path;"), encoding="utf-8")
+        result = self.invoke("diagnose", "--service", str(invalid))
+        self.assertEqual(result.returncode, 3)
+        error = json.loads(result.stderr)["error"]
+        self.assertEqual(error["code"], "AN020")
+        diagnostic = error["diagnostics"][0]
+        self.assertEqual(diagnostic["code"], "AN020")
+        self.assertGreater(diagnostic["source_span"]["line"], 0)
+        self.assertGreater(diagnostic["source_span"]["column"], 0)
+        self.assertIn("Declare the referenced record type", diagnostic["fix_hint"])
 
 if __name__ == "__main__":
     unittest.main()
