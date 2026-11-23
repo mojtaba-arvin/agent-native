@@ -182,3 +182,11 @@ This is an in-process publication guarantee only. It does not cover multi-proces
 
 The harness includes both saturated closed-loop diagnostics and a paced open-loop workload. A 100 req/s, 10-repetition run completed 10,000 requests with zero unexpected outcomes; aggregate p99 was 73.82 ms and process-tree CPU was 16.1% of one pinned core, but two repetitions exceeded 100 ms p99. A second 2 ms audit-window cohort had all repetition p99 values below 8.3 ms but used more CPU and did not reduce audit transaction count. A 0.5 ms replication again showed two repetition tail outliers. These shared-runner measurements are diagnostic, not a stable capacity certification; cgroup cpu.max was unlimited and FULL audit durability remained enabled.
 
+## Recovery metrics and trace correlation
+
+The E-009 reference work store exposes `DurableWorkStore.recovery_metrics()` as a read-only snapshot derived from persisted job, outbox, and inbox records. It reports job/outbox state counts, claim attempts, multi-attempt jobs, expired active job leases when queried with an explicit clock value, and persisted inbox duplicate-delivery counts. The inbox duplicate counter is committed in the same transaction that recognizes a replay and survives reopening the SQLite store. Metrics collection uses a query-only SQLite connection and does not acquire a write transaction.
+
+HTTP clients may optionally send `X-Trace-ID` as a canonical, non-zero RFC 4122 UUID. The host validates the value before use; malformed values receive `400 INVALID_TRACE_ID` and are never echoed. A valid value is returned in both `X-Trace-ID` and `X-Request-ID`, and the same value remains the `audit_events.request_id` correlation key. If the header is absent, the host generates a UUID. Trace metadata contains only the validated correlation identifier, never bearer tokens or authentication claims.
+
+This is single-node SQLite recovery observability and request-to-audit correlation. It is not distributed tracing across remote services, remote audit replication, tamper-evident infrastructure, or a production observability backend.
+
