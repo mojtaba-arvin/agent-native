@@ -50,7 +50,7 @@ def _validated_trace_id(value: str) -> str | None:
     except (AttributeError, ValueError):
         return None
     canonical = str(parsed)
-    if parsed.int == 0 or canonical != value.lower():
+    if parsed.int == 0 or parsed.variant != uuid.RFC_4122 or canonical != value.lower():
         return None
     return canonical
 
