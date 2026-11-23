@@ -1,0 +1,221 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-native.dev/schemas/service-ir-v1.schema.json",
+  "title": "Agent Native Service IR v1",
+  "description": "Frozen structural contract for the complete, versioned Agent Native service intermediate representation. Cross-field and security-sensitive constraints are enforced by the canonical validate_ir() implementation.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "ir_version",
+    "service",
+    "types",
+    "operations"
+  ],
+  "properties": {
+    "ir_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "service": {
+      "$ref": "#/$defs/service"
+    },
+    "types": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/typeDeclaration"
+      }
+    },
+    "operations": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/operation"
+      }
+    }
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+    },
+    "typeReference": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?:[A-Za-z_][A-Za-z0-9_]*|List<[A-Za-z_][A-Za-z0-9_]*>)$"
+    },
+    "service": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "version"
+      ],
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/identifier"
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "recordField": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "type"
+      ],
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/identifier"
+        },
+        "type": {
+          "$ref": "#/$defs/identifier"
+        }
+      }
+    },
+    "typeDeclaration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "fields"
+      ],
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/identifier"
+        },
+        "fields": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/recordField"
+          }
+        }
+      }
+    },
+    "inputField": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "type",
+        "source"
+      ],
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/identifier"
+        },
+        "type": {
+          "$ref": "#/$defs/identifier"
+        },
+        "source": {
+          "enum": [
+            "path",
+            "query",
+            "body",
+            "header"
+          ]
+        }
+      }
+    },
+    "operation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "method",
+        "path",
+        "input",
+        "output",
+        "errors",
+        "validation",
+        "effects",
+        "capability"
+      ],
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/identifier"
+        },
+        "method": {
+          "enum": [
+            "GET",
+            "POST",
+            "PUT",
+            "PATCH",
+            "DELETE"
+          ]
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^/"
+        },
+        "input": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/inputField"
+          }
+        },
+        "output": {
+          "$ref": "#/$defs/typeReference"
+        },
+        "errors": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "contains": {
+            "const": "Unauthorized"
+          },
+          "description": "Every operation must declare Unauthorized. If input is non-empty, it must also declare InvalidInput; these conditional and semantic rules are enforced by validate_ir()."
+        },
+        "validation": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "effects": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "capability": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "input": {
+                "minItems": 1
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "errors": {
+                "contains": {
+                  "const": "InvalidInput"
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}
