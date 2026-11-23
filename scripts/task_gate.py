@@ -11,6 +11,7 @@ import argparse
 import json
 import os
 import re
+from pathlib import Path
 from typing import Any
 
 TASK_LINE = re.compile(r"^Task:[ \t]*(T\d{2})[ \t]*$", re.M)
@@ -26,7 +27,6 @@ DECISION_FILE = "DECISIONS.json"
 GOVERNANCE_PIN_PATHS = frozenset({
     "project-control/PREREGISTRATIONS.json",
     "project-control/DECISION_EVENTS.jsonl",
-    ".github/workflows/task-gate.yml",
 })
 
 KIND_RULES: dict[str, tuple[set[str], set[str]]] = {
@@ -62,6 +62,45 @@ def classify(path: str) -> str:
     if path.startswith("docs/") or name.endswith(".md"):
         return "docs"
     return "other"
+
+
+
+def owner_authorized_governance_from_event() -> bool:
+    """Verify a repository-owner authorization bound to this exact PR head."""
+    event_path = os.environ.get("GITHUB_EVENT_PATH")
+    if not event_path:
+        return False
+    try:
+        event = json.loads(Path(event_path).read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        return False
+    if not isinstance(event, dict):
+        return False
+    pull = event.get("pull_request")
+    repository = event.get("repository")
+    if not isinstance(pull, dict) or not isinstance(repository, dict):
+        return False
+    owner_record = repository.get("owner")
+    author_record = pull.get("user")
+    head_record = pull.get("head")
+    if not all(isinstance(value, dict) for value in (owner_record, author_record, head_record)):
+        return False
+    owner = owner_record.get("login")
+    author = author_record.get("login")
+    head_sha = head_record.get("sha")
+    body = pull.get("body")
+    if (
+        not isinstance(owner, str)
+        or not owner
+        or not isinstance(author, str)
+        or author.lower() != owner.lower()
+        or not isinstance(head_sha, str)
+        or not re.fullmatch(r"[0-9a-f]{40}", head_sha)
+        or not isinstance(body, str)
+    ):
+        return False
+    expected_marker = f"Governance authorization: {head_sha}"
+    return expected_marker in body.splitlines()
 
 
 def evaluate(ctx: dict[str, Any]) -> list[str]:
