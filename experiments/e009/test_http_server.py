@@ -620,15 +620,37 @@ class KernelHTTPServerTests(unittest.TestCase):
 
 
 
-    def test_trace_header_matches_persisted_audit_request_correlation(self):
-        status, headers, body = self.request("GET", "/items/by-name/not-found")
+    def test_validated_trace_header_is_echoed_and_audited(self):
+        trace_id = "f4f1b7a2-9e2d-4c81-8d63-9d6e6a9f34a1"
+        status, headers, body = self.request(
+            "GET", "/items/by-name/not-found",
+            headers={"X-Trace-ID": trace_id},
+        )
         self.assertEqual(status, 404, body)
-        self.assertEqual(headers.get("X-Trace-ID"), headers.get("X-Request-ID"))
+        self.assertEqual(headers.get("X-Trace-ID"), trace_id)
+        self.assertEqual(headers.get("X-Request-ID"), trace_id)
         events = self.audit_sink.list_events()
-        self.assertTrue(any(
-            event["request_id"] == headers["X-Trace-ID"]
-            for event in events
-        ))
+        self.assertTrue(any(event["request_id"] == trace_id for event in events))
+
+    def test_malformed_trace_header_is_rejected_without_echo(self):
+        malformed_values = (
+            "not-a-uuid",
+            "00000000-0000-0000-0000-000000000000",
+            "f4f1b7a29e2d4c818d639d6e6a9f34a1",
+            "f4f1b7a2-9e2d-4c81-8d63-9d6e6a9f34a1/extra",
+        )
+        for invalid in malformed_values:
+            with self.subTest(invalid=invalid):
+                before = len(self.audit_sink.list_events())
+                status, headers, body = self.request(
+                    "GET", "/items/by-name/not-found",
+                    headers={"X-Trace-ID": invalid},
+                )
+                self.assertEqual(status, 400, body)
+                self.assertEqual(body["error"]["code"], "INVALID_TRACE_ID")
+                self.assertNotEqual(headers.get("X-Trace-ID"), invalid)
+                self.assertEqual(headers.get("X-Trace-ID"), headers.get("X-Request-ID"))
+                self.assertEqual(len(self.audit_sink.list_events()), before)
 
 if __name__ == "__main__":
     unittest.main()
