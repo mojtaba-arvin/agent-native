@@ -95,11 +95,18 @@ jobs:
               }
             }
 
+            const ownerAuthorizedGovernance =
+              pr.user?.login?.toLowerCase() === repo.owner.toLowerCase() &&
+              body.split(/\\r?\\n/).some(line =>
+                line.trim() === 'Governance authorization: ' + pr.head.sha
+              );
+
             const result = {
               files: fileNames,
               body,
               task,
               acceptance_exists: acceptanceExists,
+              owner_authorized_governance: ownerAuthorizedGovernance,
               paused: process.env.PAUSED === 'true'
             };
             fs.writeFileSync('context.json', JSON.stringify(result));
