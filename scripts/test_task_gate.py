@@ -75,7 +75,7 @@ class TaskGateTests(unittest.TestCase):
                     "project-control/DECISION_EVENTS.jsonl",
                 ],
                 kind="process",
-                body="Task: T29\\n\\nGovernance authorization: exact-head",
+                body="Task: T29",
                 owner_authorized_governance=True,
                 acceptance_exists=False,
             )
