@@ -1,5 +1,10 @@
 import copy
+import json
+import os
+import tempfile
 import unittest
+from pathlib import Path
+from unittest.mock import patch
 
 import task_gate as gate
 
@@ -73,7 +78,6 @@ class TaskGateTests(unittest.TestCase):
                 [
                     "project-control/PREREGISTRATIONS.json",
                     "project-control/DECISION_EVENTS.jsonl",
-                    ".github/workflows/task-gate.yml",
                 ],
                 kind="process",
                 body="Task: T29",
@@ -111,13 +115,49 @@ class TaskGateTests(unittest.TestCase):
         )
         self.assert_fails(context, "frozen")
         other_task = make_context(
-            paths[:3],
+            paths[:2],
             kind="process",
             body="Task: T30",
             owner_authorized_governance=True,
             acceptance_exists=False,
         )
         self.assert_fails(other_task, "frozen")
+
+
+    def test_owner_authorization_event_is_bound_to_exact_head_and_repo_owner(self):
+        head = "a" * 40
+        event = {
+            "repository": {"owner": {"login": "mojtaba-arvin"}},
+            "pull_request": {
+                "user": {"login": "mojtaba-arvin"},
+                "head": {"sha": head},
+                "body": f"Task: T29\\n\\nGovernance authorization: {head}",
+            },
+        }
+        with tempfile.TemporaryDirectory() as temporary:
+            event_path = Path(temporary) / "event.json"
+            with patch.dict(os.environ, {"GITHUB_EVENT_PATH": str(event_path)}):
+                event_path.write_text(json.dumps(event), encoding="utf-8")
+                self.assertTrue(gate.owner_authorized_governance_from_event())
+
+                stale = copy.deepcopy(event)
+                stale["pull_request"]["body"] = "Task: T29\\n\\nGovernance authorization: " + "b" * 40
+                event_path.write_text(json.dumps(stale), encoding="utf-8")
+                self.assertFalse(gate.owner_authorized_governance_from_event())
+
+                non_owner = copy.deepcopy(event)
+                non_owner["pull_request"]["user"]["login"] = "contributor"
+                event_path.write_text(json.dumps(non_owner), encoding="utf-8")
+                self.assertFalse(gate.owner_authorized_governance_from_event())
+
+    def test_owner_authorization_event_fails_closed_when_missing_or_malformed(self):
+        with patch.dict(os.environ, {}, clear=True):
+            self.assertFalse(gate.owner_authorized_governance_from_event())
+        with tempfile.TemporaryDirectory() as temporary:
+            event_path = Path(temporary) / "event.json"
+            event_path.write_text("{", encoding="utf-8")
+            with patch.dict(os.environ, {"GITHUB_EVENT_PATH": str(event_path)}):
+                self.assertFalse(gate.owner_authorized_governance_from_event())
 
     def test_acceptance_pr_must_be_separate(self):
         self.assert_passes(make_context(["acceptance/T07.sh"], acceptance_exists=False))
