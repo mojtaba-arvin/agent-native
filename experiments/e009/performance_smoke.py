@@ -263,9 +263,9 @@ def write_request_trace(path: Path, results: list[dict]) -> str:
     """Persist one deterministic JSONL record per measured request and return SHA-256."""
     path.parent.mkdir(parents=True, exist_ok=True)
     ordered = sorted(results, key=lambda item: (item["repetition"], item["request_index"]))
-    with path.open("w", encoding="utf-8", newline="\\n") as stream:
+    with path.open("w", encoding="utf-8", newline="\n") as stream:
         for item in ordered:
-            stream.write(json.dumps(item, sort_keys=True, separators=(",", ":")) + "\\n")
+            stream.write(json.dumps(item, sort_keys=True, separators=(",", ":")) + "\n")
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
