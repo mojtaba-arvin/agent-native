@@ -83,6 +83,7 @@ def main() -> None:
     token = os.environ.get("AGENT_NATIVE_DEMO_TOKEN", "")
     if len(token) < 24:
         parser.error("AGENT_NATIVE_DEMO_TOKEN must contain at least 24 characters")
+    product_workload = os.environ.get("AGENT_NATIVE_PRODUCT_WORKLOAD") == "1"
 
     def authenticate_demo_operator() -> RequestContext:
         # The identity provider invokes this factory only after the bearer
@@ -94,6 +95,10 @@ def main() -> None:
             Grant("local-operator", "demo-tenant", "jobs.submit", "/items"),
             Grant("local-operator", "demo-tenant", "jobs.read", "/jobs"),
             Grant("local-operator", "demo-tenant", "jobs.cancel", "/jobs"),
+            *(
+                (Grant("local-operator", "demo-tenant", "contracts.plan", "/control"),)
+                if product_workload else ()
+            ),
         )
         return RequestContext(
             principal_id="local-operator",
@@ -102,8 +107,20 @@ def main() -> None:
             grants=grants,
         )
 
-    identity = MemoryIdentityProvider({token: authenticate_demo_operator})
-    source = (E009_ROOT / "catalog.an").read_text(encoding="utf-8")
+    def authenticate_read_only_operator() -> RequestContext:
+        return RequestContext(
+            principal_id="local-operator",
+            tenant_id="demo-tenant",
+            now=int(time.time()),
+            grants=(Grant("local-operator", "demo-tenant", "items.read", "/items"),),
+        )
+
+    identities = {token: authenticate_demo_operator}
+    if product_workload:
+        identities[token + "-read-only"] = authenticate_read_only_operator
+    identity = MemoryIdentityProvider(identities)
+    source_name = "benchmark_catalog.an" if product_workload else "catalog.an"
+    source = (E009_ROOT / source_name).read_text(encoding="utf-8")
     ir = load_service_ir(source)
     repository = SQLiteCatalogRepository(args.database)
     audit_sink = SQLiteAuditSink(
@@ -124,9 +141,14 @@ def main() -> None:
         parser.error(str(error))
     runtime = ServiceRuntime(
         ir,
-        handlers=build_catalog_handlers(repository, work_store),
+        handlers=build_catalog_handlers(
+            repository, work_store, include_plan_operation=product_workload
+        ),
         repository=repository,
-        trusted_effects={"repository.read", "repository.write", "queue.submit", "queue.read", "queue.cancel"},
+        trusted_effects={
+            "repository.read", "repository.write", "queue.submit",
+            "queue.read", "queue.cancel", "contract.read",
+        },
         audit_sink=audit_sink,
     )
     server = create_server(
