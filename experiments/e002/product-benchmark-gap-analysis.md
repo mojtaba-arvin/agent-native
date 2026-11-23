@@ -48,3 +48,9 @@ A candidate is eligible for the product benchmark only after it passes:
 - a harness self-test that proves cgroup membership covers the full candidate process tree.
 
 Until then, publish only build/conformance and sampler smoke results. No weighted score or architecture winner is permitted.
+
+## Reference workload implementation update — 2026-11-22
+
+The Python reference host now has a benchmark-only `plan_operation` endpoint backed by the same E-009 runtime, trusted identity resolution, default-deny policy engine, and durable audit sink. The benchmark-only contract is isolated in `experiments/e009/benchmark_catalog.an`; the ordinary six-operation agent-evaluation contract in `catalog.an` is unchanged. The load runner now uses the registered seeded 60/20/10/10 mix instead of the former 60% item-read / 20% job-read / 10% job-admission / 10% unauthenticated-read diagnostic mix.
+
+This closes the reference-host workload gap only. No Go/Rust/WASI/BEAM candidate has product parity yet, and no controlled-host capacity result is produced by this change.
