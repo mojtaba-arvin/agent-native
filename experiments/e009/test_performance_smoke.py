@@ -1,11 +1,16 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 
-from performance_smoke import DEFAULT_CAPACITY_THRESHOLDS, evaluate_capacity_gate, load_preregistration_config
+from performance_smoke import (
+    DEFAULT_CAPACITY_THRESHOLDS, build_run_manifest, evaluate_capacity_gate,
+    load_preregistration_config, write_request_trace,
+)
 
 
 class E009CapacityGateTests(unittest.TestCase):
@@ -51,6 +56,51 @@ class E009CapacityGateTests(unittest.TestCase):
         self.assertEqual(config["parameters"]["audit_batch_delay_ms"], 1.0)
         self.assertEqual(config["thresholds"]["maximum_aggregate_p99_ms"], 100)
         self.assertRegex(blob_sha1, r"^[0-9a-f]{40}$")
+
+    def test_request_trace_is_complete_deterministic_jsonl_with_digest(self):
+        records = [
+            {"repetition": 2, "request_index": 1, "kind": "job_admission", "ok": True},
+            {"repetition": 1, "request_index": 2, "kind": "expected_denial", "ok": True},
+            {"repetition": 1, "request_index": 1, "kind": "authorized_read", "ok": True},
+        ]
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "nested" / "requests.jsonl"
+            digest = write_request_trace(path, records)
+            lines = path.read_text(encoding="utf-8").splitlines()
+        decoded = [json.loads(line) for line in lines]
+        self.assertEqual(
+            [(item["repetition"], item["request_index"]) for item in decoded],
+            [(1, 1), (1, 2), (2, 1)],
+        )
+        self.assertEqual(len(decoded), len(records))
+        self.assertEqual(digest, hashlib.sha256(path.read_bytes()).hexdigest())
+
+    def test_run_manifest_pins_source_parameters_preregistration_and_trace(self):
+        args = SimpleNamespace(
+            requests=5000, repetitions=10, concurrency=32, target_rps=100.0,
+            containerized=True, enforce_capacity_gate=True, audit_batch_delay_ms=1.0,
+            job_batch_size=32, job_batch_delay_ms=0.5, config=Path("capacity.json"),
+            output=Path("summary.json"),
+        )
+        preregistration = {"cohort_id": "E009-COHORT"}
+        manifest = build_run_manifest(
+            run_id="run-123",
+            started_at_utc="2026-11-23T10:00:00+00:00",
+            finished_at_utc="2026-11-23T10:05:00+00:00",
+            source={"revision": "a" * 40, "working_tree_clean": True, "sha256": {}},
+            args=args,
+            trace_path=Path("requests.jsonl"),
+            trace_sha256="b" * 64,
+            trace_count=50000,
+            preregistration=preregistration,
+            preregistration_sha1="c" * 40,
+        )
+        self.assertEqual(manifest["source"]["revision"], "a" * 40)
+        self.assertEqual(manifest["parameters"]["repetitions"], 10)
+        self.assertEqual(manifest["preregistration"]["git_blob_sha1"], "c" * 40)
+        self.assertEqual(manifest["request_trace"]["records"], 50000)
+        self.assertEqual(manifest["request_trace"]["sha256"], "b" * 64)
+        json.dumps(manifest)
 
     def test_capacity_gate_uses_supplied_preregistered_thresholds(self):
         thresholds = dict(DEFAULT_CAPACITY_THRESHOLDS)
