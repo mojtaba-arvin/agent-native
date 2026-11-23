@@ -43,7 +43,8 @@ permissions:
   pull-requests: read
 
 jobs:
-  # No job-level concurrency groups: preserve in-flight evidence across PR updates.
+  # Each expensive lane has its own branch-scoped queue. A run in one lane
+  # cannot cancel or occupy another lane's concurrency group.
   changes:
     name: Detect extended-check impact
     runs-on: ubuntu-latest
@@ -126,6 +127,9 @@ jobs:
             }
 
   fast:
+    concurrency:
+      group: agent-native-fast-${{ github.event.pull_request.number || github.ref }}
+      cancel-in-progress: false
     name: Layer 0 · deterministic fast checks
     if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
@@ -251,9 +255,12 @@ jobs:
             bash scripts/fast.sh --json-summary "$RUNNER_TEMP/fast-ci-summary.json"
           fi
       - name: Generate source-verified evidence scorecard
-        if: always()
+        if: always() && steps.paths.outcome == 'success'
         run: |
-          test -s "$RUNNER_TEMP/fast-ci-summary.json"
+          if [[ ! -s "$RUNNER_TEMP/fast-ci-summary.json" ]]; then
+            echo "Fast checks did not emit a summary; skipping scorecard without masking the primary failure."
+            exit 0
+          fi
           python scripts/generate_scorecard.py \
             --summary "$RUNNER_TEMP/fast-ci-summary.json" \
             --ledger project-control/RUN_LEDGER.jsonl \
@@ -267,10 +274,13 @@ jobs:
           path: |
             ${{ runner.temp }}/fast-ci-summary.json
             ${{ runner.temp }}/fast-ci-scorecard.json
-          if-no-files-found: error
+          if-no-files-found: ignore
           retention-days: 30
 
   extended:
+    concurrency:
+      group: agent-native-extended-${{ github.event.pull_request.number || github.ref }}
+      cancel-in-progress: false
     name: Layer 1 · native, container, and database validation
     needs: changes
     if: always() && (github.event_name == 'merge_group' || github.event_name == 'schedule' || needs.changes.result != 'success' || needs.changes.outputs.extended == 'true')
@@ -404,6 +414,9 @@ jobs:
           retention-days: 14
 
   models:
+    concurrency:
+      group: agent-native-models-${{ github.event.pull_request.number || github.ref }}
+      cancel-in-progress: false
     name: Layer 2 · manual CPU diagnostics (not M3 acceptance)
     if: github.event_name == 'workflow_dispatch' && inputs.model_suite != 'none'
     runs-on: ubuntu-latest
@@ -514,6 +527,9 @@ jobs:
             });
 
   benchmark:
+    concurrency:
+      group: agent-native-benchmark-${{ github.event.pull_request.number || github.ref }}
+      cancel-in-progress: false
     name: Layer 1 · explicit performance matrix
     if: github.event_name == 'workflow_dispatch' && inputs.run_benchmark_matrix
     runs-on: ubuntu-latest
@@ -580,6 +596,9 @@ jobs:
           retention-days: 30
 
   performance-confirmation:
+    concurrency:
+      group: agent-native-performance-confirmation-${{ github.event.pull_request.number || github.ref }}
+      cancel-in-progress: false
     name: Explicit E-009 ten-repetition capacity confirmation
     if: github.event_name == 'workflow_dispatch' && inputs.run_e009_performance_confirmation
     runs-on: ubuntu-latest
@@ -642,6 +661,9 @@ jobs:
             });
 
   lockfiles:
+    concurrency:
+      group: agent-native-lockfiles-${{ github.event.pull_request.number || github.ref }}
+      cancel-in-progress: false
     name: Generate pinned Rust dependency lockfiles
     if: github.event_name == 'workflow_dispatch' && inputs.generate_lockfiles
     runs-on: ubuntu-latest
