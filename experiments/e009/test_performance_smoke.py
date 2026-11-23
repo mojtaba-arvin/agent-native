@@ -86,7 +86,7 @@ class E009CapacityGateTests(unittest.TestCase):
             job_batch_size=32, job_batch_delay_ms=0.5, config=Path("capacity.json"),
             output=Path("summary.json"),
         )
-        preregistration = {"cohort_id": "E009-COHORT"}
+        preregistration = {"cohort_id": "E009-COHORT", "thresholds": DEFAULT_CAPACITY_THRESHOLDS}
         manifest = build_run_manifest(
             run_id="run-123",
             started_at_utc="2026-11-23T10:00:00+00:00",
