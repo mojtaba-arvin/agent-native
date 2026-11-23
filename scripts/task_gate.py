@@ -182,6 +182,7 @@ def main() -> int:
     args = parser.parse_args()
     with open(args.context, encoding="utf-8") as context_file:
         context = json.load(context_file)
+    context["owner_authorized_governance"] = owner_authorized_governance_from_event()
     violations = evaluate(context)
     summary = "Task gate: PASS" if not violations else "Task gate: FAIL\n- " + "\n- ".join(violations)
     print(summary)
