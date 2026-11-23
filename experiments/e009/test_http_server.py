@@ -638,6 +638,7 @@ class KernelHTTPServerTests(unittest.TestCase):
             "00000000-0000-0000-0000-000000000000",
             "f4f1b7a29e2d4c818d639d6e6a9f34a1",
             "f4f1b7a2-9e2d-4c81-8d63-9d6e6a9f34a1/extra",
+            "ffffffff-ffff-ffff-ffff-ffffffffffff",
         )
         for invalid in malformed_values:
             with self.subTest(invalid=invalid):
