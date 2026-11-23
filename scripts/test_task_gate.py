@@ -67,6 +67,56 @@ class TaskGateTests(unittest.TestCase):
             "frozen",
         )
 
+    def test_owner_authorized_t29_governance_pin_is_narrowly_allowed(self):
+        self.assert_passes(
+            make_context(
+                [
+                    "project-control/PREREGISTRATIONS.json",
+                    "project-control/DECISION_EVENTS.jsonl",
+                ],
+                kind="process",
+                body="Task: T29\\n\\nGovernance authorization: exact-head",
+                owner_authorized_governance=True,
+                acceptance_exists=False,
+            )
+        )
+
+    def test_governance_pin_requires_exact_owner_authorization(self):
+        context = make_context(
+            [
+                "project-control/PREREGISTRATIONS.json",
+                "project-control/DECISION_EVENTS.jsonl",
+            ],
+            kind="process",
+            body="Task: T29",
+            owner_authorized_governance=False,
+            acceptance_exists=False,
+        )
+        self.assert_fails(context, "frozen")
+
+    def test_governance_pin_exception_rejects_extra_paths_and_other_tasks(self):
+        paths = [
+            "project-control/PREREGISTRATIONS.json",
+            "project-control/DECISION_EVENTS.jsonl",
+            "project-control/HANDOFF.md",
+        ]
+        context = make_context(
+            paths,
+            kind="process",
+            body="Task: T29",
+            owner_authorized_governance=True,
+            acceptance_exists=False,
+        )
+        self.assert_fails(context, "frozen")
+        other_task = make_context(
+            paths[:2],
+            kind="process",
+            body="Task: T30",
+            owner_authorized_governance=True,
+            acceptance_exists=False,
+        )
+        self.assert_fails(other_task, "frozen")
+
     def test_acceptance_pr_must_be_separate(self):
         self.assert_passes(make_context(["acceptance/T07.sh"], acceptance_exists=False))
         self.assert_fails(make_context(["acceptance/T07.sh", "src/a.py"]), "only touch acceptance/T07")
