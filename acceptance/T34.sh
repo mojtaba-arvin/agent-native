@@ -21,8 +21,10 @@ for marker in (
 ):
     if marker not in store:
         raise SystemExit(f"T34 acceptance: missing durable recovery metric marker: {marker}")
-if 'self.send_header("X-Trace-ID", request_id)' not in server:
-    raise SystemExit("T34 acceptance: response trace correlation header is missing")
+if 'self.send_header("X-Request-ID", request_id)' not in server:
+    raise SystemExit("T34 acceptance: per-request ID response header is missing")
+if 'self.send_header("X-Trace-ID", getattr(self, "_trace_id", request_id))' not in server:
+    raise SystemExit("T34 acceptance: trace response header is missing")
 if "def _validated_trace_id(" not in server:
     raise SystemExit("T34 acceptance: validated inbound trace identifier handling is missing")
 work_names = {node.name for node in ast.walk(work_tests) if isinstance(node, ast.FunctionDef)}
@@ -33,7 +35,7 @@ if "test_validated_trace_header_is_echoed_and_audited" not in http_names:
     raise SystemExit("T34 acceptance: validated trace echo/audit regression is missing")
 if "test_malformed_trace_header_is_rejected_without_echo" not in http_names:
     raise SystemExit("T34 acceptance: malformed trace header regression is missing")
-print("T34 acceptance: read-only durable recovery metrics and validated request/audit trace correlation are present.")
+print("T34 acceptance: read-only recovery metrics, strict trace validation, and separate request/audit correlation are present.")
 PY
 python3 -m unittest discover -s experiments/e009 -p "test_work_store.py" -v
 python3 -m unittest discover -s experiments/e009 -p "test_http_server.py" -v
