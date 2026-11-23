@@ -26,6 +26,7 @@ DECISION_FILE = "DECISIONS.json"
 GOVERNANCE_PIN_PATHS = frozenset({
     "project-control/PREREGISTRATIONS.json",
     "project-control/DECISION_EVENTS.jsonl",
+    ".github/workflows/task-gate.yml",
 })
 
 KIND_RULES: dict[str, tuple[set[str], set[str]]] = {
