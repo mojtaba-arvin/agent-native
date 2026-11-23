@@ -36,6 +36,7 @@ from experiments.e002.benchmark import (
     ProcessTreeCpuTracker,
     proc_tree_sample,
 )
+from experiments.e002.product_workload import WORKLOAD_SEED, request_class
 
 
 def request(base: str, method: str, path: str, token: str | None, *, body=None, key=None):
@@ -381,7 +382,12 @@ def main():
         parser.error("job batch delay must be between 0 and 50 ms")
 
     token = "e009-performance-smoke-token-" + uuid.uuid4().hex
-    env = dict(os.environ, AGENT_NATIVE_DEMO_TOKEN=token)
+    denial_token = token + "-read-only"
+    env = dict(
+        os.environ,
+        AGENT_NATIVE_DEMO_TOKEN=token,
+        AGENT_NATIVE_PRODUCT_WORKLOAD="1",
+    )
     with tempfile.TemporaryDirectory(prefix="e009-perf-") as temp:
         db = Path(temp) / "kernel.sqlite3"
         server_concurrency = max(64, args.concurrency * 2)
@@ -396,6 +402,7 @@ def main():
                 "--volume", f"{temp}:/data",
                 "--workdir", "/workspace",
                 "--env", f"AGENT_NATIVE_DEMO_TOKEN={token}",
+                "--env", "AGENT_NATIVE_PRODUCT_WORKLOAD=1",
                 "--env", "AGENT_NATIVE_ALLOW_NON_LOOPBACK=1",
                 "python:3.11-slim",
                 "python", "experiments/e009/serve.py",
@@ -444,41 +451,37 @@ def main():
             if base is None:
                 raise RuntimeError("E-009 server startup deadline exceeded")
 
-            status, payload = request(base, "POST", "/items", token,
-                                      body={"name": "perf-seed-" + uuid.uuid4().hex},
-                                      key="seed-item-" + uuid.uuid4().hex)
+            status, payload = request(
+                base, "POST", "/items", token,
+                body={"name": "perf-seed-item"}, key="seed-item",
+            )
             if status != 201:
                 raise RuntimeError(f"seed item failed: HTTP {status} {payload[:200]!r}")
             item_id = find_id(json.loads(payload))
             if not item_id:
                 raise RuntimeError("seed item response omitted item id")
 
-            status, payload = request(base, "POST", "/items/rebuild", token,
-                                      body={}, key="seed-job-" + uuid.uuid4().hex)
-            if status not in (200, 202):
-                raise RuntimeError(f"seed job failed: HTTP {status} {payload[:200]!r}")
-            job_id = find_id(json.loads(payload))
-            if not job_id:
-                raise RuntimeError("seed job response omitted job id")
+            base_contract = (REPOSITORY_ROOT / "experiments/e009/catalog.an").read_bytes()
+            base_revision = hashlib.sha256(base_contract).hexdigest()
 
             def one(index, scheduled_at=None):
-                slot = index % 10
-                if slot < 6:
-                    kind = "authorized_item_read"
+                kind = request_class(index, seed=WORKLOAD_SEED)
+                if kind == "authorized_read":
                     method, target, auth, body, key, expected = (
                         "GET", f"/items/{item_id}", token, None, None, 200)
-                elif slot < 8:
-                    kind = "authorized_job_read"
+                elif kind == "validate_plan":
                     method, target, auth, body, key, expected = (
-                        "GET", f"/jobs/{job_id}", token, None, None, 200)
-                elif slot == 8:
-                    kind = "durable_job_admission"
+                        "POST", "/control/validate-plan", token,
+                        {"operation_name": "get_item", "base_revision": base_revision},
+                        None, 200)
+                elif kind == "job_admission":
                     method, target, auth, body, key, expected = (
-                        "POST", "/items/rebuild", token, {}, f"load-{index}-{uuid.uuid4().hex}", 202)
+                        "POST", "/items/rebuild", token, {}, f"load-{index}", 202)
                 else:
-                    kind = "unauthenticated_read"
                     method, target, auth, body, key, expected = (
-                        "GET", f"/items/{item_id}", None, None, None, 401)
+                        "POST", "/control/validate-plan", denial_token,
+                        {"operation_name": "get_item", "base_revision": base_revision},
+                        None, 403)
                 started = time.perf_counter()
                 status, response = request(base, method, target, auth, body=body, key=key)
                 finished = time.perf_counter()
@@ -613,8 +616,9 @@ def main():
                     "client_concurrency": args.concurrency,
                     "arrival_mode": "saturated_closed_loop" if args.target_rps == 0 else "open_loop",
                     "target_rps": args.target_rps or None,
-                    "mix": {"authorized_item_read": 0.6, "authorized_job_read": 0.2,
-                            "durable_job_admission": 0.1, "unauthenticated_read": 0.1},
+                    "seed": WORKLOAD_SEED,
+                    "mix": {"authorized_read": 0.6, "validate_plan": 0.2,
+                            "job_admission": 0.1, "expected_denial": 0.1},
                     "database": "file-backed SQLite WAL via E-009 serve.py",
                     "server_max_concurrency": server_concurrency,
                     "audit_batch_delay_ms": args.audit_batch_delay_ms,
