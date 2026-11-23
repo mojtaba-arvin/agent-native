@@ -69,21 +69,66 @@ class ProductControlPlaneIntegrationTests(unittest.TestCase):
                 self.process.wait(timeout=5)
         self.temporary.cleanup()
 
-    def request(self, path, token, body):
+    def request(self, path, token, body=None, *, method="POST", idempotency_key=None):
+        headers = {"Authorization": f"Bearer {token}"}
+        data = None
+        if body is not None:
+            headers["Content-Type"] = "application/json"
+            data = json.dumps(body, separators=(",", ":")).encode("utf-8")
+        if idempotency_key is not None:
+            headers["Idempotency-Key"] = idempotency_key
         request = urllib.request.Request(
             self.base + path,
-            data=json.dumps(body, separators=(",", ":")).encode("utf-8"),
-            headers={
-                "Authorization": f"Bearer {token}",
-                "Content-Type": "application/json",
-            },
-            method="POST",
+            data=data,
+            headers=headers,
+            method=method,
         )
         try:
             with urllib.request.urlopen(request, timeout=5) as response:
                 return response.status, response.headers, json.loads(response.read())
         except urllib.error.HTTPError as error:
             return error.code, error.headers, json.loads(error.read())
+
+    def test_authorized_read_and_job_admission_preserve_idempotent_effects(self):
+        created_status, _, created = self.request(
+            "/items", self.token, {"name": "e002-product-fixture"},
+            idempotency_key="e002-item-create-1",
+        )
+        self.assertEqual(created_status, 201, created)
+        item_id = created["data"]["id"]
+
+        read_status, read_headers, read = self.request(
+            f"/items/{item_id}", self.token, method="GET",
+        )
+        self.assertEqual(read_status, 200, read)
+        self.assertEqual(read["data"]["id"], item_id)
+        self.assertEqual(read["data"]["name"], "e002-product-fixture")
+        self.assertRegex(read_headers.get("X-Request-ID", ""), r"^[0-9a-f-]{36}$")
+
+        first_status, first_headers, first = self.request(
+            "/items/rebuild", self.token, {},
+            idempotency_key="e002-job-admission-1",
+        )
+        replay_status, replay_headers, replay = self.request(
+            "/items/rebuild", self.token, {},
+            idempotency_key="e002-job-admission-1",
+        )
+        self.assertEqual(first_status, 202, first)
+        self.assertEqual(replay_status, 200, replay)
+        self.assertEqual(first["data"]["id"], replay["data"]["id"])
+        self.assertEqual(replay_headers.get("Idempotency-Replayed"), "true")
+        self.assertNotEqual(first_headers.get("X-Request-ID"), replay_headers.get("X-Request-ID"))
+
+        connection = sqlite3.connect(self.database)
+        try:
+            audit = connection.execute(
+                "SELECT operation, decision FROM audit_events "
+                "WHERE operation IN ('get_item', 'submit_rebuild') ORDER BY event_id"
+            ).fetchall()
+        finally:
+            connection.close()
+        self.assertEqual(audit[0], ("get_item", "allow"))
+        self.assertEqual(audit[-1], ("submit_rebuild", "allow"))
 
     def test_validate_plan_is_authenticated_pinned_audited_and_non_mutating(self):
         status, headers, body = self.request(
