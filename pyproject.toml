@@ -28,7 +28,7 @@ where = ["src"]
 include = ["agent_native*"]
 
 [tool.setuptools.package-data]
-agent_native = ["py.typed"]
+agent_native = ["py.typed", "schemas/*.json"]
 
 [project.scripts]
 agent-native = "agent_native.cli:main"
