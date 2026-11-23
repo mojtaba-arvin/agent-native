@@ -190,3 +190,8 @@ HTTP clients may optionally send `X-Trace-ID` as a canonical, non-zero RFC 4122 
 
 This is single-node SQLite recovery observability and request-to-audit correlation. It is not distributed tracing across remote services, remote audit replication, tamper-evident infrastructure, or a production observability backend.
 
+## E-002 product workload reference path
+
+For the E-002 product request mix, run the same E-009 host with `AGENT_NATIVE_PRODUCT_WORKLOAD=1`. This loads the benchmark-only `benchmark_catalog.an` contract and adds a separately scoped `contracts.plan` grant to the trusted benchmark identity. A second read-only identity is used for the expected-denial class. The normal `catalog.an` and E-009 local-agent task remain unchanged. `experiments/e009/performance_smoke.py` now schedules the seeded 60% authorized-read, 20% validate/plan, 10% durable job-admission, and 10% expected-denial mix. The schedule seed is recorded in source as `WORKLOAD_SEED`; the 10-request block gives exact proportions and randomized ordering.
+
+This is a Python reference workload only. It does not establish candidate parity, a production Gateway full-lifecycle benchmark, or controlled-host capacity. Candidate ports and fault-injection parity remain required before runtime ranking.
