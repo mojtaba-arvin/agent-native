@@ -432,8 +432,16 @@ def main():
     parser.add_argument("--audit-batch-delay-ms", type=float, default=2.0)
     parser.add_argument("--job-batch-size", type=int, default=32)
     parser.add_argument("--job-batch-delay-ms", type=float, default=0.5)
-    parser.add_argument("--output", type=Path)
+    parser.add_argument("--output", type=Path, help="summary JSON output")
+    parser.add_argument("--trace-output", type=Path, help="raw per-request JSONL output")
+    parser.add_argument("--manifest-output", type=Path, help="reproducibility manifest JSON output")
     args = parser.parse_args()
+    if bool(args.trace_output) != bool(args.manifest_output):
+        parser.error("--trace-output and --manifest-output must be supplied together")
+    if (args.config is not None or args.enforce_capacity_gate) and (
+        args.output is None or args.trace_output is None or args.manifest_output is None
+    ):
+        parser.error("preregistered or capacity-gated runs require --output, --trace-output, and --manifest-output")
     preregistration = None
     preregistration_sha1 = None
     if args.config is not None:
@@ -463,6 +471,14 @@ def main():
         parser.error("job batch size must be between 1 and 1024")
     if not math.isfinite(args.job_batch_delay_ms) or not 0 <= args.job_batch_delay_ms <= 50:
         parser.error("job batch delay must be between 0 and 50 ms")
+
+    run_id = uuid.uuid4().hex
+    started_at_utc = datetime.now(timezone.utc).isoformat()
+    source_state = source_snapshot() if args.trace_output is not None else None
+    if args.config is not None and (
+        source_state is None or source_state["revision"] is None or not source_state["working_tree_clean"]
+    ):
+        parser.error("preregistered runs require a clean Git worktree and a resolvable source revision")
 
     token = "e009-performance-smoke-token-" + uuid.uuid4().hex
     denial_token = token + "-read-only"
@@ -574,6 +590,7 @@ def main():
                     if scheduled_at is not None else 0.0
                 )
                 return {
+                    "request_index": index,
                     "kind": kind, "status": status, "expected": expected,
                     "latency_ms": (
                         (finished - scheduled_at) * 1000
@@ -632,6 +649,8 @@ def main():
                             futures.append(pool.submit(one, index, scheduled_at))
                         results = [future.result() for future in futures]
                     elapsed = time.perf_counter() - started
+                    for item in results:
+                        item["repetition"] = repetition + 1
                     repetitions.append({"repetition": repetition + 1, **summarize(results, elapsed)})
                     all_results.extend(results)
 
@@ -689,7 +708,9 @@ def main():
             work_metrics = json.loads(work_match.group(1))
             failures = [item for item in all_results if not item["ok"]]
             summary = {
-                "schema_version": 2,
+                "schema_version": 3,
+                "run_id": run_id,
+                "source_revision": source_state["revision"] if source_state is not None else None,
                 "classification": "shared_runner_repeated_product_path_smoke_not_capacity_claim",
                 "workload": {
                     "requests_per_repetition": args.requests,
@@ -757,6 +778,30 @@ def main():
                     summary["resource_metrics"],
                     preregistration["thresholds"] if preregistration is not None else None,
                 )
+            if args.trace_output is not None:
+                trace_sha256 = write_request_trace(args.trace_output, all_results)
+                manifest = build_run_manifest(
+                    run_id=run_id,
+                    started_at_utc=started_at_utc,
+                    finished_at_utc=datetime.now(timezone.utc).isoformat(),
+                    source=source_state,
+                    args=args,
+                    trace_path=args.trace_output,
+                    trace_sha256=trace_sha256,
+                    trace_count=len(all_results),
+                    preregistration=preregistration,
+                    preregistration_sha1=preregistration_sha1,
+                )
+                args.manifest_output.parent.mkdir(parents=True, exist_ok=True)
+                args.manifest_output.write_text(
+                    json.dumps(manifest, indent=2, sort_keys=True) + "\n",
+                    encoding="utf-8",
+                )
+                summary["evidence_artifacts"] = {
+                    "request_trace": args.trace_output.as_posix(),
+                    "request_trace_sha256": trace_sha256,
+                    "run_manifest": args.manifest_output.as_posix(),
+                }
             rendered = json.dumps(summary, indent=2, sort_keys=True)
             print(rendered)
             if args.output:
