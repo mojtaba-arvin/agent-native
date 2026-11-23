@@ -23,6 +23,11 @@ PRODUCT_PREFIXES = (
 )
 KINDS = ("code", "docs", "decision", "research", "process")
 DECISION_FILE = "DECISIONS.json"
+GOVERNANCE_PIN_PATHS = frozenset({
+    "project-control/PREREGISTRATIONS.json",
+    "project-control/DECISION_EVENTS.jsonl",
+    ".github/workflows/task-gate.yml",
+})
 
 KIND_RULES: dict[str, tuple[set[str], set[str]]] = {
     "code": ({"product", "test", "docs", "other"}, {"product", "test"}),
@@ -89,9 +94,18 @@ def evaluate(ctx: dict[str, Any]) -> list[str]:
         violations.append("New task work is paused (docs/state ratio too high); only kind:process PRs may merge.")
 
     classes = {path: classify(path) for path in files}
+    owner_authorized_governance_pin = (
+        tid == "T29"
+        and kind == "process"
+        and ctx.get("owner_authorized_governance") is True
+        and set(files) == GOVERNANCE_PIN_PATHS
+    )
 
     for path, file_class in classes.items():
-        if file_class == "state" and not (path == DECISION_FILE and kind == "decision"):
+        if file_class == "state" and not (
+            (path == DECISION_FILE and kind == "decision")
+            or (owner_authorized_governance_pin and path in GOVERNANCE_PIN_PATHS)
+        ):
             violations.append(f"{path} is frozen legacy state; do not edit status or progress files.")
 
     if any(file_class == "acceptance" for file_class in classes.values()):
@@ -115,7 +129,7 @@ def evaluate(ctx: dict[str, Any]) -> list[str]:
             kind == "process"
             and files == ["docs/V1_PLAN.md"]
         )
-        if not (set(classes.values()) & required) and not rules_only_process_pr:
+        if not (set(classes.values()) & required) and not rules_only_process_pr and not owner_authorized_governance_pin:
             violations.append(
                 f"kind:{kind} PR must change at least one of: "
                 + ", ".join(sorted(required)) + " files."
