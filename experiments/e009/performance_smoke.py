@@ -13,6 +13,7 @@ import hashlib
 import json
 import math
 import os
+import platform
 import re
 import shutil
 import signal
@@ -25,6 +26,7 @@ import time
 import urllib.error
 import urllib.request
 import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
@@ -230,6 +232,87 @@ DEFAULT_CAPACITY_THRESHOLDS = {
 def git_blob_sha1(data: bytes) -> str:
     header = f"blob {len(data)}\0".encode("ascii")
     return hashlib.sha1(header + data).hexdigest()
+
+
+def source_snapshot() -> dict:
+    """Capture immutable source identity and any uncommitted working-tree changes."""
+    revision = subprocess.check_output(
+        ["git", "rev-parse", "HEAD"], cwd=REPOSITORY_ROOT, text=True
+    ).strip()
+    dirty = subprocess.check_output(
+        ["git", "status", "--porcelain", "--untracked-files=all"],
+        cwd=REPOSITORY_ROOT, text=True,
+    ).splitlines()
+    source_files = (
+        "experiments/e009/performance_smoke.py",
+        "experiments/e009/catalog.an",
+        "experiments/e002/product_workload.py",
+    )
+    return {
+        "revision": revision,
+        "working_tree_clean": not dirty,
+        "dirty_paths": [line[3:] for line in dirty],
+        "sha256": {
+            name: hashlib.sha256((REPOSITORY_ROOT / name).read_bytes()).hexdigest()
+            for name in source_files
+        },
+    }
+
+
+def write_request_trace(path: Path, results: list[dict]) -> str:
+    """Persist one deterministic JSONL record per measured request and return SHA-256."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    ordered = sorted(results, key=lambda item: (item["repetition"], item["request_index"]))
+    with path.open("w", encoding="utf-8", newline="\\n") as stream:
+        for item in ordered:
+            stream.write(json.dumps(item, sort_keys=True, separators=(",", ":")) + "\\n")
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def build_run_manifest(
+    *, run_id: str, started_at_utc: str, finished_at_utc: str,
+    source: dict, args, trace_path: Path, trace_sha256: str,
+    trace_count: int, preregistration: dict | None, preregistration_sha1: str | None,
+) -> dict:
+    """Build a self-describing, machine-readable manifest for a measured cohort."""
+    return {
+        "schema_version": 1,
+        "run_id": run_id,
+        "started_at_utc": started_at_utc,
+        "finished_at_utc": finished_at_utc,
+        "source": source,
+        "runtime": {
+            "python_version": sys.version,
+            "implementation": platform.python_implementation(),
+            "platform": platform.platform(),
+        },
+        "parameters": {
+            "requests_per_repetition": args.requests,
+            "repetitions": args.repetitions,
+            "client_concurrency": args.concurrency,
+            "target_rps": args.target_rps,
+            "containerized": args.containerized,
+            "enforce_capacity_gate": args.enforce_capacity_gate,
+            "audit_batch_delay_ms": args.audit_batch_delay_ms,
+            "job_batch_size": args.job_batch_size,
+            "job_batch_delay_ms": args.job_batch_delay_ms,
+        },
+        "preregistration": (
+            {
+                "cohort_id": preregistration["cohort_id"],
+                "config_path": args.config.as_posix(),
+                "git_blob_sha1": preregistration_sha1,
+            }
+            if preregistration is not None else None
+        ),
+        "request_trace": {
+            "path": trace_path.as_posix(),
+            "sha256": trace_sha256,
+            "records": trace_count,
+            "format": "jsonl",
+        },
+        "summary_output": args.output.as_posix() if args.output is not None else None,
+    }
 
 
 def load_preregistration_config(path: Path) -> tuple[dict, str]:
