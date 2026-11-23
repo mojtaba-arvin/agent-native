@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
-from kernel import DomainFault, HandlerContext, HandlerResult
+import hashlib
+from pathlib import Path
+
+from kernel import DomainFault, HandlerContext, HandlerResult, load_service_ir
 from repository import (
     IdempotencyConflict,
     ItemConflict,
@@ -14,6 +17,8 @@ from work_store import AuditCommitError, JobBackpressure, JobConflict, DurableWo
 def build_catalog_handlers(
     repository: SQLiteCatalogRepository,
     work_store: DurableWorkStore | None = None,
+    *,
+    include_plan_operation: bool = False,
 ) -> dict:
     def create_item(context: HandlerContext) -> HandlerResult:
         try:
@@ -80,6 +85,23 @@ def build_catalog_handlers(
             headers={"Idempotency-Replayed": "true"} if replayed else {},
         )
 
+    def plan_operation(context: HandlerContext) -> dict:
+        source = (Path(__file__).with_name("catalog.an")).read_text(encoding="utf-8")
+        revision = hashlib.sha256(source.encode("utf-8")).hexdigest()
+        if context.values["base_revision"] != revision:
+            raise DomainFault("InvalidInput", "stale_contract_revision")
+        base_ir = load_service_ir(source)
+        operation_name = str(context.values["operation_name"])
+        if operation_name not in {item["name"] for item in base_ir["operations"]}:
+            raise DomainFault("InvalidInput", "unknown_operation")
+        return {
+            "valid": True,
+            "will_mutate": False,
+            "will_deploy": False,
+            "operation": operation_name,
+            "revision": revision,
+        }
+
     def get_job(context: HandlerContext) -> dict:
         if work_store is None:
             raise DomainFault("ServiceUnavailable", "durable_work_store_unavailable")
@@ -107,7 +129,7 @@ def build_catalog_handlers(
             status_code=status,
         )
 
-    return {
+    handlers = {
         "create_item": create_item,
         "get_item": get_item,
         "get_item_by_name": get_item_by_name,
@@ -115,3 +137,6 @@ def build_catalog_handlers(
         "get_job": get_job,
         "cancel_job": cancel_job,
     }
+    if include_plan_operation:
+        handlers["plan_operation"] = plan_operation
+    return handlers
