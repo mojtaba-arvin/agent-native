@@ -97,7 +97,7 @@ jobs:
 
             const ownerAuthorizedGovernance =
               pr.user?.login?.toLowerCase() === repo.owner.toLowerCase() &&
-              body.split(/\\r?\\n/).some(line =>
+              body.split(/\r?\n/).some(line =>
                 line.trim() === 'Governance authorization: ' + pr.head.sha
               );
 
