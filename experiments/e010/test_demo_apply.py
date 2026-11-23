@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import tempfile
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 import sys
 
@@ -27,6 +28,15 @@ class SandboxApplyEndToEndTests(unittest.TestCase):
             "arguments": arguments,
         })["response"]
 
+    def _proposal(self, coordinator):
+        ir = copy.deepcopy(coordinator.initial_ir)
+        ir["operations"].append(copy.deepcopy(NEW_OPERATION))
+        return {
+            "service_id": "catalog",
+            "base_revision": digest(coordinator.initial_ir),
+            "ir": ir,
+        }
+
     def test_inspect_propose_validate_plan_apply_publishes_runtime_and_audit(self):
         with tempfile.TemporaryDirectory(prefix="agent-native-e010-") as temporary:
             coordinator = SandboxApplyCoordinator(Path(temporary) / "sandbox")
@@ -46,12 +56,12 @@ class SandboxApplyEndToEndTests(unittest.TestCase):
                 )
                 self.assertTrue(result["ok"])
 
-            ir = copy.deepcopy(coordinator.initial_ir)
-            ir["operations"].append(copy.deepcopy(NEW_OPERATION))
+            proposal_ir = copy.deepcopy(coordinator.initial_ir)
+            proposal_ir["operations"].append(copy.deepcopy(NEW_OPERATION))
             proposal = self._call(gateway, "service.propose", {
                 "service_id": "catalog",
                 "base_revision": inspected["result"]["revision"],
-                "ir": ir,
+                "ir": proposal_ir,
             }, "propose-new-operation")
             self.assertTrue(proposal["ok"])
             change_set_id = proposal["result"]["change_set_id"]
@@ -85,14 +95,14 @@ class SandboxApplyEndToEndTests(unittest.TestCase):
                 "service_id": "catalog",
                 "base_revision": inspected_result["revision"],
                 "change_set_id": change_set_id,
-                "ir": ir,
+                "ir": proposal_ir,
             }
             verification = verify_candidate(
                 candidate,
                 inspected=inspected_result,
                 inspected_operations=inspected_operations,
                 successful_proposal={
-                    "arguments": {"base_revision": inspected_result["revision"], "ir": ir},
+                    "arguments": {"base_revision": inspected_result["revision"], "ir": proposal_ir},
                     "result": proposal["result"],
                 },
                 validation_result=validation,
@@ -119,7 +129,7 @@ class SandboxApplyEndToEndTests(unittest.TestCase):
                     inspected=inspected_result,
                     inspected_operations=inspected_operations,
                     successful_proposal={
-                        "arguments": {"base_revision": inspected_result["revision"], "ir": ir},
+                        "arguments": {"base_revision": inspected_result["revision"], "ir": proposal_ir},
                         "result": proposal["result"],
                     },
                     validation_result=validation,
@@ -179,12 +189,10 @@ class SandboxApplyEndToEndTests(unittest.TestCase):
                 self._call(gateway, "service.inspect",
                     {"service_id": "catalog", "operation": operation["name"]},
                     f"inspect-{operation['name']}")
-            ir = copy.deepcopy(coordinator.initial_ir)
-            ir["operations"].append(copy.deepcopy(NEW_OPERATION))
             proposal = self._call(gateway, "service.propose", {
                 "service_id": "catalog",
                 "base_revision": inspected["result"]["revision"],
-                "ir": ir,
+                "ir": self._proposal(coordinator)["ir"],
             }, "propose-change")
             result = self._call(gateway, "service.apply", {
                 "change_set_id": proposal["result"]["change_set_id"],
@@ -192,6 +200,50 @@ class SandboxApplyEndToEndTests(unittest.TestCase):
             self.assertFalse(result["ok"])
             self.assertEqual(result["diagnostics"][0]["code"], "APPLY_REQUIRES_VALIDATED_PLAN")
             self.assertIsNone(coordinator.applied_revision)
+
+    def test_concurrent_same_revision_publishes_once(self):
+        with tempfile.TemporaryDirectory(prefix="agent-native-e010-") as temporary:
+            coordinator = SandboxApplyCoordinator(Path(temporary) / "sandbox")
+            proposal = self._proposal(coordinator)
+            with ThreadPoolExecutor(max_workers=8) as pool:
+                results = list(pool.map(
+                    lambda index: coordinator.apply(proposal, {"request_id": f"parallel-{index}"}),
+                    range(8),
+                ))
+            self.assertEqual(sum(not result.get("replayed", False) for result in results), 1)
+            self.assertEqual(sum(result.get("replayed", False) for result in results), 7)
+            apply_events = [
+                event for event in coordinator.audit_sink.list_events()
+                if event["operation"] == "service.apply"
+            ]
+            self.assertEqual(len(apply_events), 1)
+            self.assertEqual(coordinator.applied_revision, digest(proposal["ir"]))
+
+    def test_failed_candidate_smoke_keeps_previous_runtime_and_revision(self):
+        with tempfile.TemporaryDirectory(prefix="agent-native-e010-") as temporary:
+            coordinator = SandboxApplyCoordinator(Path(temporary) / "sandbox")
+            previous_runtime = coordinator.runtime
+
+            class FailedRuntime:
+                def dispatch(self, *args, **kwargs):
+                    return type("Response", (), {"status_code": 503, "body": {}})()
+
+            original_build = coordinator._build_runtime
+
+            def injected_build(ir, *, audit_sink=None):
+                if audit_sink is False:
+                    return FailedRuntime()
+                return original_build(ir, audit_sink=audit_sink)
+
+            coordinator._build_runtime = injected_build
+            with self.assertRaisesRegex(ValueError, "sandbox_runtime_smoke_test_failed"):
+                coordinator.apply(self._proposal(coordinator), {"request_id": "failed-candidate"})
+            self.assertIs(coordinator.runtime, previous_runtime)
+            self.assertIsNone(coordinator.applied_revision)
+            self.assertFalse(any(
+                event["operation"] == "service.apply"
+                for event in coordinator.audit_sink.list_events()
+            ))
 
 
 if __name__ == "__main__":
