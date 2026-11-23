@@ -131,7 +131,7 @@ class TaskGateTests(unittest.TestCase):
             "pull_request": {
                 "user": {"login": "mojtaba-arvin"},
                 "head": {"sha": head},
-                "body": f"Task: T29\\n\\nGovernance authorization: {head}",
+                "body": f"Task: T29\n\nGovernance authorization: {head}",
             },
         }
         with tempfile.TemporaryDirectory() as temporary:
@@ -141,7 +141,7 @@ class TaskGateTests(unittest.TestCase):
                 self.assertTrue(gate.owner_authorized_governance_from_event())
 
                 stale = copy.deepcopy(event)
-                stale["pull_request"]["body"] = "Task: T29\\n\\nGovernance authorization: " + "b" * 40
+                stale["pull_request"]["body"] = "Task: T29\n\nGovernance authorization: " + "b" * 40
                 event_path.write_text(json.dumps(stale), encoding="utf-8")
                 self.assertFalse(gate.owner_authorized_governance_from_event())
 
