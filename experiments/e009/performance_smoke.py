@@ -285,6 +285,18 @@ def build_run_manifest(
             "python_version": sys.version,
             "implementation": platform.python_implementation(),
             "platform": platform.platform(),
+            "machine": platform.machine(),
+            "node": platform.node(),
+        },
+        "workload": {
+            "seed": WORKLOAD_SEED,
+            "mix": {
+                "authorized_read": 0.6,
+                "validate_plan": 0.2,
+                "job_admission": 0.1,
+                "expected_denial": 0.1,
+            },
+            "database": "file-backed SQLite WAL via E-009 serve.py",
         },
         "parameters": {
             "requests_per_repetition": args.requests,
@@ -296,12 +308,14 @@ def build_run_manifest(
             "audit_batch_delay_ms": args.audit_batch_delay_ms,
             "job_batch_size": args.job_batch_size,
             "job_batch_delay_ms": args.job_batch_delay_ms,
+            "server_max_concurrency": max(64, args.concurrency * 2),
         },
         "preregistration": (
             {
                 "cohort_id": preregistration["cohort_id"],
                 "config_path": args.config.as_posix(),
                 "git_blob_sha1": preregistration_sha1,
+                "thresholds": preregistration["thresholds"],
             }
             if preregistration is not None else None
         ),
@@ -589,9 +603,19 @@ def main():
                     max(0.0, started - scheduled_at) * 1000
                     if scheduled_at is not None else 0.0
                 )
+                request_fingerprint = hashlib.sha256(json.dumps(
+                    {"method": method, "path": target, "body": body},
+                    sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False,
+                ).encode("utf-8")).hexdigest()
                 return {
                     "request_index": index,
-                    "kind": kind, "status": status, "expected": expected,
+                    "kind": kind,
+                    "method": method,
+                    "path": target,
+                    "request_sha256": request_fingerprint,
+                    "response_sha256": hashlib.sha256(response).hexdigest(),
+                    "status": status,
+                    "expected": expected,
                     "latency_ms": (
                         (finished - scheduled_at) * 1000
                         if scheduled_at is not None else service_latency_ms
