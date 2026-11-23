@@ -628,9 +628,13 @@ class KernelHTTPServerTests(unittest.TestCase):
         )
         self.assertEqual(status, 404, body)
         self.assertEqual(headers.get("X-Trace-ID"), trace_id)
-        self.assertEqual(headers.get("X-Request-ID"), trace_id)
+        self.assertTrue(headers.get("X-Request-ID"))
+        self.assertNotEqual(headers.get("X-Request-ID"), trace_id)
         events = self.audit_sink.list_events()
-        self.assertTrue(any(event["request_id"] == trace_id for event in events))
+        self.assertTrue(any(
+            event["request_id"] == headers["X-Request-ID"]
+            for event in events
+        ))
 
     def test_malformed_trace_header_is_rejected_without_echo(self):
         malformed_values = (
@@ -650,6 +654,7 @@ class KernelHTTPServerTests(unittest.TestCase):
                 self.assertEqual(status, 400, body)
                 self.assertEqual(body["error"]["code"], "INVALID_TRACE_ID")
                 self.assertNotEqual(headers.get("X-Trace-ID"), invalid)
+                self.assertTrue(headers.get("X-Request-ID"))
                 self.assertEqual(headers.get("X-Trace-ID"), headers.get("X-Request-ID"))
                 self.assertEqual(len(self.audit_sink.list_events()), before)
 
