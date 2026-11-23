@@ -84,20 +84,25 @@ def main() -> None:
     if len(token) < 24:
         parser.error("AGENT_NATIVE_DEMO_TOKEN must contain at least 24 characters")
 
-    grants = (
-        Grant("local-operator", "demo-tenant", "items.read", "/items"),
-        Grant("local-operator", "demo-tenant", "items.create", "/items"),
-        Grant("local-operator", "demo-tenant", "jobs.submit", "/items"),
-        Grant("local-operator", "demo-tenant", "jobs.read", "/jobs"),
-        Grant("local-operator", "demo-tenant", "jobs.cancel", "/jobs"),
-    )
-    trusted_context = RequestContext(
-        principal_id="local-operator",
-        tenant_id="demo-tenant",
-        now=0,
-        grants=grants,
-    )
-    identity = MemoryIdentityProvider({token: trusted_context})
+    def authenticate_demo_operator() -> RequestContext:
+        # The identity provider invokes this factory only after the bearer
+        # token has matched. RequestContext is therefore never pre-created
+        # and retained as an ambient authority object at host startup.
+        grants = (
+            Grant("local-operator", "demo-tenant", "items.read", "/items"),
+            Grant("local-operator", "demo-tenant", "items.create", "/items"),
+            Grant("local-operator", "demo-tenant", "jobs.submit", "/items"),
+            Grant("local-operator", "demo-tenant", "jobs.read", "/jobs"),
+            Grant("local-operator", "demo-tenant", "jobs.cancel", "/jobs"),
+        )
+        return RequestContext(
+            principal_id="local-operator",
+            tenant_id="demo-tenant",
+            now=int(time.time()),
+            grants=grants,
+        )
+
+    identity = MemoryIdentityProvider({token: authenticate_demo_operator})
     source = (E009_ROOT / "catalog.an").read_text(encoding="utf-8")
     ir = load_service_ir(source)
     repository = SQLiteCatalogRepository(args.database)
