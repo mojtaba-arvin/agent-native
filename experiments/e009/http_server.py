@@ -148,8 +148,8 @@ def create_server(
             self.send_header("Content-Length", str(len(encoded)))
             self.send_header("Connection", "close")
             self.send_header("X-Request-ID", request_id)
-            # The same root correlation identifier is persisted in audit_events.request_id.
-            self.send_header("X-Trace-ID", request_id)
+            # Trace IDs may span requests; request_id remains unique and audit-bound.
+            self.send_header("X-Trace-ID", getattr(self, "_trace_id", request_id))
             revision = getattr(self, "_runtime_revision", None)
             if revision is not None:
                 self.send_header("X-Runtime-Revision", str(revision))
@@ -176,6 +176,7 @@ def create_server(
             active_runtime = snapshot.runtime if snapshot is not None else runtime
             self._runtime_revision = snapshot.revision if snapshot is not None else None
             request_id = str(uuid.uuid4())
+            self._trace_id = request_id
             headers = self._request_headers()
             if headers is None:
                 self._send(400, {"error": {"code": "INVALID_HEADERS"}}, request_id=request_id)
@@ -187,9 +188,8 @@ def create_server(
                 if validated_trace_id is None:
                     self._send(400, {"error": {"code": "INVALID_TRACE_ID"}}, request_id=request_id)
                     return
-                # Reuse the validated trace ID as request_id so the existing
-                # X-Request-ID -> audit_events.request_id contract is preserved.
-                request_id = validated_trace_id
+                # Keep per-request audit identity separate from a trace that may span requests.
+                self._trace_id = validated_trace_id
 
             identity = identity_provider.authenticate(headers.get("authorization"))
             if identity is None:
