@@ -1,6 +1,6 @@
 # E-002 — Product-representative control-plane workload v1
 
-**Status:** workload design proposal; not implemented or benchmarked.  
+**Status:** Python reference workload implemented; not yet benchmarked or ported to candidate runtimes.  
 **Decision boundary:** defines comparable behavior before choosing storage adapters, runtime, protocol, or deployment architecture.  
 **Product scenario:** authenticated Agent/tool-execution control plane.  
 **Inference:** explicitly excluded from the runtime benchmark.
