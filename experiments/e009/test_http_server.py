@@ -620,5 +620,50 @@ class KernelHTTPServerTests(unittest.TestCase):
 
 
 
+    def test_validated_trace_header_is_echoed_and_audited(self):
+        trace_id = "f4f1b7a2-9e2d-4c81-8d63-9d6e6a9f34a1"
+        status, headers, body = self.request(
+            "GET", "/items/by-name/not-found",
+            headers={"X-Trace-ID": trace_id},
+        )
+        self.assertEqual(status, 404, body)
+        self.assertEqual(headers.get("X-Trace-ID"), trace_id)
+        self.assertTrue(headers.get("X-Request-ID"))
+        self.assertNotEqual(headers.get("X-Request-ID"), trace_id)
+        first_request_id = headers["X-Request-ID"]
+        status2, headers2, body2 = self.request(
+            "GET", "/items/by-name/not-found",
+            headers={"X-Trace-ID": trace_id},
+        )
+        self.assertEqual(status2, 404, body2)
+        self.assertEqual(headers2.get("X-Trace-ID"), trace_id)
+        self.assertNotEqual(headers2.get("X-Request-ID"), first_request_id)
+        events = self.audit_sink.list_events()
+        audited_ids = {event["request_id"] for event in events}
+        self.assertIn(first_request_id, audited_ids)
+        self.assertIn(headers2["X-Request-ID"], audited_ids)
+
+    def test_malformed_trace_header_is_rejected_without_echo(self):
+        malformed_values = (
+            "not-a-uuid",
+            "00000000-0000-0000-0000-000000000000",
+            "f4f1b7a29e2d4c818d639d6e6a9f34a1",
+            "f4f1b7a2-9e2d-4c81-8d63-9d6e6a9f34a1/extra",
+            "ffffffff-ffff-ffff-ffff-ffffffffffff",
+        )
+        for invalid in malformed_values:
+            with self.subTest(invalid=invalid):
+                before = len(self.audit_sink.list_events())
+                status, headers, body = self.request(
+                    "GET", "/items/by-name/not-found",
+                    headers={"X-Trace-ID": invalid},
+                )
+                self.assertEqual(status, 400, body)
+                self.assertEqual(body["error"]["code"], "INVALID_TRACE_ID")
+                self.assertNotEqual(headers.get("X-Trace-ID"), invalid)
+                self.assertTrue(headers.get("X-Request-ID"))
+                self.assertEqual(headers.get("X-Trace-ID"), headers.get("X-Request-ID"))
+                self.assertEqual(len(self.audit_sink.list_events()), before)
+
 if __name__ == "__main__":
     unittest.main()

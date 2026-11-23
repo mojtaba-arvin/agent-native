@@ -41,6 +41,20 @@ def _json_bytes(value: dict) -> bytes:
     ).encode("utf-8")
 
 
+def _validated_trace_id(value: str) -> str | None:
+    """Accept only a canonical, non-zero UUID trace identifier."""
+    if not isinstance(value, str) or len(value) != 36:
+        return None
+    try:
+        parsed = uuid.UUID(value)
+    except (AttributeError, ValueError):
+        return None
+    canonical = str(parsed)
+    if parsed.int == 0 or parsed.variant != uuid.RFC_4122 or canonical != value.lower():
+        return None
+    return canonical
+
+
 class BoundedThreadingHTTPServer(ThreadingHTTPServer):
     """Thread-per-connection host with explicit bounded admission/backpressure."""
 
@@ -134,6 +148,8 @@ def create_server(
             self.send_header("Content-Length", str(len(encoded)))
             self.send_header("Connection", "close")
             self.send_header("X-Request-ID", request_id)
+            # Trace IDs may span requests; request_id remains unique and audit-bound.
+            self.send_header("X-Trace-ID", getattr(self, "_trace_id", request_id))
             revision = getattr(self, "_runtime_revision", None)
             if revision is not None:
                 self.send_header("X-Runtime-Revision", str(revision))
@@ -160,10 +176,20 @@ def create_server(
             active_runtime = snapshot.runtime if snapshot is not None else runtime
             self._runtime_revision = snapshot.revision if snapshot is not None else None
             request_id = str(uuid.uuid4())
+            self._trace_id = request_id
             headers = self._request_headers()
             if headers is None:
                 self._send(400, {"error": {"code": "INVALID_HEADERS"}}, request_id=request_id)
                 return
+
+            supplied_trace_id = headers.get("x-trace-id")
+            if supplied_trace_id is not None:
+                validated_trace_id = _validated_trace_id(supplied_trace_id)
+                if validated_trace_id is None:
+                    self._send(400, {"error": {"code": "INVALID_TRACE_ID"}}, request_id=request_id)
+                    return
+                # Keep per-request audit identity separate from a trace that may span requests.
+                self._trace_id = validated_trace_id
 
             identity = identity_provider.authenticate(headers.get("authorization"))
             if identity is None:
