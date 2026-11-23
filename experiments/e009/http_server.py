@@ -41,6 +41,20 @@ def _json_bytes(value: dict) -> bytes:
     ).encode("utf-8")
 
 
+def _validated_trace_id(value: str) -> str | None:
+    """Accept only a canonical, non-zero UUID trace identifier."""
+    if not isinstance(value, str) or len(value) != 36:
+        return None
+    try:
+        parsed = uuid.UUID(value)
+    except (AttributeError, ValueError):
+        return None
+    canonical = str(parsed)
+    if parsed.int == 0 or canonical != value.lower():
+        return None
+    return canonical
+
+
 class BoundedThreadingHTTPServer(ThreadingHTTPServer):
     """Thread-per-connection host with explicit bounded admission/backpressure."""
 
@@ -166,6 +180,16 @@ def create_server(
             if headers is None:
                 self._send(400, {"error": {"code": "INVALID_HEADERS"}}, request_id=request_id)
                 return
+
+            supplied_trace_id = headers.get("x-trace-id")
+            if supplied_trace_id is not None:
+                validated_trace_id = _validated_trace_id(supplied_trace_id)
+                if validated_trace_id is None:
+                    self._send(400, {"error": {"code": "INVALID_TRACE_ID"}}, request_id=request_id)
+                    return
+                # Reuse the validated trace ID as request_id so the existing
+                # X-Request-ID -> audit_events.request_id contract is preserved.
+                request_id = validated_trace_id
 
             identity = identity_provider.authenticate(headers.get("authorization"))
             if identity is None:
