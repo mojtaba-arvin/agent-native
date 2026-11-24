@@ -139,7 +139,8 @@ def publish_evidence(evidence, run_id, source_sha, image_ref, build_run_id, buil
         if item.is_file() and item.name != "checksums.sha256":
             checksums.append("%s  %s" % (hashlib.sha256(item.read_bytes()).hexdigest(), item.relative_to(evidence)))
     (evidence / "checksums.sha256").write_text("\n".join(checksums) + "\n")
-    prereg = json.loads((evidence / "prereg.json").read_text(encoding="utf-8"))
+    prereg_path = evidence / "prereg.json"
+    prereg = json.loads(prereg_path.read_text(encoding="utf-8")) if prereg_path.is_file() else {}
     manifest_files = {}
     for item in sorted(evidence.rglob("*")):
         if item.is_file() and item.name != "evidence-manifest.json":
