@@ -2,6 +2,8 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+python3 experiments/e002/t16/restore_evidence.py --target experiments/e002/t16/evidence/restored
+
 python3 - <<'PY'
 from __future__ import annotations
 
@@ -9,7 +11,7 @@ import json
 import sys
 from pathlib import Path
 
-root = Path("experiments/e002/t16")
+root = Path("experiments/e002/t16/evidence/restored")
 required = {
     "pre-registration": root / "prereg.json",
     "controlled-host manifest": root / "host.json",
