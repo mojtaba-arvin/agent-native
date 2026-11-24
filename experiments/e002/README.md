@@ -161,3 +161,71 @@ The Go candidate's sampler smoke step passed in [E-002 workflow 44294049076](htt
 The Go sampler smoke passed in [workflow 44294049076](https://github.com/mojtaba-arvin/agent-native/actions/runs/44294049076). The BEAM sampler smoke passed in [workflow 44294310926](https://github.com/mojtaba-arvin/agent-native/actions/runs/44294310926): 100 requests, concurrency 8, warm-up 10, 100/100 HTTP 200, two observed processes, 0.04 CPU seconds, 93,364,224 bytes peak summed RSS, p99 6.66 ms, startup 0.613 s. Four BEAM tests and black-box conformance also passed. This is a short shared-runner instrumentation smoke, not a Go-vs-BEAM comparison or capacity result. The 2,453 requests/s value is especially unsuitable for comparison because the sample contains only 100 measured requests.
 
 The shared durable storage semantics are now specified in [storage-conformance-contract.md](storage-conformance-contract.md). It is a design contract only: no adapter has been implemented or selected. Durable adapter comparison remains blocked on implementing and passing the same atomicity, idempotency, audit, recovery and fault-injection suite.
+
+
+## T16 immutable benchmark image and evidence provenance
+
+The T16 benchmark image is built from the committed `experiments/e002/t16/Dockerfile` by GitHub Actions and published to GHCR. The image contains both native candidate binaries and the Go open-loop load generator. CI resolves the Go, Rust, and PostgreSQL base-image tags to manifest digests and supplies those immutable references as build arguments. The build emits an `image-lock.json` artifact containing the full source SHA, immutable `image@sha256:digest` reference, source-SHA tag, base-image digests, Dockerfile path, and Actions build-run URL.
+
+The controlled-host preflight requires `--image-ref` and `--build-run-url`. The runner pulls that exact digest, verifies the OCI source and revision labels and the registry RepoDigest, and rejects mutable tag-only references. It never builds candidate or load-generator artifacts locally; both candidates and the load generator execute from the same verified image. Image identity and build provenance are included in preregistration, protocol, every ledger record, and final results/report.
+
+GitHub Actions shared runners are used for tests, image build, smoke tests, publication, SBOM, and provenance attestations only. They are not accepted as controlled-host benchmark evidence. Digest pinning identifies the produced artifact but does not by itself guarantee bit-for-bit reproducibility of every upstream build input. Set the GHCR package visibility to public after its first publication so controlled hosts can pull it without a personal token. Verify the registry attestation with:
+
+```sh
+gh attestation verify oci://ghcr.io/mojtaba-arvin/agent-native-t16@sha256:IMAGE_DIGEST \
+  -R mojtaba-arvin/agent-native
+```
+
+
+### Controlled-host operator flow
+
+Download the `t16-image-lock-<source-sha>` artifact from the successful image-publish Actions run. On the dedicated Linux host, verify the provenance attestation and derive all runtime identity values from that lock file rather than copying a mutable tag:
+
+```sh
+gh run download <BUILD_RUN_ID> \
+  --repo mojtaba-arvin/agent-native \
+  --name t16-image-lock-<SOURCE_SHA> \
+  --dir t16-image-lock
+
+SOURCE_SHA="$(jq -r .source_sha t16-image-lock/image-lock.json)"
+IMAGE_REF="$(jq -r .image_ref t16-image-lock/image-lock.json)"
+BUILD_RUN_URL="$(jq -r .build_run_url t16-image-lock/image-lock.json)"
+
+gh attestation verify "oci://$IMAGE_REF" -R mojtaba-arvin/agent-native
+
+export AGENT_NATIVE_E002_POSTGRES_DSN='postgresql://...'
+python experiments/e002/t16/preflight.py \
+  --attestation /secure/path/host-attestation.json \
+  --source-sha "$SOURCE_SHA" \
+  --image-ref "$IMAGE_REF" \
+  --build-run-url "$BUILD_RUN_URL" \
+  --command "python experiments/e002/t16/run.py --source-sha $SOURCE_SHA --image-ref $IMAGE_REF --build-run-url $BUILD_RUN_URL"
+
+python experiments/e002/t16/run.py \
+  --source-sha "$SOURCE_SHA" \
+  --image-ref "$IMAGE_REF" \
+  --build-run-url "$BUILD_RUN_URL"
+```
+
+The attestation file must explicitly identify the dedicated physical host, the host operator, and a timezone-qualified attestation timestamp. The PostgreSQL service must already be running in its own one-CPU cgroup on the preregistered physical core. Do not replace the digest with `:t16` or the source-SHA tag when launching a benchmark.
+
+
+For a single-command operator path, keep the downloaded image lock and host-attestation JSON outside the Git checkout (the runner intentionally rejects unexpected untracked files), then use:
+
+```sh
+gh run download <BUILD_RUN_ID> \
+  --repo mojtaba-arvin/agent-native \
+  --name t16-image-lock-<SOURCE_SHA> \
+  --dir /tmp/t16-image-lock
+
+export AGENT_NATIVE_E002_POSTGRES_DSN='postgresql://...'
+T16_IMAGE_LOCK=/tmp/t16-image-lock/image-lock.json \
+T16_HOST_ATTESTATION=/secure/path/host-attestation.json \
+  bash experiments/e002/t16/run-controlled-host.sh
+```
+
+The helper validates the lock against the checked-out source and Dockerfile, verifies the GitHub attestation, creates the preregistration/host/protocol manifests, and starts the benchmark with the exact digest. It requires `jq`, `gh`, Docker, PostgreSQL client tools, `taskset`, and Python 3.11+ on the controlled host.
+
+Each helper invocation defaults to a fresh UTC-timestamped directory under `experiments/e002/t16/evidence/`. Prior evidence directories are retained and allowed by the runner's untracked-file guard; image locks and operator attestations remain outside the checkout.
+
+If the branch-push publication run needs to be retried manually, open the repository Actions tab, select **T16 immutable benchmark image**, choose **Run workflow**, and select `task/T16-controlled-host-slo`. The workflow-dispatch path performs the same build, publish, attestation, and image-lock steps; PR-triggered runs deliberately do not publish packages.
