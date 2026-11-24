@@ -16,7 +16,7 @@ if [[ -z "${GH_TOKEN:-}" ]]; then
   fi
   printf "GitHub classic PAT (public_repo, read:packages): " >/dev/tty
   IFS= read -r -s GH_TOKEN </dev/tty
-  printf '\\n' >/dev/tty
+  printf '\n' >/dev/tty
   export GH_TOKEN
 fi
 : "${GH_TOKEN:?Export GH_TOKEN with public_repo and read:packages scopes.}"
