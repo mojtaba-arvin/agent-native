@@ -50,6 +50,7 @@ chmod 700 "$DOCKER_CONFIG_DIR"
 trap 'rm -rf "$DOCKER_CONFIG_DIR"' EXIT
 export DOCKER_CONFIG="$DOCKER_CONFIG_DIR"
 printf '%s' "$GH_TOKEN" | docker login ghcr.io --username "$GH_USERNAME" --password-stdin >/dev/null
+log "GHCR authentication succeeded."
 
 log "Resolving the latest T16 source revision from GitHub..."
 SOURCE_SHA="$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
@@ -66,7 +67,7 @@ IMAGE_REF="$(docker image inspect --format '{{range .RepoDigests}}{{println .}}{
 [[ "$IMAGE_REF" =~ ^ghcr\.io/mojtaba-arvin/agent-native-t16@sha256:[0-9a-f]{64}$ ]] || { echo "Could not resolve the pulled image's immutable RepoDigest." >&2; exit 3; }
 
 log "Image verified; launching controller from immutable digest $IMAGE_REF."
-docker run --rm --user 0:0 --privileged --pid=host --cgroupns=host --network=host \
+if docker run --rm --user 0:0 --privileged --pid=host --cgroupns=host --network=host \
   --volume /var/run/docker.sock:/var/run/docker.sock \
   --volume /sys/fs/cgroup:/sys/fs/cgroup \
   --volume /etc/machine-id:/host-machine-id:ro \
@@ -74,8 +75,11 @@ docker run --rm --user 0:0 --privileged --pid=host --cgroupns=host --network=hos
   --volume "$LOG_DIR:/host-t16-logs:rw" \
   --volume "$DOCKER_CONFIG_DIR:/root/.docker:ro" \
   --env GH_TOKEN --env DOCKER_CONFIG=/root/.docker --env T16_SOURCE_SHA="$SOURCE_SHA" --env T16_IMAGE_REF="$IMAGE_REF" --env T16_LOG_DIR=/host-t16-logs \
-  --entrypoint python3 "$IMAGE_REF" /usr/local/bin/t16-one-command-runner.py
-STATUS=$?
+  --entrypoint python3 "$IMAGE_REF" /usr/local/bin/t16-one-command-runner.py; then
+  STATUS=0
+else
+  STATUS=$?
+fi
 log "Controller exited with status $STATUS."
 log "Host logs and retained evidence: $LOG_DIR"
 exit "$STATUS"
