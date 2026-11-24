@@ -93,7 +93,7 @@ try:
     root_files = {
         "prereg.json", "host.json", "protocol.json", "ledger.jsonl",
         "results.json", "report.md", "execution.log", "preflight.log",
-        "execution-metadata.json", "image-lock.json", "checksums.sha256",
+        "execution-metadata.json", "image-lock.json", "operator-attestation.json", "checksums.sha256",
         "evidence-manifest.json",
     }
     with tarfile.open(archive_name, "r:gz") as archive:
@@ -167,7 +167,7 @@ files = manifest.get("files")
 required = {
     "prereg.json", "host.json", "protocol.json", "ledger.jsonl",
     "results.json", "report.md", "execution.log", "preflight.log",
-    "execution-metadata.json", "image-lock.json", "checksums.sha256",
+    "execution-metadata.json", "image-lock.json", "operator-attestation.json", "checksums.sha256",
 }
 if not isinstance(files, dict) or not required.issubset(files):
     fail("manifest is incomplete")
@@ -232,6 +232,7 @@ required = {
     "human-readable report": root / "report.md",
     "image lock": root / "image-lock.json",
     "execution metadata": root / "execution-metadata.json",
+    "operator attestation": root / "operator-attestation.json",
     "source-bound evidence manifest": root / "evidence-manifest.json",
 }
 missing = [label for label, path in required.items() if not path.is_file()]
@@ -257,6 +258,7 @@ results = load_json(required["machine-readable result"])
 report = required["human-readable report"].read_text(encoding="utf-8")
 image_lock = load_json(required["image lock"])
 execution_metadata = load_json(required["execution metadata"])
+operator_attestation = load_json(required["operator attestation"])
 manifest = load_json(required["source-bound evidence manifest"])
 
 # The preregistration must be committed before the run and bind every result
@@ -288,6 +290,15 @@ if image_lock.get("source_sha") != source_sha or image_lock.get("image_ref") != 
     sys.exit("T16 acceptance: immutable image lock is not bound to the preregistered source and result")
 if not image_lock.get("build_run_url") or not image_lock.get("build_run_id"):
     sys.exit("T16 acceptance: image lock omits the successful image build provenance reference")
+if (
+    operator_attestation.get("dedicated_physical_host") is not True
+    or not re.fullmatch(r"[0-9a-f]{16}", str(operator_attestation.get("host_id", "")))
+    or not operator_attestation.get("attested_by")
+    or not operator_attestation.get("attested_at")
+    or operator_attestation.get("attestation_basis") != "operator declaration for this one-command invocation"
+    or execution_metadata.get("host_attestation") != operator_attestation
+):
+    sys.exit("T16 acceptance: operator host attestation is missing, invalid, or not bound to execution metadata")
 if execution_metadata.get("source_sha") != source_sha or execution_metadata.get("image_ref") != image_ref:
     sys.exit("T16 acceptance: execution metadata is not bound to the exact source and image")
 if manifest.get("source_sha") != source_sha or manifest.get("image_ref") != image_ref:
