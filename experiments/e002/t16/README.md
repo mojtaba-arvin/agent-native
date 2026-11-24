@@ -30,6 +30,21 @@ streamed to the terminal and retained in the same host directory, including
 directory. On failure, partial evidence is retained there for diagnosis.
 Results are not committed to Git or stored on result branches.
 
+## Authentication and authorization contract
+
+Both Go and Rust candidates verify HMAC-SHA256 bearer tokens before accessing
+the PostgreSQL product function. Tokens carry a fixed issuer/audience,
+trusted issue/expiry times (maximum 15-minute lifetime), principal, tenant,
+and capability grants with resource prefixes. The benchmark issuer creates
+fresh 10-minute tokens per repetition: the reader has `catalog.read` scoped
+to `/v1/records/fixture-0001` and `jobs.create` scoped to `/v1/jobs`;
+the denial principal has only the catalog-read grant. A fresh 256-bit signing
+key is generated for each controlled run and passed only to candidate
+containers. Bearer values are passed to the load generator and excluded from
+raw traces. Missing, malformed, tampered, expired, wrong-tenant,
+missing-capability, and out-of-scope requests fail closed.
+
+
 ## Legacy manual preparation notes (historical; do not use for current runs)
 
 The following manual instructions describe the earlier runner interface and are retained only as historical context. They are not a supported execution path for the current digest-pinned runner. Use the one-command launcher above.
