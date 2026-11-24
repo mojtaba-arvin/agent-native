@@ -16,9 +16,10 @@ repo) and read:packages scopes, then execute this single command:
 
     curl -fsSL https://raw.githubusercontent.com/mojtaba-arvin/agent-native/task/T16-controlled-host-slo/experiments/e002/t16/one-command.sh | bash
 
-The launcher reuses or pulls one digest-pinned T16 image, runs the complete
+The launcher reuses or pulls one digest-pinned T16 image, asks the operator to
+confirm that the machine is a dedicated physical host, runs the complete
 controlled-host matrix, and publishes one compressed evidence archive as a
-GitHub Release asset. The image contains the complete E-002/T16 runtime source
+GitHub Release asset. It refuses to start without that interactive confirmation. The image contains the complete E-002/T16 runtime source
 bundle and all runtime dependencies; after the image pull, the controller does
 not clone the repository or install packages. GitHub API/Release traffic is
 still required for provenance checks and evidence publication.
