@@ -33,7 +33,17 @@ class OneCommandTests(unittest.TestCase):
         self.assertNotIn("docker:27.5.1-cli", source)
         self.assertIn("RepoDigests", source)
         self.assertIn("T16_IMAGE_REF", source)
+        self.assertIn("HOST_LOG=", source)
+        self.assertIn("controller.log", source)
+        self.assertIn('--volume "$LOG_DIR:/host-t16-logs:rw"', source)
         self.assertIn("$" + "{GH_TOKEN:", source)
+
+    def test_controller_uses_baked_source_and_never_clones_at_runtime(self):
+        source = RUNNER_PATH.read_text()
+        self.assertIn('Path("/opt/t16-source")', source)
+        self.assertIn("T16_BAKED_SOURCE_SHA", source)
+        self.assertNotIn('["git", "clone"', source)
+        self.assertIn('host_log_dir / "evidence" / run_id', source)
 
     def test_evidence_is_a_release_asset_bound_to_the_exact_source_commit(self):
         source = RUNNER_PATH.read_text()
