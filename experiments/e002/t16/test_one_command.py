@@ -91,6 +91,8 @@ class OneCommandTests(unittest.TestCase):
         self.assertIn("login_ok=0", source)
         self.assertIn("export GH_TOKEN", source)
         self.assertIn('--volume "$LOG_DIR:/host-t16-logs:rw"', source)
+        self.assertIn('LOG_DIR="$(cd "$LOG_DIR" && pwd)"', source)
+        self.assertIn('--env T16_HOST_LOG_DIR="$LOG_DIR"', source)
         self.assertIn("$" + "{GH_TOKEN:", source)
 
     def test_controller_reuses_the_single_pulled_image_for_postgres(self):
