@@ -53,7 +53,7 @@ SECURITY_OPTIONS="$(docker info --format '{{json .SecurityOptions}}')"
 log "Host prerequisites passed."
 
 log "Authenticating to GitHub and GHCR; token values are never logged."
-GH_USERNAME="$(github_get "$API/user" | sed -n '1s/^{"login":"\([^"]*\)".*/\1/p')"
+GH_USERNAME="$(github_get "$API/user" | sed -n 's/^[[:space:]]*"login"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1)"
 [[ -n "$GH_USERNAME" ]] || fail 2 "Could not resolve the GitHub account for GHCR authentication; verify token validity and scopes."
 DOCKER_CONFIG_DIR="$(mktemp -d)"
 chmod 700 "$DOCKER_CONFIG_DIR"
