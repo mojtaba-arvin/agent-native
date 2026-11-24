@@ -304,10 +304,12 @@ class LocalAgentRunnerTests(unittest.TestCase):
         class Handler(BaseHTTPRequestHandler):
             index = 0
             response_values = responses
+            request_payloads = []
 
             def do_POST(self):
                 length = int(self.headers["Content-Length"])
-                self.rfile.read(length)
+                raw_request = self.rfile.read(length)
+                type(self).request_payloads.append(json.loads(raw_request))
                 if type(self).index >= len(type(self).response_values):
                     self.send_error(500)
                     return
@@ -345,6 +347,9 @@ class LocalAgentRunnerTests(unittest.TestCase):
                     think=False,
                 )
                 result = run(args)
+                first_prompt = Handler.request_payloads[0]["messages"][2]["content"]
+                self.assertTrue(first_prompt.startswith("Session surface JSON:\n"))
+                self.assertNotIn("Session surface JSON:\\n", first_prompt)
                 self.assertEqual(result["status"], "candidate_verified_locally")
                 self.assertEqual(result["tool_calls"], len(calls))
                 self.assertEqual(result["input_tokens"], 40 * len(calls) + 45)
