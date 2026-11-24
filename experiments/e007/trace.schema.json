@@ -184,6 +184,7 @@
           "tool_name": {
             "enum": [
               "service.propose",
+              "service.propose_delta",
               "service.validate",
               "service.plan"
             ]
