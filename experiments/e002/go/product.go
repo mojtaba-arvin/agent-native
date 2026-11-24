@@ -4,13 +4,18 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
+	"encoding/hex"
 	"errors"
+	"crypto/hmac"
+	"crypto/sha256"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"os/exec"
 	"strings"
+	"strconv"
+	"time"
 	"sync"
 )
 
@@ -121,34 +126,139 @@ func (pool *psqlPool) close() {
 	}
 }
 
+
+type t16Grant struct {
+	capability string
+	resourcePrefix string
+	expiresAt *int64
+}
+
+type t16Principal struct {
+	principalID string
+	tenantID string
+	expiresAt int64
+	grants []t16Grant
+}
+
+func validT16Capability(value string) bool {
+	if value == "" || len(value) > 128 { return false }
+	for _, char := range value {
+		if !(char >= 'a' && char <= 'z') && !(char >= 'A' && char <= 'Z') &&
+			!(char >= '0' && char <= '9') && char != '.' && char != '-' && char != '_' {
+			return false
+		}
+	}
+	return true
+}
+
+func validT16ResourcePrefix(value string) bool {
+	if !strings.HasPrefix(value, "/") || strings.Contains(value, "//") ||
+		strings.ContainsAny(value, "|~,;?#%\\\\") {
+		return false
+	}
+	for _, segment := range strings.Split(value, "/") {
+		if segment == "." || segment == ".." { return false }
+	}
+	for _, char := range value {
+		if char < 0x20 || char == 0x7f { return false }
+	}
+	return true
+}
+
+func verifyT16Bearer(authorization string, key []byte, now time.Time) (t16Principal, error) {
+	var identity t16Principal
+	if len(key) < 32 { return identity, errors.New("invalid_signing_key") }
+	if !strings.HasPrefix(authorization, "Bearer ") { return identity, errors.New("invalid_bearer_scheme") }
+	token := strings.TrimPrefix(authorization, "Bearer ")
+	if token == "" || len(token) > 8192 {
+		return identity, errors.New("malformed_bearer_token")
+	}
+	separator := strings.LastIndex(token, ".")
+	if separator <= 0 { return identity, errors.New("malformed_bearer_token") }
+	payload, suppliedText := token[:separator], token[separator+1:]
+	supplied, err := hex.DecodeString(suppliedText)
+	if err != nil || len(supplied) != sha256.Size { return identity, errors.New("invalid_token_signature_encoding") }
+	mac := hmac.New(sha256.New, key)
+	_, _ = mac.Write([]byte(payload))
+	if !hmac.Equal(mac.Sum(nil), supplied) { return identity, errors.New("invalid_token_signature") }
+	fields := strings.Split(payload, "|")
+	if len(fields) != 8 || fields[0] != "AN-CAP-V1" || fields[1] != "agent-native" || fields[2] != "agent-native-api" {
+		return identity, errors.New("invalid_token_claims")
+	}
+	issuedAt, err1 := strconv.ParseInt(fields[3], 10, 64)
+	expiresAt, err2 := strconv.ParseInt(fields[4], 10, 64)
+	current := now.Unix()
+	if err1 != nil || err2 != nil || issuedAt < 0 || issuedAt > current ||
+		expiresAt <= current || expiresAt <= issuedAt || expiresAt-issuedAt > 900 {
+		return identity, errors.New("token_expired_or_outside_validity_window")
+	}
+	if !validT16Header(fields[5]) || !validT16Header(fields[6]) || fields[7] == "" {
+		return identity, errors.New("invalid_token_identity_or_grants")
+	}
+	grantItems := strings.Split(fields[7], ",")
+	if len(grantItems) > 128 { return identity, errors.New("too_many_token_grants") }
+	identity.principalID, identity.tenantID, identity.expiresAt = fields[5], fields[6], expiresAt
+	for _, item := range grantItems {
+		grantFields := strings.Split(item, "~")
+		if len(grantFields) != 4 || !validT16Capability(grantFields[0]) || !validT16ResourcePrefix(grantFields[1]) {
+			return t16Principal{}, errors.New("invalid_token_grant")
+		}
+		var grantExpiry *int64
+		if grantFields[2] != "-" {
+			value, parseErr := strconv.ParseInt(grantFields[2], 10, 64)
+			if parseErr != nil || value < 0 { return t16Principal{}, errors.New("invalid_token_grant_expiry") }
+			grantExpiry = &value
+		}
+		depth, parseErr := strconv.Atoi(grantFields[3])
+		if parseErr != nil || depth < 0 { return t16Principal{}, errors.New("invalid_token_grant_depth") }
+		identity.grants = append(identity.grants, t16Grant{
+			capability: grantFields[0], resourcePrefix: grantFields[1], expiresAt: grantExpiry,
+		})
+	}
+	if len(identity.grants) == 0 { return t16Principal{}, errors.New("empty_token_grants") }
+	return identity, nil
+}
+
+func authorizeT16(identity t16Principal, capability, resource string, now time.Time) (bool, string) {
+	if now.Unix() >= identity.expiresAt { return false, "TOKEN_EXPIRED" }
+	matchedCapability, liveGrant := false, false
+	for _, grant := range identity.grants {
+		if grant.capability != capability { continue }
+		matchedCapability = true
+		if grant.expiresAt != nil && now.Unix() >= *grant.expiresAt { continue }
+		liveGrant = true
+		prefix := strings.TrimSuffix(grant.resourcePrefix, "/")
+		if prefix == "" { prefix = "/" }
+		if resource == prefix || strings.HasPrefix(resource, strings.TrimSuffix(prefix, "/")+"/") {
+			return true, "ALLOW"
+		}
+	}
+	if !matchedCapability { return false, "MISSING_CAPABILITY" }
+	if !liveGrant { return false, "EXPIRED_GRANT" }
+	return false, "RESOURCE_SCOPE"
+}
+
 type productService struct {
-	pool      *psqlPool
-	readToken string
-	denyToken string
-	tenant    string
+	pool *psqlPool
+	signingKey []byte
 }
 
 func newProductServiceFromEnv() (*productService, error) {
-	readToken, denyToken := os.Getenv("T16_READ_TOKEN"), os.Getenv("T16_DENY_TOKEN")
-	if readToken == "" && denyToken == "" {
-		return nil, nil
-	}
-	if readToken == "" || denyToken == "" {
-		return nil, errors.New("both_t16_bearer_fixtures_required")
+	keyHex := os.Getenv("T16_SIGNING_KEY")
+	if keyHex == "" { return nil, nil }
+	signingKey, err := hex.DecodeString(keyHex)
+	if err != nil || len(signingKey) < 32 {
+		return nil, errors.New("t16_signing_key_must_be_32_bytes_of_hex")
 	}
 	dsn := os.Getenv("T16_PSQL_DSN")
 	if dsn == "" {
 		dsn = "postgresql://postgres@127.0.0.1:5432/agent_native?sslmode=disable"
 	}
-	tenant := os.Getenv("T16_TENANT_ID")
-	if tenant == "" {
-		tenant = "tenant-a"
-	}
 	pool, err := newPsqlPool(dsn, 32)
 	if err != nil {
 		return nil, err
 	}
-	return &productService{pool: pool, readToken: readToken, denyToken: denyToken, tenant: tenant}, nil
+	return &productService{pool: pool, signingKey: signingKey}, nil
 }
 
 func validT16Header(value string) bool {
@@ -219,23 +329,20 @@ func (app *application) serveProduct(w http.ResponseWriter, request *http.Reques
 		return
 	}
 
-	principal, allowed := "", false
-	switch request.Header.Get("Authorization") {
-	case "Bearer " + app.product.readToken:
-		principal, allowed = "benchmark-reader", true
-	case "Bearer " + app.product.denyToken:
-		principal, allowed = "benchmark-limited", false
-	default:
+	identity, authErr := verifyT16Bearer(request.Header.Get("Authorization"), app.product.signingKey, time.Now())
+	if authErr != nil {
 		writeT16Error(w, http.StatusUnauthorized, "UNAUTHORIZED")
 		return
 	}
 
 	operation, resourceID, expectedStatus := "", "", http.StatusOK
+	requiredCapability, protectedResource := "", ""
 	targetOperation := "catalog.read"
 	var body json.RawMessage
 	switch {
 	case request.Method == http.MethodGet && request.URL.Path == "/v1/records/fixture-0001":
 		operation, resourceID = "authorized_read", "fixture-0001"
+		requiredCapability, protectedResource = "catalog.read", "/v1/records/fixture-0001"
 	case request.Method == http.MethodPost && request.URL.Path == "/v1/operations/validate":
 		var decoded validateRequest
 		raw, err := decodeT16Body(request, &decoded)
@@ -244,6 +351,9 @@ func (app *application) serveProduct(w http.ResponseWriter, request *http.Reques
 			return
 		}
 		body = raw
+		resourceID = decoded.ResourceID
+		requiredCapability, protectedResource = "catalog.read", "/v1/records/"+decoded.ResourceID
+		if decoded.ResourceID == "" { protectedResource = "/v1/records/fixture-0001" }
 		operation = "validate_plan"
 		targetOperation = "operations.validate"
 	case request.Method == http.MethodPost && request.URL.Path == "/v1/jobs":
@@ -255,37 +365,36 @@ func (app *application) serveProduct(w http.ResponseWriter, request *http.Reques
 			return
 		}
 		body = raw
+		requiredCapability, protectedResource = "jobs.create", "/v1/jobs"
 		if !validT16Header(request.Header.Get("Idempotency-Key")) {
 			writeT16Error(w, http.StatusBadRequest, "IDEMPOTENCY_KEY_REQUIRED")
 			return
 		}
-		if allowed && assertedTenant == app.product.tenant {
-			operation, expectedStatus = "job_admission", http.StatusAccepted
-			targetOperation = "jobs.create"
-		} else {
-			operation, expectedStatus = "expected_denial", http.StatusForbidden
-		}
+		operation, targetOperation = "job_admission", "jobs.create"
 	default:
 		http.NotFound(w, request)
 		return
 	}
 
-	if assertedTenant != app.product.tenant {
-		operation, expectedStatus = "expected_denial", http.StatusForbidden
+	reasonCode := "CAPABILITY_DENIED"
+	authorized, decision := authorizeT16(identity, requiredCapability, protectedResource, time.Now())
+	if assertedTenant != identity.tenantID {
+		authorized, reasonCode = false, "TENANT_SCOPE_MISMATCH"
+	} else if !authorized {
+		reasonCode = decision
 	}
-	if operation == "validate_plan" && !allowed {
+	if !authorized {
 		operation, expectedStatus = "expected_denial", http.StatusForbidden
-	}
-	if operation == "authorized_read" && assertedTenant != app.product.tenant {
-		operation, expectedStatus = "expected_denial", http.StatusForbidden
+	} else if operation == "job_admission" {
+		expectedStatus = http.StatusAccepted
 	}
 	if body == nil {
 		body = json.RawMessage("{}")
 	}
 	value := map[string]any{
 		"request_id": requestID,
-		"principal_id": principal,
-		"tenant_id": app.product.tenant,
+		"principal_id": identity.principalID,
+		"tenant_id": identity.tenantID,
 		"operation": operation,
 		"target_operation": targetOperation,
 		"resource_id": resourceID,
@@ -295,11 +404,7 @@ func (app *application) serveProduct(w http.ResponseWriter, request *http.Reques
 		value["idempotency_key"] = request.Header.Get("Idempotency-Key")
 	}
 	if operation == "expected_denial" {
-		if assertedTenant != app.product.tenant {
-			value["reason_code"] = "TENANT_SCOPE_MISMATCH"
-		} else {
-			value["reason_code"] = "CAPABILITY_DENIED"
-		}
+		value["reason_code"] = reasonCode
 	}
 
 	result, err := app.product.pool.query(value)
