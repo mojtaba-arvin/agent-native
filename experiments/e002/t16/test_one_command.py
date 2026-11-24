@@ -124,6 +124,7 @@ class OneCommandTests(unittest.TestCase):
                     response.__enter__.return_value.read.return_value = json.dumps(payload).encode()
                     with tarfile.open(fileobj=io.BytesIO(body), mode="r:gz") as archive:
                         self.assertTrue(any(name.endswith("/checksums.sha256") for name in archive.getnames()))
+                        self.assertTrue(any(name.endswith("/evidence-manifest.json") for name in archive.getnames()))
                     return response
                 upload.side_effect = uploaded
                 url = RUNNER.publish_evidence(
