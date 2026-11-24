@@ -75,7 +75,7 @@ if docker run --rm --user 0:0 --privileged --pid=host --cgroupns=host --network=
   --volume "$LOG_DIR:/host-t16-logs:rw" \
   --volume "$DOCKER_CONFIG_DIR:/root/.docker:ro" \
   --env GH_TOKEN --env DOCKER_CONFIG=/root/.docker --env T16_SOURCE_SHA="$SOURCE_SHA" --env T16_IMAGE_REF="$IMAGE_REF" --env T16_LOG_DIR=/host-t16-logs \
-  --entrypoint python3 "$IMAGE_REF" /usr/local/bin/t16-one-command-runner.py; then
+  --entrypoint python3 "$IMAGE_REF" /usr/local/bin/t16-one-command-runner.py 2>&1 | tee -a "$LOG_DIR/controller.log"; then
   STATUS=0
 else
   STATUS=$?
