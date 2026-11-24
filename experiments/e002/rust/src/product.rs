@@ -12,7 +12,7 @@ use bytes::Bytes;
 use http_body_util::{BodyExt, Full};
 use hyper::{body::Incoming, header, Request, Response, StatusCode};
 
-use crate::ResponseBody;
+use crate::{ResponseBody, t16_auth::{authorize, verify_bearer}};
 
 const MAX_BODY: usize = 16 * 1024;
 const DONE: &str = "__T16_DONE__";
@@ -110,27 +110,20 @@ impl PgPool {
 
 pub struct ProductConfig {
     pub pool: Arc<PgPool>,
-    read_token: String,
-    deny_token: String,
-    tenant: String,
+    signing_key: Vec<u8>,
 }
 
 impl ProductConfig {
     pub fn from_env() -> Result<Option<Arc<Self>>, String> {
-        let read_token = env::var("T16_READ_TOKEN").unwrap_or_default();
-        let deny_token = env::var("T16_DENY_TOKEN").unwrap_or_default();
-        if read_token.is_empty() && deny_token.is_empty() {
-            return Ok(None);
-        }
-        if read_token.is_empty() || deny_token.is_empty() {
-            return Err("both_t16_bearer_fixtures_required".to_owned());
-        }
+        let key_hex = env::var("T16_SIGNING_KEY").unwrap_or_default();
+        if key_hex.is_empty() { return Ok(None); }
+        let signing_key = crate::t16_auth::decode_hex(&key_hex)?;
+        if signing_key.len() < 32 { return Err("t16_signing_key_must_be_32_bytes_of_hex".to_owned()); }
         let dsn = env::var("T16_PSQL_DSN").unwrap_or_else(|_| {
             "postgresql://postgres@127.0.0.1:5432/agent_native?sslmode=disable".to_owned()
         });
-        let tenant = env::var("T16_TENANT_ID").unwrap_or_else(|_| "tenant-a".to_owned());
         let pool = Arc::new(PgPool::new(&dsn, 32)?);
-        Ok(Some(Arc::new(Self { pool, read_token, deny_token, tenant })))
+        Ok(Some(Arc::new(Self { pool, signing_key })))
     }
 
     pub async fn handle(&self, request: Request<Incoming>) -> Response<ResponseBody> {
@@ -143,13 +136,9 @@ impl ProductConfig {
             return json_response(StatusCode::BAD_REQUEST, r#"{"error":{"code":"INVALID_REQUEST_CONTEXT"}}"#);
         }
 
-        let authorization = header_text(&request, "authorization");
-        let (principal, allowed) = if authorization == format!("Bearer {}", self.read_token) {
-            ("benchmark-reader", true)
-        } else if authorization == format!("Bearer {}", self.deny_token) {
-            ("benchmark-limited", false)
-        } else {
-            return json_response(StatusCode::UNAUTHORIZED, r#"{"error":{"code":"UNAUTHORIZED"}}"#);
+        let identity = match verify_bearer(header_text(&request, "authorization"), &self.signing_key) {
+            Ok(value) => value,
+            Err(_) => return json_response(StatusCode::UNAUTHORIZED, r#"{"error":{"code":"UNAUTHORIZED"}}"#),
         };
 
         let method = request.method().as_str();
@@ -160,10 +149,10 @@ impl ProductConfig {
             "/v1/jobs" => "jobs.create",
             _ => "unknown",
         };
-        let (mut operation, resource_id, mut status) = match (method, path) {
-            ("GET", "/v1/records/fixture-0001") => ("authorized_read", "fixture-0001", StatusCode::OK),
-            ("POST", "/v1/operations/validate") => ("validate_plan", "", StatusCode::OK),
-            ("POST", "/v1/jobs") => ("job_admission", "", StatusCode::ACCEPTED),
+        let (mut operation, mut resource_id, mut status, required_capability, mut protected_resource) = match (method, path) {
+            ("GET", "/v1/records/fixture-0001") => ("authorized_read", "fixture-0001".to_owned(), StatusCode::OK, "catalog.read", "/v1/records/fixture-0001".to_owned()),
+            ("POST", "/v1/operations/validate") => ("validate_plan", String::new(), StatusCode::OK, "catalog.read", String::new()),
+            ("POST", "/v1/jobs") => ("job_admission", String::new(), StatusCode::ACCEPTED, "jobs.create", "/v1/jobs".to_owned()),
             _ => return json_response(StatusCode::NOT_FOUND, r#"{"error":{"code":"NOT_FOUND"}}"#),
         };
 
@@ -171,19 +160,6 @@ impl ProductConfig {
         if operation == "job_admission" && !valid_header(&idempotency_key) {
             return json_response(StatusCode::BAD_REQUEST, r#"{"error":{"code":"IDEMPOTENCY_KEY_REQUIRED"}}"#);
         }
-        if operation == "job_admission" && (!allowed || asserted_tenant != self.tenant) {
-            operation = "expected_denial";
-            status = StatusCode::FORBIDDEN;
-        }
-        if operation == "validate_plan" && (!allowed || asserted_tenant != self.tenant) {
-            operation = "expected_denial";
-            status = StatusCode::FORBIDDEN;
-        }
-        if operation == "authorized_read" && asserted_tenant != self.tenant {
-            operation = "expected_denial";
-            status = StatusCode::FORBIDDEN;
-        }
-
         let (_, body) = request.into_parts();
         let collected = match body.collect().await {
             Ok(value) => value.to_bytes(),
@@ -200,14 +176,28 @@ impl ProductConfig {
                 _ => return json_response(StatusCode::BAD_REQUEST, r#"{"error":{"code":"INVALID_JSON_BODY"}}"#),
             }
         };
-        let reason = if asserted_tenant != self.tenant {
-            "TENANT_SCOPE_MISMATCH"
-        } else {
-            "CAPABILITY_DENIED"
-        };
+
+        if operation == "validate_plan" {
+            match extract_resource_id(body_text) {
+                Some(value) => {
+                    resource_id = value.clone();
+                    protected_resource = format!("/v1/records/{value}");
+                }
+                None => protected_resource = "/v1/records/invalid".to_owned(),
+            }
+        }
+        let (mut authorized, mut reason) = authorize(&identity, required_capability, &protected_resource);
+        if asserted_tenant != identity.tenant_id {
+            authorized = false;
+            reason = "TENANT_SCOPE_MISMATCH";
+        }
+        if !authorized {
+            operation = "expected_denial";
+            status = StatusCode::FORBIDDEN;
+        }
         let mut payload = format!(
-            r#"{{"request_id":"{request_id}","principal_id":"{principal}","tenant_id":"{}","operation":"{operation}","target_operation":"{target_operation}","resource_id":"{resource_id}","body":{body_text}"#,
-            self.tenant
+            r#"{{"request_id":"{request_id}","principal_id":"{}","tenant_id":"{}","operation":"{operation}","target_operation":"{target_operation}","resource_id":"{resource_id}","body":{body_text}"#,
+            identity.principal_id, identity.tenant_id
         );
         if operation == "job_admission" || operation == "expected_denial" {
             payload.push_str(&format!(r#", "idempotency_key":"{idempotency_key}""#));
@@ -233,6 +223,22 @@ impl ProductConfig {
             _ => json_response(StatusCode::SERVICE_UNAVAILABLE, r#"{"error":{"code":"DURABLE_OPERATION_FAILED"}}"#),
         }
     }
+}
+
+fn extract_resource_id(body: &str) -> Option<String> {
+    let marker = r#""resource_id""#;
+    if body.matches(marker).count() != 1 {
+        return None;
+    }
+    let after_key = body.split_once(marker)?.1.trim_start();
+    let after_colon = after_key.strip_prefix(':')?.trim_start();
+    let quoted = after_colon.strip_prefix('"')?;
+    let end = quoted.find('"')?;
+    let value = &quoted[..end];
+    if value.is_empty() || !value.bytes().all(|byte| byte.is_ascii_alphanumeric() || byte == b'-' || byte == b'_') {
+        return None;
+    }
+    Some(value.to_owned())
 }
 
 fn header_text<'a>(request: &'a Request<Incoming>, name: &str) -> &'a str {
