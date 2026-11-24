@@ -34,9 +34,9 @@ curl_retry() { curl -fsSL --retry 5 --retry-delay 3 --retry-connrefused --connec
 github_get() {
   local url="$1"
   {
-    printf 'header = "Authorization: Bearer %s"\\n' "$GH_TOKEN"
-    printf 'header = "Accept: application/vnd.github+json"\\n'
-    printf 'header = "X-GitHub-Api-Version: 2022-11-28"\\n'
+    printf 'header = "Authorization: Bearer %s"\n' "$GH_TOKEN"
+    printf 'header = "Accept: application/vnd.github+json"\n'
+    printf 'header = "X-GitHub-Api-Version: 2022-11-28"\n'
   } | curl_retry --config - "$url"
 }
 command -v docker >/dev/null 2>&1 || fail 2 "Docker Engine/CLI is required."
