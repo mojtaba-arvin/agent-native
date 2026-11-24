@@ -152,14 +152,17 @@ def read_memory_events(path: Path) -> dict[str, int]:
 
 def run_loadgen_container(name: str, arguments: list[str], cpu: int, output: Path,
                           read_token: str, deny_token: str, image_ref: str, timeout: int = 180,
-                          allow_functional_failure: bool = False) -> dict[str, Any]:
+                          allow_functional_failure: bool = False,
+                          host_output: Path | None = None) -> dict[str, Any]:
     container = name
     try:
         run_command([
             "docker", "run", "--detach", "--name", container,
             "--cpus=1", f"--cpuset-cpus={cpu}", "--memory=1g", "--network=host",
             "--env", f"T16_READ_TOKEN={read_token}", "--env", f"T16_DENY_TOKEN={deny_token}",
-            "-v", f"{output}:/evidence:rw",
+            # Docker uses the host daemon: bind sources must be host paths, not paths
+            # that exist only inside the privileged controller container.
+            "-v", f"{host_output or output}:/evidence:rw",
             "--entrypoint", "/opt/candidates/t16-loadgen",
             image_ref, *arguments,
         ], timeout=60)
@@ -420,6 +423,8 @@ def main() -> int:
     args = parser.parse_args()
     output = args.output.resolve()
     root = Path.cwd().resolve()
+    host_output_value = os.getenv("T16_HOST_EVIDENCE_DIR")
+    host_output = Path(host_output_value).resolve() if host_output_value else output
     try:
         if not re.fullmatch(r"[0-9a-f]{40}", args.source_sha):
             raise ValueError("--source-sha must be a full 40-character Git SHA")
@@ -446,6 +451,8 @@ def main() -> int:
                 raise RuntimeError("source checkout contains unexpected untracked files: " + ", ".join(unexpected_untracked))
         if not args.postgres_dsn:
             raise ValueError("AGENT_NATIVE_E002_POSTGRES_DSN is required")
+        if not host_output.is_absolute():
+            raise ValueError("T16_HOST_EVIDENCE_DIR must be an absolute host path")
         prereg_path, host_path, protocol_path = output / "prereg.json", output / "host.json", output / "protocol.json"
         for path in (prereg_path, host_path, protocol_path):
             if not path.is_file():
@@ -571,6 +578,7 @@ def main() -> int:
                     loadgen_warmup = run_loadgen_container(
                         f"t16-loadgen-warmup-{uuid.uuid4().hex[:8]}",
                         warmup_arguments, host["load_generator_cpu"], output, read_token, deny_token, args.image_ref,
+                        host_output=host_output,
                     )
                     psql(args.postgres_dsn, "SELECT t16_reset()")
                     cpu_before = read_cpu_usage(candidate_cgroup)
@@ -583,7 +591,7 @@ def main() -> int:
                     loadgen_measured = run_loadgen_container(
                         f"t16-loadgen-measured-{uuid.uuid4().hex[:8]}",
                         measured_arguments, host["load_generator_cpu"], output, read_token, deny_token, args.image_ref,
-                        allow_functional_failure=True,
+                        allow_functional_failure=True, host_output=host_output,
                     )
                     if any(path == str(candidate_cgroup) or path == str(postgres_cgroup) for path in (loadgen_warmup["path"], loadgen_measured["path"])):
                         raise RuntimeError("load generator shares the candidate or PostgreSQL cgroup")
