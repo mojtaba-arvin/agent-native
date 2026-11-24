@@ -112,7 +112,7 @@ jobs:
           set -e
           test "$status" -eq 2
           docker run --rm --entrypoint /bin/sh t16-candidates:ci -c \
-            'set -eux; test -x /opt/candidates/e002-go; test -x /opt/candidates/e002-rust; test -x /usr/local/bin/t16-candidate; test -f /usr/local/bin/t16-one-command-runner.py; command -v python3; command -v git; command -v gh; command -v taskset; command -v psql; command -v docker; docker --version; gh --version; gh attestation verify --help'
+            'set -eux; test -x /opt/candidates/e002-go; test -x /opt/candidates/e002-rust; test -x /usr/local/bin/t16-candidate; test -f /usr/local/bin/t16-one-command-runner.py; test -f /opt/t16-source/.t16-source-sha; test -f /opt/t16-source/experiments/e002/t16/preflight.py; test -f /opt/t16-source/experiments/e002/t16/run.py; test -f /opt/t16-source/experiments/e002/t16/loadgen/main.go; command -v python3; command -v git; command -v gh; command -v taskset; command -v psql; command -v docker; docker --version; gh --version; gh attestation verify --help'
       - name: Save resolved base-image references
         env:
           GO_IMAGE: ${{ steps.base.outputs.go_image }}
