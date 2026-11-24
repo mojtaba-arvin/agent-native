@@ -44,5 +44,8 @@ experiments/e002/t16/*
 !experiments/e002/t16/Dockerfile
 !experiments/e002/t16/entrypoint.sh
 !experiments/e002/t16/one-command-runner.py
+!experiments/e002/t16/preflight.py
+!experiments/e002/t16/run.py
+!experiments/e002/t16/schema.sql
 !experiments/e002/t16/loadgen/
 !experiments/e002/t16/loadgen/**
