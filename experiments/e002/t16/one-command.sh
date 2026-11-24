@@ -30,6 +30,15 @@ fi
 export GH_TOKEN
 log "Checking host prerequisites and exported GH_TOKEN."
 curl_retry() { curl -fsSL --retry 5 --retry-delay 3 --retry-connrefused --connect-timeout 15 --max-time 120 "$@"; }
+# Send the PAT through curl's stdin config, never in curl's argv/process listing.
+github_get() {
+  local url="$1"
+  {
+    printf 'header = "Authorization: Bearer %s"\\n' "$GH_TOKEN"
+    printf 'header = "Accept: application/vnd.github+json"\\n'
+    printf 'header = "X-GitHub-Api-Version: 2022-11-28"\\n'
+  } | curl_retry --config - "$url"
+}
 command -v docker >/dev/null 2>&1 || fail 2 "Docker Engine/CLI is required."
 command -v curl >/dev/null 2>&1 || fail 2 "curl is required."
 docker info >/dev/null 2>&1 || fail 2 "Docker daemon is unavailable."
@@ -44,7 +53,7 @@ SECURITY_OPTIONS="$(docker info --format '{{json .SecurityOptions}}')"
 log "Host prerequisites passed."
 
 log "Authenticating to GitHub and GHCR; token values are never logged."
-GH_USERNAME="$(curl_retry -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" "$API/user" | sed -n '1s/^{"login":"\([^"]*\)".*/\1/p')"
+GH_USERNAME="$(github_get "$API/user" | sed -n '1s/^{"login":"\([^"]*\)".*/\1/p')"
 [[ -n "$GH_USERNAME" ]] || fail 2 "Could not resolve the GitHub account for GHCR authentication; verify token validity and scopes."
 DOCKER_CONFIG_DIR="$(mktemp -d)"
 chmod 700 "$DOCKER_CONFIG_DIR"
@@ -63,8 +72,7 @@ done
 log "GHCR authentication succeeded."
 
 log "Resolving the latest T16 source revision from GitHub..."
-SOURCE_SHA="$(curl_retry -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
-  "$API/repos/$REPOSITORY/commits?sha=$BRANCH&per_page=1" | sed -n '1s/^\[{"sha":"\([0-9a-f]\{40\}\)".*/\1/p')"
+SOURCE_SHA="$(github_get "$API/repos/$REPOSITORY/commits?sha=$BRANCH&per_page=1" | sed -n '1s/^\[{"sha":"\([0-9a-f]\{40\}\)".*/\1/p')"
 [[ "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]] || fail 2 "Could not resolve the current T16 source SHA."
 log "Source revision: $SOURCE_SHA"
 
