@@ -122,7 +122,7 @@ def restore_evidence(archive_path: Path, target: Path, expected_source_sha: str)
     files = manifest.get("files")
     if not isinstance(files, dict) or not REQUIRED_FILES - {"evidence-manifest.json"} <= set(files):
         raise ValueError("incomplete_t16_evidence_manifest")
-    if extracted != set(files):
+    if extracted - {"evidence-manifest.json"} != set(files):
         raise ValueError("unmanifested_or_missing_t16_evidence_files")
 
     for relative_name, expected_digest in files.items():
