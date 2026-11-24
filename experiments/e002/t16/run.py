@@ -388,20 +388,27 @@ def main() -> int:
     try:
         if not re.fullmatch(r"[0-9a-f]{40}", args.source_sha):
             raise ValueError("--source-sha must be a full 40-character Git SHA")
-        actual_sha = run_command(["git", "rev-parse", "HEAD"])
-        if actual_sha != args.source_sha:
-            raise RuntimeError(f"checked-out source SHA {actual_sha} differs from preregistered {args.source_sha}")
-        run_command(["git", "diff", "--quiet"])
-        run_command(["git", "diff", "--cached", "--quiet"])
-        untracked = run_command(["git", "ls-files", "--others", "--exclude-standard"]).splitlines()
-        allowed_evidence = {
-            str((output / "prereg.json").relative_to(root)),
-            str((output / "host.json").relative_to(root)),
-            str((output / "protocol.json").relative_to(root)),
-        }
-        unexpected_untracked = unexpected_untracked_files(untracked, allowed_evidence)
-        if unexpected_untracked:
-            raise RuntimeError("source checkout contains unexpected untracked files: " + ", ".join(unexpected_untracked))
+        baked_sha = os.getenv("T16_BAKED_SOURCE_SHA", "")
+        if baked_sha:
+            marker = root / ".t16-source-sha"
+            if baked_sha != args.source_sha or not marker.is_file() or marker.read_text(encoding="ascii").strip() != args.source_sha:
+                raise RuntimeError("baked source bundle SHA does not match preregistered source SHA")
+            print(f"T16 source bundle verified from immutable image: {baked_sha}", flush=True)
+        else:
+            actual_sha = run_command(["git", "rev-parse", "HEAD"])
+            if actual_sha != args.source_sha:
+                raise RuntimeError(f"checked-out source SHA {actual_sha} differs from preregistered {args.source_sha}")
+            run_command(["git", "diff", "--quiet"])
+            run_command(["git", "diff", "--cached", "--quiet"])
+            untracked = run_command(["git", "ls-files", "--others", "--exclude-standard"]).splitlines()
+            allowed_evidence = {
+                str((output / "prereg.json").relative_to(root)),
+                str((output / "host.json").relative_to(root)),
+                str((output / "protocol.json").relative_to(root)),
+            }
+            unexpected_untracked = unexpected_untracked_files(untracked, allowed_evidence)
+            if unexpected_untracked:
+                raise RuntimeError("source checkout contains unexpected untracked files: " + ", ".join(unexpected_untracked))
         if not args.postgres_dsn:
             raise ValueError("AGENT_NATIVE_E002_POSTGRES_DSN is required")
         prereg_path, host_path, protocol_path = output / "prereg.json", output / "host.json", output / "protocol.json"
