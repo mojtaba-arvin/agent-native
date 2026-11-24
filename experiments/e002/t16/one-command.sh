@@ -13,7 +13,7 @@ mkdir -p "$LOG_DIR"
 chmod 700 "$LOG_DIR"
 HOST_LOG="$LOG_DIR/launcher.log"
 exec > >(tee -a "$HOST_LOG") 2>&1
-log() { printf '[%s] %s\\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*"; }
+log() { echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] $*"; }
 fail() { code="$1"; shift; log "ERROR (exit $code): $*"; log "Host log directory: $LOG_DIR"; exit "$code"; }
 log "T16 launcher started; host logs: $LOG_DIR"
 
