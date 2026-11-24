@@ -70,14 +70,15 @@ class E009CapacityGateTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "nested" / "requests.jsonl"
             digest = write_request_trace(path, records)
-            lines = path.read_text(encoding="utf-8").splitlines()
+            raw = path.read_bytes()
+            lines = raw.decode("utf-8").splitlines()
+            self.assertEqual(digest, hashlib.sha256(raw).hexdigest())
         decoded = [json.loads(line) for line in lines]
         self.assertEqual(
             [(item["repetition"], item["request_index"]) for item in decoded],
             [(1, 1), (1, 2), (2, 1)],
         )
         self.assertEqual(len(decoded), len(records))
-        self.assertEqual(digest, hashlib.sha256(path.read_bytes()).hexdigest())
 
     def test_run_manifest_pins_source_parameters_preregistration_and_trace(self):
         args = SimpleNamespace(
