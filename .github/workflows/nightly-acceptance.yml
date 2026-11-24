@@ -70,7 +70,7 @@ jobs:
               [[ -n "$path" ]] || continue
               total=$((total + 1))
               case "$path" in
-                docs/*|*.md|project-control/*) marked=$((marked + 1)) ;;
+                docs/*|*.md|project-control/*|DECISIONS.json) marked=$((marked + 1)) ;;
               esac
             done < <(git diff --name-only "$parent" "$commit")
           done <<< "$commits"
