@@ -3,20 +3,26 @@ name: T16 preflight contract
 on:
   push:
     branches:
-      - "task/T16-slo-run-controlled-host"
+      - "task/T16-image-digest-pipeline"
     paths:
       - "experiments/e002/t16/**"
       - ".github/workflows/t16-preflight.yml"
+      - ".github/workflows/task-acceptance.yml"
       - ".dockerignore"
   pull_request:
     paths:
       - "experiments/e002/t16/**"
       - ".github/workflows/t16-preflight.yml"
+      - ".github/workflows/task-acceptance.yml"
       - ".dockerignore"
   workflow_dispatch:
 
 permissions:
   contents: read
+
+concurrency:
+  group: t16-preflight-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   preflight-contract:
@@ -26,9 +32,7 @@ jobs:
     env:
       T16_POSTGRES_DSN: postgresql://postgres:postgres@127.0.0.1:5432/agent_native
       T16_PSQL_DSN: postgresql://postgres:postgres@127.0.0.1:5432/agent_native
-      T16_READ_TOKEN: test-read-token
-      T16_DENY_TOKEN: test-deny-token
-      T16_TENANT_ID: tenant-a
+      T16_SIGNING_KEY: abababababababababababababababababababababababababababababababab
     services:
       postgres:
         image: postgres:16.4
@@ -45,11 +49,28 @@ jobs:
           --health-retries 20
     steps:
       - uses: actions/checkout@v4
+      - name: Validate T16 workflow YAML
+        run: ruby -e 'require "yaml"; YAML.parse_file(".github/workflows/t16-preflight.yml"); YAML.parse_file(".github/workflows/task-acceptance.yml")'
+      - name: Validate controlled-host orchestration and immutable Docker bases
+        run: |
+          bash -n experiments/e002/t16/run-all.sh
+          python - <<'PY'
+          import re
+          from pathlib import Path
+
+          dockerfile = Path("experiments/e002/t16/Dockerfile").read_text(encoding="utf-8")
+          refs = re.findall(r"^FROM\s+(\S+)", dockerfile, re.MULTILINE | re.IGNORECASE)
+          if len(refs) < 3 or any("@sha256:" not in ref or not re.search(r"@sha256:[0-9a-f]{64}$", ref) for ref in refs):
+              raise SystemExit(f"Every Dockerfile FROM must be digest-pinned; found: {refs!r}")
+          runner = Path("experiments/e002/t16/run.py").read_text(encoding="utf-8")
+          if "golang:1.23.12-bookworm@sha256:167053a2bb901972bf2c1611f8f52c44d5fe7e762e5cab213708d82c421614db" not in runner:
+              raise SystemExit("Load-generator build image is not pinned to the reviewed Go digest")
+          PY
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11.18"
       - name: Compile preflight tooling
-        run: python -m py_compile experiments/e002/t16/preflight.py experiments/e002/t16/run.py
+        run: python -m py_compile experiments/e002/t16/preflight.py experiments/e002/t16/run.py experiments/e002/t16/restore_evidence.py
       - name: Install PostgreSQL test driver
         run: python -m pip install "psycopg[binary]==3.2.9"
       - name: Install PostgreSQL client
@@ -65,6 +86,18 @@ jobs:
           with psycopg.connect(os.environ["T16_POSTGRES_DSN"]) as db:
               db.execute(schema, prepare=False)
           PY
+      - name: Issue signed T16 benchmark credentials
+        run: |
+          python - <<'PY'
+          import os
+          import sys
+          sys.path.insert(0, "experiments/e002/t16")
+          from tokens import issue_benchmark_tokens
+          read_token, deny_token = issue_benchmark_tokens(os.environ["T16_SIGNING_KEY"])
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as output:
+              output.write("T16_READ_TOKEN=" + read_token + "\n")
+              output.write("T16_DENY_TOKEN=" + deny_token + "\n")
+          PY
       - name: Test preregistration, workload, and PostgreSQL contract
         run: python -m unittest discover -s experiments/e002/t16 -p "test_*.py" -v
       - uses: actions/setup-go@v5
@@ -73,21 +106,37 @@ jobs:
       - name: Test Go product server against PostgreSQL
         run: go test ./...
         working-directory: experiments/e002/go
+      - name: Install OpenSSL development library for Rust HMAC verifier
+        run: sudo apt-get update && sudo apt-get install -y libssl-dev
       - uses: dtolnay/rust-toolchain@1.100.0
       - name: Test Rust product candidate
         run: cargo test --locked
         working-directory: experiments/e002/rust
       - name: Build both candidate runtimes in the production benchmark image
-        run: docker build --build-arg SOURCE_SHA="$GITHUB_SHA" --build-arg BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)" --file experiments/e002/t16/Dockerfile --tag t16-candidates-ci .
+        run: docker build --file experiments/e002/t16/Dockerfile --tag t16-candidates-ci .
       - name: Verify candidate image includes the pinned PostgreSQL client
         run: docker run --rm --entrypoint psql t16-candidates-ci --version
+      - name: Refresh short-lived signed conformance credentials
+        run: |
+          python - <<'PY'
+          import os
+          import sys
+          sys.path.insert(0, "experiments/e002/t16")
+          from tokens import issue_benchmark_tokens
+          read_token, deny_token = issue_benchmark_tokens(os.environ["T16_SIGNING_KEY"])
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as output:
+              output.write("T16_READ_TOKEN=" + read_token + "\n")
+              output.write("T16_DENY_TOKEN=" + deny_token + "\n")
+          PY
       - name: Run product conformance against both candidate containers
         run: |
           python - <<'PY'
           import importlib.util
           import os
+          import sys
           import uuid
 
+          sys.path.insert(0, "experiments/e002/t16")
           spec = importlib.util.spec_from_file_location("t16_runner", "experiments/e002/t16/run.py")
           module = importlib.util.module_from_spec(spec)
           spec.loader.exec_module(module)
@@ -102,9 +151,7 @@ jobs:
                   module.run_command([
                       "docker", "run", "--detach", "--name", name, "--network=host",
                       "--memory=1g",
-                      "--env", "T16_READ_TOKEN=" + read_token,
-                      "--env", "T16_DENY_TOKEN=" + deny_token,
-                      "--env", "T16_TENANT_ID=tenant-a",
+                      "--env", "T16_SIGNING_KEY=" + os.environ["T16_SIGNING_KEY"],
                       "--env", "T16_PSQL_DSN=" + os.environ["T16_PSQL_DSN"],
                       image, candidate,
                   ], timeout=60)
