@@ -204,6 +204,7 @@ def main():
     if platform.machine().lower() not in {"x86_64", "amd64"}:
         raise RuntimeError("The published T16 image currently targets linux/amd64; this host is not x86_64.")
     sha = SOURCE_SHA
+    os.environ["T16_BAKED_SOURCE_SHA"] = sha
     if not re.fullmatch(r"[0-9a-f]{40}", sha) or not re.fullmatch(
             r"ghcr\.io/mojtaba-arvin/agent-native-t16@sha256:[0-9a-f]{64}", IMAGE_REF):
         raise RuntimeError("Invalid source SHA or immutable image reference.")
@@ -227,6 +228,7 @@ def main():
     _, _, postgres_cpu = choose_physical_cores()
     run_id = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ") + "-" + uuid.uuid4().hex[:8]
     host_log_dir = Path(os.getenv("T16_LOG_DIR", "/host-t16-logs"))
+    (host_log_dir / "controller.log").touch(exist_ok=True)
     evidence = host_log_dir / "evidence" / run_id
     evidence.mkdir(parents=True, exist_ok=True)
     log("Evidence directory on host: %s" % evidence)
