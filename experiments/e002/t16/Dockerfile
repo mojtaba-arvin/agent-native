@@ -51,7 +51,7 @@ COPY --from=docker-cli /usr/local/bin/docker /usr/local/bin/docker
 COPY experiments/e002/t16/one-command-runner.py /usr/local/bin/t16-one-command-runner.py
 # Bake the complete runtime source bundle into the image. The host never clones source.
 COPY experiments/e002/ /opt/t16-source/experiments/e002/
-RUN printf '%s\\n' "${SOURCE_SHA}" > /opt/t16-source/.t16-source-sha \
+RUN printf '%s' "${SOURCE_SHA}" > /opt/t16-source/.t16-source-sha \
     && chmod -R a+rX /opt/t16-source
 COPY --from=go-build /out/e002-go /opt/candidates/e002-go
 COPY --from=loadgen-build /out/t16-loadgen /opt/candidates/t16-loadgen
