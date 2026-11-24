@@ -8,6 +8,17 @@ BRANCH="task/T16-image-digest-pipeline"
 IMAGE="ghcr.io/mojtaba-arvin/agent-native-t16"
 API="https://api.github.com"
 
+# Prompt without echo when the operator has not exported a token; never put PATs in shell history.
+if [[ -z "${GH_TOKEN:-}" ]]; then
+  if [[ ! -r /dev/tty ]]; then
+    echo "GH_TOKEN is unset and no interactive terminal is available; export a PAT with public_repo and read:packages scopes." >&2
+    exit 2
+  fi
+  printf "GitHub classic PAT (public_repo, read:packages): " >/dev/tty
+  IFS= read -r -s GH_TOKEN </dev/tty
+  printf '\\n' >/dev/tty
+  export GH_TOKEN
+fi
 : "${GH_TOKEN:?Export GH_TOKEN with public_repo and read:packages scopes.}"
 command -v docker >/dev/null 2>&1 || { echo "Docker Engine/CLI is required." >&2; exit 2; }
 command -v curl >/dev/null 2>&1 || { echo "curl is required." >&2; exit 2; }
