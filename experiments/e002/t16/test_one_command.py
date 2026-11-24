@@ -38,6 +38,30 @@ class OneCommandTests(unittest.TestCase):
         self.assertIn('--volume "$LOG_DIR:/host-t16-logs:rw"', source)
         self.assertIn("$" + "{GH_TOKEN:", source)
 
+    def test_hmac_capability_tokens_are_baked_and_used_by_both_candidates(self):
+        root = Path(__file__).resolve().parents[3]
+        dockerfile = (root / "experiments/e002/t16/Dockerfile").read_text()
+        ignore = (root / ".dockerignore").read_text()
+        runner = (root / "experiments/e002/t16/run.py").read_text()
+        go = (root / "experiments/e002/go/product.go").read_text()
+        rust = (root / "experiments/e002/rust/src/product.rs").read_text()
+        rust_auth = (root / "experiments/e002/rust/src/t16_auth.rs").read_text()
+        self.assertIn("!experiments/e002/t16/tokens.py", ignore)
+        self.assertIn("tokens.py", dockerfile)
+        self.assertIn("libssl-dev", dockerfile)
+        self.assertIn("libssl3", dockerfile)
+        self.assertIn("issue_benchmark_tokens(signing_key)", runner)
+        self.assertIn("T16_SIGNING_KEY=", runner)
+        self.assertIn("verifyT16Bearer", go)
+        self.assertIn("verify_bearer", rust)
+        self.assertIn("HMAC", rust_auth)
+
+    def test_controller_redacts_hmac_signing_key_from_command_logs(self):
+        source = RUNNER_PATH.read_text()
+        self.assertIn("T16_SIGNING_KEY=", source)
+        self.assertIn("T16_PSQL_DSN=", source)
+        self.assertIn("[REDACTED]", source)
+
     def test_controller_uses_baked_source_and_never_clones_at_runtime(self):
         source = RUNNER_PATH.read_text()
         self.assertIn('Path("/opt/t16-source")', source)
