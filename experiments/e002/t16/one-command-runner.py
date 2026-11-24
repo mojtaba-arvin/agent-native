@@ -156,7 +156,7 @@ def publish_evidence(evidence, run_id, source_sha, image_ref, build_run_id, buil
         "files": manifest_files,
     }
     (evidence / "evidence-manifest.json").write_text(
-        json.dumps(manifest, indent=2, sort_keys=True) + "\\n", encoding="utf-8"
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
     with tarfile.open(archive_path, "w:gz", compresslevel=6) as archive:
         archive.add(evidence, arcname="T16/" + run_id)
