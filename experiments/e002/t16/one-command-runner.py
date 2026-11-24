@@ -309,6 +309,7 @@ def main():
             raise
         finally:
             if evidence_published:
+                log("Evidence uploaded; local host copy retained at: " + str(evidence))
             else:
                 print("T16 evidence retained on host at: " + str(evidence), file=sys.stderr, flush=True)
             shutil.rmtree(attestation_path.parent, ignore_errors=True)
