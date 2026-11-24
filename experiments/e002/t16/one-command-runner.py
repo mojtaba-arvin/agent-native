@@ -139,6 +139,25 @@ def publish_evidence(evidence, run_id, source_sha, image_ref, build_run_id, buil
         if item.is_file() and item.name != "checksums.sha256":
             checksums.append("%s  %s" % (hashlib.sha256(item.read_bytes()).hexdigest(), item.relative_to(evidence)))
     (evidence / "checksums.sha256").write_text("\n".join(checksums) + "\n")
+    prereg = json.loads((evidence / "prereg.json").read_text(encoding="utf-8"))
+    manifest_files = {}
+    for item in sorted(evidence.rglob("*")):
+        if item.is_file() and item.name != "evidence-manifest.json":
+            manifest_files[str(item.relative_to(evidence))] = hashlib.sha256(item.read_bytes()).hexdigest()
+    manifest = {
+        "schema_version": 1,
+        "task": "T16",
+        "run_id": run_id,
+        "source_sha": source_sha,
+        "image_ref": image_ref,
+        "build_run_id": build_run_id,
+        "build_run_url": build_url,
+        "prereg_hash": prereg.get("sha256"),
+        "files": manifest_files,
+    }
+    (evidence / "evidence-manifest.json").write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\\n", encoding="utf-8"
+    )
     with tarfile.open(archive_path, "w:gz", compresslevel=6) as archive:
         archive.add(evidence, arcname="T16/" + run_id)
     asset_name = "t16-evidence-" + run_id + ".tar.gz"
