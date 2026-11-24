@@ -10,6 +10,7 @@ API="https://api.github.com"
 RUN_STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 LOG_DIR="${T16_HOST_LOG_DIR:-/tmp/agent-native-t16-$RUN_STAMP}"
 mkdir -p "$LOG_DIR"
+LOG_DIR="$(cd "$LOG_DIR" && pwd)"
 chmod 700 "$LOG_DIR"
 HOST_LOG="$LOG_DIR/launcher.log"
 exec > >(tee -a "$HOST_LOG") 2>&1
@@ -111,7 +112,7 @@ if docker run --rm --user 0:0 --privileged --pid=host --cgroupns=host --network=
   --volume /tmp:/tmp \
   --volume "$LOG_DIR:/host-t16-logs:rw" \
   --volume "$DOCKER_CONFIG_DIR:/root/.docker:ro" \
-  --env GH_TOKEN --env T16_OPERATOR_ATTESTED=YES --env DOCKER_CONFIG=/root/.docker --env T16_SOURCE_SHA="$SOURCE_SHA" --env T16_IMAGE_REF="$IMAGE_REF" --env T16_LOG_DIR=/host-t16-logs \
+  --env GH_TOKEN --env T16_OPERATOR_ATTESTED=YES --env DOCKER_CONFIG=/root/.docker --env T16_SOURCE_SHA="$SOURCE_SHA" --env T16_IMAGE_REF="$IMAGE_REF" --env T16_LOG_DIR=/host-t16-logs --env T16_HOST_LOG_DIR="$LOG_DIR" \
   --entrypoint python3 "$IMAGE_REF" /usr/local/bin/t16-one-command-runner.py 2>&1 | tee -a "$LOG_DIR/controller.log"; then
   STATUS=0
 else
