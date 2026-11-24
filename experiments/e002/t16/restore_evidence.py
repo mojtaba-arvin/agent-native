@@ -63,7 +63,7 @@ def restore_evidence(archive_path: Path, target: Path, expected_source_sha: str)
             raw = PurePosixPath(member.name)
             if raw.is_absolute() or not raw.parts or ".." in raw.parts or "\\" in member.name:
                 raise ValueError("unsafe_path_in_t16_evidence_archive")
-            if len(raw.parts) < 3 or raw.parts[0] != "T16":
+            if len(raw.parts) < 2 or raw.parts[0] != "T16":
                 raise ValueError("unexpected_t16_evidence_archive_prefix")
             run_id = raw.parts[1]
             if not re.fullmatch(r"[0-9]{8}T[0-9]{6}Z-[0-9a-f]{8}", run_id):
@@ -72,10 +72,18 @@ def restore_evidence(archive_path: Path, target: Path, expected_source_sha: str)
                 archive_run_id = run_id
             elif archive_run_id != run_id:
                 raise ValueError("multiple_t16_run_ids_in_archive")
-            relative = _safe_relative(PurePosixPath(*raw.parts[2:]).as_posix())
-
             if member.isdir():
-                continue
+                directory_parts = raw.parts[2:]
+                if not directory_parts or directory_parts == ("runs",) or (
+                    len(directory_parts) == 2
+                    and directory_parts[0] == "runs"
+                    and directory_parts[1] in {"go-net-http", "rust-tokio-hyper"}
+                ):
+                    continue
+                raise ValueError("unexpected_t16_evidence_directory")
+            if len(raw.parts) < 3:
+                raise ValueError("invalid_t16_evidence_file_path")
+            relative = _safe_relative(PurePosixPath(*raw.parts[2:]).as_posix())
             if not member.isfile() or member.issym() or member.islnk():
                 raise ValueError("unsupported_t16_evidence_archive_member")
             if member.size < 0 or member.size > MAX_MEMBER_BYTES:
