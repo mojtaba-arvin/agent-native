@@ -25,10 +25,25 @@ IMAGE_NAME = "ghcr.io/mojtaba-arvin/agent-native-t16"
 API = "https://api.github.com"
 
 
+def log(message):
+    stamp = dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
+    print("[%s] %s" % (stamp, message), flush=True)
+
+
 def run(args, check=True, capture=False, env=None, cwd=None):
-    return subprocess.run(args, check=check, text=True, env=env, cwd=cwd,
-                           stdout=subprocess.PIPE if capture else None,
-                           stderr=subprocess.STDOUT if capture else None)
+    started = time.monotonic()
+    shown = []
+    for item in args:
+        if item.startswith(("T16_READ_TOKEN=", "T16_DENY_TOKEN=")):
+            shown.append(item.split("=", 1)[0] + "=[REDACTED]")
+        else:
+            shown.append(item)
+    log("EXEC: " + " ".join(shown))
+    result = subprocess.run(args, check=check, text=True, env=env, cwd=cwd,
+                            stdout=subprocess.PIPE if capture else None,
+                            stderr=subprocess.STDOUT if capture else None)
+    log("EXIT: %s (%.1fs)" % (result.returncode, time.monotonic() - started))
+    return result
 
 
 def git_auth_env():
@@ -195,26 +210,30 @@ def main():
     image_info = run(["docker", "image", "inspect", "--format", "{{json .RepoDigests}}", IMAGE_REF], capture=True)
     if IMAGE_REF not in json.loads(image_info.stdout):
         raise RuntimeError("Controller image is not the exact local RepoDigest.")
+    log("Checking GitHub Actions build and immutable image provenance.")
     build_run_id, build_run_url = resolve_build_run(sha)
     lock = {"schema_version": 1, "source_sha": sha, "image_name": IMAGE_NAME,
             "image_ref": IMAGE_REF, "image_digest": IMAGE_REF.rsplit("@", 1)[1],
             "build_run_url": build_run_url, "build_run_id": build_run_id}
 
-    root = Path(tempfile.mkdtemp(prefix="agent-native-t16-")) / "source"
-    run(["git", "clone", "--depth", "1", "--branch", "task/T16-image-digest-pipeline", "https://github.com/%s.git" % REPO, str(root)], env=git_auth_env())
-    run(["git", "-C", str(root), "checkout", "--detach", sha])
-    if run(["git", "-C", str(root), "rev-parse", "HEAD"], capture=True).stdout.strip() != sha:
-        raise RuntimeError("Checked-out source SHA differs from image lock.")
+    root = Path("/opt/t16-source")
+    marker = root / ".t16-source-sha"
+    if not marker.is_file() or marker.read_text(encoding="ascii").strip() != sha:
+        raise RuntimeError("Baked runtime source bundle does not match the immutable image source SHA.")
+    log("Verified baked runtime source bundle; no runtime git clone or package installation.")
     sys.path.insert(0, str(root / "experiments/e002/t16"))
     import preflight
 
     _, _, postgres_cpu = choose_physical_cores()
     run_id = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ") + "-" + uuid.uuid4().hex[:8]
-    evidence = root / "experiments/e002/t16/evidence" / run_id
-    evidence.mkdir(parents=True)
+    host_log_dir = Path(os.getenv("T16_LOG_DIR", "/host-t16-logs"))
+    evidence = host_log_dir / "evidence" / run_id
+    evidence.mkdir(parents=True, exist_ok=True)
+    log("Evidence directory on host: %s" % evidence)
     (evidence / "image-lock.json").write_text(json.dumps(lock, indent=2, sort_keys=True) + "\n")
     machine_id = Path("/host-machine-id").read_text().strip() if Path("/host-machine-id").exists() else platform.node()
     host_id = hashlib.sha256(machine_id.encode()).hexdigest()[:24]
+    log("Collecting operator identity and preparing host attestation.")
     operator = github_login()
     attestation = {"dedicated_physical_host": True, "host_id": host_id, "attested_by": operator,
                    "attested_at": dt.datetime.now(dt.timezone.utc).isoformat(),
@@ -229,13 +248,16 @@ def main():
     status = "failed"
     evidence_published = False
     try:
+        log("Pulling PostgreSQL/runtime image by immutable digest (cached layers are reused).")
         run(["docker", "pull", pg_image])
         run(["docker", "run", "--detach", "--name", pg_name, "--pid=host", "--network=host", "--entrypoint", "/usr/local/bin/docker-entrypoint.sh",
              "--cpus=1", "--cpuset-cpus=%d" % postgres_cpu, "--memory=2g",
              "--env", "POSTGRES_HOST_AUTH_METHOD=trust", "--env", "POSTGRES_DB=agent_native",
              pg_image, "-c", "listen_addresses=127.0.0.1"])
         pg_started = True
+        log("Waiting for PostgreSQL readiness.")
         wait_postgres(dsn)
+        log("PostgreSQL is ready; running preflight and preregistration.")
         runner = ["python3", str(root / "experiments/e002/t16/run.py"), "--output", str(evidence),
                   "--source-sha", sha, "--image-ref", IMAGE_REF,
                   "--build-run-url", build_run_url, "--postgres-dsn", dsn]
@@ -246,8 +268,10 @@ def main():
                    "--build-run-url", build_run_url, "--postgres-dsn", dsn,
                    "--command", prereg_command], check=False, capture=True, cwd=str(root))
         (evidence / "preflight.log").write_text(pre.stdout or "")
+        log("Preflight output:\\n" + (pre.stdout or ""))
         if pre.returncode:
             raise RuntimeError("Preflight failed; diagnostics will be published.")
+        log("Starting 20-attempt Go/Rust benchmark matrix; progress is streamed to host and execution.log.")
         result_code = stream_process(runner, evidence / "execution.log", cwd=str(root))
         if result_code:
             raise RuntimeError("T16 runner failed; partial evidence will be published.")
@@ -261,6 +285,7 @@ def main():
         print("T16 per-attempt SLO result: %d/20 passed; see report.md for cohort details." % slo_passed, flush=True)
     finally:
         if pg_started:
+            log("Stopping temporary PostgreSQL container and removing its volumes.")
             run(["docker", "rm", "--force", "--volumes", pg_name], check=False)
         metadata = {"status": status, "source_sha": sha, "image_ref": IMAGE_REF,
                     "build_run_url": build_run_url, "build_run_id": build_run_id,
@@ -272,6 +297,7 @@ def main():
             metadata["benchmark_slo"] = "passed" if metadata["slo_passed_attempts"] == 20 else "failed"
         (evidence / "execution-metadata.json").write_text(json.dumps(metadata, indent=2, sort_keys=True) + "\n")
         try:
+            log("Publishing compressed, checksum-manifested evidence to GitHub Release.")
             url = publish_evidence(evidence, run_id, sha, IMAGE_REF, build_run_id, build_run_url)
             evidence_published = True
             print("T16 evidence: " + url, flush=True)
@@ -281,10 +307,10 @@ def main():
             raise
         finally:
             if evidence_published:
-                shutil.rmtree(root.parent, ignore_errors=True)
             else:
                 print("T16 evidence retained on host at: " + str(evidence), file=sys.stderr, flush=True)
             shutil.rmtree(attestation_path.parent, ignore_errors=True)
+    log("T16 controller finished with status %s." % status.upper())
     return 0 if status == "completed" else 1
 
 
