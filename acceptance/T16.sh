@@ -281,7 +281,7 @@ if failed:
 source_sha = prereg["source_sha"]
 image_ref = results.get("image_ref")
 if not isinstance(image_ref, str) or not re.fullmatch(
-    r"ghcr\\.io/mojtaba-arvin/agent-native-t16@sha256:[0-9a-f]{64}", image_ref
+    r"ghcr\.io/mojtaba-arvin/agent-native-t16@sha256:[0-9a-f]{64}", image_ref
 ):
     sys.exit("T16 acceptance: results do not identify a digest-pinned T16 image")
 if image_lock.get("source_sha") != source_sha or image_lock.get("image_ref") != image_ref:
