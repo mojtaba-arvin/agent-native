@@ -19,7 +19,11 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-from tokens import issue_benchmark_tokens
+try:
+    from .tokens import issue_benchmark_tokens
+except ImportError:
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from tokens import issue_benchmark_tokens
 
 CANDIDATES = ("rust-tokio-hyper", "go-net-http")
 REPETITIONS = 10
