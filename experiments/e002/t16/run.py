@@ -7,6 +7,7 @@ import datetime as dt
 import json
 import os
 import random
+import secrets
 import re
 import shutil
 import subprocess
@@ -17,6 +18,8 @@ import urllib.request
 import uuid
 from pathlib import Path
 from typing import Any
+
+from tokens import issue_benchmark_tokens
 
 CANDIDATES = ("rust-tokio-hyper", "go-net-http")
 REPETITIONS = 10
@@ -471,7 +474,8 @@ def main() -> int:
         # Candidate runtimes and the load generator are supplied by the same verified image.
         # The controlled host never builds benchmark artifacts.
 
-        read_token, deny_token = uuid.uuid4().hex + uuid.uuid4().hex, uuid.uuid4().hex + uuid.uuid4().hex
+        signing_key = secrets.token_hex(32)
+        read_token, deny_token = issue_benchmark_tokens(signing_key)
         prereg_hash = prereg.get("sha256")
         if not isinstance(prereg_hash, str) or len(prereg_hash) != 64:
             raise RuntimeError("preregistration SHA-256 is missing")
@@ -504,9 +508,7 @@ def main() -> int:
                         "docker", "run", "--detach", "--name", container,
                         "--cpus=1", f"--cpuset-cpus={host['candidate_cpu']}",
                         "--memory=1g", "--network=host",
-                        "--env", f"T16_READ_TOKEN={read_token}",
-                        "--env", f"T16_DENY_TOKEN={deny_token}",
-                        "--env", "T16_TENANT_ID=tenant-a",
+                        "--env", f"T16_SIGNING_KEY={signing_key}",
                         "--env", f"T16_PSQL_DSN={args.postgres_dsn}",
                         args.image_ref, candidate,
                     ], timeout=60)
