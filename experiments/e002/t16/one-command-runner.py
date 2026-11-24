@@ -34,7 +34,7 @@ def run(args, check=True, capture=False, env=None, cwd=None):
     started = time.monotonic()
     shown = []
     for item in args:
-        if item.startswith(("T16_READ_TOKEN=", "T16_DENY_TOKEN=")):
+        if item.startswith(("T16_READ_TOKEN=", "T16_DENY_TOKEN=", "T16_SIGNING_KEY=", "T16_PSQL_DSN=")) or item.startswith(("postgresql://", "postgres://")):
             shown.append(item.split("=", 1)[0] + "=[REDACTED]")
         else:
             shown.append(item)
