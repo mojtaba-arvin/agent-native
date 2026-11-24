@@ -53,7 +53,7 @@ jobs:
         run: ruby -e 'require "yaml"; YAML.parse_file(".github/workflows/t16-preflight.yml"); YAML.parse_file(".github/workflows/task-acceptance.yml")'
       - name: Validate controlled-host orchestration and immutable Docker bases
         run: |
-          bash -n experiments/e002/t16/run-all.sh
+          bash -n experiments/e002/t16/one-command.sh
           python - <<'PY'
           import re
           from pathlib import Path
@@ -113,7 +113,12 @@ jobs:
         run: cargo test --locked
         working-directory: experiments/e002/rust
       - name: Build both candidate runtimes in the production benchmark image
-        run: docker build --file experiments/e002/t16/Dockerfile --tag t16-candidates-ci .
+        run: |
+          docker build \
+            --build-arg GO_IMAGE=golang:1.23.12-bookworm@sha256:167053a2bb901972bf2c1611f8f52c44d5fe7e762e5cab213708d82c421614db \
+            --build-arg RUST_IMAGE=rust:1.100-bookworm@sha256:ade39a710ef85f3506cffcfec3e8a24ba090badef1dff2fb798f71d878833fea \
+            --build-arg POSTGRES_IMAGE=postgres:16.4@sha256:e62fbf9d3e2b49816a32c400ed2dba83e3b361e6833e624024309c35d334b412 \
+            --file experiments/e002/t16/Dockerfile --tag t16-candidates-ci .
       - name: Verify candidate image includes the pinned PostgreSQL client
         run: docker run --rm --entrypoint psql t16-candidates-ci --version
       - name: Refresh short-lived signed conformance credentials
