@@ -8,10 +8,23 @@ from unittest import mock
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
-from run import aggregate, markdown_report, parse_cpu_list, run_command, run_loadgen_container, verify_candidate_cgroup, verify_image_identity, unexpected_untracked_files
+from run import aggregate, markdown_report, parse_cpu_list, run_command, run_loadgen_container, verify_candidate_cgroup, verify_image_identity, unexpected_untracked_files, redact_command
 
 
 class T16RunnerUnitTests(unittest.TestCase):
+    def test_failure_diagnostics_redact_tokens_signing_keys_and_database_dsns(self):
+        command = [
+            "docker", "run",
+            "T16_READ_TOKEN=read-secret",
+            "T16_DENY_TOKEN=deny-secret",
+            "T16_SIGNING_KEY=signing-secret",
+            "T16_PSQL_DSN=postgresql://user:password@host/db",
+        ]
+        rendered = " ".join(redact_command(command))
+        for secret in ("read-secret", "deny-secret", "signing-secret", "password@host"):
+            self.assertNotIn(secret, rendered)
+        self.assertEqual(rendered.count("[REDACTED]"), 4)
+
     def test_untracked_evidence_is_scoped_to_t16_evidence_directory(self):
         untracked = [
             "experiments/e002/t16/evidence/previous/results.json",
