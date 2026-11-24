@@ -49,8 +49,15 @@ def run_command(command: list[str], *, timeout: int = 300, input_text: str | Non
         command, input=input_text, check=False, capture_output=True, text=True, timeout=timeout,
     )
     if result.returncode and not allow_failure:
+        safe_command = [
+            item.split("=", 1)[0] + "=[REDACTED]"
+            if item.startswith(("T16_READ_TOKEN=", "T16_DENY_TOKEN=", "T16_SIGNING_KEY=", "T16_PSQL_DSN="))
+            or item.startswith(("postgresql://", "postgres://"))
+            else item
+            for item in command
+        ]
         raise RuntimeError(
-            f"command failed ({result.returncode}): {command!r}\n"
+            f"command failed ({result.returncode}): {safe_command!r}\n"
             f"stdout: {result.stdout[-3000:]}\nstderr: {result.stderr[-3000:]}"
         )
     return result.stdout.strip()
@@ -474,8 +481,6 @@ def main() -> int:
         # Candidate runtimes and the load generator are supplied by the same verified image.
         # The controlled host never builds benchmark artifacts.
 
-        signing_key = secrets.token_hex(32)
-        read_token, deny_token = issue_benchmark_tokens(signing_key)
         prereg_hash = prereg.get("sha256")
         if not isinstance(prereg_hash, str) or len(prereg_hash) != 64:
             raise RuntimeError("preregistration SHA-256 is missing")
@@ -497,6 +502,8 @@ def main() -> int:
             rng.shuffle(order)
             for candidate in order:
                 run_id = f"t16-{candidate}-rep-{repetition:02d}"
+                signing_key = secrets.token_hex(32)
+                read_token, deny_token = issue_benchmark_tokens(signing_key)
                 container = f"t16-{candidate}-{repetition:02d}-{uuid.uuid4().hex[:8]}"
                 run_started = utc_now()
                 prefix = output / "runs" / candidate / f"rep-{repetition:02d}"
