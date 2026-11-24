@@ -14,6 +14,7 @@ COPY experiments/e002/t16/loadgen/ ./
 RUN go build -trimpath -ldflags="-buildid=" -o /out/t16-loadgen .
 
 FROM ${RUST_IMAGE} AS rust-build
+RUN apt-get update && apt-get install -y --no-install-recommends libssl-dev && rm -rf /var/lib/apt/lists/*
 WORKDIR /src
 COPY experiments/e002/rust/ ./
 RUN cargo build --locked --release
@@ -27,7 +28,7 @@ ARG BUILD_TIME
 ARG VERSION=t16
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates curl git python3 util-linux postgresql-client gnupg \
+    && apt-get install -y --no-install-recommends ca-certificates curl git python3 util-linux postgresql-client gnupg libssl3 \
     && install -d -m 0755 /etc/apt/keyrings \
     && curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg -o /etc/apt/keyrings/githubcli-archive-keyring.gpg \
     && chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg \
@@ -52,7 +53,9 @@ COPY experiments/e002/t16/one-command-runner.py /usr/local/bin/t16-one-command-r
 # Bake the complete runtime source bundle into the image. The host never clones source.
 COPY experiments/e002/ /opt/t16-source/experiments/e002/
 RUN printf '%s' "${SOURCE_SHA}" > /opt/t16-source/.t16-source-sha \
-    && chmod -R a+rX /opt/t16-source
+    && chmod -R a+rX /opt/t16-source \
+    && test -f /opt/t16-source/experiments/e002/t16/tokens.py \
+    && ldconfig -p | grep -q 'libcrypto.so.3'
 COPY --from=go-build /out/e002-go /opt/candidates/e002-go
 COPY --from=loadgen-build /out/t16-loadgen /opt/candidates/t16-loadgen
 COPY --from=rust-build /src/target/release/agent-native-e002-rust /opt/candidates/e002-rust
