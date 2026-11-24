@@ -124,7 +124,7 @@ class OneCommandTests(unittest.TestCase):
         dockerfile = (root / "experiments/e002/t16/Dockerfile").read_text()
         workflow = (root / ".github/workflows/t16-image.yml").read_text()
         for name in ("GO_IMAGE", "RUST_IMAGE", "POSTGRES_IMAGE", "DOCKER_IMAGE"):
-            self.assertRegex(dockerfile, r"ARG " + name + r"=[^\\s]+@sha256:[0-9a-f]{64}")
+            self.assertRegex(dockerfile, r"ARG " + name + r"=[^\s]+@sha256:[0-9a-f]{64}")
             self.assertIn(name + "=${{ needs.validate-and-build.outputs.", workflow)
         self.assertIn("docker:27.5.1-cli", workflow)
 
