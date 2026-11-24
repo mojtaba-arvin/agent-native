@@ -19,6 +19,9 @@ required = {
     "run ledger": root / "ledger.jsonl",
     "machine-readable result": root / "results.json",
     "human-readable report": root / "report.md",
+    "image lock": root / "image-lock.json",
+    "execution metadata": root / "execution-metadata.json",
+    "source-bound evidence manifest": root / "evidence-manifest.json",
 }
 missing = [label for label, path in required.items() if not path.is_file()]
 if missing:
@@ -41,6 +44,9 @@ host = load_json(required["controlled-host manifest"])
 protocol = load_json(required["workload protocol"])
 results = load_json(required["machine-readable result"])
 report = required["human-readable report"].read_text(encoding="utf-8")
+image_lock = load_json(required["image lock"])
+execution_metadata = load_json(required["execution metadata"])
+manifest = load_json(required["source-bound evidence manifest"])
 
 # The preregistration must be committed before the run and bind every result
 # to one immutable source revision and a reproducible decision rule.
@@ -60,6 +66,23 @@ prereg_checks = {
 failed = [name for name, ok in prereg_checks.items() if not ok]
 if failed:
     sys.exit("T16 acceptance: incomplete pre-registration: " + ", ".join(failed))
+
+source_sha = prereg["source_sha"]
+image_ref = results.get("image_ref")
+if not isinstance(image_ref, str) or not re.fullmatch(
+    r"ghcr\\.io/mojtaba-arvin/agent-native-t16@sha256:[0-9a-f]{64}", image_ref
+):
+    sys.exit("T16 acceptance: results do not identify a digest-pinned T16 image")
+if image_lock.get("source_sha") != source_sha or image_lock.get("image_ref") != image_ref:
+    sys.exit("T16 acceptance: immutable image lock is not bound to the preregistered source and result")
+if not image_lock.get("build_run_url") or not image_lock.get("build_run_id"):
+    sys.exit("T16 acceptance: image lock omits the successful image build provenance reference")
+if execution_metadata.get("source_sha") != source_sha or execution_metadata.get("image_ref") != image_ref:
+    sys.exit("T16 acceptance: execution metadata is not bound to the exact source and image")
+if manifest.get("source_sha") != source_sha or manifest.get("image_ref") != image_ref:
+    sys.exit("T16 acceptance: evidence manifest is not bound to the exact source and image")
+if manifest.get("prereg_hash") != prereg.get("sha256"):
+    sys.exit("T16 acceptance: evidence manifest is not bound to the preregistration hash")
 
 thresholds = prereg["thresholds"]
 expected_thresholds = {
