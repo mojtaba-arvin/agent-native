@@ -72,7 +72,7 @@ done
 log "GHCR authentication succeeded."
 
 log "Resolving the latest T16 source revision from GitHub..."
-SOURCE_SHA="$(github_get "$API/repos/$REPOSITORY/commits?sha=$BRANCH&per_page=1" | sed -n '1s/^\[{"sha":"\([0-9a-f]\{40\}\)".*/\1/p')"
+SOURCE_SHA="$(github_get "$API/repos/$REPOSITORY/commits?sha=$BRANCH&per_page=1" | sed -n 's/^[[:space:]]*"sha"[[:space:]]*:[[:space:]]*"\([0-9a-f]\{40\}\)".*/\1/p' | head -n 1)"
 [[ "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]] || fail 2 "Could not resolve the current T16 source SHA."
 log "Source revision: $SOURCE_SHA"
 
