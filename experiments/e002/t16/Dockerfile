@@ -1,8 +1,8 @@
 # Build arguments are overridable with immutable image references (name@sha256:digest).
-ARG GO_IMAGE
-ARG RUST_IMAGE
-ARG POSTGRES_IMAGE
-ARG DOCKER_IMAGE
+ARG GO_IMAGE=golang:1.23.12-bookworm@sha256:167053a2bb901972bf2c1611f8f52c44d5fe7e762e5cab213708d82c421614db
+ARG RUST_IMAGE=rust:1.100-bookworm@sha256:ade39a710ef85f3506cffcfec3e8a24ba090badef1dff2fb798f71d878833fea
+ARG POSTGRES_IMAGE=postgres:16.4@sha256:e62fbf9d3e2b49816a32c400ed2dba83e3b361e6833e624024309c35d334b412
+ARG DOCKER_IMAGE=docker:27.5.1-cli@sha256:851f91d241214e7c6db86513b270d58776379aacc5eb9c4a87e5b47115e3065c
 
 FROM ${GO_IMAGE} AS go-build
 WORKDIR /src/experiments/e002/go
