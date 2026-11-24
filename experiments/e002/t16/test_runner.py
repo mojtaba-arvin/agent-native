@@ -132,6 +132,8 @@ class T16RunnerUnitTests(unittest.TestCase):
             output = root / "experiments/e002/t16"
             root.mkdir()
             output.mkdir(parents=True)
+            host_output = Path(directory) / "host-evidence"
+            host_output.mkdir()
             cgroup = Path(directory) / "cgroup"
             cgroup.mkdir()
             calls = []
@@ -151,6 +153,7 @@ class T16RunnerUnitTests(unittest.TestCase):
                 result = run_loadgen_container(
                     "t16-loadgen-test", ["--requests", "10"], 3,
                     output, "read-secret", "deny-secret", "ghcr.io/example/t16@sha256:" + "a" * 64,
+                    host_output=host_output,
                 )
             self.assertEqual(result["limits"]["cpuset_cpus_effective"], "3")
             verify.assert_called_once_with(cgroup, 3)
@@ -158,7 +161,8 @@ class T16RunnerUnitTests(unittest.TestCase):
             self.assertIn("--cpus=1", docker_run)
             self.assertIn("--cpuset-cpus=3", docker_run)
             self.assertIn("--memory=1g", docker_run)
-            self.assertIn(f"{output}:/evidence:rw", docker_run)
+            self.assertIn(f"{host_output}:/evidence:rw", docker_run)
+            self.assertNotIn(f"{output}:/evidence:rw", docker_run)
             self.assertIn("--entrypoint", docker_run)
             self.assertIn("/opt/candidates/t16-loadgen", docker_run)
             self.assertIn("ghcr.io/example/t16@sha256:" + "a" * 64, docker_run)
