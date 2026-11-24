@@ -36,6 +36,16 @@ def utc_now() -> str:
     return dt.datetime.now(dt.timezone.utc).isoformat()
 
 
+def redact_command(command: list[str]) -> list[str]:
+    return [
+        item.split("=", 1)[0] + "=[REDACTED]"
+        if item.startswith(("T16_READ_TOKEN=", "T16_DENY_TOKEN=", "T16_SIGNING_KEY=", "T16_PSQL_DSN="))
+        or item.startswith(("postgresql://", "postgres://"))
+        else item
+        for item in command
+    ]
+
+
 def unexpected_untracked_files(untracked: list[str], allowed_files: set[str]) -> list[str]:
     evidence_prefix = "experiments/e002/t16/evidence/"
     return sorted(
@@ -49,13 +59,7 @@ def run_command(command: list[str], *, timeout: int = 300, input_text: str | Non
         command, input=input_text, check=False, capture_output=True, text=True, timeout=timeout,
     )
     if result.returncode and not allow_failure:
-        safe_command = [
-            item.split("=", 1)[0] + "=[REDACTED]"
-            if item.startswith(("T16_READ_TOKEN=", "T16_DENY_TOKEN=", "T16_SIGNING_KEY=", "T16_PSQL_DSN="))
-            or item.startswith(("postgresql://", "postgres://"))
-            else item
-            for item in command
-        ]
+        safe_command = redact_command(command)
         raise RuntimeError(
             f"command failed ({result.returncode}): {safe_command!r}\n"
             f"stdout: {result.stdout[-3000:]}\nstderr: {result.stderr[-3000:]}"
