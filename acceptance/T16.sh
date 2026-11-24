@@ -292,7 +292,10 @@ if not image_lock.get("build_run_url") or not image_lock.get("build_run_id"):
     sys.exit("T16 acceptance: image lock omits the successful image build provenance reference")
 if (
     operator_attestation.get("dedicated_physical_host") is not True
-    or not operator_attestation.get("host_id")
+    or not re.fullmatch(r"[0-9a-f]{16}", str(operator_attestation.get("host_id", "")))
+    or not operator_attestation.get("attested_by")
+    or not operator_attestation.get("attested_at")
+    or operator_attestation.get("attestation_basis") != "operator declaration for this one-command invocation"
     or execution_metadata.get("host_attestation") != operator_attestation
 ):
     sys.exit("T16 acceptance: operator host attestation is missing, invalid, or not bound to execution metadata")
