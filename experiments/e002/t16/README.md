@@ -18,7 +18,17 @@ repo) and read:packages scopes, then execute this single command:
 
 The launcher reuses or pulls one digest-pinned T16 image, runs the complete
 controlled-host matrix, and publishes one compressed evidence archive as a
-GitHub Release asset. Results are not committed to Git or stored on result branches.
+GitHub Release asset. The image contains the complete E-002/T16 runtime source
+bundle and all runtime dependencies; after the image pull, the controller does
+not clone the repository or install packages. GitHub API/Release traffic is
+still required for provenance checks and evidence publication.
+
+The launcher writes a timestamped transcript to
+`/tmp/agent-native-t16-<UTC timestamp>/launcher.log`. Controller progress is
+streamed to the terminal and retained in the same host directory, including
+`controller.log`, `execution.log`, `preflight.log`, and the evidence
+directory. On failure, partial evidence is retained there for diagnosis.
+Results are not committed to Git or stored on result branches.
 
 ## Legacy manual preparation notes (historical; do not use for current runs)
 
@@ -236,7 +246,9 @@ head and runs it by digest. The controller checks the successful Actions build
 for that SHA, verifies the GitHub image attestation through the benchmark
 runner, starts PostgreSQL from the same digest, performs preregistration and
 all 20 attempts, and uploads one compressed, checksum-manifested evidence
-archive to a GitHub Release asset.
+archive to a GitHub Release asset. All execution scripts are loaded from the
+source bundle baked into that image; no runtime git clone or package install
+is performed.
 
 Results, logs, traces, and reports are not committed to Git and no result
 branch is created. The command prints the direct asset URL. Release assets
