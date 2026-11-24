@@ -86,10 +86,10 @@ def wait_postgres(dsn):
     raise TimeoutError("T16 PostgreSQL container failed readiness checks.")
 
 
-def stream_process(args, log_path, cwd=None):
+def stream_process(args, log_path, cwd=None, env=None):
     with log_path.open("w", encoding="utf-8") as log:
         process = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                                   text=True, bufsize=1, cwd=cwd)
+                                   text=True, bufsize=1, cwd=cwd, env=env)
         for line in process.stdout:
             safe = re.sub(
                 r"(T16_READ_TOKEN|T16_DENY_TOKEN|T16_SIGNING_KEY|T16_PSQL_DSN)=[^ '\"]+",
@@ -271,8 +271,12 @@ def main():
     _, _, postgres_cpu = choose_physical_cores()
     run_id = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ") + "-" + uuid.uuid4().hex[:8]
     host_log_dir = Path(os.getenv("T16_LOG_DIR", "/host-t16-logs"))
+    actual_host_log_dir = Path(os.getenv("T16_HOST_LOG_DIR", ""))
+    if not actual_host_log_dir.is_absolute():
+        raise RuntimeError("T16_HOST_LOG_DIR must contain the absolute host-side log directory")
     (host_log_dir / "controller.log").touch(exist_ok=True)
     evidence = host_log_dir / "evidence" / run_id
+    host_evidence = actual_host_log_dir / "evidence" / run_id
     evidence.mkdir(parents=True, exist_ok=True)
     log("Evidence directory on host: %s" % evidence)
     (evidence / "image-lock.json").write_text(json.dumps(lock, indent=2, sort_keys=True) + "\n")
@@ -319,7 +323,9 @@ def main():
         if pre.returncode:
             raise RuntimeError("Preflight failed; diagnostics will be published.")
         log("Starting 20-attempt Go/Rust benchmark matrix; progress is streamed to host and execution.log.")
-        result_code = stream_process(runner, evidence / "execution.log", cwd=str(root))
+        runner_env = os.environ.copy()
+        runner_env["T16_HOST_EVIDENCE_DIR"] = str(host_evidence)
+        result_code = stream_process(runner, evidence / "execution.log", cwd=str(root), env=runner_env)
         if result_code:
             raise RuntimeError("T16 runner failed; partial evidence will be published.")
         results_file = evidence / "results.json"
