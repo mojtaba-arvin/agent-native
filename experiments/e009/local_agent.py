@@ -1171,7 +1171,7 @@ def run(args: argparse.Namespace) -> dict:
             {"role": "user", "content": task},
             {
                 "role": "user",
-                "content": "Session surface JSON:\\n" + json.dumps(surface, ensure_ascii=False, sort_keys=True),
+                "content": "Session surface JSON:\n" + json.dumps(surface, ensure_ascii=False, sort_keys=True),
             },
         ]
         messages = list(base_messages)
