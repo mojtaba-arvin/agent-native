@@ -12,16 +12,25 @@ import uuid
 from agent_native import CapabilityTokenAuthority, Grant
 
 
-BASE_URL = os.environ["T18_BASE_URL"]
-SIGNING_KEY = bytes.fromhex(os.environ["T18_TOKEN_SIGNING_KEY_HEX"])
-PROJECT = os.environ["T18_COMPOSE_PROJECT"]
-COMPOSE_FILE = os.environ["T18_COMPOSE_FILE"]
+BASE_URL = os.environ.get("T18_BASE_URL")
+SIGNING_KEY_HEX = os.environ.get("T18_TOKEN_SIGNING_KEY_HEX")
+PROJECT = os.environ.get("T18_COMPOSE_PROJECT")
+COMPOSE_FILE = os.environ.get("T18_COMPOSE_FILE")
 
 
 class PostgresContainerPilotTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.authority = CapabilityTokenAuthority(SIGNING_KEY)
+        required = (BASE_URL, SIGNING_KEY_HEX, PROJECT, COMPOSE_FILE)
+        if any(not value for value in required):
+            raise unittest.SkipTest("requires the live T18 disposable PostgreSQL pilot")
+        try:
+            signing_key = bytes.fromhex(SIGNING_KEY_HEX)
+        except ValueError as error:
+            raise unittest.SkipTest("T18 signing key must be hexadecimal") from error
+        if len(signing_key) < 32:
+            raise unittest.SkipTest("T18 signing key must contain at least 32 bytes")
+        cls.authority = CapabilityTokenAuthority(signing_key)
 
     def token(self, tenant: str) -> str:
         principal = "principal-" + tenant
