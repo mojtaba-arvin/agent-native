@@ -49,7 +49,7 @@ checks = {
         'ENTRYPOINT ["agent-native"]' in dockerfile and "USER 65532:65532" in dockerfile
     ),
     "compose uses the T15 image and an immutable PostgreSQL image": (
-        "agent-native:t15" in compose and re.search(r"postgres:[^\s@]+@sha256:[0-9a-f]{64}", compose) is not None
+        "agent-native:t15" in compose and "serve" in compose and re.search(r"postgres:[^\s@]+@sha256:[0-9a-f]{64}", compose) is not None
     ),
     "PostgreSQL readiness gates application startup": (
         "pg_isready" in compose and "service_healthy" in compose
