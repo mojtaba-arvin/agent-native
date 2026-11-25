@@ -161,7 +161,7 @@ func (adapter *PostgresAdapter) initialize(ctx context.Context) error {
 	return nil
 }
 
-func (adapter *PostgresAdapter) ResetForTesting(ctx context.Context) error {
+func (adapter *PostgresAdapter) resetForTesting(ctx context.Context) error {
 	if _, err := adapter.db.ExecContext(ctx, "DROP SCHEMA IF EXISTS "+quoteIdentifier(adapter.schema)+" CASCADE"); err != nil {
 		return err
 	}
