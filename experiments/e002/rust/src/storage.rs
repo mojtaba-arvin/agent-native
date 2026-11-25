@@ -233,6 +233,12 @@ impl PostgresAdapter {
         let Some(row) = client.query_opt(&sql,&[&job_id]).await? else { return Ok(None); };
         Ok(Some(Self::outbox_from_row(&row)?))
     }
+    pub async fn read_outbox(&self, event_id:&str) -> StorageResult<Option<OutboxEvent>> {
+        let sql = format!("SELECT event_id::text,tenant_id,operation_id,job_id::text,payload_json,created_at,lease_owner,lease_token,lease_until,delivered_at FROM {} WHERE event_id=$1::uuid",self.table("e002_outbox"));
+        let client = self.client.lock().await;
+        let Some(row) = client.query_opt(&sql,&[&event_id]).await? else { return Ok(None); };
+        Ok(Some(Self::outbox_from_row(&row)?))
+    }
     pub async fn claim_outbox(&self, consumer:&str, limit:i64, lease_seconds:i64, now:i64) -> StorageResult<Vec<OutboxEvent>> {
         validate_text(consumer,"consumer")?;
         if !(1..=1000).contains(&limit) || lease_seconds < 1 || now < 0 { return Err(invalid("invalid_outbox_claim")); }
@@ -318,7 +324,17 @@ mod tests {
     }
     #[tokio::test] async fn test_append_audit_durable()->StorageResult<()>{
         let a=open(true).await?;let n=a.append_audit(AuditEvent{request_id:"audit-1".into(),tenant_id:"tenant-a".into(),operation_id:"catalog.read".into(),decision:"allow".into(),reason_code:"AUTHORIZED".into(),outcome:json!({"id":"1"}),created_at:100}).await?;
-        assert!(n>0);assert_eq!(a.recover().await?.audit,1);Ok(())
+        assert!(n>0);
+        let audit=a.table("e002_audit");
+        { let client=a.client.lock().await;
+          assert!(client.execute(&format!("UPDATE {audit} SET reason_code='tampered'"),&[]).await.is_err());
+          assert!(client.execute(&format!("DELETE FROM {audit}"),&[]).await.is_err());
+          assert!(client.execute(&format!("TRUNCATE {audit}"),&[]).await.is_err());
+        }
+        drop(a);
+        let reopened=open(false).await?;
+        assert_eq!(reopened.recover().await?.audit,1);
+        Ok(())
     }
     #[tokio::test] async fn test_atomic_job_outbox_idempotency_audit_commit()->StorageResult<()>{
         let a=open(true).await?;let r=a.admit_job(request("admit","tenant-a","jobs.create","key","lamp")).await?;assert_eq!(r.status,"created");
@@ -344,10 +360,20 @@ mod tests {
         assert!(a.lookup_idempotency("tenant-b","jobs.create","same").await?.is_none());assert!(a.lookup_idempotency("tenant-a","catalog.create","same").await?.is_none());Ok(())
     }
     #[tokio::test] async fn test_concurrent_same_key_admission_is_linearizable()->StorageResult<()>{
-        let a=Arc::new(open(true).await?);let mut tasks=Vec::new();
-        for i in 0..32{let a=a.clone();tasks.push(tokio::spawn(async move{a.admit_job(request(&format!("race-{i}"),"tenant-a","jobs.create","race-key","lamp")).await}));}
-        let(mut created,mut replayed)=(0,0);for t in tasks{match t.await.map_err(|e|invalid(e.to_string()))??.status.as_str(){"created"=>created+=1,"replayed"=>replayed+=1,other=>return Err(invalid(format!("unexpected {other}")))}}
-        assert_eq!((created,replayed),(1,31));let c=a.recover().await?;assert_eq!((c.jobs,c.outbox,c.idempotency,c.audit),(1,1,1,32));Ok(())
+        let dsn=std::env::var("AGENT_NATIVE_E002_POSTGRES_DSN").map_err(|_|invalid("missing DSN"))?;
+        let setup=open(true).await?;drop(setup);
+        let mut tasks=Vec::new();
+        for i in 0..32{
+            let dsn=dsn.clone();
+            tasks.push(tokio::spawn(async move{
+                let a=PostgresAdapter::connect_with_schema(&dsn,SCHEMA).await?;
+                a.admit_job(request(&format!("race-{i}"),"tenant-a","jobs.create","race-key","lamp")).await
+            }));
+        }
+        let(mut created,mut replayed)=(0,0);
+        for t in tasks{match t.await.map_err(|e|invalid(e.to_string()))??.status.as_str(){"created"=>created+=1,"replayed"=>replayed+=1,other=>return Err(invalid(format!("unexpected {other}")))}}
+        assert_eq!((created,replayed),(1,31));
+        let a=open(false).await?;let c=a.recover().await?;assert_eq!((c.jobs,c.outbox,c.idempotency,c.audit),(1,1,1,32));Ok(())
     }
     #[tokio::test] async fn test_audit_unavailable_fails_closed()->StorageResult<()>{
         let a=open(true).await?;let audit=a.table("e002_audit");let f=format!("{}.{}",quote_identifier(SCHEMA),quote_identifier("reject_audit_insert"));
