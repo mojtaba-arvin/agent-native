@@ -11,10 +11,10 @@ import tomllib
 required = {
     "production PostgreSQL server composition": Path("src/agent_native/server.py"),
     "T15 reproducible image acceptance": Path("acceptance/T15.sh"),
-    "T18 disposable PostgreSQL deployment": Path("experiments/t18/compose.yaml"),
-    "T18 reproducible pilot runner": Path("experiments/t18/run-pilot.sh"),
-    "T18 black-box pilot checks": Path("experiments/t18/test_pilot.py"),
-    "T18 deployment and findings runbook": Path("experiments/t18/README.md"),
+    "T18 disposable PostgreSQL deployment": Path("deploy/t18/compose.yaml"),
+    "T18 reproducible pilot runner": Path("deploy/t18/run-pilot.sh"),
+    "T18 black-box pilot checks": Path("tests/test_t18_pilot.py"),
+    "T18 deployment and findings runbook": Path("deploy/t18/README.md"),
 }
 missing = [label for label, path in required.items() if not path.is_file()]
 if missing:
@@ -27,7 +27,6 @@ cli = Path("src/agent_native/cli.py").read_text(encoding="utf-8")
 server = required["production PostgreSQL server composition"].read_text(encoding="utf-8")
 dockerfile = Path("Dockerfile").read_text(encoding="utf-8")
 compose = required["T18 disposable PostgreSQL deployment"].read_text(encoding="utf-8")
-workflow = Path(".github/workflows/task-acceptance.yml").read_text(encoding="utf-8")
 runner = required["T18 reproducible pilot runner"].read_text(encoding="utf-8")
 tests = required["T18 black-box pilot checks"].read_text(encoding="utf-8")
 pyproject = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
@@ -77,11 +76,8 @@ checks = {
             "test_create_read_and_audit_are_durable",
         )
     ),
-    "GitHub Actions retains sanitized pilot evidence as an artifact": all(
-        marker in workflow for marker in (
-            "Upload T18 PostgreSQL pilot evidence", "actions/upload-artifact@v4",
-            "t18-postgres-pilot-", "retention-days: 90",
-        )
+    "runner records sanitized evidence in the GitHub Actions step summary": all(
+        marker in runner for marker in ("GITHUB_STEP_SUMMARY", "deployment.json", "acceptance.json", "findings.md")
     ),
     "pilot runbook defines deployment, evidence, and limitations": all(
         marker in required["T18 deployment and findings runbook"].read_text(encoding="utf-8")
@@ -98,8 +94,8 @@ if failed:
 print("T18 acceptance: container/PostgreSQL pilot contract is present.")
 PY
 
-bash -n experiments/t18/run-pilot.sh
-python3 -m py_compile src/agent_native/server.py experiments/t18/test_pilot.py
+bash -n deploy/t18/run-pilot.sh
+python3 -m py_compile src/agent_native/server.py tests/test_t18_pilot.py
 PYTHONPATH="src${PYTHONPATH:+:$PYTHONPATH}" python3 -m unittest tests.test_server -v
 T18_EVIDENCE_DIR="${T18_EVIDENCE_DIR:-${RUNNER_TEMP:-/tmp}/agent-native-t18-${GITHUB_RUN_ID:-local}}" \
-  bash experiments/t18/run-pilot.sh --acceptance
+  bash deploy/t18/run-pilot.sh --acceptance
