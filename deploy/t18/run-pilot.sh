@@ -122,6 +122,11 @@ echo "Building and verifying the canonical reproducible T15 production image."
 export RUNNER_TEMP="${RUNNER_TEMP:-$(mktemp -d)}"
 bash acceptance/T15.sh
 docker tag agent-native:repro-a agent-native:t15
+docker run --rm --network none --read-only \
+  --tmpfs /tmp:rw,noexec,nosuid,size=16m \
+  --cap-drop ALL --security-opt no-new-privileges \
+  --user 65532:65532 --entrypoint python agent-native:t15 -c \
+  'import psycopg; from psycopg import sql; from psycopg.rows import dict_row; from psycopg.pq import __impl__; assert __impl__ == "binary", __impl__; print("T18 PostgreSQL driver:", psycopg.__version__, __impl__)'
 T15_EVIDENCE_DIR="$RUNNER_TEMP/t15-container-output"
 mkdir -p "$EVIDENCE_DIR/t15"
 cp "$T15_EVIDENCE_DIR/build-evidence.json" "$T15_EVIDENCE_DIR/sbom.spdx.json" \
