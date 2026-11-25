@@ -9,14 +9,50 @@ use std::{
     },
 };
 
-use bytes::Bytes;
+use bytes::{Bytes, BytesMut};
 use http_body_util::{BodyExt, Full};
-use hyper::{body::Incoming, header, Request, Response, StatusCode};
+use hyper::{body::{Body as HttpBody, Incoming}, header, Request, Response, StatusCode};
+use tokio::time::{timeout_at, Duration, Instant};
 
 use crate::{ResponseBody, t16_auth::{authorize, verify_bearer}};
 
 const MAX_BODY: usize = 16 * 1024;
+const BODY_READ_TIMEOUT: Duration = Duration::from_secs(5);
 const DONE: &str = "__T16_DONE__";
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum BodyReadError {
+    TooLarge,
+    Timeout,
+    ReadFailed,
+}
+
+// Consume body frames incrementally. Never call collect() on the untrusted
+// Incoming body: enforce the byte limit before copying each frame.
+async fn collect_bounded_body<B>(
+    mut body: B,
+    timeout: Duration,
+) -> Result<Bytes, BodyReadError>
+where
+    B: HttpBody<Data = Bytes> + Unpin,
+{
+    let deadline = Instant::now() + timeout;
+    let mut output = BytesMut::with_capacity(4096);
+    loop {
+        let frame = match timeout_at(deadline, body.frame()).await {
+            Err(_) => return Err(BodyReadError::Timeout),
+            Ok(None) => return Ok(output.freeze()),
+            Ok(Some(Err(_))) => return Err(BodyReadError::ReadFailed),
+            Ok(Some(Ok(frame))) => frame,
+        };
+        if let Ok(data) = frame.into_data() {
+            if output.len().saturating_add(data.len()) > MAX_BODY {
+                return Err(BodyReadError::TooLarge);
+            }
+            output.extend_from_slice(&data);
+        }
+    }
+}
 
 struct PsqlWorker {
     child: Child,
@@ -312,14 +348,26 @@ impl ProductConfig {
         if operation == "job_admission" && !valid_header(&idempotency_key) {
             return json_response(StatusCode::BAD_REQUEST, r#"{"error":{"code":"IDEMPOTENCY_KEY_REQUIRED"}}"#);
         }
-        let (_, body) = request.into_parts();
-        let collected = match body.collect().await {
-            Ok(value) => value.to_bytes(),
-            Err(_) => return json_response(StatusCode::BAD_REQUEST, r#"{"error":{"code":"BODY_READ_FAILED"}}"#),
-        };
-        if collected.len() > MAX_BODY {
+        if request.headers().get(header::CONTENT_LENGTH)
+            .and_then(|value| value.to_str().ok())
+            .and_then(|value| value.parse::<usize>().ok())
+            .is_some_and(|length| length > MAX_BODY)
+        {
             return json_response(StatusCode::PAYLOAD_TOO_LARGE, r#"{"error":{"code":"BODY_TOO_LARGE"}}"#);
         }
+        let (_, body) = request.into_parts();
+        let collected = match collect_bounded_body(body, BODY_READ_TIMEOUT).await {
+            Ok(value) => value,
+            Err(BodyReadError::TooLarge) => {
+                return json_response(StatusCode::PAYLOAD_TOO_LARGE, r#"{"error":{"code":"BODY_TOO_LARGE"}}"#)
+            }
+            Err(BodyReadError::Timeout) => {
+                return json_response(StatusCode::REQUEST_TIMEOUT, r#"{"error":{"code":"BODY_READ_TIMEOUT"}}"#)
+            }
+            Err(BodyReadError::ReadFailed) => {
+                return json_response(StatusCode::BAD_REQUEST, r#"{"error":{"code":"BODY_READ_FAILED"}}"#)
+            }
+        };
         let body_text = if collected.is_empty() {
             "{}"
         } else {
@@ -463,5 +511,65 @@ mod tests {
         let payload = r#"{"request_id":"rust-pg-deny-1","principal_id":"benchmark-limited","tenant_id":"tenant-a","operation":"expected_denial","reason_code":"CAPABILITY_DENIED","body":{}}"#;
         let result = pool.query(payload).expect("denial audit should commit and return JSON");
         assert!(result.contains(r#""code": "CAPABILITY_DENIED""#));
+    }
+}
+#[cfg(test)]
+mod t17_body_tests {
+    use super::*;
+    use futures_util::stream;
+    use http_body_util::StreamBody;
+    use hyper::body::Frame;
+    use std::convert::Infallible;
+
+    #[tokio::test]
+    async fn t17_exact_body_limit_is_accepted() {
+        let body = Full::new(Bytes::from(vec![b'x'; MAX_BODY]));
+        let result = collect_bounded_body(body, Duration::from_secs(1)).await.unwrap();
+        assert_eq!(result.len(), MAX_BODY);
+    }
+
+    #[tokio::test]
+    async fn t17_fixed_body_over_limit_is_rejected() {
+        let body = Full::new(Bytes::from(vec![b'x'; MAX_BODY + 1]));
+        assert_eq!(
+            collect_bounded_body(body, Duration::from_secs(1)).await,
+            Err(BodyReadError::TooLarge)
+        );
+    }
+
+    #[tokio::test]
+    async fn t17_chunked_body_over_limit_is_rejected() {
+        let frames = stream::iter(vec![
+            Ok::<_, Infallible>(Frame::data(Bytes::from(vec![b'a'; MAX_BODY / 2]))),
+            Ok::<_, Infallible>(Frame::data(Bytes::from(vec![b'b'; MAX_BODY / 2]))),
+            Ok::<_, Infallible>(Frame::data(Bytes::from_static(b"x"))),
+        ]);
+        let body = StreamBody::new(frames);
+        assert_eq!(
+            collect_bounded_body(body, Duration::from_secs(1)).await,
+            Err(BodyReadError::TooLarge)
+        );
+    }
+
+    struct PendingBody;
+
+    impl HttpBody for PendingBody {
+        type Data = Bytes;
+        type Error = Infallible;
+
+        fn poll_frame(
+            self: std::pin::Pin<&mut Self>,
+            _context: &mut std::task::Context<'_>,
+        ) -> std::task::Poll<Option<Result<Frame<Self::Data>, Self::Error>>> {
+            std::task::Poll::Pending
+        }
+    }
+
+    #[tokio::test]
+    async fn t17_body_read_deadline_is_enforced() {
+        assert_eq!(
+            collect_bounded_body(PendingBody, Duration::from_millis(1)).await,
+            Err(BodyReadError::Timeout)
+        );
     }
 }
