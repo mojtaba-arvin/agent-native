@@ -16,7 +16,6 @@ import (
 const CanonicalizationVersion = "json-sort-keys-compact-utf8-v1"
 
 var (
-	ErrNotFound = errors.New("storage_record_not_found")
 	ErrInvalid  = errors.New("storage_invalid_input")
 )
 
@@ -123,7 +122,7 @@ func WithSchema(schema string) Option {
 
 // WithFaultHook is intended for deterministic conformance tests. Production
 // callers should not install fault injection hooks.
-func WithFaultHook(hook func(string) error) Option {
+func withFaultHook(hook func(string) error) Option {
 	return func(cfg *config) { cfg.faultHook = hook }
 }
 
