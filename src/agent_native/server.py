@@ -97,16 +97,7 @@ def run_server(args: Any) -> int:
     finally:
         if server is not None:
             if not server._serve_stopped.is_set():
-                # This path covers startup/serve exceptions; the normal signal
-                # path already stopped the server from a separate thread.
-                try:
-                    threading.Thread(
-                        target=server.shutdown_gracefully,
-                        kwargs={"timeout_seconds": args.shutdown_timeout_seconds},
-                        daemon=True,
-                    ).start()
-                except RuntimeError:
-                    pass
+                server.shutdown_gracefully(timeout_seconds=args.shutdown_timeout_seconds)
             server.server_close()
         for signum, handler in previous_handlers.items():
             signal.signal(signum, handler)
