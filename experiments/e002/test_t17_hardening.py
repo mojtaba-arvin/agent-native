@@ -28,7 +28,7 @@ class T17RustHttpHardeningTests(unittest.TestCase):
             "t17_exact_body_limit_is_accepted",
             "t17_fixed_body_over_limit_is_rejected",
             "t17_chunked_body_over_limit_is_rejected",
-            "t17_slow_body_hits_total_read_deadline",
+            "t17_body_read_deadline_is_enforced",
         ):
             self.assertIn(test_name, RUST_PRODUCT)
 
