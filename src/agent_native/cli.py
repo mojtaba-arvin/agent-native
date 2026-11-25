@@ -228,6 +228,25 @@ def command_worker(args: argparse.Namespace) -> int:
     return 0
 
 
+def _safe_server_error(error: Exception) -> str:
+    message = str(error)
+    for name in ("AGENT_NATIVE_POSTGRES_DSN", "AGENT_NATIVE_TOKEN_SIGNING_KEY_HEX"):
+        secret = os.environ.get(name)
+        if secret:
+            message = message.replace(secret, "<redacted>")
+    message = re.sub(
+        r"(?i)(postgres(?:ql)?://)[^/@\\s]+@",
+        r"\\1<redacted>@",
+        message,
+    )
+    message = re.sub(
+        r"(?i)(password|token_signing_key_hex)=([^\\s,]+)",
+        r"\\1=<redacted>",
+        message,
+    )
+    return message[:240]
+
+
 def command_serve(args: argparse.Namespace) -> int:
     try:
         from .server import run_server
@@ -237,6 +256,7 @@ def command_serve(args: argparse.Namespace) -> int:
             "server_start_failed",
             f"server initialization failed ({type(error).__name__})",
             4,
+            details={"cause": _safe_server_error(error)},
         ) from error
 
 
