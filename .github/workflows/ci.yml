@@ -327,10 +327,20 @@ jobs:
         working-directory: experiments/e001/baselines/rust
       - name: E-002 Go runtime
         run: |
+          go mod tidy
           go test ./...
           go build -o "$RUNNER_TEMP/e002-go" .
           python ../conformance.py --command "$RUNNER_TEMP/e002-go" --cwd .
         working-directory: experiments/e002/go
+      - name: Upload E-002 Go module lockfile
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e002-go-module-lock-${{ github.sha }}
+          path: |
+            experiments/e002/go/go.mod
+            experiments/e002/go/go.sum
+          retention-days: 7
       - name: E-002 Rust runtime
         run: |
           cargo test --locked
