@@ -99,6 +99,9 @@ impl PostgresAdapter {
     async fn initialize(&self) -> StorageResult<()> {
         let mut client = self.client.lock().await;
         let tx = client.transaction().await?;
+        let schema_lock = format!("e002-rust-schema:{}", self.schema);
+        tx.query_one("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", &[&schema_lock]).await?;
+        tx.batch_execute("SET LOCAL synchronous_commit = on").await?;
         tx.batch_execute(&format!("CREATE SCHEMA IF NOT EXISTS {}", quote_identifier(&self.schema))).await?;
         let jobs = self.table("e002_jobs");
         let idem = self.table("e002_idempotency_records");
