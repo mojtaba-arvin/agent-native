@@ -37,7 +37,7 @@ The black-box suite verifies:
 - cross-tenant reads do not disclose another tenant's resource;
 - created data survives application-container restart.
 
-Evidence files are written under `T18_EVIDENCE_DIR`: `deployment.json`, `acceptance.json`, `acceptance.log`, `app.log`, `compose-ps.json`, `findings.md`, and `t15/` containing the reproducible T15 build evidence, SPDX SBOM, checksum manifest, and CLI smoke output. Deployment metadata contains image IDs, source revision, exposed ports, and security settings, but never credentials.
+Evidence files are written under `T18_EVIDENCE_DIR`: `deployment.json`, `acceptance.json`, `acceptance.log`, `app.log`, `compose-ps.json`, `findings.md`, and `t15/` containing the reproducible T15 build evidence, SPDX SBOM, and CLI smoke output. Deployment metadata contains image IDs, source revision, exposed ports, and security settings, but never credentials.
 
 ## Operational findings
 
