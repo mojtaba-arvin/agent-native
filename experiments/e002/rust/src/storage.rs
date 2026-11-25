@@ -117,7 +117,7 @@ impl PostgresAdapter {
             format!("CREATE TABLE IF NOT EXISTS {audit} (sequence BIGSERIAL PRIMARY KEY, event_id UUID NOT NULL UNIQUE, request_id TEXT NOT NULL, tenant_id TEXT NOT NULL, operation_id TEXT NOT NULL, decision TEXT NOT NULL CHECK(decision IN ('allow','deny')), reason_code TEXT NOT NULL, outcome_json TEXT NOT NULL, created_at BIGINT NOT NULL)"),
             format!("CREATE TABLE IF NOT EXISTS {consumed} (consumer TEXT NOT NULL, event_id UUID NOT NULL REFERENCES {outbox}(event_id), consumed_at BIGINT NOT NULL, PRIMARY KEY(consumer,event_id))"),
             format!("CREATE TABLE IF NOT EXISTS {effects} (consumer TEXT NOT NULL, event_id UUID NOT NULL, effect_json TEXT NOT NULL, PRIMARY KEY(consumer,event_id), FOREIGN KEY(consumer,event_id) REFERENCES {consumed}(consumer,event_id))"),
-            format!("CREATE OR REPLACE FUNCTION {trigger_fn}() RETURNS trigger LANGUAGE plpgsql AS $ BEGIN RAISE EXCEPTION 'audit_append_only'; END; $"),
+            format!("CREATE OR REPLACE FUNCTION {trigger_fn}() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'audit_append_only'; END; $$"),
         ];
         for statement in statements { tx.batch_execute(&statement).await?; }
         let audit_relation = format!("{}.{}", quote_identifier(&self.schema), quote_identifier("e002_audit"));
