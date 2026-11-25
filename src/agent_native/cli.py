@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import importlib.resources
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -227,6 +228,18 @@ def command_worker(args: argparse.Namespace) -> int:
     return 0
 
 
+def command_serve(args: argparse.Namespace) -> int:
+    try:
+        from .server import run_server
+        return run_server(args)
+    except Exception as error:
+        raise CLIError(
+            "server_start_failed",
+            f"server initialization failed ({type(error).__name__})",
+            4,
+        ) from error
+
+
 def command_audit(args: argparse.Namespace) -> int:
     events_path = Path(args.events).expanduser()
     try:
@@ -294,6 +307,17 @@ def build_parser() -> JSONArgumentParser:
     worker.add_argument("--service-id", required=True, help="explicit service identifier")
     worker.add_argument("--queue", required=True, help="explicit JSONL queue path")
     worker.set_defaults(handler=command_worker)
+
+    serve = subparsers.add_parser("serve", help="serve registered services with PostgreSQL-backed persistence")
+    serve.add_argument("--services-root", default=os.getenv("AGENT_NATIVE_SERVICES_ROOT", "/opt/agent-native/services"))
+    serve.add_argument("--host", default="127.0.0.1")
+    serve.add_argument("--port", type=int, default=8080)
+    serve.add_argument("--max-concurrency", type=int, default=32)
+    serve.add_argument("--max-request-body-bytes", type=int, default=16_384)
+    serve.add_argument("--request-timeout-seconds", type=float, default=10.0)
+    serve.add_argument("--shutdown-timeout-seconds", type=float, default=10.0)
+    serve.add_argument("--allow-non-loopback", action="store_true", help="explicitly allow binding outside loopback")
+    serve.set_defaults(handler=command_serve)
 
     audit = subparsers.add_parser("audit", help="validate and summarize an explicit JSONL audit file")
     audit.add_argument("--events", required=True, help="explicit JSONL audit-event path")
