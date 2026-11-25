@@ -16,7 +16,7 @@ func TestRollbackAfterEachLogicalWrite(t *testing.T) {
 	stages := []string{"after_job", "after_outbox", "after_idempotency", "after_audit", "before_commit"}
 	for _, stage := range stages {
 		t.Run(stage, func(t *testing.T) {
-			adapter := openTestAdapter(t, true, WithFaultHook(func(current string) error {
+			adapter := openTestAdapter(t, true, withFaultHook(func(current string) error {
 				if current == stage {
 					return errors.New("injected_precommit_failure")
 				}
