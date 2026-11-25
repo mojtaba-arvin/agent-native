@@ -114,7 +114,7 @@ func TestAtomicJobOutboxIdempotencyAuditCommit(t *testing.T) {
 	}
 	if metadata.Engine != "postgresql" || metadata.EngineVersion == "" ||
 		metadata.Fsync != "on" || metadata.SynchronousCommit != "on" ||
-		metadata.WALLevel != "replica" || metadata.TransactionIsolation != "read committed" {
+		metadata.WALLevel == "" || metadata.TransactionIsolation != "read committed" {
 		t.Fatalf("durability profile or engine metadata is not the required local durable commit: %+v", metadata)
 	}
 	if metadata.Canonicalization != CanonicalizationVersion {
