@@ -5,10 +5,31 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
 
+from agent_native.cli import _safe_server_error
 from agent_native.server import _required_environment, _signing_key, run_server
 
 
 class ServerEnvironmentTests(unittest.TestCase):
+    def test_startup_diagnostics_redact_database_and_signing_secrets(self):
+        dsn = "postgresql://agent_native:top-secret@postgres:5432/agent_native"
+        key = "ab" * 32
+        error = RuntimeError(
+            f"connection failed for {dsn} password=top-secret "
+            f"token_signing_key_hex={key}"
+        )
+        with patch.dict(
+            os.environ,
+            {
+                "AGENT_NATIVE_POSTGRES_DSN": dsn,
+                "AGENT_NATIVE_TOKEN_SIGNING_KEY_HEX": key,
+            },
+            clear=True,
+        ):
+            detail = _safe_server_error(error)
+        self.assertNotIn("top-secret", detail)
+        self.assertNotIn(key, detail)
+        self.assertIn("<redacted>", detail)
+
     def test_required_environment_rejects_missing_and_blank_values(self):
         with patch.dict(os.environ, {}, clear=True):
             with self.assertRaisesRegex(ValueError, "required_environment_missing"):
