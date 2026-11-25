@@ -34,6 +34,7 @@ COMPOSE=(docker compose --project-name "$T18_COMPOSE_PROJECT" --file "$T18_COMPO
 
 cleanup() {
   status=$?
+  trap - EXIT
   if [[ $status -ne 0 ]]; then
     "${COMPOSE[@]}" logs --no-color app > "$EVIDENCE_DIR/app.log" 2>&1 || true
     python3 - "$EVIDENCE_DIR/acceptance.json" "$status" <<'PY'
@@ -114,7 +115,7 @@ PY
 cat > "$EVIDENCE_DIR/findings.md" <<'EOF'
 # T18 operational findings
 
-- The T15 image served Catalog and Inventory through the bounded operational HTTP ingress.
+- The T15 image loaded the Catalog and Inventory service manifests; black-box CRUD and persistence checks exercised Catalog through the bounded operational HTTP ingress.
 - PostgreSQL readiness gated application startup; application data, idempotency, audit, and outbox state were checked through the live service.
 - The application ran as UID 65532 with a read-only root filesystem, dropped capabilities, and a read-only service-manifest mount.
 - The PostgreSQL service was reachable only on the Compose network; only the application port was published to host loopback.
