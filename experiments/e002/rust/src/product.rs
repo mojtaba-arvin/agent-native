@@ -10,9 +10,8 @@ use std::{
 };
 
 use bytes::{Bytes, BytesMut};
-use futures_util::stream;
-use http_body_util::{BodyExt, Full, StreamBody};
-use hyper::{body::{Body as HttpBody, Frame, Incoming}, header, Request, Response, StatusCode};
+use http_body_util::{BodyExt, Full};
+use hyper::{body::{Body as HttpBody, Incoming}, header, Request, Response, StatusCode};
 use tokio::time::{timeout_at, Duration, Instant};
 
 use crate::{ResponseBody, t16_auth::{authorize, verify_bearer}};
@@ -517,6 +516,8 @@ mod tests {
 #[cfg(test)]
 mod t17_body_tests {
     use super::*;
+    use futures_util::stream;
+    use http_body_util::StreamBody;
     use hyper::body::Frame;
     use std::convert::Infallible;
 
