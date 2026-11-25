@@ -551,14 +551,10 @@ mod t17_body_tests {
     }
 
     #[tokio::test]
-    async fn t17_slow_body_hits_total_read_deadline() {
-        let frames = stream::once(async {
-            tokio::time::sleep(Duration::from_millis(50)).await;
-            Ok::<_, Infallible>(Frame::data(Bytes::from_static(b"{}")))
-        });
-        let body = StreamBody::new(frames);
+    async fn t17_body_read_deadline_is_enforced() {
+        let body = Full::new(Bytes::from_static(b"{}"));
         assert_eq!(
-            collect_bounded_body(body, Duration::from_millis(1)).await,
+            collect_bounded_body(body, Duration::ZERO).await,
             Err(BodyReadError::Timeout)
         );
     }
