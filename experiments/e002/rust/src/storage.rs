@@ -318,7 +318,7 @@ fn canonical_hash(value:&Value)->StorageResult<String>{let encoded=serde_json::t
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::atomic::{AtomicBool,Ordering};
+    use std::{process::Command, sync::atomic::{AtomicBool,Ordering}};
     const SCHEMA:&str="e002_rust_test";
     async fn open(reset:bool)->StorageResult<PostgresAdapter>{
         let dsn=std::env::var("AGENT_NATIVE_E002_POSTGRES_DSN").map_err(|_|invalid("AGENT_NATIVE_E002_POSTGRES_DSN is required"))?;
@@ -365,6 +365,26 @@ mod tests {
         let c=a.recover().await?;assert_eq!((c.jobs,c.outbox,c.idempotency,c.audit),(1,1,1,3));
         assert!(a.lookup_idempotency("tenant-b","jobs.create","same").await?.is_none());assert!(a.lookup_idempotency("tenant-a","catalog.create","same").await?.is_none());Ok(())
     }
+    #[tokio::test] async fn test_concurrent_different_hashes_have_one_stable_winner()->StorageResult<()>{
+        let dsn=std::env::var("AGENT_NATIVE_E002_POSTGRES_DSN").map_err(|_|invalid("missing DSN"))?;
+        let setup=open(true).await?;drop(setup);
+        let a=PostgresAdapter::connect_with_schema(&dsn,SCHEMA).await?;
+        let b=PostgresAdapter::connect_with_schema(&dsn,SCHEMA).await?;
+        let first=tokio::spawn(async move{a.admit_job(request("race-a","tenant-a","jobs.create","diff-key","lamp")).await});
+        let second=tokio::spawn(async move{b.admit_job(request("race-b","tenant-a","jobs.create","diff-key","desk")).await});
+        let x=first.await.map_err(|e|invalid(e.to_string()))??;
+        let y=second.await.map_err(|e|invalid(e.to_string()))??;
+        let created=if x.status=="created"{x.clone()}else{y.clone()};
+        let conflict=if x.status=="conflict"{x}else{y};
+        assert_eq!(created.status,"created");
+        assert_eq!(conflict.status,"conflict");
+        let a=open(false).await?;
+        let record=a.lookup_idempotency("tenant-a","jobs.create","diff-key").await?.unwrap();
+        assert_eq!(record.outcome,created.outcome);
+        let counts=a.recover().await?;
+        assert_eq!((counts.jobs,counts.outbox,counts.idempotency,counts.audit),(1,1,1,2));
+        Ok(())
+    }
     #[tokio::test] async fn test_concurrent_same_key_admission_is_linearizable()->StorageResult<()>{
         let dsn=std::env::var("AGENT_NATIVE_E002_POSTGRES_DSN").map_err(|_|invalid("missing DSN"))?;
         let setup=open(true).await?;drop(setup);
@@ -386,10 +406,22 @@ mod tests {
         {let c=a.client.lock().await;c.batch_execute(&format!("CREATE OR REPLACE FUNCTION {f}() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'audit_unavailable'; END; $$; CREATE TRIGGER reject_audit_insert BEFORE INSERT ON {audit} FOR EACH ROW EXECUTE FUNCTION {f}();")).await?;}
         assert!(a.admit_job(request("down","tenant-a","jobs.create","key","lamp")).await.is_err());let c=a.recover().await?;assert_eq!((c.jobs,c.outbox,c.idempotency),(0,0,0));Ok(())
     }
+    #[tokio::test] async fn crash_after_commit_child()->StorageResult<()>{
+        if std::env::var_os("AGENT_NATIVE_E002_CRASH_CHILD").is_none(){return Ok(());}
+        let dsn=std::env::var("AGENT_NATIVE_E002_POSTGRES_DSN").map_err(|_|invalid("missing DSN"))?;
+        let once=Arc::new(AtomicBool::new(true));let gate=once.clone();
+        let a=PostgresAdapter::connect_with_fault_hook(&dsn,SCHEMA,move|s|s=="after_commit"&&gate.swap(false,Ordering::SeqCst)).await?;
+        assert!(a.admit_job(request("crash-child","tenant-a","jobs.create","crash-key","lamp")).await.is_err());
+        std::process::exit(86);
+    }
     #[tokio::test] async fn test_crash_after_commit_before_response_reconciles()->StorageResult<()>{
-        let dsn=std::env::var("AGENT_NATIVE_E002_POSTGRES_DSN").map_err(|_|invalid("missing DSN"))?;let once=Arc::new(AtomicBool::new(true));let gate=once.clone();
-        let a=PostgresAdapter::connect_with_fault_hook(&dsn,SCHEMA,move|s|s=="after_commit"&&gate.swap(false,Ordering::SeqCst)).await?;a.reset_for_testing().await?;
-        assert!(a.admit_job(request("crash","tenant-a","jobs.create","crash-key","lamp")).await.is_err());
+        let setup=open(true).await?;drop(setup);
+        let executable=std::env::current_exe()?;
+        let status=Command::new(executable)
+            .arg("--exact").arg("storage::tests::crash_after_commit_child").arg("--nocapture")
+            .env("AGENT_NATIVE_E002_CRASH_CHILD","1").status()?;
+        assert_eq!(status.code(),Some(86),"child must terminate after durable commit and before response");
+        let a=open(false).await?;
         assert_eq!(a.admit_job(request("retry","tenant-a","jobs.create","crash-key","lamp")).await?.status,"replayed");
         let c=a.recover().await?;assert_eq!((c.jobs,c.outbox,c.idempotency,c.audit),(1,1,1,2));Ok(())
     }
