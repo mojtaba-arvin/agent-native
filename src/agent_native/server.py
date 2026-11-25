@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 import os
 import re
 import signal
@@ -40,6 +41,13 @@ def run_server(args: Any) -> int:
     PostgreSQL and token signing material are environment-only inputs; neither
     is accepted on the command line or written to startup logs.
     """
+    if (
+        isinstance(args.shutdown_timeout_seconds, bool)
+        or not isinstance(args.shutdown_timeout_seconds, (int, float))
+        or not math.isfinite(args.shutdown_timeout_seconds)
+        or args.shutdown_timeout_seconds < 0
+    ):
+        raise ValueError("invalid_shutdown_timeout")
     dsn = _required_environment("AGENT_NATIVE_POSTGRES_DSN")
     schema = os.environ.get("AGENT_NATIVE_POSTGRES_SCHEMA", "agent_native")
     authority = CapabilityTokenAuthority(_signing_key())
