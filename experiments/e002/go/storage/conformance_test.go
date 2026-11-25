@@ -8,6 +8,33 @@ import (
 	"testing"
 )
 
+
+func TestCanonicalJSONMatchesPythonReference(t *testing.T) {
+	value := map[string]any{
+		"z": []any{true, 2},
+		"a": "<café\u2028\u2029",
+	}
+	encoded, err := canonicalJSON(value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected := "{\"a\":\"<café\u2028\u2029\",\"z\":[true,2]}"
+	if string(encoded) != expected {
+		t.Fatalf("canonical JSON mismatch: got %q want %q", string(encoded), expected)
+	}
+	first, err := canonicalHash(map[string]any{"b": 2, "a": 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := canonicalHash(map[string]any{"a": 1, "b": 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first != second {
+		t.Fatalf("map key order changed canonical hash: %s != %s", first, second)
+	}
+}
+
 func TestSameKeyReplayAndDifferentHashConflict(t *testing.T) {
 	adapter := openTestAdapter(t, true)
 	ctx := context.Background()
