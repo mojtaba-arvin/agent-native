@@ -235,13 +235,13 @@ def _safe_server_error(error: Exception) -> str:
         if secret:
             message = message.replace(secret, "<redacted>")
     message = re.sub(
-        r"(?i)(postgres(?:ql)?://)[^/@\\s]+@",
-        r"\\1<redacted>@",
+        r"(?i)(postgres(?:ql)?://)[^/@\s]+@",
+        r"\1<redacted>@",
         message,
     )
     message = re.sub(
-        r"(?i)(password|token_signing_key_hex)=([^\\s,]+)",
-        r"\\1=<redacted>",
+        r"(?i)(password|token_signing_key_hex)=([^\s,]+)",
+        r"\1=<redacted>",
         message,
     )
     return message[:240]
