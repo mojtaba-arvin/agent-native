@@ -10,6 +10,7 @@ import json
 import os
 import re
 import shutil
+import subprocess
 import tarfile
 import tempfile
 import urllib.request
@@ -30,41 +31,58 @@ if not isinstance(expected_sha, str) or not re.fullmatch(r"[0-9a-f]{40}", expect
     fail("PR head SHA is unavailable; refusing unbound evidence")
 
 repository = os.getenv("GITHUB_REPOSITORY", "mojtaba-arvin/agent-native")
-headers = {
-    "Accept": "application/vnd.github+json",
-    "User-Agent": "agent-native-t16-acceptance",
-    "X-GitHub-Api-Version": "2022-11-28",
-}
-asset_url = None
+if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repository):
+    fail("invalid repository identity")
+
+# Avoid unauthenticated REST release enumeration, which can exhaust the
+# shared GitHub-hosted runner IP rate limit. Public git smart-HTTP ref listing
+# gives the immutable tag target; T16 asset names are derived from the run ID.
+try:
+    listed = subprocess.run(
+        [
+            "git", "ls-remote", "--tags",
+            f"https://github.com/{repository}.git",
+            "refs/tags/t16-run-*",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+except (OSError, subprocess.SubprocessError) as error:
+    fail(f"could not list public T16 evidence tags: {error}")
+
+tag_targets: dict[str, str] = {}
+for line in listed.stdout.splitlines():
+    fields = line.split("\\t", 1)
+    if len(fields) != 2:
+        continue
+    object_sha, ref = fields
+    peeled = ref.endswith("^{}")
+    tag = ref[:-3] if peeled else ref
+    prefix = "refs/tags/t16-run-"
+    if not tag.startswith(prefix):
+        continue
+    run_id = tag[len(prefix):]
+    if not re.fullmatch(r"[0-9]{8}T[0-9]{6}Z-[0-9a-f]{8}", run_id):
+        continue
+    if peeled or tag not in tag_targets:
+        tag_targets[tag] = object_sha
+
 matches = []
-for page in range(1, 11):
-    url = f"https://api.github.com/repos/{repository}/releases?per_page=100&page={page}"
-    request = urllib.request.Request(url, headers=headers)
-    with urllib.request.urlopen(request, timeout=30) as response:
-        releases = json.loads(response.read())
-    if not releases:
-        break
-    for release in releases:
-        if release.get("draft") or release.get("prerelease"):
-            continue
-        if not str(release.get("tag_name", "")).startswith("t16-run-"):
-            continue
-        if release.get("target_commitish") != expected_sha:
-            continue
-        if f"Source: {expected_sha}" not in str(release.get("body", "")):
-            continue
-        for asset in release.get("assets", []):
-            if (
-                str(asset.get("name", "")).startswith("t16-evidence-")
-                and str(asset.get("name", "")).endswith(".tar.gz")
-                and asset.get("state") == "uploaded"
-                and asset.get("browser_download_url")
-            ):
-                matches.append((str(release.get("published_at", "")), asset["browser_download_url"]))
-    if len(releases) < 100:
-        break
+for tag, target_sha in tag_targets.items():
+    if target_sha != expected_sha:
+        continue
+    run_id = tag.removeprefix("refs/tags/t16-run-")
+    asset_name = f"t16-evidence-{run_id}.tar.gz"
+    asset_url = (
+        f"https://github.com/{repository}/releases/download/"
+        f"{tag.removeprefix('refs/tags/')}/{asset_name}"
+    )
+    matches.append((run_id, asset_url))
+
 if not matches:
-    fail(f"no uploaded T16 evidence release is bound to PR head {expected_sha}")
+    fail(f"no T16 evidence tag is bound to PR head {expected_sha}")
 matches.sort(reverse=True)
 asset_url = matches[0][1]
 
