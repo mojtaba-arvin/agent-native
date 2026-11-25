@@ -32,6 +32,58 @@ export T18_EVIDENCE_DIR="$EVIDENCE_DIR"
 STARTED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 COMPOSE=(docker compose --project-name "$T18_COMPOSE_PROJECT" --file "$T18_COMPOSE_FILE")
 
+write_summary() {
+  [[ -n "${GITHUB_STEP_SUMMARY:-}" ]] || return 0
+  {
+    echo "## T18 PostgreSQL container pilot"
+    echo
+    echo "- Source: ${SOURCE_SHA:-unknown}"
+    echo "- Application image ID: ${IMAGE_ID:-not-built}"
+    echo "- PostgreSQL image: ${POSTGRES_IMAGE:-not-started}"
+    echo "- Evidence directory: $EVIDENCE_DIR"
+    if [[ -f "$EVIDENCE_DIR/deployment.json" ]]; then
+      echo
+      echo "### Deployment configuration"
+      echo '```json'
+      cat "$EVIDENCE_DIR/deployment.json"
+      echo '```'
+    fi
+    if [[ -f "$EVIDENCE_DIR/acceptance.json" ]]; then
+      echo
+      echo "### Acceptance result"
+      echo '```json'
+      cat "$EVIDENCE_DIR/acceptance.json"
+      echo '```'
+    fi
+    if [[ -f "$EVIDENCE_DIR/findings.md" ]]; then
+      echo
+      cat "$EVIDENCE_DIR/findings.md"
+    fi
+    if [[ -f "$EVIDENCE_DIR/t15/build-evidence.json" ]]; then
+      echo
+      echo "### T15 reproducible image provenance"
+      echo '```json'
+      cat "$EVIDENCE_DIR/t15/build-evidence.json"
+      echo '```'
+      echo "The T15 SPDX SBOM was generated and verified by acceptance/T15.sh."
+    fi
+    if [[ -f "$EVIDENCE_DIR/acceptance.log" ]]; then
+      echo
+      echo "### T18 black-box test log"
+      echo '```text'
+      cat "$EVIDENCE_DIR/acceptance.log"
+      echo '```'
+    fi
+    if [[ -f "$EVIDENCE_DIR/app.log" ]]; then
+      echo
+      echo "### Application log"
+      echo '```text'
+      cat "$EVIDENCE_DIR/app.log"
+      echo '```'
+    fi
+  } >> "$GITHUB_STEP_SUMMARY"
+}
+
 cleanup() {
   status=$?
   trap - EXIT
@@ -56,6 +108,7 @@ Path(sys.argv[1]).write_text(json.dumps({
 PY
   fi
   "${COMPOSE[@]}" down --volumes --remove-orphans >/dev/null 2>&1 || true
+  write_summary || true
   exit "$status"
 }
 trap cleanup EXIT
@@ -131,14 +184,4 @@ cat > "$EVIDENCE_DIR/findings.md" <<'EOF'
 - The PostgreSQL service was reachable only on the Compose network; only the application port was published to host loopback.
 - This is a disposable single-node pilot. It does not establish HA, backup/restore, failover, production secret management, or a production capacity envelope.
 EOF
-if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
-  {
-    echo "## T18 PostgreSQL container pilot"
-    echo
-    echo "- Source: `$SOURCE_SHA`"
-    echo "- Application image ID: `$IMAGE_ID`"
-    echo "- PostgreSQL image: `$POSTGRES_IMAGE`"
-    echo "- Evidence directory: `$EVIDENCE_DIR`"
-  } >> "$GITHUB_STEP_SUMMARY"
-fi
 echo "T18 pilot passed; sanitized evidence written to $EVIDENCE_DIR"
