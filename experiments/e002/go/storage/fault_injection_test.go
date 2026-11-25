@@ -44,7 +44,7 @@ func TestCrashAfterCommitBeforeResponseReconciles(t *testing.T) {
 		marker := os.Getenv("E002_GO_MARKER")
 		adapter, err := NewPostgresAdapter(context.Background(), dsn,
 			WithSchema(testSchema),
-			WithFaultHook(func(stage string) error {
+			withFaultHook(func(stage string) error {
 				if stage == "after_commit" {
 					if err := os.WriteFile(marker, []byte("committed"), 0o600); err != nil {
 						return err
