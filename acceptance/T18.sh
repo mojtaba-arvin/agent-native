@@ -10,10 +10,11 @@ import tomllib
 
 required = {
     "production PostgreSQL server composition": Path("src/agent_native/server.py"),
-    "T18 disposable PostgreSQL deployment": Path("experiments/t18/compose.yaml"),
-    "T18 reproducible pilot runner": Path("experiments/t18/run-pilot.sh"),
-    "T18 black-box pilot checks": Path("experiments/t18/test_pilot.py"),
-    "T18 deployment and findings runbook": Path("experiments/t18/README.md"),
+    "T15 reproducible image acceptance": Path("acceptance/T15.sh"),
+    "T18 disposable PostgreSQL deployment": Path("deploy/t18/compose.yaml"),
+    "T18 reproducible pilot runner": Path("deploy/t18/run-pilot.sh"),
+    "T18 black-box pilot checks": Path("tests/test_t18_pilot.py"),
+    "T18 deployment and findings runbook": Path("deploy/t18/README.md"),
 }
 missing = [label for label, path in required.items() if not path.is_file()]
 if missing:
@@ -38,16 +39,17 @@ checks = {
             "PostgresResourceRepository", "ServiceHost", "CapabilityTokenAuthority",
             "built_in_handler_registry", "create_operational_server",
         )
+    ) and all(
+        marker in server for marker in ("AGENT_NATIVE_POSTGRES_DSN", "AGENT_NATIVE_TOKEN_SIGNING_KEY_HEX")
     ),
-    "PostgreSQL driver is a declared runtime dependency": any(
-        isinstance(item, str) and item.lower().startswith("psycopg")
-        for item in dependencies
+    "PostgreSQL driver is a declared, exact-version runtime dependency": (
+        "psycopg[binary]==3.2.12" in dependencies
     ),
     "T15 image retains its explicit CLI entrypoint and non-root user": (
         'ENTRYPOINT ["agent-native"]' in dockerfile and "USER 65532:65532" in dockerfile
     ),
     "compose uses the T15 image and an immutable PostgreSQL image": (
-        "agent-native:t15" in compose and re.search(r"postgres:[^\s@]+@sha256:[0-9a-f]{64}", compose) is not None
+        "agent-native:t15" in compose and "serve" in compose and re.search(r"postgres:[^\s@]+@sha256:[0-9a-f]{64}", compose) is not None
     ),
     "PostgreSQL readiness gates application startup": (
         "pg_isready" in compose and "service_healthy" in compose
@@ -55,9 +57,15 @@ checks = {
     "database credentials and token signing key are injected, not committed": all(
         marker in compose for marker in ("AGENT_NATIVE_POSTGRES_DSN", "AGENT_NATIVE_TOKEN_SIGNING_KEY")
     ) and "change-me" not in compose.lower(),
+    "database has no published host port and app binds only to loopback": (
+        "127.0.0.1:" in compose and "ports:" not in compose.split("  app:", 1)[0]
+    ),
+    "application uses a read-only root, non-root UID, and dropped capabilities": all(
+        marker in compose for marker in ('user: "65532:65532"', "read_only: true", "cap_drop:", "no-new-privileges:true")
+    ),
     "pilot runner builds the T15 image and tears down only its disposable stack": (
-        "docker build" in runner and "docker compose" in runner
-        and "down --volumes" in runner and "T18_EVIDENCE_DIR" in runner
+        "bash acceptance/T15.sh" in runner and "docker tag agent-native:repro-a agent-native:t15" in runner
+        and "docker compose" in runner and "down --volumes" in runner and "T18_EVIDENCE_DIR" in runner
     ),
     "black-box checks cover PostgreSQL persistence, auth, tenant isolation, and operational health": all(
         marker in tests for marker in (
@@ -67,6 +75,9 @@ checks = {
             "test_health_readiness_and_metrics",
             "test_create_read_and_audit_are_durable",
         )
+    ),
+    "runner records sanitized evidence in the GitHub Actions step summary": all(
+        marker in runner for marker in ("GITHUB_STEP_SUMMARY", "deployment.json", "acceptance.json", "findings.md")
     ),
     "pilot runbook defines deployment, evidence, and limitations": all(
         marker in required["T18 deployment and findings runbook"].read_text(encoding="utf-8")
@@ -83,8 +94,8 @@ if failed:
 print("T18 acceptance: container/PostgreSQL pilot contract is present.")
 PY
 
-bash -n experiments/t18/run-pilot.sh
-python3 -m py_compile src/agent_native/server.py experiments/t18/test_pilot.py
-python3 -m unittest discover -s experiments/t18 -p 'test_*.py' -v
+bash -n deploy/t18/run-pilot.sh
+python3 -m py_compile src/agent_native/server.py tests/test_t18_pilot.py
+PYTHONPATH="src${PYTHONPATH:+:$PYTHONPATH}" python3 -m unittest tests.test_server -v
 T18_EVIDENCE_DIR="${T18_EVIDENCE_DIR:-${RUNNER_TEMP:-/tmp}/agent-native-t18-${GITHUB_RUN_ID:-local}}" \
-  bash experiments/t18/run-pilot.sh --acceptance
+  bash deploy/t18/run-pilot.sh --acceptance
