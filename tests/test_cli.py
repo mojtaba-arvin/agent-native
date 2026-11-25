@@ -66,11 +66,21 @@ class UnifiedCLITests(unittest.TestCase):
             timeout=10,
         )
 
-    def test_help_exposes_all_seven_commands(self):
+    def test_help_exposes_all_eight_commands(self):
         result = self.invoke("--help")
         self.assertEqual(result.returncode, 0)
-        for command in ("check", "run", "inspect", "worker", "audit", "diagnose", "schema"):
+        for command in ("check", "run", "inspect", "worker", "audit", "diagnose", "schema", "serve"):
             self.assertIn(command, result.stdout)
+
+    def test_serve_help_exposes_safe_runtime_configuration(self):
+        result = self.invoke("serve", "--help")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        for option in (
+            "--services-root", "--host", "--port", "--max-concurrency",
+            "--max-request-body-bytes", "--request-timeout-seconds",
+            "--shutdown-timeout-seconds", "--allow-non-loopback",
+        ):
+            self.assertIn(option, result.stdout)
 
     def test_check_and_inspect_use_explicit_service_path(self):
         checked = self.invoke("check", "--service", str(self.service))
