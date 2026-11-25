@@ -55,6 +55,7 @@ def run_server(args: Any) -> int:
 
     repository = PostgresResourceRepository(dsn, schema=schema)
     server = None
+    shutdown_thread: threading.Thread | None = None
     previous_handlers = {}
     try:
         host = ServiceHost(
@@ -75,7 +76,6 @@ def run_server(args: Any) -> int:
         )
 
         stopping = threading.Event()
-        shutdown_thread: threading.Thread | None = None
 
         def request_shutdown(_signum, _frame) -> None:
             nonlocal shutdown_thread
