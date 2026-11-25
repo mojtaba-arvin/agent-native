@@ -176,7 +176,7 @@ impl PostgresAdapter {
         let payload_json = encode_json(&request.payload)?;
         let outbox_json = encode_json(&request.outbox_payload)?;
         let request_hash = canonical_hash(&json!({"operation_id":request.operation_id,"payload":request.payload}))?;
-        let scope = encode_json(&json!([request.tenant_id,request.operation_id,request.idempotency_key]))?;
+        let scope = serde_json::to_string(&json!([request.tenant_id,request.operation_id,request.idempotency_key]))?;
         self.fault("before_begin")?;
         let mut client = self.client.lock().await;
         let tx = client.transaction().await?;
