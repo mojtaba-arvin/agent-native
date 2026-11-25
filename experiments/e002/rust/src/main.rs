@@ -120,6 +120,15 @@ mod t17_connection_tests {
             .await
             .unwrap();
 
+        timeout(Duration::from_secs(1), async {
+            while connection_slots.available_permits() == 1 {
+                sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .expect("server must admit the stalled connection");
+        assert_eq!(connection_slots.available_permits(), 0);
+
         timeout(HEADER_READ_TIMEOUT + Duration::from_secs(2), async {
             while connection_slots.available_permits() == 0 {
                 sleep(Duration::from_millis(10)).await;
