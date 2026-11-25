@@ -87,23 +87,34 @@ func TestCrashAfterCommitBeforeResponseReconciles(t *testing.T) {
 	if err := command.Start(); err != nil {
 		t.Fatal(err)
 	}
+	waited := make(chan error, 1)
+	go func() { waited <- command.Wait() }()
 	deadline := time.Now().Add(20 * time.Second)
-	for time.Now().Before(deadline) {
+	for {
+		select {
+		case waitErr := <-waited:
+			t.Fatalf("child exited before post-commit pause: %v %s %s", waitErr, stdout.String(), stderr.String())
+		default:
+		}
 		if _, err := os.Stat(marker); err == nil {
 			break
 		}
+		if time.Now().After(deadline) {
+			_ = command.Process.Kill()
+			<-waited
+			t.Fatalf("child did not reach post-commit pause: %s %s", stdout.String(), stderr.String())
+		}
 		time.Sleep(25 * time.Millisecond)
 	}
-	if _, err := os.Stat(marker); err != nil {
-		_ = command.Process.Kill()
-		_ = command.Wait()
-		t.Fatalf("child did not reach post-commit pause: %s %s", stdout.String(), stderr.String())
+	select {
+	case waitErr := <-waited:
+		t.Fatalf("child exited after commit marker before SIGKILL: %v", waitErr)
+	default:
 	}
 	if err := command.Process.Kill(); err != nil {
-		_ = command.Wait()
 		t.Fatalf("kill post-commit child: %v", err)
 	}
-	if err := command.Wait(); err == nil {
+	if err := <-waited; err == nil {
 		t.Fatal("child survived SIGKILL")
 	}
 
