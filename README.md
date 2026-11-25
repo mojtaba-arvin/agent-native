@@ -10,7 +10,7 @@ The central question is not how to make today's frameworks easier for agents to 
 
 ## Developer CLI
 
-After installation, the `agent-native` command exposes six subcommands:
+After installation, the `agent-native` command exposes eight subcommands:
 
 ```sh
 agent-native check --service ./path/to/service.an
@@ -18,10 +18,12 @@ agent-native inspect --service ./path/to/service.an
 agent-native run --service ./path/to/service.an --method GET --path /items/42 --dry-run
 agent-native worker --service-id catalog --queue ./jobs.jsonl
 agent-native audit --events ./audit.jsonl
+agent-native diagnose --service ./path/to/service.an
+agent-native schema --list
 agent-native serve --services-root ./services --host 127.0.0.1 --port 8080
 ```
 
-All service and data paths are explicit. The CLI does not discover production credentials or execute deployment/apply operations. In this M1 stage, `run` only resolves and reports a route in dry-run mode; it refuses execution until trusted handlers are registered. `worker` only inspects a supplied JSONL queue and never claims work. `audit` is read-only. `serve` is the production HTTP entrypoint: it composes the registered service manifests, trusted built-in handlers, capability-token authentication, bounded HTTP ingress, and the PostgreSQL resource/audit repository. It requires `AGENT_NATIVE_POSTGRES_DSN` and a 32-byte-or-longer `AGENT_NATIVE_TOKEN_SIGNING_KEY_HEX`; secrets are environment-only. Loopback binding is the default, and non-loopback binding requires the explicit `--allow-non-loopback` flag. Errors are emitted as machine-readable JSON on stderr with stable exit codes.
+Data paths are explicit; the server service root defaults to `/opt/agent-native/services` and can be overridden with `--services-root`. The CLI does not discover production credentials or execute deployment/apply operations. In this M1 stage, `run` only resolves and reports a route in dry-run mode; it refuses execution until trusted handlers are registered. `worker` only inspects a supplied JSONL queue and never claims work. `audit` is read-only. `serve` is the production HTTP entrypoint: it composes the registered service manifests, trusted built-in handlers, capability-token authentication, bounded HTTP ingress, and the PostgreSQL resource/audit repository. It requires `AGENT_NATIVE_POSTGRES_DSN` and a 32-byte-or-longer `AGENT_NATIVE_TOKEN_SIGNING_KEY_HEX`; secrets are environment-only. Loopback binding is the default, and non-loopback binding requires the explicit `--allow-non-loopback` flag. Errors are emitted as machine-readable JSON on stderr with stable exit codes.
 
 ## Python package status
 
