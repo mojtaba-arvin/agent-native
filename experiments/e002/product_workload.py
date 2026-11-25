@@ -14,10 +14,23 @@ _REQUEST_BLOCK = (
 )
 
 
+def _validate_seed(seed: int) -> None:
+    if type(seed) is not int:
+        raise TypeError("workload_seed_must_be_integer")
+
+
 def request_class(index: int, *, seed: int = WORKLOAD_SEED) -> str:
-    """Return a reproducible randomized class with exact 60/20/10/10 blocks."""
+    """Return a reproducible randomized class with exact 60/20/10/10 blocks.
+
+    Negative indices are rejected rather than silently addressing a schedule
+    block before the beginning of the workload. Booleans are rejected as
+    indices/seeds even though ``bool`` subclasses ``int`` in Python.
+    """
     if type(index) is not int:
         raise TypeError("request_index_must_be_integer")
+    if index < 0:
+        raise ValueError("request_index_must_be_non_negative")
+    _validate_seed(seed)
     block, offset = divmod(index, len(_REQUEST_BLOCK))
     schedule = list(_REQUEST_BLOCK)
     random.Random(f"{seed}:{block}").shuffle(schedule)
@@ -25,8 +38,11 @@ def request_class(index: int, *, seed: int = WORKLOAD_SEED) -> str:
 
 
 def mix_counts(requests: int, *, seed: int = WORKLOAD_SEED) -> dict[str, int]:
-    if type(requests) is not int or requests < 0:
-        raise ValueError("requests_must_be_non_negative_integer")
+    if type(requests) is not int:
+        raise TypeError("requests_must_be_integer")
+    if requests < 0:
+        raise ValueError("requests_must_be_non_negative")
+    _validate_seed(seed)
     return dict(sorted(Counter(
         request_class(index, seed=seed) for index in range(requests)
     ).items()))

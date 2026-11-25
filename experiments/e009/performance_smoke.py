@@ -503,7 +503,9 @@ def main():
                 }
 
             with concurrent.futures.ThreadPoolExecutor(max_workers=args.concurrency) as pool:
-                warmup = list(pool.map(one, range(-100, 0)))
+                # Measured repetitions occupy [0, repetitions * requests); warm-up starts after that range.
+                warmup_start = args.repetitions * args.requests
+                warmup = list(pool.map(one, range(warmup_start, warmup_start + 100)))
                 if args.containerized:
                     inspect = subprocess.check_output(
                         ["docker", "inspect", "--format", "{{.State.Pid}}", container_name],

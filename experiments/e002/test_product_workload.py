@@ -31,6 +31,24 @@ class ProductWorkloadScheduleTests(unittest.TestCase):
                 "validate_plan": 2,
             })
 
+    def test_negative_request_index_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, "request_index_must_be_non_negative"):
+            request_class(-1)
+
+    def test_boolean_request_index_is_rejected(self):
+        with self.assertRaisesRegex(TypeError, "request_index_must_be_integer"):
+            request_class(True)
+
+    def test_boolean_seed_is_rejected(self):
+        with self.assertRaisesRegex(TypeError, "workload_seed_must_be_integer"):
+            request_class(0, seed=True)
+
+    def test_mix_counts_distinguishes_type_and_range_errors(self):
+        with self.assertRaisesRegex(TypeError, "requests_must_be_integer"):
+            mix_counts(True)
+        with self.assertRaisesRegex(ValueError, "requests_must_be_non_negative"):
+            mix_counts(-1)
+
 
 if __name__ == "__main__":
     unittest.main()
