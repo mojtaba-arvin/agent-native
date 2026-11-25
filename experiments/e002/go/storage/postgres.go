@@ -76,7 +76,18 @@ func quoteIdentifier(value string) string {
 }
 
 func (adapter *PostgresAdapter) initialize(ctx context.Context) error {
-	if _, err := adapter.db.ExecContext(ctx, "CREATE SCHEMA IF NOT EXISTS "+quoteIdentifier(adapter.schema)); err != nil {
+	tx, err := adapter.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
+	if err != nil {
+		return fmt.Errorf("begin_e002_schema_init: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	if _, err := tx.ExecContext(ctx,
+		"SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
+		"e002-go-schema:"+adapter.schema,
+	); err != nil {
+		return fmt.Errorf("lock_e002_schema_init: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx, "CREATE SCHEMA IF NOT EXISTS "+quoteIdentifier(adapter.schema)); err != nil {
 		return fmt.Errorf("create_e002_schema: %w", err)
 	}
 	statements := []string{
@@ -154,9 +165,12 @@ func (adapter *PostgresAdapter) initialize(ctx context.Context) error {
 			adapter.table("e002_audit"), adapter.table("e002_reject_audit_mutation")),
 	}
 	for _, statement := range statements {
-		if _, err := adapter.db.ExecContext(ctx, statement); err != nil {
+		if _, err := tx.ExecContext(ctx, statement); err != nil {
 			return fmt.Errorf("initialize_e002_storage: %w", err)
 		}
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit_e002_schema_init: %w", err)
 	}
 	return nil
 }
