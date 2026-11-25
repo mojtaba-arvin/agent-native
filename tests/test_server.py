@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import os
 import unittest
+from types import SimpleNamespace
 from unittest.mock import patch
 
-from agent_native.server import _required_environment, _signing_key
+from agent_native.server import _required_environment, _signing_key, run_server
 
 
 class ServerEnvironmentTests(unittest.TestCase):
@@ -26,6 +27,27 @@ class ServerEnvironmentTests(unittest.TestCase):
         with patch.dict(os.environ, {"AGENT_NATIVE_TOKEN_SIGNING_KEY_HEX": "ab" * 31}, clear=True):
             with self.assertRaisesRegex(ValueError, "invalid_token_signing_key_hex"):
                 _signing_key()
+
+    def test_server_requires_token_key_before_opening_database(self):
+        args = SimpleNamespace(
+            shutdown_timeout_seconds=10.0,
+            services_root="/not-opened",
+            host="127.0.0.1",
+            port=8080,
+            max_concurrency=32,
+            max_request_body_bytes=16_384,
+            request_timeout_seconds=10.0,
+            allow_non_loopback=False,
+        )
+        with patch.dict(
+            os.environ,
+            {"AGENT_NATIVE_POSTGRES_DSN": "postgresql://invalid/unused"},
+            clear=True,
+        ):
+            with self.assertRaisesRegex(
+                ValueError, "required_environment_missing:AGENT_NATIVE_TOKEN_SIGNING_KEY_HEX"
+            ):
+                run_server(args)
 
     def test_signing_key_accepts_32_byte_hex(self):
         expected = bytes(range(32))
