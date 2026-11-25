@@ -3,6 +3,7 @@ from __future__ import annotations
 import unittest
 from pathlib import Path
 
+# Structural checks complement the Rust unit and raw-socket tests run by cargo test in CI.
 ROOT = Path(__file__).resolve().parents[2]
 RUST_PRODUCT = (ROOT / "experiments/e002/rust/src/product.rs").read_text(encoding="utf-8")
 RUST_MAIN = (ROOT / "experiments/e002/rust/src/main.rs").read_text(encoding="utf-8")
