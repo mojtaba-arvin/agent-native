@@ -37,6 +37,12 @@ jobs:
           fi
           echo "id=$TASK" >> "$GITHUB_OUTPUT"
 
+      - name: Setup pinned Rust toolchain for T41 acceptance
+        if: steps.task.outputs.id == 'T41'
+        uses: dtolnay/rust-toolchain@1.100.0
+        with:
+          components: rustfmt
+
       - name: Build task acceptance context
         id: context
         uses: actions/github-script@v7
