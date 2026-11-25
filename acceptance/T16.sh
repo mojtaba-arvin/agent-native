@@ -54,7 +54,7 @@ except (OSError, subprocess.SubprocessError) as error:
 
 tag_targets: dict[str, str] = {}
 for line in listed.stdout.splitlines():
-    fields = line.split("\\t", 1)
+    fields = line.split("\t", 1)
     if len(fields) != 2:
         continue
     object_sha, ref = fields
