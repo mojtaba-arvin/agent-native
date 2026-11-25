@@ -341,28 +341,14 @@ jobs:
             experiments/e002/go/go.mod
             experiments/e002/go/go.sum
           retention-days: 7
-      - name: Format Rust candidate and bootstrap its exact lockfile
-        run: |
-          cargo fmt --manifest-path experiments/e002/rust/Cargo.toml
-          if ! grep -q 'name = "tokio-postgres"' experiments/e002/rust/Cargo.lock; then
-            cargo generate-lockfile --manifest-path experiments/e002/rust/Cargo.toml
-          fi
+      - name: Check Rust candidate formatting
+        run: cargo fmt --manifest-path experiments/e002/rust/Cargo.toml -- --check
       - name: E-002 Rust runtime
         run: |
           cargo test --locked
           cargo build --locked --release
           python ../conformance.py --command ./target/release/agent-native-e002-rust --cwd .
         working-directory: experiments/e002/rust
-      - name: Upload exact E-002 Rust Cargo lockfile
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: e002-rust-cargo-lock-${{ github.sha }}
-          path: |
-            experiments/e002/rust/Cargo.lock
-            experiments/e002/rust/src/storage.rs
-          if-no-files-found: error
-          retention-days: 14
       - name: E-002 WASI Preview 2 runtime
         run: |
           cargo build --locked --release --target wasm32-wasip2
