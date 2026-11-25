@@ -22,6 +22,7 @@ var errInvalidWorkQuery = errors.New("invalid ms")
 type application struct {
 	slots    chan struct{}
 	deadline time.Duration
+	product  *productService
 }
 
 func newHandler(maxActive int, deadline time.Duration) http.Handler {
@@ -56,6 +57,10 @@ func parseWorkMS(rawQuery string) (uint64, error) {
 }
 
 func (app *application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if strings.HasPrefix(r.URL.Path, "/v1/") {
+		app.serveProduct(w, r)
+		return
+	}
 	if r.Method != http.MethodGet {
 		w.Header().Set("Allow", http.MethodGet)
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -130,9 +135,18 @@ func (app *application) serveStream(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	handler := newHandler(maxConcurrent, workDeadline)
+	product, err := newProductServiceFromEnv()
+	if err != nil {
+		log.Fatal(err)
+	}
+	if product != nil {
+		handler.(*application).product = product
+		defer product.pool.close()
+	}
 	server := &http.Server{
 		Addr:              "127.0.0.1:8080",
-		Handler:           newHandler(maxConcurrent, workDeadline),
+		Handler:           handler,
 		ReadHeaderTimeout: 2 * time.Second,
 		IdleTimeout:       30 * time.Second,
 	}
