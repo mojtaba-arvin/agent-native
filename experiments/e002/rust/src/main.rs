@@ -1,4 +1,4 @@
-use std::{convert::Infallible, net::SocketAddr, sync::Arc, time::Duration};
+use std::{net::SocketAddr, sync::Arc, time::Duration};
 
 use agent_native_e002_rust::{handle_with_product, product::ProductConfig, MAX_ACTIVE_WORK};
 use hyper::{server::conn::http1, service::service_fn};
