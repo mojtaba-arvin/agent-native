@@ -37,11 +37,12 @@ cleanup() {
   trap - EXIT
   if [[ $status -ne 0 ]]; then
     "${COMPOSE[@]}" logs --no-color app > "$EVIDENCE_DIR/app.log" 2>&1 || true
-    if [[ -d "$RUNNER_TEMP/t15-container-output" ]]; then
+    T15_EVIDENCE_DIR="${RUNNER_TEMP:-/tmp}/t15-container-output"
+    if [[ -d "$T15_EVIDENCE_DIR" ]]; then
       mkdir -p "$EVIDENCE_DIR/t15"
       for file in build-evidence.json sbom.spdx.json SHA256SUMS cli-help.txt; do
-        [[ ! -f "$RUNNER_TEMP/t15-container-output/$file" ]] || \
-          cp "$RUNNER_TEMP/t15-container-output/$file" "$EVIDENCE_DIR/t15/" || true
+        [[ ! -f "$T15_EVIDENCE_DIR/$file" ]] || \
+          cp "$T15_EVIDENCE_DIR/$file" "$EVIDENCE_DIR/t15/" || true
       done
     fi
     SOURCE_SHA="$(git rev-parse HEAD 2>/dev/null || echo unknown)"
