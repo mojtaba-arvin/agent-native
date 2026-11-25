@@ -17,7 +17,7 @@ RUN python -m pip install --require-hashes --no-deps -r /tmp/build-requirements.
 COPY pyproject.toml README.md ./
 COPY src/ ./src/
 RUN mkdir -p /wheelhouse && \
-    python -m pip wheel --no-build-isolation --no-deps --no-cache-dir \
+    python -m pip wheel --no-build-isolation --no-cache-dir \
       --wheel-dir=/wheelhouse .
 
 FROM --platform=$TARGETPLATFORM ${PYTHON_BASE} AS runtime
@@ -38,7 +38,7 @@ LABEL org.opencontainers.image.title="Agent Native" \
       org.opencontainers.image.revision="${SOURCE_REVISION}"
 WORKDIR /opt/agent-native
 COPY --from=builder /wheelhouse /tmp/wheelhouse
-RUN python -m pip install --no-index --no-deps --find-links=/tmp/wheelhouse \
+RUN python -m pip install --no-index --find-links=/tmp/wheelhouse \
       agent-native==0.1.0.dev0 && \
     rm -rf /tmp/wheelhouse
 USER 65532:65532
