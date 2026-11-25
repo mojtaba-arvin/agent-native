@@ -10,6 +10,7 @@ import tomllib
 
 required = {
     "production PostgreSQL server composition": Path("src/agent_native/server.py"),
+    "T15 reproducible image acceptance": Path("acceptance/T15.sh"),
     "T18 disposable PostgreSQL deployment": Path("experiments/t18/compose.yaml"),
     "T18 reproducible pilot runner": Path("experiments/t18/run-pilot.sh"),
     "T18 black-box pilot checks": Path("experiments/t18/test_pilot.py"),
@@ -62,8 +63,8 @@ checks = {
         marker in compose for marker in ('user: "65532:65532"', "read_only: true", "cap_drop:", "no-new-privileges:true")
     ),
     "pilot runner builds the T15 image and tears down only its disposable stack": (
-        "docker build" in runner and "docker compose" in runner
-        and "down --volumes" in runner and "T18_EVIDENCE_DIR" in runner
+        "bash acceptance/T15.sh" in runner and "docker tag agent-native:repro-a agent-native:t15" in runner
+        and "docker compose" in runner and "down --volumes" in runner and "T18_EVIDENCE_DIR" in runner
     ),
     "black-box checks cover PostgreSQL persistence, auth, tenant isolation, and operational health": all(
         marker in tests for marker in (
