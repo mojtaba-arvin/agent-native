@@ -10,7 +10,7 @@ The supported image packages the installable `agent-native` Python distribution 
 - SBOM generator: Syft v1.57.2.
 - Buildx and Syft Linux/amd64 release binaries are pinned by SHA-256 in `build-toolchain.lock`.
 - Build-only Python dependencies: setuptools 84.2.1 and wheel 0.48.0, pinned with PyPI wheel SHA-256 hashes.
-- Runtime Python dependency: psycopg 3.2.12 with its binary extra, pinned in the project metadata and installed from the builder's wheelhouse. The base image digest fixes Python, pip, and the OS userspace.
+- Runtime Python dependencies: psycopg 3.2.12 with its binary extra and typing-extensions 4.15.0, pinned in project metadata and installed from the builder's wheelhouse. The latter is required by psycopg's Python 3.11 compatibility layer. The base image digest fixes Python, pip, and the OS userspace.
 - The image supports the production `agent-native serve` entrypoint; PostgreSQL DSNs and capability-token signing keys are supplied only through runtime environment variables.
 
 Update a pinned input only with a reviewed digest/hash change and a new reproducibility run. The base image and build tools are intentionally not floating tags.
