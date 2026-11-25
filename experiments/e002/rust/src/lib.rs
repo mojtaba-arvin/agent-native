@@ -4,6 +4,7 @@
 //! The executable listener is provided by the crate binary.
 
 pub mod product;
+pub mod storage;
 pub mod t16_auth;
 
 use std::{convert::Infallible, sync::Arc, time::Duration};
