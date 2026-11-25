@@ -89,6 +89,11 @@ cleanup() {
   trap - EXIT
   if [[ $status -ne 0 ]]; then
     "${COMPOSE[@]}" logs --no-color app > "$EVIDENCE_DIR/app.log" 2>&1 || true
+    "${COMPOSE[@]}" logs --no-color postgres > "$EVIDENCE_DIR/postgres.log" 2>&1 || true
+    echo "T18 application logs (secrets must never be emitted here):" >&2
+    cat "$EVIDENCE_DIR/app.log" >&2 || true
+    echo "T18 PostgreSQL logs:" >&2
+    cat "$EVIDENCE_DIR/postgres.log" >&2 || true
     T15_EVIDENCE_DIR="${RUNNER_TEMP:-/tmp}/t15-container-output"
     if [[ -d "$T15_EVIDENCE_DIR" ]]; then
       mkdir -p "$EVIDENCE_DIR/t15" || true
