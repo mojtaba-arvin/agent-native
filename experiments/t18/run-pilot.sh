@@ -47,6 +47,7 @@ Path(sys.argv[1]).write_text(json.dumps({
 PY
   fi
   "${COMPOSE[@]}" down --volumes --remove-orphans >/dev/null 2>&1 || true
+  exit "$status"
 }
 trap cleanup EXIT
 
