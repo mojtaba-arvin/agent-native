@@ -67,17 +67,20 @@ def run_server(args: Any) -> int:
         )
 
         stopping = threading.Event()
+        shutdown_thread: threading.Thread | None = None
 
         def request_shutdown(_signum, _frame) -> None:
+            nonlocal shutdown_thread
             if stopping.is_set():
                 return
             stopping.set()
-            threading.Thread(
+            shutdown_thread = threading.Thread(
                 target=server.shutdown_gracefully,
                 kwargs={"timeout_seconds": args.shutdown_timeout_seconds},
                 name="agent-native-shutdown",
                 daemon=True,
-            ).start()
+            )
+            shutdown_thread.start()
 
         for signum in (signal.SIGINT, signal.SIGTERM):
             previous_handlers[signum] = signal.getsignal(signum)
@@ -96,6 +99,8 @@ def run_server(args: Any) -> int:
         return 0
     finally:
         if server is not None:
+            if shutdown_thread is not None:
+                shutdown_thread.join(timeout=args.shutdown_timeout_seconds + 2.0)
             if not server._serve_stopped.is_set():
                 server.shutdown_gracefully(timeout_seconds=args.shutdown_timeout_seconds)
             server.server_close()
