@@ -37,6 +37,7 @@ if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repository):
 # Avoid unauthenticated REST release enumeration, which can exhaust the
 # shared GitHub-hosted runner IP rate limit. Public git smart-HTTP ref listing
 # gives the immutable tag target; T16 asset names are derived from the run ID.
+# For annotated tags, prefer the peeled commit ref (`^{}`) over the tag-object SHA.
 try:
     listed = subprocess.run(
         [
