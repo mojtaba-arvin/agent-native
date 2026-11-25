@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -80,10 +81,9 @@ func TestCrashAfterCommitBeforeResponseReconciles(t *testing.T) {
 		"E002_GO_DSN="+dsn,
 		"E002_GO_MARKER="+marker,
 	)
-	output, errOutput := make(chan error, 1), make(chan []byte, 1)
-	var stdout, stderr []byte
-	command.Stdout = &bufferWriter{write: func(value []byte) { stdout = append(stdout, value...) }}
-	command.Stderr = &bufferWriter{write: func(value []byte) { stderr = append(stderr, value...) }}
+	var stdout, stderr bytes.Buffer
+	command.Stdout = &stdout
+	command.Stderr = &stderr
 	if err := command.Start(); err != nil {
 		t.Fatal(err)
 	}
@@ -92,15 +92,12 @@ func TestCrashAfterCommitBeforeResponseReconciles(t *testing.T) {
 		if _, err := os.Stat(marker); err == nil {
 			break
 		}
-		if command.ProcessState != nil {
-			t.Fatalf("child exited before commit marker: %s %s", stdout, stderr)
-		}
 		time.Sleep(25 * time.Millisecond)
 	}
 	if _, err := os.Stat(marker); err != nil {
 		_ = command.Process.Kill()
 		_ = command.Wait()
-		t.Fatalf("child did not reach post-commit pause: %s %s", stdout, stderr)
+		t.Fatalf("child did not reach post-commit pause: %s %s", stdout.String(), stderr.String())
 	}
 	if err := command.Process.Kill(); err != nil {
 		_ = command.Wait()
@@ -126,13 +123,4 @@ func TestCrashAfterCommitBeforeResponseReconciles(t *testing.T) {
 	if counts.Jobs != 1 || counts.Outbox != 1 || counts.Idempotency != 1 || counts.Audit != 2 {
 		t.Fatalf("post-crash state is not exactly-once logical admission plus retry audit: %+v", counts)
 	}
-}
-
-type bufferWriter struct {
-	write func([]byte)
-}
-
-func (writer *bufferWriter) Write(value []byte) (int, error) {
-	writer.write(value)
-	return len(value), nil
 }
