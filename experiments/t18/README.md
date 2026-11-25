@@ -13,7 +13,7 @@ T18_EVIDENCE_DIR=/tmp/agent-native-t18-evidence \
   bash experiments/t18/run-pilot.sh --acceptance
 ```
 
-The runner builds the T15 image from the current checkout, creates a uniquely named Compose project, generates ephemeral PostgreSQL and token-signing secrets, waits for PostgreSQL and application readiness, and runs the black-box suite. It records sanitized deployment metadata, test output, application logs, an acceptance result, and operational findings. It never records secret values.
+The runner invokes the complete T15 acceptance/reproducibility build from the current checkout, tags the verified image as `agent-native:t15`, and copies the T15 build/SBOM evidence into the T18 evidence bundle. It then creates a uniquely named Compose project, generates ephemeral PostgreSQL and token-signing secrets, waits for PostgreSQL and application readiness, and runs the black-box suite. It records sanitized deployment metadata, test output, application logs, an acceptance result, and operational findings. It never records secret values.
 
 The runner always removes only its own Compose project and its disposable database volume. It does not touch unrelated Docker containers, volumes, images, or databases.
 
