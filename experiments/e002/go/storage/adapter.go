@@ -152,8 +152,8 @@ func canonicalJSON(value any) ([]byte, error) {
 	}
 	encoded := bytes.TrimSuffix(buffer.Bytes(), []byte("\n"))
 	// Python's reference canonicalizer emits these Unicode separators as UTF-8.
-	encoded = bytes.ReplaceAll(encoded, []byte(`\\u2028`), []byte("\u2028"))
-	encoded = bytes.ReplaceAll(encoded, []byte(`\\u2029`), []byte("\u2029"))
+	encoded = bytes.ReplaceAll(encoded, []byte(`\u2028`), []byte("\u2028"))
+	encoded = bytes.ReplaceAll(encoded, []byte(`\u2029`), []byte("\u2029"))
 	return append([]byte(nil), encoded...), nil
 }
 
