@@ -138,12 +138,3 @@ jobs:
           python3 scripts/task_acceptance.py \
             --mode "$ACCEPTANCE_MODE" \
             --exit-code "$script_status"
-
-      - name: Upload T18 PostgreSQL pilot evidence
-        if: always() && steps.task.outputs.id == 'T18'
-        uses: actions/upload-artifact@v4
-        with:
-          name: t18-postgres-pilot-${{ github.run_id }}
-          path: ${{ runner.temp }}/agent-native-t18-${{ github.run_id }}
-          if-no-files-found: warn
-          retention-days: 90
