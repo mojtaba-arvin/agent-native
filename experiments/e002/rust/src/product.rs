@@ -550,11 +550,24 @@ mod t17_body_tests {
         );
     }
 
+    struct PendingBody;
+
+    impl HttpBody for PendingBody {
+        type Data = Bytes;
+        type Error = Infallible;
+
+        fn poll_frame(
+            self: std::pin::Pin<&mut Self>,
+            _context: &mut std::task::Context<'_>,
+        ) -> std::task::Poll<Option<Result<Frame<Self::Data>, Self::Error>>> {
+            std::task::Poll::Pending
+        }
+    }
+
     #[tokio::test]
     async fn t17_body_read_deadline_is_enforced() {
-        let body = Full::new(Bytes::from_static(b"{}"));
         assert_eq!(
-            collect_bounded_body(body, Duration::ZERO).await,
+            collect_bounded_body(PendingBody, Duration::from_millis(1)).await,
             Err(BodyReadError::Timeout)
         );
     }
