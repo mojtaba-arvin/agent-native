@@ -37,12 +37,20 @@ cleanup() {
   trap - EXIT
   if [[ $status -ne 0 ]]; then
     "${COMPOSE[@]}" logs --no-color app > "$EVIDENCE_DIR/app.log" 2>&1 || true
-    python3 - "$EVIDENCE_DIR/acceptance.json" "$status" <<'PY'
+    if [[ -d "$RUNNER_TEMP/t15-container-output" ]]; then
+      mkdir -p "$EVIDENCE_DIR/t15"
+      for file in build-evidence.json sbom.spdx.json SHA256SUMS cli-help.txt; do
+        [[ ! -f "$RUNNER_TEMP/t15-container-output/$file" ]] || \
+          cp "$RUNNER_TEMP/t15-container-output/$file" "$EVIDENCE_DIR/t15/" || true
+      done
+    fi
+    SOURCE_SHA="$(git rev-parse HEAD 2>/dev/null || echo unknown)"
+    python3 - "$EVIDENCE_DIR/acceptance.json" "$status" "$SOURCE_SHA" <<'PY'
 import json, sys
 from pathlib import Path
 Path(sys.argv[1]).write_text(json.dumps({
     "schema_version": 1, "task": "T18", "status": "failed",
-    "exit_code": int(sys.argv[2])
+    "exit_code": int(sys.argv[2]), "source_sha": sys.argv[3]
 }, sort_keys=True, indent=2) + "\n", encoding="utf-8")
 PY
   fi
