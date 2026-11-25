@@ -74,6 +74,7 @@ Path(path).write_text(json.dumps({
     "schema_version": 1,
     "task": "T18",
     "source_sha": source_sha,
+    "image_revision": source_sha,
     "application_image": "agent-native:t15",
     "application_image_id": image_id,
     "postgres_image": postgres_image,
