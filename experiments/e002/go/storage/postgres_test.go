@@ -23,7 +23,7 @@ func openTestAdapter(t *testing.T, reset bool, options ...Option) *PostgresAdapt
 		t.Fatalf("open Go PostgreSQL adapter: %v", err)
 	}
 	if reset {
-		if err := adapter.ResetForTesting(ctx); err != nil {
+		if err := adapter.resetForTesting(ctx); err != nil {
 			_ = adapter.Close()
 			t.Fatalf("reset Go PostgreSQL adapter: %v", err)
 		}
