@@ -248,6 +248,7 @@ impl PostgresAdapter {
     pub async fn claim_outbox(&self, consumer:&str, limit:i64, lease_seconds:i64, now:i64) -> StorageResult<Vec<OutboxEvent>> {
         validate_text(consumer,"consumer")?;
         if !(1..=1000).contains(&limit) || lease_seconds < 1 || now < 0 { return Err(invalid("invalid_outbox_claim")); }
+        let lease_until=now.checked_add(lease_seconds).ok_or_else(||invalid("outbox_lease_overflow"))?;
         let mut client = self.client.lock().await;
         let tx = client.transaction().await?;
         tx.batch_execute("SET LOCAL synchronous_commit = on").await?;
@@ -257,7 +258,7 @@ impl PostgresAdapter {
         let read = format!("SELECT event_id::text,tenant_id,operation_id,job_id::text,payload_json,created_at,lease_owner,lease_token,lease_until,delivered_at FROM {} WHERE event_id=$1::uuid",self.table("e002_outbox"));
         let mut result=Vec::with_capacity(ids.len());
         for id in ids {
-            tx.execute(&update,&[&consumer,&(now+lease_seconds),&id]).await?;
+            tx.execute(&update,&[&consumer,&lease_until,&id]).await?;
             result.push(Self::outbox_from_row(&tx.query_one(&read,&[&id]).await?)?);
         }
         tx.commit().await?;
@@ -275,13 +276,19 @@ impl PostgresAdapter {
     pub async fn apply_consumer_effect(&self,consumer:&str,event_id:&str,effect:&Value,now:i64)->StorageResult<bool>{
         validate_text(consumer,"consumer")?;validate_text(event_id,"event_id")?;
         if now<0{return Err(invalid("invalid_consumer_timestamp"));}
+        let effect_json=encode_json(effect)?;
         let mut client=self.client.lock().await;let tx=client.transaction().await?;
         tx.batch_execute("SET LOCAL synchronous_commit = on").await?;
         let insert=format!("INSERT INTO {} (consumer,event_id,consumed_at) VALUES ($1,$2::uuid,$3) ON CONFLICT (consumer,event_id) DO NOTHING",self.table("e002_consumed_events"));
         let changed=tx.execute(&insert,&[&consumer,&event_id,&now]).await?;
-        if changed==0{tx.commit().await?;return Ok(false);}
+        if changed==0{
+            let read=format!("SELECT effect_json FROM {} WHERE consumer=$1 AND event_id=$2::uuid",self.table("e002_consumer_effects"));
+            let row=tx.query_one(&read,&[&consumer,&event_id]).await?;
+            let previous:String=row.get(0);
+            if previous!=effect_json{return Err(invalid("consumer_effect_payload_conflict"));}
+            tx.commit().await?;return Ok(false);
+        }
         let effect_sql=format!("INSERT INTO {} (consumer,event_id,effect_json) VALUES ($1,$2::uuid,$3)",self.table("e002_consumer_effects"));
-        let effect_json=encode_json(effect)?;
         tx.execute(&effect_sql,&[&consumer,&event_id,&effect_json]).await?;
         tx.commit().await?;Ok(true)
     }
@@ -367,8 +374,12 @@ mod tests {
         let a=open(true).await?;let x=a.admit_job(request("one","tenant-a","jobs.create","same","lamp")).await?;
         let y=a.admit_job(request("retry","tenant-a","jobs.create","same","lamp")).await?;let z=a.admit_job(request("conflict","tenant-a","jobs.create","same","desk")).await?;
         assert_eq!(x.status,"created");assert_eq!(y.status,"replayed");assert_eq!(x.outcome,y.outcome);assert_eq!(z.status,"conflict");
-        let c=a.recover().await?;assert_eq!((c.jobs,c.outbox,c.idempotency,c.audit),(1,1,1,3));
-        assert!(a.lookup_idempotency("tenant-b","jobs.create","same").await?.is_none());assert!(a.lookup_idempotency("tenant-a","catalog.create","same").await?.is_none());Ok(())
+        let tenant_scope=a.admit_job(request("tenant-reuse","tenant-b","jobs.create","same","lamp")).await?;
+        let operation_scope=a.admit_job(request("operation-reuse","tenant-a","catalog.create","same","lamp")).await?;
+        assert_eq!(tenant_scope.status,"created");assert_eq!(operation_scope.status,"created");
+        let c=a.recover().await?;assert_eq!((c.jobs,c.outbox,c.idempotency,c.audit),(3,3,3,5));
+        assert_ne!(tenant_scope.outcome,operation_scope.outcome);
+        Ok(())
     }
     #[tokio::test] async fn test_concurrent_different_hashes_have_one_stable_winner()->StorageResult<()>{
         let _guard=TEST_LOCK.lock().await;
@@ -444,6 +455,7 @@ mod tests {
         let _guard=TEST_LOCK.lock().await;
         let a=open(true).await?;let r=a.admit_job(request("effect","tenant-a","jobs.create","key","lamp")).await?;let id=r.outcome["job_id"].as_str().unwrap();let event=a.read_outbox_for_job(id).await?.unwrap().event_id;
         assert!(a.apply_consumer_effect("indexer",&event,&json!({"indexed":id}),100).await?);assert!(!a.apply_consumer_effect("indexer",&event,&json!({"indexed":id}),101).await?);
+        assert!(a.apply_consumer_effect("indexer",&event,&json!({"indexed":"different"}),102).await.is_err());
         let c=a.recover().await?;assert_eq!((c.consumed_events,c.consumer_effects),(1,1));Ok(())
     }
     #[tokio::test] async fn test_recover_committed_state()->StorageResult<()>{
