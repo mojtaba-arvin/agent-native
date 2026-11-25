@@ -138,10 +138,20 @@ mod t17_connection_tests {
             .await
             .unwrap();
         let mut response = Vec::new();
-        timeout(Duration::from_secs(2), valid.read_to_end(&mut response))
-            .await
-            .expect("valid request must not hang")
-            .unwrap();
+        timeout(Duration::from_secs(2), async {
+            let mut chunk = [0_u8; 512];
+            while !response.windows(2).any(|window| window == b"ok") {
+                let count = valid.read(&mut chunk).await?;
+                if count == 0 {
+                    break;
+                }
+                response.extend_from_slice(&chunk[..count]);
+            }
+            Ok::<(), std::io::Error>(())
+        })
+        .await
+        .expect("valid request must not hang")
+        .unwrap();
         let response = String::from_utf8_lossy(&response);
         assert!(response.contains("200 OK"), "{response}");
         assert!(response.contains("ok"), "{response}");
