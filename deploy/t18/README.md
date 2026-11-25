@@ -21,7 +21,8 @@ The runner always removes only its own Compose project and its disposable databa
 
 - Application: `agent-native:t15`, root Dockerfile, UID/GID 65532.
 - Database: immutable PostgreSQL 16.4 image digest.
-- App ingress: host loopback only; container port 8080.
+- App ingress: host loopback only; container port 8080; service routes use `/{service_id}/{service_path}` (for example `/catalog/items`).
+- HTTP ingress: 32 concurrent requests, 16 KiB request bodies, and a 10-second request deadline for this pilot.
 - Database ingress: Compose network only; no host port is published.
 - Service manifests: read-only bind mount from `services/`.
 - Root filesystem: read-only; `/tmp` is a bounded tmpfs; all Linux capabilities are dropped.
