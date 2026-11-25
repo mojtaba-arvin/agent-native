@@ -39,10 +39,11 @@ checks = {
             "PostgresResourceRepository", "ServiceHost", "CapabilityTokenAuthority",
             "built_in_handler_registry", "create_operational_server",
         )
+    ) and all(
+        marker in server for marker in ("AGENT_NATIVE_POSTGRES_DSN", "AGENT_NATIVE_TOKEN_SIGNING_KEY_HEX")
     ),
-    "PostgreSQL driver is a declared runtime dependency": any(
-        isinstance(item, str) and item.lower().startswith("psycopg")
-        for item in dependencies
+    "PostgreSQL driver is a declared, exact-version runtime dependency": (
+        "psycopg[binary]==3.2.12" in dependencies
     ),
     "T15 image retains its explicit CLI entrypoint and non-root user": (
         'ENTRYPOINT ["agent-native"]' in dockerfile and "USER 65532:65532" in dockerfile
