@@ -114,15 +114,21 @@ impl PostgresAdapter {
             format!("CREATE TABLE IF NOT EXISTS {audit} (sequence BIGSERIAL PRIMARY KEY, event_id UUID NOT NULL UNIQUE, request_id TEXT NOT NULL, tenant_id TEXT NOT NULL, operation_id TEXT NOT NULL, decision TEXT NOT NULL CHECK(decision IN ('allow','deny')), reason_code TEXT NOT NULL, outcome_json TEXT NOT NULL, created_at BIGINT NOT NULL)"),
             format!("CREATE TABLE IF NOT EXISTS {consumed} (consumer TEXT NOT NULL, event_id UUID NOT NULL REFERENCES {outbox}(event_id), consumed_at BIGINT NOT NULL, PRIMARY KEY(consumer,event_id))"),
             format!("CREATE TABLE IF NOT EXISTS {effects} (consumer TEXT NOT NULL, event_id UUID NOT NULL, effect_json TEXT NOT NULL, PRIMARY KEY(consumer,event_id), FOREIGN KEY(consumer,event_id) REFERENCES {consumed}(consumer,event_id))"),
-            format!("CREATE OR REPLACE FUNCTION {trigger_fn}() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'audit_append_only'; END; $$"),
-            format!("DROP TRIGGER IF EXISTS e002_audit_no_update ON {audit}"),
-            format!("DROP TRIGGER IF EXISTS e002_audit_no_delete ON {audit}"),
-            format!("DROP TRIGGER IF EXISTS e002_audit_no_truncate ON {audit}"),
-            format!("CREATE TRIGGER e002_audit_no_update BEFORE UPDATE ON {audit} FOR EACH ROW EXECUTE FUNCTION {trigger_fn}()"),
-            format!("CREATE TRIGGER e002_audit_no_delete BEFORE DELETE ON {audit} FOR EACH ROW EXECUTE FUNCTION {trigger_fn}()"),
-            format!("CREATE TRIGGER e002_audit_no_truncate BEFORE TRUNCATE ON {audit} FOR EACH STATEMENT EXECUTE FUNCTION {trigger_fn}()"),
+            format!("CREATE OR REPLACE FUNCTION {trigger_fn}() RETURNS trigger LANGUAGE plpgsql AS $ BEGIN RAISE EXCEPTION 'audit_append_only'; END; $"),
         ];
         for statement in statements { tx.batch_execute(&statement).await?; }
+        let audit_relation = format!("{}.{}", quote_identifier(&self.schema), quote_identifier("e002_audit"));
+        for (name, ddl) in [
+            ("e002_audit_no_update", format!("CREATE TRIGGER e002_audit_no_update BEFORE UPDATE ON {audit} FOR EACH ROW EXECUTE FUNCTION {trigger_fn}()")),
+            ("e002_audit_no_delete", format!("CREATE TRIGGER e002_audit_no_delete BEFORE DELETE ON {audit} FOR EACH ROW EXECUTE FUNCTION {trigger_fn}()")),
+            ("e002_audit_no_truncate", format!("CREATE TRIGGER e002_audit_no_truncate BEFORE TRUNCATE ON {audit} FOR EACH STATEMENT EXECUTE FUNCTION {trigger_fn}()")),
+        ] {
+            let exists: bool = tx.query_one(
+                "SELECT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname=$1 AND tgrelid=$2::regclass AND NOT tgisinternal)",
+                &[&name, &audit_relation],
+            ).await?.get(0);
+            if !exists { tx.batch_execute(&ddl).await?; }
+        }
         tx.commit().await?;
         Ok(())
     }
@@ -362,11 +368,11 @@ mod tests {
     #[tokio::test] async fn test_concurrent_same_key_admission_is_linearizable()->StorageResult<()>{
         let dsn=std::env::var("AGENT_NATIVE_E002_POSTGRES_DSN").map_err(|_|invalid("missing DSN"))?;
         let setup=open(true).await?;drop(setup);
+        let mut adapters=Vec::with_capacity(32);
+        for _ in 0..32 { adapters.push(PostgresAdapter::connect_with_schema(&dsn,SCHEMA).await?); }
         let mut tasks=Vec::new();
-        for i in 0..32{
-            let dsn=dsn.clone();
+        for (i,a) in adapters.into_iter().enumerate(){
             tasks.push(tokio::spawn(async move{
-                let a=PostgresAdapter::connect_with_schema(&dsn,SCHEMA).await?;
                 a.admit_job(request(&format!("race-{i}"),"tenant-a","jobs.create","race-key","lamp")).await
             }));
         }
