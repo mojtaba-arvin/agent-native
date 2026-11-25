@@ -37,7 +37,7 @@ checks = {
     "build toolchain versions and binary hashes are pinned": "BUILDX_VERSION=" in toolchain and "BUILDX_SHA256=" in toolchain and "BUILDKIT_IMAGE=" in toolchain and "SYFT_VERSION=" in toolchain and "SYFT_SHA256=" in toolchain,
     "build tools are exact-version and hash pinned": "setuptools==84.2.1" in lock and "wheel==0.48.0" in lock and lock.count("--hash=sha256:") == 2,
     "multi-stage runtime image is non-root": "AS builder" in dockerfile and "AS runtime" in dockerfile and "USER 65532:65532" in dockerfile,
-    "runtime image installs the wheel offline without runtime dependencies": "pip install --no-index --no-deps" in dockerfile,
+    "runtime image installs the project and pinned dependencies from the offline wheelhouse": "pip install --no-index --find-links=/tmp/wheelhouse" in dockerfile and "psycopg[binary]==3.2.12" in Path("pyproject.toml").read_text(encoding="utf-8"),
     "two independent uncached builds compare complete image IDs": 'build_once "$IMAGE_A"' in builder and 'build_once "$IMAGE_B"' in builder and "--no-cache" in builder and "IMAGE_A_ID" in builder and "IMAGE_B_ID" in builder,
     "build uses source epoch and normalized file timestamps": "SOURCE_DATE_EPOCH" in builder and "rewrite-timestamp=true" in builder,
     "SBOM is generated and validated as SPDX-2.3": "syft" in builder and '"SPDX-2.3"' in validator and '"agent-native"' in validator,
