@@ -2,6 +2,8 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+# The negative baseline must fail on invalid indices and the old E-009 warm-up caller.
+
 python3 -m unittest discover -s experiments/e002 -p 'test_product_workload.py' -v
 
 python3 - <<'PY'
