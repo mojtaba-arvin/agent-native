@@ -59,6 +59,11 @@ cp "$T15_EVIDENCE_DIR/build-evidence.json" "$T15_EVIDENCE_DIR/sbom.spdx.json" \
   "$T15_EVIDENCE_DIR/SHA256SUMS" "$T15_EVIDENCE_DIR/cli-help.txt" "$EVIDENCE_DIR/t15/"
 IMAGE_ID="$(docker image inspect --format '{{.Id}}' agent-native:t15)"
 SOURCE_SHA="$(git rev-parse HEAD)"
+IMAGE_REVISION="$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' agent-native:t15)"
+if [[ "$IMAGE_REVISION" != "$SOURCE_SHA" ]]; then
+  echo "T15 image revision mismatch: $IMAGE_REVISION != $SOURCE_SHA" >&2
+  exit 1
+fi
 POSTGRES_IMAGE="postgres:16.4@sha256:e62fbf9d3e2b49816a32c400ed2dba83e3b361e6833e624024309c35d334b412"
 
 python3 - "$EVIDENCE_DIR/deployment.json" "$SOURCE_SHA" "$IMAGE_ID" "$POSTGRES_IMAGE" "$T18_HTTP_PORT" "$STARTED_AT" <<'PY'
