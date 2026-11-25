@@ -1,4 +1,5 @@
 use std::{
+    collections::HashSet,
     env,
     io::{BufRead, BufReader, Write},
     process::{Child, ChildStdin, ChildStdout, Command, Stdio},
@@ -108,6 +109,157 @@ impl PgPool {
     }
 }
 
+// Reject duplicate JSON object keys before PostgreSQL JSONB can collapse them.
+// Keys are compared after escape decoding ("name" equals "\u006eame").
+struct UniqueJsonScanner<'a> {
+    bytes: &'a [u8],
+    offset: usize,
+}
+
+impl<'a> UniqueJsonScanner<'a> {
+    fn new(value: &'a str) -> Self {
+        Self { bytes: value.as_bytes(), offset: 0 }
+    }
+
+    fn skip_whitespace(&mut self) {
+        while self.offset < self.bytes.len()
+            && matches!(self.bytes[self.offset], b' ' | b'\n' | b'\r' | b'\t')
+        {
+            self.offset += 1;
+        }
+    }
+
+    fn parse_value(&mut self, depth: usize) -> Result<(), ()> {
+        if depth > 64 { return Err(()); }
+        self.skip_whitespace();
+        match self.bytes.get(self.offset).copied() {
+            Some(b'{') => self.parse_object(depth + 1),
+            Some(b'[') => self.parse_array(depth + 1),
+            Some(b'"') => self.parse_string().map(|_| ()),
+            Some(_) => {
+                let start = self.offset;
+                while let Some(byte) = self.bytes.get(self.offset).copied() {
+                    if matches!(byte, b',' | b']' | b'}' | b' ' | b'\n' | b'\r' | b'\t') {
+                        break;
+                    }
+                    self.offset += 1;
+                }
+                if self.offset == start { Err(()) } else { Ok(()) }
+            }
+            None => Err(()),
+        }
+    }
+
+    fn parse_object(&mut self, depth: usize) -> Result<(), ()> {
+        self.offset += 1;
+        self.skip_whitespace();
+        if self.bytes.get(self.offset) == Some(&b'}') {
+            self.offset += 1;
+            return Ok(());
+        }
+        let mut keys = HashSet::new();
+        loop {
+            self.skip_whitespace();
+            let key = self.parse_string()?;
+            if !keys.insert(key) { return Err(()); }
+            self.skip_whitespace();
+            if self.bytes.get(self.offset) != Some(&b':') { return Err(()); }
+            self.offset += 1;
+            self.parse_value(depth)?;
+            self.skip_whitespace();
+            match self.bytes.get(self.offset) {
+                Some(b',') => self.offset += 1,
+                Some(b'}') => { self.offset += 1; return Ok(()); }
+                _ => return Err(()),
+            }
+        }
+    }
+
+    fn parse_array(&mut self, depth: usize) -> Result<(), ()> {
+        self.offset += 1;
+        self.skip_whitespace();
+        if self.bytes.get(self.offset) == Some(&b']') {
+            self.offset += 1;
+            return Ok(());
+        }
+        loop {
+            self.parse_value(depth)?;
+            self.skip_whitespace();
+            match self.bytes.get(self.offset) {
+                Some(b',') => self.offset += 1,
+                Some(b']') => { self.offset += 1; return Ok(()); }
+                _ => return Err(()),
+            }
+        }
+    }
+
+    fn read_hex4(&mut self) -> Result<u16, ()> {
+        if self.offset + 4 > self.bytes.len() { return Err(()); }
+        let digits = std::str::from_utf8(&self.bytes[self.offset..self.offset + 4]).map_err(|_| ())?;
+        let value = u16::from_str_radix(digits, 16).map_err(|_| ())?;
+        self.offset += 4;
+        Ok(value)
+    }
+
+    fn parse_string(&mut self) -> Result<String, ()> {
+        if self.bytes.get(self.offset) != Some(&b'"') { return Err(()); }
+        self.offset += 1;
+        let mut output = String::new();
+        while self.offset < self.bytes.len() {
+            let byte = self.bytes[self.offset];
+            self.offset += 1;
+            match byte {
+                b'"' => return Ok(output),
+                b'\\' => {
+                    let escaped = *self.bytes.get(self.offset).ok_or(())?;
+                    self.offset += 1;
+                    match escaped {
+                        b'"' => output.push('"'),
+                        b'\\' => output.push('\\'),
+                        b'/' => output.push('/'),
+                        b'b' => output.push('\u{0008}'),
+                        b'f' => output.push('\u{000c}'),
+                        b'n' => output.push('\n'),
+                        b'r' => output.push('\r'),
+                        b't' => output.push('\t'),
+                        b'u' => {
+                            let first = self.read_hex4()? as u32;
+                            let codepoint = if (0xD800..=0xDBFF).contains(&first) {
+                                if self.bytes.get(self.offset..self.offset + 2) != Some(b"\\u") { return Err(()); }
+                                self.offset += 2;
+                                let second = self.read_hex4()? as u32;
+                                if !(0xDC00..=0xDFFF).contains(&second) { return Err(()); }
+                                0x10000 + ((first - 0xD800) << 10) + (second - 0xDC00)
+                            } else if (0xDC00..=0xDFFF).contains(&first) {
+                                return Err(());
+                            } else { first };
+                            output.push(char::from_u32(codepoint).ok_or(())?);
+                        }
+                        _ => return Err(()),
+                    }
+                }
+                value if value < 0x20 => return Err(()),
+                value if value < 0x80 => output.push(value as char),
+                _ => {
+                    let remaining = std::str::from_utf8(&self.bytes[self.offset - 1..]).map_err(|_| ())?;
+                    let character = remaining.chars().next().ok_or(())?;
+                    output.push(character);
+                    self.offset += character.len_utf8() - 1;
+                }
+            }
+        }
+        Err(())
+    }
+}
+
+fn validate_unique_json_keys(value: &str) -> Result<(), ()> {
+    let mut scanner = UniqueJsonScanner::new(value);
+    scanner.parse_value(0)?;
+    scanner.skip_whitespace();
+    if scanner.offset != scanner.bytes.len() { return Err(()); }
+    Ok(())
+}
+
 pub struct ProductConfig {
     pub pool: Arc<PgPool>,
     signing_key: Vec<u8>,
@@ -176,6 +328,10 @@ impl ProductConfig {
                 _ => return json_response(StatusCode::BAD_REQUEST, r#"{"error":{"code":"INVALID_JSON_BODY"}}"#),
             }
         };
+
+        if validate_unique_json_keys(body_text).is_err() {
+            return json_response(StatusCode::BAD_REQUEST, r#"{"error":{"code":"INVALID_JSON_BODY"}}"#);
+        }
 
         if operation == "validate_plan" {
             match extract_resource_id(body_text) {
@@ -262,6 +418,19 @@ fn json_response(status: StatusCode, body: &str) -> Response<ResponseBody> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn t16_json_parser_rejects_duplicate_keys_including_escaped_equivalents() {
+        assert!(validate_unique_json_keys(r#"{"operation":"catalog.read","operation":"jobs.create"}"#).is_err());
+        assert!(validate_unique_json_keys(r#"{"payload":{"fixture":"safe","fixture":"overridden"}}"#).is_err());
+        assert!(validate_unique_json_keys(r#"{"name":1,"\u006eame":2}"#).is_err());
+        assert!(validate_unique_json_keys(r#"{"items":[{"id":1,"id":2}]}"#).is_err());
+    }
+
+    #[test]
+    fn t16_json_parser_accepts_unique_nested_keys_and_unicode() {
+        assert!(validate_unique_json_keys(r#"{"name":"lamp \uD83D\uDCA1","payload":{"count":2}}"#).is_ok());
+    }
 
     #[test]
     fn t16_header_validation_rejects_injection_and_empty_values() {

@@ -16,6 +16,7 @@ import (
 	"strings"
 	"strconv"
 	"time"
+	"unicode/utf8"
 	"sync"
 )
 
@@ -274,6 +275,70 @@ func validT16Header(value string) bool {
 	return true
 }
 
+func consumeUniqueJSONValue(decoder *json.Decoder) error {
+	token, err := decoder.Token()
+	if err != nil {
+		return err
+	}
+	delimiter, ok := token.(json.Delim)
+	if !ok {
+		return nil
+	}
+	switch delimiter {
+	case '{':
+		seen := make(map[string]struct{})
+		for decoder.More() {
+			keyToken, err := decoder.Token()
+			if err != nil {
+				return err
+			}
+			key, ok := keyToken.(string)
+			if !ok {
+				return errors.New("json_object_key_must_be_string")
+			}
+			if _, exists := seen[key]; exists {
+				return errors.New("duplicate_json_object_key")
+			}
+			seen[key] = struct{}{}
+			if err := consumeUniqueJSONValue(decoder); err != nil {
+				return err
+			}
+		}
+		closing, err := decoder.Token()
+		if err != nil || closing != json.Delim('}') {
+			return errors.New("invalid_json_object")
+		}
+	case '[':
+		for decoder.More() {
+			if err := consumeUniqueJSONValue(decoder); err != nil {
+				return err
+			}
+		}
+		closing, err := decoder.Token()
+		if err != nil || closing != json.Delim(']') {
+			return errors.New("invalid_json_array")
+		}
+	default:
+		return errors.New("unexpected_json_delimiter")
+	}
+	return nil
+}
+
+func validateUniqueJSONKeys(raw []byte) error {
+	if !utf8.Valid(raw) {
+		return errors.New("request_body_must_be_valid_utf8")
+	}
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.UseNumber()
+	if err := consumeUniqueJSONValue(decoder); err != nil {
+		return err
+	}
+	if _, err := decoder.Token(); err != io.EOF {
+		return errors.New("request_body_must_contain_one_json_value")
+	}
+	return nil
+}
+
 func decodeT16Body(request *http.Request, target any) (json.RawMessage, error) {
 	raw, err := io.ReadAll(io.LimitReader(request.Body, t16MaxBodyBytes+1))
 	if err != nil {
@@ -284,6 +349,9 @@ func decodeT16Body(request *http.Request, target any) (json.RawMessage, error) {
 	}
 	if len(bytes.TrimSpace(raw)) == 0 {
 		raw = []byte("{}")
+	}
+	if err := validateUniqueJSONKeys(raw); err != nil {
+		return nil, err
 	}
 	decoder := json.NewDecoder(bytes.NewReader(raw))
 	if err := decoder.Decode(target); err != nil {

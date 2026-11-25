@@ -14,6 +14,32 @@ import (
 	"time"
 )
 
+func TestDecodeT16BodyRejectsDuplicateJSONKeysAtEveryDepth(t *testing.T) {
+	cases := []string{
+		`{"operation":"catalog.read","operation":"jobs.create"}`,
+		`{"payload":{"fixture":"safe","fixture":"overridden"}}`,
+		`{"resource_id":"fixture-0001","\u0072esource_id":"fixture-0002"}`,
+	}
+	for _, body := range cases {
+		t.Run(body, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodPost, "/v1/jobs", strings.NewReader(body))
+			var decoded map[string]any
+			if _, err := decodeT16Body(req, &decoded); err == nil {
+				t.Fatalf("duplicate JSON key was accepted: %s", body)
+			}
+		})
+	}
+}
+
+func TestDecodeT16BodyAcceptsUniqueNestedJSON(t *testing.T) {
+	body := `{"contract_version":"v1","operation":"jobs.create","payload":{"fixture":"safe","count":2}}`
+	req := httptest.NewRequest(http.MethodPost, "/v1/jobs", strings.NewReader(body))
+	var decoded map[string]any
+	if _, err := decodeT16Body(req, &decoded); err != nil {
+		t.Fatalf("valid JSON was rejected: %v", err)
+	}
+}
+
 func signedT16TestToken(key []byte, payload string) string {
 	mac := hmac.New(sha256.New, key)
 	_, _ = mac.Write([]byte(payload))
