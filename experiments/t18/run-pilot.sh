@@ -39,7 +39,7 @@ cleanup() {
     "${COMPOSE[@]}" logs --no-color app > "$EVIDENCE_DIR/app.log" 2>&1 || true
     T15_EVIDENCE_DIR="${RUNNER_TEMP:-/tmp}/t15-container-output"
     if [[ -d "$T15_EVIDENCE_DIR" ]]; then
-      mkdir -p "$EVIDENCE_DIR/t15"
+      mkdir -p "$EVIDENCE_DIR/t15" || true
       for file in build-evidence.json sbom.spdx.json SHA256SUMS cli-help.txt; do
         [[ ! -f "$T15_EVIDENCE_DIR/$file" ]] || \
           cp "$T15_EVIDENCE_DIR/$file" "$EVIDENCE_DIR/t15/" || true
@@ -54,6 +54,7 @@ Path(sys.argv[1]).write_text(json.dumps({
     "exit_code": int(sys.argv[2]), "source_sha": sys.argv[3]
 }, sort_keys=True, indent=2) + "\n", encoding="utf-8")
 PY
+    || true
   fi
   "${COMPOSE[@]}" down --volumes --remove-orphans >/dev/null 2>&1 || true
   exit "$status"
