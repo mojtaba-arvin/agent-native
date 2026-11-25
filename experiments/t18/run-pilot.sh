@@ -46,7 +46,7 @@ cleanup() {
       done
     fi
     SOURCE_SHA="$(git rev-parse HEAD 2>/dev/null || echo unknown)"
-    python3 - "$EVIDENCE_DIR/acceptance.json" "$status" "$SOURCE_SHA" <<'PY'
+    python3 - "$EVIDENCE_DIR/acceptance.json" "$status" "$SOURCE_SHA" <<'PY' || true
 import json, sys
 from pathlib import Path
 Path(sys.argv[1]).write_text(json.dumps({
@@ -54,7 +54,6 @@ Path(sys.argv[1]).write_text(json.dumps({
     "exit_code": int(sys.argv[2]), "source_sha": sys.argv[3]
 }, sort_keys=True, indent=2) + "\n", encoding="utf-8")
 PY
-    || true
   fi
   "${COMPOSE[@]}" down --volumes --remove-orphans >/dev/null 2>&1 || true
   exit "$status"
