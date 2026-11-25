@@ -320,6 +320,7 @@ mod tests {
     use super::*;
     use std::{process::Command, sync::atomic::{AtomicBool,Ordering}};
     const SCHEMA:&str="e002_rust_test";
+    static TEST_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
     async fn open(reset:bool)->StorageResult<PostgresAdapter>{
         let dsn=std::env::var("AGENT_NATIVE_E002_POSTGRES_DSN").map_err(|_|invalid("AGENT_NATIVE_E002_POSTGRES_DSN is required"))?;
         let adapter=PostgresAdapter::connect_with_schema(&dsn,SCHEMA).await?;
@@ -329,6 +330,7 @@ mod tests {
         AdmissionRequest{tenant_id:tenant.into(),operation_id:operation.into(),idempotency_key:key.into(),payload:json!({"name":name}),outbox_payload:json!({"topic":"job.created","name":name}),audit:AuditEvent{request_id:id.into(),tenant_id:tenant.into(),operation_id:operation.into(),decision:"allow".into(),reason_code:"AUTHORIZED".into(),outcome:json!({"name":name}),created_at:100}}
     }
     #[tokio::test] async fn test_append_audit_durable()->StorageResult<()>{
+        let _guard=TEST_LOCK.lock().await;
         let a=open(true).await?;let n=a.append_audit(AuditEvent{request_id:"audit-1".into(),tenant_id:"tenant-a".into(),operation_id:"catalog.read".into(),decision:"allow".into(),reason_code:"AUTHORIZED".into(),outcome:json!({"id":"1"}),created_at:100}).await?;
         assert!(n>0);
         let audit=a.table("e002_audit");
@@ -343,6 +345,7 @@ mod tests {
         Ok(())
     }
     #[tokio::test] async fn test_atomic_job_outbox_idempotency_audit_commit()->StorageResult<()>{
+        let _guard=TEST_LOCK.lock().await;
         let a=open(true).await?;let r=a.admit_job(request("admit","tenant-a","jobs.create","key","lamp")).await?;assert_eq!(r.status,"created");
         let id=r.outcome["job_id"].as_str().unwrap();assert_eq!(a.read_job(id).await?.unwrap().state,"queued");assert_eq!(a.read_outbox_for_job(id).await?.unwrap().job_id,id);
         assert_eq!(a.lookup_idempotency("tenant-a","jobs.create","key").await?.unwrap().job_id,id);
@@ -350,6 +353,7 @@ mod tests {
         let m=a.metadata().await?;assert_eq!(m.fsync,"on");assert_eq!(m.synchronous_commit,"on");assert_eq!(m.transaction_isolation,"read committed");assert!(!m.engine_version.is_empty());assert!(!m.wal_level.is_empty());Ok(())
     }
     #[tokio::test] async fn test_rollback_after_each_logical_write()->StorageResult<()>{
+        let _guard=TEST_LOCK.lock().await;
         let dsn=std::env::var("AGENT_NATIVE_E002_POSTGRES_DSN").map_err(|_|invalid("missing DSN"))?;
         for (i,stage) in ["after_job","after_outbox","after_idempotency","after_audit","before_commit"].iter().enumerate(){
             let schema=format!("e002_rust_fault_{i}");let target=(*stage).to_owned();
@@ -359,6 +363,7 @@ mod tests {
         }Ok(())
     }
     #[tokio::test] async fn test_same_key_replay_and_different_hash_conflict()->StorageResult<()>{
+        let _guard=TEST_LOCK.lock().await;
         let a=open(true).await?;let x=a.admit_job(request("one","tenant-a","jobs.create","same","lamp")).await?;
         let y=a.admit_job(request("retry","tenant-a","jobs.create","same","lamp")).await?;let z=a.admit_job(request("conflict","tenant-a","jobs.create","same","desk")).await?;
         assert_eq!(x.status,"created");assert_eq!(y.status,"replayed");assert_eq!(x.outcome,y.outcome);assert_eq!(z.status,"conflict");
@@ -366,6 +371,7 @@ mod tests {
         assert!(a.lookup_idempotency("tenant-b","jobs.create","same").await?.is_none());assert!(a.lookup_idempotency("tenant-a","catalog.create","same").await?.is_none());Ok(())
     }
     #[tokio::test] async fn test_concurrent_different_hashes_have_one_stable_winner()->StorageResult<()>{
+        let _guard=TEST_LOCK.lock().await;
         let dsn=std::env::var("AGENT_NATIVE_E002_POSTGRES_DSN").map_err(|_|invalid("missing DSN"))?;
         let setup=open(true).await?;drop(setup);
         let a=PostgresAdapter::connect_with_schema(&dsn,SCHEMA).await?;
@@ -386,6 +392,7 @@ mod tests {
         Ok(())
     }
     #[tokio::test] async fn test_concurrent_same_key_admission_is_linearizable()->StorageResult<()>{
+        let _guard=TEST_LOCK.lock().await;
         let dsn=std::env::var("AGENT_NATIVE_E002_POSTGRES_DSN").map_err(|_|invalid("missing DSN"))?;
         let setup=open(true).await?;drop(setup);
         let mut adapters=Vec::with_capacity(32);
@@ -402,6 +409,7 @@ mod tests {
         let a=open(false).await?;let c=a.recover().await?;assert_eq!((c.jobs,c.outbox,c.idempotency,c.audit),(1,1,1,32));Ok(())
     }
     #[tokio::test] async fn test_audit_unavailable_fails_closed()->StorageResult<()>{
+        let _guard=TEST_LOCK.lock().await;
         let a=open(true).await?;let audit=a.table("e002_audit");let f=format!("{}.{}",quote_identifier(SCHEMA),quote_identifier("reject_audit_insert"));
         {let c=a.client.lock().await;c.batch_execute(&format!("CREATE OR REPLACE FUNCTION {f}() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'audit_unavailable'; END; $$; CREATE TRIGGER reject_audit_insert BEFORE INSERT ON {audit} FOR EACH ROW EXECUTE FUNCTION {f}();")).await?;}
         assert!(a.admit_job(request("down","tenant-a","jobs.create","key","lamp")).await.is_err());let c=a.recover().await?;assert_eq!((c.jobs,c.outbox,c.idempotency),(0,0,0));Ok(())
@@ -415,6 +423,7 @@ mod tests {
         std::process::exit(86);
     }
     #[tokio::test] async fn test_crash_after_commit_before_response_reconciles()->StorageResult<()>{
+        let _guard=TEST_LOCK.lock().await;
         let setup=open(true).await?;drop(setup);
         let executable=std::env::current_exe()?;
         let status=Command::new(executable)
@@ -426,16 +435,19 @@ mod tests {
         let c=a.recover().await?;assert_eq!((c.jobs,c.outbox,c.idempotency,c.audit),(1,1,1,2));Ok(())
     }
     #[tokio::test] async fn test_outbox_lease_expiry_and_owner_fencing()->StorageResult<()>{
+        let _guard=TEST_LOCK.lock().await;
         let a=open(true).await?;let r=a.admit_job(request("outbox","tenant-a","jobs.create","key","lamp")).await?;let id=r.outcome["job_id"].as_str().unwrap();let event=a.read_outbox_for_job(id).await?.unwrap().event_id;
         let first=a.claim_outbox("worker-a",1,10,100).await?.pop().unwrap();let second=a.claim_outbox("worker-b",1,10,111).await?.pop().unwrap();
         assert!(second.lease_token>first.lease_token);assert!(!a.ack_outbox(&event,"worker-a",first.lease_token,112).await?);assert!(a.ack_outbox(&event,"worker-b",second.lease_token,112).await?);Ok(())
     }
     #[tokio::test] async fn test_consumer_deduplicates_local_effect()->StorageResult<()>{
+        let _guard=TEST_LOCK.lock().await;
         let a=open(true).await?;let r=a.admit_job(request("effect","tenant-a","jobs.create","key","lamp")).await?;let id=r.outcome["job_id"].as_str().unwrap();let event=a.read_outbox_for_job(id).await?.unwrap().event_id;
         assert!(a.apply_consumer_effect("indexer",&event,&json!({"indexed":id}),100).await?);assert!(!a.apply_consumer_effect("indexer",&event,&json!({"indexed":id}),101).await?);
         let c=a.recover().await?;assert_eq!((c.consumed_events,c.consumer_effects),(1,1));Ok(())
     }
     #[tokio::test] async fn test_recover_committed_state()->StorageResult<()>{
+        let _guard=TEST_LOCK.lock().await;
         let a=open(true).await?;let r=a.admit_job(request("recover","tenant-a","jobs.create","key","desk")).await?;let id=r.outcome["job_id"].as_str().unwrap();
         let c=a.recover().await?;assert_eq!((c.jobs,c.outbox,c.idempotency,c.audit),(1,1,1,1));assert_eq!(a.read_job(id).await?.unwrap().payload["name"],"desk");Ok(())
     }
