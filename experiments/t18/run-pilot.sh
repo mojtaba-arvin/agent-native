@@ -40,7 +40,7 @@ cleanup() {
     T15_EVIDENCE_DIR="${RUNNER_TEMP:-/tmp}/t15-container-output"
     if [[ -d "$T15_EVIDENCE_DIR" ]]; then
       mkdir -p "$EVIDENCE_DIR/t15" || true
-      for file in build-evidence.json sbom.spdx.json SHA256SUMS cli-help.txt; do
+      for file in build-evidence.json sbom.spdx.json cli-help.txt; do
         [[ ! -f "$T15_EVIDENCE_DIR/$file" ]] || \
           cp "$T15_EVIDENCE_DIR/$file" "$EVIDENCE_DIR/t15/" || true
       done
@@ -67,7 +67,7 @@ docker tag agent-native:repro-a agent-native:t15
 T15_EVIDENCE_DIR="$RUNNER_TEMP/t15-container-output"
 mkdir -p "$EVIDENCE_DIR/t15"
 cp "$T15_EVIDENCE_DIR/build-evidence.json" "$T15_EVIDENCE_DIR/sbom.spdx.json" \
-  "$T15_EVIDENCE_DIR/SHA256SUMS" "$T15_EVIDENCE_DIR/cli-help.txt" "$EVIDENCE_DIR/t15/"
+  "$T15_EVIDENCE_DIR/cli-help.txt" "$EVIDENCE_DIR/t15/"
 IMAGE_ID="$(docker image inspect --format '{{.Id}}' agent-native:t15)"
 SOURCE_SHA="$(git rev-parse HEAD)"
 IMAGE_REVISION="$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' agent-native:t15)"
