@@ -49,8 +49,14 @@ PY
 }
 trap cleanup EXIT
 
-echo "Building the T15 production image from the current source revision."
-docker build --pull --tag agent-native:t15 --file Dockerfile .
+echo "Building and verifying the canonical reproducible T15 production image."
+export RUNNER_TEMP="${RUNNER_TEMP:-$(mktemp -d)}"
+bash acceptance/T15.sh
+docker tag agent-native:repro-a agent-native:t15
+T15_EVIDENCE_DIR="$RUNNER_TEMP/t15-container-output"
+mkdir -p "$EVIDENCE_DIR/t15"
+cp "$T15_EVIDENCE_DIR/build-evidence.json" "$T15_EVIDENCE_DIR/sbom.spdx.json" \
+  "$T15_EVIDENCE_DIR/SHA256SUMS" "$T15_EVIDENCE_DIR/cli-help.txt" "$EVIDENCE_DIR/t15/"
 IMAGE_ID="$(docker image inspect --format '{{.Id}}' agent-native:t15)"
 SOURCE_SHA="$(git rev-parse HEAD)"
 POSTGRES_IMAGE="postgres:16.4@sha256:e62fbf9d3e2b49816a32c400ed2dba83e3b361e6833e624024309c35d334b412"
