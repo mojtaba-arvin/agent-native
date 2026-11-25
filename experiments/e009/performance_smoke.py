@@ -503,7 +503,7 @@ def main():
                 }
 
             with concurrent.futures.ThreadPoolExecutor(max_workers=args.concurrency) as pool:
-                # Keep warm-up indices non-negative and disjoint from every measured repetition.
+                # Measured repetitions occupy [0, repetitions * requests); warm-up starts after that range.
                 warmup_start = args.repetitions * args.requests
                 warmup = list(pool.map(one, range(warmup_start, warmup_start + 100)))
                 if args.containerized:
