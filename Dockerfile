@@ -20,7 +20,7 @@ RUN mkdir -p /wheelhouse && \
     python -m pip wheel --no-build-isolation --no-deps --no-cache-dir \
       --wheel-dir=/wheelhouse . && \
     python -m pip wheel --no-deps --no-cache-dir --wheel-dir=/wheelhouse \
-      "psycopg==3.2.12" "psycopg-binary==3.2.12"
+      "psycopg==3.2.12" "psycopg-binary==3.2.12" "typing-extensions==4.15.0"
 
 FROM --platform=$TARGETPLATFORM ${PYTHON_BASE} AS runtime
 ARG SOURCE_DATE_EPOCH=0
@@ -41,7 +41,7 @@ LABEL org.opencontainers.image.title="Agent Native" \
 WORKDIR /opt/agent-native
 COPY --from=builder /wheelhouse /tmp/wheelhouse
 RUN python -m pip install --no-index --no-deps --find-links=/tmp/wheelhouse \
-      "psycopg==3.2.12" "psycopg-binary==3.2.12" agent-native==0.1.0.dev0 && \
+      "psycopg==3.2.12" "psycopg-binary==3.2.12" "typing-extensions==4.15.0" agent-native==0.1.0.dev0 && \
     rm -rf /tmp/wheelhouse
 USER 65532:65532
 ENTRYPOINT ["agent-native"]
