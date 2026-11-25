@@ -32,10 +32,11 @@ func NewPostgresAdapter(ctx context.Context, dsn string, options ...Option) (*Po
 		return nil, err
 	}
 
-	db, err := sql.Open(stdlib.GetDefaultDriver(), dsn)
+	pgxConfig, err := pgx.ParseConfig(dsn)
 	if err != nil {
-		return nil, fmt.Errorf("open_postgres: %w", err)
+		return nil, fmt.Errorf("parse_postgres_dsn: %w", err)
 	}
+	db := stdlib.OpenDB(*pgxConfig)
 	db.SetMaxOpenConns(64)
 	db.SetMaxIdleConns(32)
 	db.SetConnMaxIdleTime(2 * time.Minute)
@@ -697,4 +698,3 @@ func (adapter *PostgresAdapter) Close() error {
 
 var _ Adapter = (*PostgresAdapter)(nil)
 
-var _ = json.Valid
