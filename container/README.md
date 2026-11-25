@@ -10,7 +10,8 @@ The supported image packages the installable `agent-native` Python distribution 
 - SBOM generator: Syft v1.57.2.
 - Buildx and Syft Linux/amd64 release binaries are pinned by SHA-256 in `build-toolchain.lock`.
 - Build-only Python dependencies: setuptools 84.2.1 and wheel 0.48.0, pinned with PyPI wheel SHA-256 hashes.
-- Runtime Python packages: none beyond the project itself. The base image digest fixes Python, pip, and the OS userspace.
+- Runtime Python dependencies: psycopg 3.2.12 with its binary extra and typing-extensions 4.15.0, pinned in project metadata and installed from the builder's wheelhouse. The latter is required by psycopg's Python 3.11 compatibility layer. The base image digest fixes Python, pip, and the OS userspace.
+- The image supports the production `agent-native serve` entrypoint; PostgreSQL DSNs and capability-token signing keys are supplied only through runtime environment variables.
 
 Update a pinned input only with a reviewed digest/hash change and a new reproducibility run. The base image and build tools are intentionally not floating tags.
 
@@ -27,7 +28,7 @@ python container/verify_sbom.py dist/container/sbom.spdx.json
 docker buildx rm agent-native-repro
 ```
 
-The script builds the same source twice with cache disabled, uses the source commit timestamp as `SOURCE_DATE_EPOCH` and BuildKit's `rewrite-timestamp=true` exporter option, and compares image configuration IDs. It smoke-tests the CLI as UID/GID 65532 with no network, a read-only root filesystem and no Linux capabilities. It generates an SPDX-2.3 SBOM, saves the image archive, and writes checksums plus build evidence.
+The script builds the same source twice with cache disabled, resolves the exact project runtime dependency into the builder wheelhouse, uses the source commit timestamp as `SOURCE_DATE_EPOCH` and BuildKit's `rewrite-timestamp=true` exporter option, and compares image configuration IDs. It smoke-tests the CLI as UID/GID 65532 with no network, a read-only root filesystem and no Linux capabilities. It generates an SPDX-2.3 SBOM, saves the image archive, and writes checksums plus build evidence.
 
 Load the archive with `docker load --input dist/container/agent-native-image.tar`. The default image command is `agent-native --help`; pass a supported CLI subcommand to use the image.
 

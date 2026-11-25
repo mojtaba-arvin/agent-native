@@ -36,7 +36,7 @@ class PostgresResourceRepository:
             from psycopg import sql
             from psycopg.rows import dict_row
         except ImportError as error:
-            raise RuntimeError("PostgreSQL runtime requires psycopg 3") from error
+            raise RuntimeError(f"PostgreSQL runtime requires psycopg 3 ({type(error).__name__}: {error})") from error
         return psycopg, sql, dict_row
 
     def _connect(self):
