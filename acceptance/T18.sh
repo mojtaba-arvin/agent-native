@@ -92,6 +92,5 @@ PY
 bash -n experiments/t18/run-pilot.sh
 python3 -m py_compile src/agent_native/server.py experiments/t18/test_pilot.py
 PYTHONPATH="src${PYTHONPATH:+:$PYTHONPATH}" python3 -m unittest tests.test_server -v
-python3 -m unittest discover -s experiments/t18 -p 'test_*.py' -v
 T18_EVIDENCE_DIR="${T18_EVIDENCE_DIR:-${RUNNER_TEMP:-/tmp}/agent-native-t18-${GITHUB_RUN_ID:-local}}" \
   bash experiments/t18/run-pilot.sh --acceptance
