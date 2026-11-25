@@ -27,6 +27,7 @@ cli = Path("src/agent_native/cli.py").read_text(encoding="utf-8")
 server = required["production PostgreSQL server composition"].read_text(encoding="utf-8")
 dockerfile = Path("Dockerfile").read_text(encoding="utf-8")
 compose = required["T18 disposable PostgreSQL deployment"].read_text(encoding="utf-8")
+workflow = Path(".github/workflows/task-acceptance.yml").read_text(encoding="utf-8")
 runner = required["T18 reproducible pilot runner"].read_text(encoding="utf-8")
 tests = required["T18 black-box pilot checks"].read_text(encoding="utf-8")
 pyproject = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
@@ -74,6 +75,12 @@ checks = {
             "test_cross_tenant_resource_is_not_visible",
             "test_health_readiness_and_metrics",
             "test_create_read_and_audit_are_durable",
+        )
+    ),
+    "GitHub Actions retains sanitized pilot evidence as an artifact": all(
+        marker in workflow for marker in (
+            "Upload T18 PostgreSQL pilot evidence", "actions/upload-artifact@v4",
+            "t18-postgres-pilot-", "retention-days: 90",
         )
     ),
     "pilot runbook defines deployment, evidence, and limitations": all(
