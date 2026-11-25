@@ -20,7 +20,7 @@ with socket.socket() as sock:
 PY
 )}"
 export T18_COMPOSE_PROJECT="agent-native-t18-${GITHUB_RUN_ID:-local}-$$"
-export T18_COMPOSE_FILE="$ROOT/experiments/t18/compose.yaml"
+export T18_COMPOSE_FILE="$ROOT/deploy/t18/compose.yaml"
 export T18_BASE_URL="http://127.0.0.1:$T18_HTTP_PORT"
 export T18_TOKEN_SIGNING_KEY_HEX
 export PYTHONPATH="$ROOT/src${PYTHONPATH:+:$PYTHONPATH}"
@@ -102,7 +102,7 @@ PY
 
 "${COMPOSE[@]}" up -d --wait
 "${COMPOSE[@]}" ps --format json > "$EVIDENCE_DIR/compose-ps.json"
-python3 -m unittest discover -s experiments/t18 -p 'test_pilot.py' -v 2>&1 | tee "$EVIDENCE_DIR/acceptance.log"
+python3 -m unittest tests.test_t18_pilot -v 2>&1 | tee "$EVIDENCE_DIR/acceptance.log"
 "${COMPOSE[@]}" logs --no-color app > "$EVIDENCE_DIR/app.log" 2>&1
 
 FINISHED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
@@ -117,7 +117,7 @@ Path(path).write_text(json.dumps({
     "source_sha": source_sha,
     "application_image_id": image_id,
     "postgres_image": postgres_image,
-    "suite": "experiments/t18/test_pilot.py",
+    "suite": "tests/test_t18_pilot.py",
     "started_at": started_at,
     "finished_at": finished_at
 }, sort_keys=True, indent=2) + "\n", encoding="utf-8")
