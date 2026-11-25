@@ -331,7 +331,7 @@ mod tests {
         let dsn=std::env::var("AGENT_NATIVE_E002_POSTGRES_DSN").map_err(|_|invalid("missing DSN"))?;
         for (i,stage) in ["after_job","after_outbox","after_idempotency","after_audit","before_commit"].iter().enumerate(){
             let schema=format!("e002_rust_fault_{i}");let target=(*stage).to_owned();
-            let a=PostgresAdapter::connect_with_fault_hook(&dsn,&schema,move|s|s==target).await?;a.reset_for_testing().await?;
+            let a=PostgresAdapter::connect_with_fault_hook(&dsn,&schema,move|s|s==target.as_str()).await?;a.reset_for_testing().await?;
             assert!(a.admit_job(request("fault","tenant-a","jobs.create","key","lamp")).await.is_err());
             let c=a.recover().await?;assert_eq!((c.jobs,c.outbox,c.idempotency,c.audit),(0,0,0,0),"fault at {stage}");
         }Ok(())
