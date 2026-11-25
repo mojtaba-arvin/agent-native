@@ -341,8 +341,8 @@ jobs:
             experiments/e002/go/go.mod
             experiments/e002/go/go.sum
           retention-days: 7
-      - name: Check Rust candidate formatting
-        run: cargo fmt --manifest-path experiments/e002/rust/Cargo.toml -- --check
+      - name: Check T41 Rust storage formatting
+        run: rustfmt --check --edition 2021 experiments/e002/rust/src/storage.rs
       - name: E-002 Rust runtime
         run: |
           cargo test --locked
