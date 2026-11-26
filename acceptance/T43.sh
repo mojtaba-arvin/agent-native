@@ -12,6 +12,7 @@ required = {
     "canonical CI workflow": ".github/workflows/ci.yml",
     "manual dispatch contract": "workflow_dispatch",
     "E-007 model suite input": "model_suite=e007",
+    "CPU-only diagnostic boundary": "does not satisfy M3 decision-grade acceptance",
 }
 for label, marker in required.items():
     if marker not in text:
