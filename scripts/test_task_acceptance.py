@@ -12,6 +12,59 @@ class TaskAcceptanceTests(unittest.TestCase):
             "has_acceptance": has_acceptance,
         }
 
+
+    def research_context(self, *, labels=("kind:research",), state="open",
+                         has_goal=True, has_acceptance=True,
+                         paths=("experiments/e007/m3_alt_model_cohort.py",
+                                "experiments/e007/test_m3_alt_model_cohort.py",
+                                "research/M3_007_ALTERNATIVE_COHORT.md")):
+        return {
+            "task_id": None,
+            "research_issue": {
+                "number": 290,
+                "state": state,
+                "labels": list(labels),
+                "has_goal": has_goal,
+                "has_acceptance": has_acceptance,
+            },
+            "changed_paths": list(paths),
+        }
+
+    def test_research_issue_selects_test_backed_research_ci_mode(self):
+        self.assertEqual(select_mode(self.research_context()), "research-ci")
+
+    def test_research_issue_requires_open_unblocked_research_label(self):
+        with self.assertRaisesRegex(ValueError, "open"):
+            select_mode(self.research_context(state="closed"))
+        with self.assertRaisesRegex(ValueError, "kind:research"):
+            select_mode(self.research_context(labels=("kind:docs",)))
+        with self.assertRaisesRegex(ValueError, "kind:research"):
+            select_mode(self.research_context(labels=("kind:research", "kind:docs")))
+        with self.assertRaisesRegex(ValueError, "kind:research"):
+            select_mode(self.research_context(labels=("kind:research", "blocked")))
+
+    def test_research_issue_requires_goal_and_acceptance(self):
+        with self.assertRaisesRegex(ValueError, "Goal and Acceptance"):
+            select_mode(self.research_context(has_acceptance=False))
+
+    def test_research_issue_requires_research_and_test_files(self):
+        with self.assertRaisesRegex(ValueError, "research artifacts"):
+            select_mode(self.research_context(paths=("tests/test_only.py",)))
+        with self.assertRaisesRegex(ValueError, "test file"):
+            select_mode(self.research_context(paths=("research/only.md",)))
+
+    def test_research_issue_rejects_product_and_frozen_state_paths(self):
+        with self.assertRaisesRegex(ValueError, "non-research paths"):
+            select_mode(self.research_context(paths=("src/agent_native/runtime.py",
+                                                     "experiments/e007/test_x.py")))
+        with self.assertRaisesRegex(ValueError, "frozen project state"):
+            select_mode(self.research_context(paths=("experiments/e007/test_x.py",
+                                                     "project-control/HANDOFF.md")))
+
+    def test_research_ci_exit_status_is_the_acceptance_result(self):
+        self.assertEqual(evaluate_exit_status("research-ci", 0), 0)
+        self.assertEqual(evaluate_exit_status("research-ci", 3), 3)
+
     def test_acceptance_only_pr_is_expected_failure_mode(self):
         ctx = self.context(paths=("acceptance/T07.sh",))
         self.assertEqual(select_mode(ctx), "expect-failure")
