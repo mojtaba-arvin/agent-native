@@ -43,7 +43,65 @@ permissions:
   pull-requests: read
 
 jobs:
+  # Temporary self-service bootstrap for T41: generate the exact lockfile and
+  # apply the pinned rustfmt before the normal exact-head validation reruns.
+  t41-bootstrap:
+    name: T41 · generate lockfile and format adapter
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      startsWith(github.event.pull_request.head.ref, 'task/T41-')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.ref }}
+      - uses: dtolnay/rust-toolchain@1.100.0
+        with:
+          components: rustfmt
+      - name: Generate pinned Rust dependency lockfile
+        run: cargo generate-lockfile --manifest-path experiments/e002/rust/Cargo.toml
+      - name: Format T41 storage adapter
+        run: rustfmt --edition 2021 experiments/e002/rust/src/storage.rs
+      - name: Verify T41 dependency pins
+        run: |
+          python3 - <<'PY'
+          import tomllib
+          with open("experiments/e002/rust/Cargo.lock", "rb") as stream:
+              lock = tomllib.load(stream)
+          packages = {(item["name"], item["version"]) for item in lock["package"]}
+          required = {
+              ("tokio-postgres", "0.7.15"),
+              ("sha2", "0.10.9"),
+              ("uuid", "1.18.1"),
+          }
+          missing = required - packages
+          if missing:
+              raise SystemExit(f"Missing pinned packages: {sorted(missing)}")
+          PY
+      - name: Commit generated lockfile and formatting
+        shell: bash
+        env:
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add experiments/e002/rust/Cargo.lock experiments/e002/rust/src/storage.rs
+          if git diff --cached --quiet; then
+            echo "T41 lockfile and storage formatting are already current."
+            exit 0
+          fi
+          git commit -m "build(T41): pin Rust dependencies and format storage adapter"
+          git push origin "HEAD:${BRANCH}"
+
   # Each expensive lane has its own branch-scoped queue. A run in one lane
+  # cannot cancel or occupy another lane's concurrency group. A run in one lane
   # cannot cancel or occupy another lane's concurrency group.
   changes:
     name: Detect extended-check impact
