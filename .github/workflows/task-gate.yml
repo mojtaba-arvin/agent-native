@@ -99,6 +99,7 @@ jobs:
               files: fileNames,
               body,
               task,
+              research_issue: researchIssue,
               acceptance_exists: acceptanceExists,
               paused: process.env.PAUSED === 'true'
             };
