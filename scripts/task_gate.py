@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any
 
 TASK_LINE = re.compile(r"^Task:[ \t]*(T\d{2})[ \t]*$", re.M)
+RESEARCH_ISSUE_LINE = re.compile(r"^Research issue:[ \t]*#([1-9]\d*)[ \t]*$", re.M)
 DEPENDS_LINE = re.compile(r"^Depends:[ \t]*(.*)$", re.M)
 BUDGET_LINE = re.compile(r"^Attempt budget:[ \t]*(\d+)[ \t]*$", re.M)
 
