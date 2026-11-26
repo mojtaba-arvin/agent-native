@@ -9,12 +9,8 @@ from __future__ import annotations
 
 import argparse
 import json
-import re
 from pathlib import Path
 from typing import Any
-
-
-RESEARCH_ISSUE_LINE = re.compile(r"^Research issue:[ \\t]*#([1-9]\\d*)[ \\t]*$", re.M)
 
 
 def select_mode(context: dict[str, Any]) -> str:
