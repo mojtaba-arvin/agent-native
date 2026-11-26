@@ -9,7 +9,7 @@ WORKFLOW = ROOT / ".github" / "workflows" / "m3-007-alternative-models.yml"
 
 def job_block(source: str, name: str) -> str:
     match = re.search(
-        rf"(?ms)^  {re.escape(name)}:\n(.*?)(?=^  [A-Za-z0-9_-]+:\n|\\Z)",
+        rf"(?ms)^  {re.escape(name)}:\n(.*?)(?=^  [A-Za-z0-9_-]+:\n|\Z)",
         source,
     )
     if not match:
@@ -29,7 +29,7 @@ class M3007WorkflowContractTests(unittest.TestCase):
 
     def test_cohort_waits_for_static_validation_and_dispatch_guard(self):
         block = job_block(self.source, "cohort")
-        needs = re.search(r"(?m)^    needs:\\s*(.+)$", block)
+        needs = re.search(r"(?m)^    needs:\s*(.+)$", block)
         self.assertIsNotNone(needs, "cohort must declare job dependencies")
         dependencies = {
             item.strip()
