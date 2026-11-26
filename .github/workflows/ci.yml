@@ -423,12 +423,58 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
+  e007-preflight:
+    name: E-007 deterministic preflight before model provisioning
+    if: github.event_name == 'workflow_dispatch' && inputs.model_suite == 'e007'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16.4
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: agent_native
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d agent_native"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      AGENT_NATIVE_E002_POSTGRES_DSN: postgresql://postgres:postgres@localhost:5432/agent_native
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11.18"
+      - name: Install pinned E-009 PostgreSQL test driver
+        run: python -m pip install "psycopg[binary]==3.2.9"
+      - name: Validate the exact four-cell dispatch manifest
+        run: python experiments/e007/validate_factorial_dispatch.py
+      - name: Validate the factorial runner shell syntax
+        run: bash -n experiments/e007/run_factorial_pilot.sh
+      - name: Run deterministic E-007 tests
+        run: python -m unittest discover -s experiments/e007 -p 'test*.py' -v
+      - name: Run deterministic E-009 tests
+        run: python -m unittest discover -s experiments/e009 -p 'test*.py' -v
+
   models:
     concurrency:
       group: agent-native-models-${{ github.event.pull_request.number || github.ref }}
       cancel-in-progress: false
+    needs: [e007-preflight]
     name: Layer 2 · manual CPU diagnostics (not M3 acceptance)
-    if: github.event_name == 'workflow_dispatch' && inputs.model_suite != 'none'
+    if: >-
+      always() &&
+      github.event_name == 'workflow_dispatch' &&
+      inputs.model_suite != 'none' &&
+      (inputs.model_suite != 'e007' || needs.e007-preflight.result == 'success')
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -468,11 +514,7 @@ jobs:
           FACTORIAL_OUTPUT_DIR: ${{ runner.temp }}/agent-native-e007-factorial-${{ github.run_id }}
           E007_PINNED_REV: ${{ github.sha }}
           E007_REF_NAME: ${{ github.ref_name }}
-        run: |
-          python experiments/e007/validate_factorial_dispatch.py
-          bash -n experiments/e007/run_factorial_pilot.sh
-          python -m unittest discover -s experiments/e007 -p 'test*.py' -v
-          bash experiments/e007/run_factorial_pilot.sh
+        run: bash experiments/e007/run_factorial_pilot.sh
       - name: Run E-009 bounded real-agent trial
         if: inputs.model_suite == 'e009'
         run: |
