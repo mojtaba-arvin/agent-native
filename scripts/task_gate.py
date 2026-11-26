@@ -129,7 +129,7 @@ def evaluate_research_issue(ctx: dict[str, Any], issue_number: int) -> list[str]
     for path, file_class in classes.items():
         if file_class == "state":
             violations.append(f"{path} is frozen legacy state; do not edit status or progress files.")
-    allowed, required = KIND_RULES["research"]
+    allowed, _ = KIND_RULES["research"]
     bad = sorted(path for path, file_class in classes.items() if file_class not in allowed and file_class != "state")
     if bad:
         violations.append("Research PR may not change: " + ", ".join(bad))
