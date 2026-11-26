@@ -185,7 +185,7 @@ def seal(args: argparse.Namespace) -> int:
                 "parameter_size", "format", "family", "model_size_bytes", "layers"
             )
         }})
-    candidate_bytes = (json.dumps(updated, indent=2, sort_keys=True) + "\\n").encode("utf-8")
+    candidate_bytes = (json.dumps(updated, indent=2, sort_keys=True) + "\n").encode("utf-8")
     lock = {
         "schema_version": 1,
         "candidate_manifest_sha256": hashlib.sha256(candidate_bytes).hexdigest(),
