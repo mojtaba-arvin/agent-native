@@ -90,6 +90,14 @@ class AlternativeModelCohortTests(unittest.TestCase):
             self.assertEqual(report["status"], "verified")
             self.assertFalse(report["inference_executed"])
             self.assertEqual(report["models"][0]["manifest_sha256"], observation["models"][0]["manifest_sha256"])
+            details_path = details_dir / (hashlib.sha256(tag.encode()).hexdigest() + ".json")
+            changed_details = json.loads(details_path.read_text())
+            changed_details["details"]["family"] = "different-family"
+            details_path.write_text(json.dumps(changed_details), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "model_lock_mismatch:.*:family"):
+                verify(Namespace(candidates=sealed_candidates, lock=lock_path, model_dir=model_dir,
+                                details_dir=details_dir, output=report_path, source_sha="ghi789",
+                                run_id="103", ollama_version="ollama version 0.40.15"))
 
     def test_quantization_mismatch_fails_closed(self):
         with tempfile.TemporaryDirectory() as temp:
