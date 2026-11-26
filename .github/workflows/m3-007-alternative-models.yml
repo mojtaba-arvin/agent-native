@@ -68,13 +68,22 @@ jobs:
         run: |
           set -euo pipefail
           python3 - "$LOCK" "$RUNNER_TEMP/prior-verification/verification-report.json" <<'PY'
-          import hashlib,json,sys
+          import hashlib,json,os,sys
+          lock=json.load(open(sys.argv[1],encoding="utf-8"))
           lock_sha=hashlib.sha256(open(sys.argv[1],"rb").read()).hexdigest()
           report=json.load(open(sys.argv[2],encoding="utf-8"))
           if report.get("status") != "verified" or report.get("inference_executed") is not False:
               raise SystemExit("prior_verification_not_valid")
+          if report.get("network_during_verification") != "disabled":
+              raise SystemExit("prior_verification_was_not_offline")
           if report.get("model_lock_sha256") != lock_sha:
               raise SystemExit("prior_verification_lock_sha_mismatch")
+          if report.get("source_sha") != os.environ["GITHUB_SHA"]:
+              raise SystemExit("prior_verification_source_sha_mismatch")
+          expected={item["tag"] for item in lock.get("models",[])}
+          observed={item["tag"] for item in report.get("models",[])}
+          if not expected or expected != observed:
+              raise SystemExit("prior_verification_model_set_mismatch")
           PY
 
       - name: Prepare private model store and evidence directories
