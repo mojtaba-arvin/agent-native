@@ -172,12 +172,51 @@ def run_one(model: dict[str, Any], endpoint: str, results_root: Path, arm: str) 
     }
 
 
+
+def validate_preregistration(candidates: dict[str, Any]) -> None:
+    smoke = candidates.get("smoke")
+    if not isinstance(smoke, dict):
+        raise RuntimeError("model_smoke_preregistration_missing")
+    expected = {
+        "task_path": "experiments/e009/AGENT_TASK_DELTA.md",
+        "proposal_mode": "delta",
+        "base_disclosure": "minimal",
+        "num_ctx": 16384,
+        "num_predict": 2048,
+        "max_input_tokens": 12000,
+        "max_output_tokens": 2048,
+        "max_tool_calls": 20,
+        "max_wall_seconds": 600,
+        "temperature": 0,
+        "top_p": 1,
+        "seed": 42,
+        "allow_sandbox_apply": False,
+    }
+    for field, value in expected.items():
+        if smoke.get(field) != value:
+            raise RuntimeError(f"model_smoke_preregistration_mismatch:{field}")
+    arms = smoke.get("tool_schema_arms", ["progressive", "upfront"])
+    if arms != ["progressive", "upfront"]:
+        raise RuntimeError("model_smoke_tool_schema_arms_invalid")
+    policy = candidates.get("policy")
+    if policy is not None:
+        if (
+            policy.get("paid_api_usd_ceiling") != 0
+            or policy.get("gpu_allowed") is not False
+            or policy.get("hidden_oracle_enabled") is not False
+            or policy.get("synthetic_oracle_enabled") is not False
+            or policy.get("apply_enabled") is not False
+            or policy.get("inference_network") != "none"
+        ):
+            raise RuntimeError("model_smoke_safety_policy_mismatch")
+
 def main() -> int:
     candidates_path = Path(os.environ.get(
         "MODEL_CANDIDATES",
         str(ROOT / "experiments" / "e007" / "model_candidates.json"),
     ))
     candidates = read_json(candidates_path)
+    validate_preregistration(candidates)
     manifests = read_json(Path(os.environ["MODEL_MANIFESTS"]))
     model_lock_path = Path(os.environ["MODEL_LOCK"])
     model_lock = read_json(model_lock_path)
@@ -282,7 +321,7 @@ def main() -> int:
 
     summary = {
         "schema_version": 1,
-        "task": "M3-003 E009 CPU model feasibility smoke",
+        "task": candidates.get("cohort", "M3-003") + " E009 CPU model feasibility smoke",
         "task_path": "experiments/e009/AGENT_TASK_DELTA.md",
         "ollama_version": os.environ.get("OLLAMA_VERSION"),
         "ollama_image": os.environ.get("OLLAMA_IMAGE"),
