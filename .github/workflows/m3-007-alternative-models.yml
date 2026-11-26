@@ -66,7 +66,7 @@ jobs:
           fi
 
   cohort:
-    needs: guard
+    needs: [static-validation, guard]
     if: needs.guard.outputs.allowed == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 360
