@@ -1,7 +1,7 @@
 # E-007 — Manual factorial pilot operator runbook
 
-**Status:** one-shot marker-gated push dispatch is implemented; manual workflow_dispatch remains available.  
-**Workflow:** [Agent Native CI](../../.github/workflows/ci.yml) — manual `workflow_dispatch`, select `model_suite=e007`.  
+**Status:** manual workflow_dispatch is the only active dispatch path; the historical marker was consumed and must not be replayed.  
+**Workflow:** [Agent Native CI](../../.github/workflows/ci.yml) — manual `workflow_dispatch`, select `model_suite=e007`. A dedicated preflight job validates the manifest and runs deterministic E-007/E-009 tests before Ollama is installed or Qwen3 is pulled.  
 **Branch gate:** research/reboot-core only.
 
 ## Why dispatch is manual
@@ -26,9 +26,9 @@ The workflow provisions Ollama, pulls qwen3:8b, and may run for hours. It is del
 
 ## Dispatch
 
-Preferred route: use the [GitHub Actions workflow](https://github.com/mojtaba-arvin/agent-native/actions/workflows/e007-real-agent-eval.yml), choose **Run workflow**, select research/reboot-core, and start one cohort.
+Preferred route: use the [Agent Native CI workflow](https://github.com/mojtaba-arvin/agent-native/actions/workflows/ci.yml), choose **Run workflow**, select research/reboot-core, and start one cohort.
 
-If the execution environment cannot call workflow_dispatch, the repository provides a one-shot push proxy. It requires the exact validated manifest at `experiments/e007/dispatch-request.json` and the exact commit subject `experiment(e007): dispatch one bounded factorial cohort`. The workflow rejects any other branch, commit subject, marker content, model, repetition count, or apply setting. Never replay the marker after the one-shot request has been consumed.
+If the execution environment cannot call workflow_dispatch, do not replay or edit `experiments/e007/dispatch-request.json`. The former one-shot push proxy is not present on the current base branch. Do not invent a replacement trigger or treat a marker commit as a dispatch; keep E-007 open until a genuine manual workflow_dispatch is recorded.
 
 ## Post-run acceptance audit
 
