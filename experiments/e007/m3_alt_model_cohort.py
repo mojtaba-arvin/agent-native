@@ -142,8 +142,8 @@ def verify(args: argparse.Namespace) -> int:
             args.details_dir / (hashlib.sha256(tag.encode()).hexdigest() + ".json")
         ))
         pin = expected[tag]
-        for field in ("manifest_sha256", "config_digest", "quantization_level",
-                      "parameter_size", "model_size_bytes", "layers"):
+        for field in ("tier", "manifest_sha256", "config_digest", "quantization_level",
+                      "parameter_size", "format", "family", "model_size_bytes", "layers"):
             if current[field] != pin.get(field) or model.get(field) != pin.get(field):
                 raise ValueError(f"model_lock_mismatch:{tag}:{field}")
         observed.append(current)
