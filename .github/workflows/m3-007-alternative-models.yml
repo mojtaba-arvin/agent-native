@@ -42,6 +42,7 @@ jobs:
         run: |
           set -euo pipefail
           test -f "$LOCK"
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" && "$GITHUB_EVENT_PATH" != "" ]]; then :; fi
           python3 - "$CANDIDATES" "$LOCK" <<'PY'
           import json,sys
           c=json.load(open(sys.argv[1],encoding="utf-8"))
@@ -80,7 +81,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p "$MODEL_DIR" "$DETAILS_DIR" "$OUTPUT_DIR"
+          mkdir -p "$MODEL_DIR" "$DETAILS_DIR" "$OUTPUT_DIR" "$RUNNER_TEMP/ollama-home"
           chmod 700 "$MODEL_DIR" "$DETAILS_DIR" "$OUTPUT_DIR"
           printf 'RUNNER_UID=%s\n' "$(id -u)" >> "$GITHUB_ENV"
           printf 'RUNNER_GID=%s\n' "$(id -g)" >> "$GITHUB_ENV"
@@ -157,7 +158,8 @@ jobs:
             "$PYTHON_IMAGE" python /repo/experiments/e007/m3_alt_model_cohort.py collect \
             --candidates "/repo/$CANDIDATES" --model-dir /models --details-dir /details \
             --output /out/bootstrap-observation.json --source-sha "$GITHUB_SHA" \
-            --run-id "$GITHUB_RUN_ID" --observed-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            --run-id "$GITHUB_RUN_ID" --observed-at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --ollama-version "$(cat "$OUTPUT_DIR/ollama-version.txt")"
 
       - name: Verify a fresh model pull in a separate offline run
         if: inputs.phase == 'verify' || inputs.phase == 'trial'
@@ -173,7 +175,8 @@ jobs:
             "$PYTHON_IMAGE" python /repo/experiments/e007/m3_alt_model_cohort.py verify \
             --candidates "/repo/$CANDIDATES" --lock "/repo/$LOCK" \
             --model-dir /models --details-dir /details --output /out/verification-report.json \
-            --source-sha "$GITHUB_SHA" --run-id "$GITHUB_RUN_ID"
+            --source-sha "$GITHUB_SHA" --run-id "$GITHUB_RUN_ID" \
+            --ollama-version "$(cat "$OUTPUT_DIR/ollama-version.txt")"
 
       - name: Upload bootstrap observation
         if: always() && inputs.phase == 'bootstrap'
