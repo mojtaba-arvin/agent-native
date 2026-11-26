@@ -39,7 +39,7 @@ def make_context(files, kind="code", **overrides):
 def make_research_context(files, **overrides):
     context = {
         "files": files,
-        "body": "Research issue: #290\\n\\nM3-007 implementation",
+        "body": "Research issue: #290\n\nM3-007 implementation",
         "research_issue": {
             "number": 290,
             "title": "[M3-007] Preregister alternative zero-cost CPU model feasibility cohort",
@@ -273,7 +273,7 @@ class TaskGateTests(unittest.TestCase):
         self.assert_fails(make_research_context(["experiments/a.py"], paused=True), "paused")
 
     def test_v1_task_path_still_takes_precedence_and_requires_task_issue(self):
-        context = make_context(["src/a.py"], body="Task: T07\\nResearch issue: #290")
+        context = make_context(["src/a.py"], body="Task: T07\nResearch issue: #290")
         self.assert_passes(context)
 
     def test_classify(self):
