@@ -12,11 +12,13 @@ required = {
     "canonical CI workflow": ".github/workflows/ci.yml",
     "manual dispatch contract": "workflow_dispatch",
     "E-007 model suite input": "model_suite=e007",
-    "historical marker non-replay rule": "must not be replayed",
 }
 for label, marker in required.items():
     if marker not in text:
         raise SystemExit(f"T43 acceptance: missing {label} ({marker})")
+
+if not any(marker in text for marker in ("must not be replayed", "Never replay the marker")):
+    raise SystemExit("T43 acceptance: historical dispatch marker has no explicit non-replay rule")
 
 for stale in (
     "e007-real-agent-eval.yml",
