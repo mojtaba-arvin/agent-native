@@ -116,8 +116,9 @@ def evaluate_research_issue(ctx: dict[str, Any], issue_number: int) -> list[str]
     violations: list[str] = []
     if issue.get("state") != "open":
         violations.append(f"Research issue #{issue_number} is not open.")
-    if "kind:research" not in labels:
-        violations.append(f"Research issue #{issue_number} must have label kind:research.")
+    kinds = {label for label in labels if label.startswith("kind:")}
+    if kinds != {"kind:research"}:
+        violations.append(f"Research issue #{issue_number} must have exactly one kind:research label.")
     if "blocked" in labels:
         violations.append(f"Research issue #{issue_number} is labeled blocked; replan instead of retrying.")
     if issue.get("has_goal") is not True or issue.get("has_acceptance") is not True:
