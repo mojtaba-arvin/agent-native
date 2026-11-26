@@ -1,0 +1,66 @@
+{
+  "schema_version": 2,
+  "cohort": "m3-007-alternative-cpu-v1",
+  "status": "bootstrap_pending",
+  "created_at": "2026-11-26",
+  "purpose": "Separate zero-paid-spend CPU feasibility cohort; not M3 qualification.",
+  "runner": {
+    "label": "ubuntu-latest",
+    "architecture": "linux/amd64",
+    "public_repository_usage": "free"
+  },
+  "runtime": {
+    "name": "Ollama",
+    "version": "0.40.15",
+    "image": "ollama/ollama@sha256:a717bfc1c56acfc2e85d3109bd40a7646258ec9062c40cea83b9ed0927eb4223",
+    "python_image": "python:3.12-slim@sha256:5e2bdb1b0d542d5039cffb8181c65930093949194a65c365dfb1b0fe13a4fa5b",
+    "platform": "linux/amd64"
+  },
+  "models": [
+    {
+      "tier": "weak",
+      "tag": "qwen3:1.7b",
+      "quantization_expected": "Q4_K_M"
+    },
+    {
+      "tier": "medium",
+      "tag": "granite4.2:3b",
+      "quantization_expected": "Q4_K_M"
+    },
+    {
+      "tier": "strong",
+      "tag": "qwen3:4b",
+      "quantization_expected": "Q4_K_M"
+    }
+  ],
+  "smoke": {
+    "task_path": "experiments/e009/AGENT_TASK_DELTA.md",
+    "proposal_mode": "delta",
+    "base_disclosure": "minimal",
+    "tool_schema_arms": [
+      "progressive",
+      "upfront"
+    ],
+    "num_ctx": 16384,
+    "num_predict": 2048,
+    "max_input_tokens": 12000,
+    "max_output_tokens": 2048,
+    "max_tool_calls": 20,
+    "max_wall_seconds": 600,
+    "temperature": 0,
+    "top_p": 1,
+    "seed": 42,
+    "allow_sandbox_apply": false,
+    "retries": 0
+  },
+  "policy": {
+    "paid_api_usd_ceiling": 0,
+    "gpu_allowed": false,
+    "hidden_oracle_enabled": false,
+    "synthetic_oracle_enabled": false,
+    "apply_enabled": false,
+    "model_download_network": "public Ollama registry only",
+    "inference_network": "none",
+    "gemma4_e2b": "reserve_only"
+  }
+}
