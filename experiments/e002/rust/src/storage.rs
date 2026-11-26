@@ -200,7 +200,7 @@ impl PostgresAdapter {
             ("e002_audit_no_truncate", format!("CREATE TRIGGER e002_audit_no_truncate BEFORE TRUNCATE ON {audit} FOR EACH STATEMENT EXECUTE FUNCTION {trigger_fn}()")),
         ] {
             let exists: bool = tx.query_one(
-                "SELECT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname=$1 AND tgrelid=$2::regclass AND NOT tgisinternal)",
+                "SELECT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname=$1 AND tgrelid=$2::text::regclass AND NOT tgisinternal)",
                 &[&name, &audit_relation],
             ).await?.get(0);
             if !exists { tx.batch_execute(&ddl).await?; }
