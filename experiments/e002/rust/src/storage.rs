@@ -238,7 +238,7 @@ impl PostgresAdapter {
         }
         let event_id = Uuid::new_v4().to_string();
         let outcome = encode_json(&event.outcome)?;
-        let sql = format!("INSERT INTO {} (event_id,request_id,tenant_id,operation_id,decision,reason_code,outcome_json,created_at) VALUES ($1::uuid,$2,$3,$4,$5,$6,$7,$8) RETURNING sequence", self.table("e002_audit"));
+        let sql = format!("INSERT INTO {} (event_id,request_id,tenant_id,operation_id,decision,reason_code,outcome_json,created_at) VALUES ($1::text::uuid,$2,$3,$4,$5,$6,$7,$8) RETURNING sequence", self.table("e002_audit"));
         let row = tx
             .query_one(
                 &sql,
@@ -350,7 +350,7 @@ impl PostgresAdapter {
         let outcome = json!({"job_id":job_id,"state":"queued"});
         let outcome_json = encode_json(&outcome)?;
         let now = request.audit.created_at;
-        let insert_job = format!("INSERT INTO {} (job_id,tenant_id,operation_id,payload_json,state,created_at) VALUES ($1::uuid,$2,$3,$4,'queued',$5)",self.table("e002_jobs"));
+        let insert_job = format!("INSERT INTO {} (job_id,tenant_id,operation_id,payload_json,state,created_at) VALUES ($1::text::uuid,$2,$3,$4,'queued',$5)",self.table("e002_jobs"));
         tx.execute(
             &insert_job,
             &[
@@ -363,7 +363,7 @@ impl PostgresAdapter {
         )
         .await?;
         self.fault("after_job")?;
-        let insert_outbox = format!("INSERT INTO {} (event_id,tenant_id,operation_id,job_id,payload_json,created_at) VALUES ($1::uuid,$2,$3,$4::uuid,$5,$6)",self.table("e002_outbox"));
+        let insert_outbox = format!("INSERT INTO {} (event_id,tenant_id,operation_id,job_id,payload_json,created_at) VALUES ($1::text::uuid,$2,$3,$4::text::uuid,$5,$6)",self.table("e002_outbox"));
         tx.execute(
             &insert_outbox,
             &[
@@ -377,7 +377,7 @@ impl PostgresAdapter {
         )
         .await?;
         self.fault("after_outbox")?;
-        let insert_idem = format!("INSERT INTO {} (tenant_id,operation_id,idempotency_key,request_hash,job_id,outcome_json) VALUES ($1,$2,$3,$4,$5::uuid,$6)",self.table("e002_idempotency_records"));
+        let insert_idem = format!("INSERT INTO {} (tenant_id,operation_id,idempotency_key,request_hash,job_id,outcome_json) VALUES ($1,$2,$3,$4,$5::text::uuid,$6)",self.table("e002_idempotency_records"));
         tx.execute(
             &insert_idem,
             &[
@@ -432,7 +432,7 @@ impl PostgresAdapter {
         }))
     }
     pub async fn read_job(&self, job_id: &str) -> StorageResult<Option<Job>> {
-        let sql = format!("SELECT job_id::text,tenant_id,operation_id,payload_json,state,created_at FROM {} WHERE job_id=$1::uuid",self.table("e002_jobs"));
+        let sql = format!("SELECT job_id::text,tenant_id,operation_id,payload_json,state,created_at FROM {} WHERE job_id=$1::text::uuid",self.table("e002_jobs"));
         let client = self.client.lock().await;
         let Some(row) = client.query_opt(&sql, &[&job_id]).await? else {
             return Ok(None);
@@ -463,7 +463,7 @@ impl PostgresAdapter {
         })
     }
     pub async fn read_outbox_for_job(&self, job_id: &str) -> StorageResult<Option<OutboxEvent>> {
-        let sql = format!("SELECT event_id::text,tenant_id,operation_id,job_id::text,payload_json,created_at,lease_owner,lease_token,lease_until,delivered_at FROM {} WHERE job_id=$1::uuid",self.table("e002_outbox"));
+        let sql = format!("SELECT event_id::text,tenant_id,operation_id,job_id::text,payload_json,created_at,lease_owner,lease_token,lease_until,delivered_at FROM {} WHERE job_id=$1::text::uuid",self.table("e002_outbox"));
         let client = self.client.lock().await;
         let Some(row) = client.query_opt(&sql, &[&job_id]).await? else {
             return Ok(None);
@@ -471,7 +471,7 @@ impl PostgresAdapter {
         Ok(Some(Self::outbox_from_row(&row)?))
     }
     pub async fn read_outbox(&self, event_id: &str) -> StorageResult<Option<OutboxEvent>> {
-        let sql = format!("SELECT event_id::text,tenant_id,operation_id,job_id::text,payload_json,created_at,lease_owner,lease_token,lease_until,delivered_at FROM {} WHERE event_id=$1::uuid",self.table("e002_outbox"));
+        let sql = format!("SELECT event_id::text,tenant_id,operation_id,job_id::text,payload_json,created_at,lease_owner,lease_token,lease_until,delivered_at FROM {} WHERE event_id=$1::text::uuid",self.table("e002_outbox"));
         let client = self.client.lock().await;
         let Some(row) = client.query_opt(&sql, &[&event_id]).await? else {
             return Ok(None);
@@ -503,8 +503,8 @@ impl PostgresAdapter {
             .iter()
             .map(|r| r.get(0))
             .collect();
-        let update = format!("UPDATE {} SET lease_owner=$1,lease_token=lease_token+1,lease_until=$2 WHERE event_id=$3::uuid AND delivered_at IS NULL",self.table("e002_outbox"));
-        let read = format!("SELECT event_id::text,tenant_id,operation_id,job_id::text,payload_json,created_at,lease_owner,lease_token,lease_until,delivered_at FROM {} WHERE event_id=$1::uuid",self.table("e002_outbox"));
+        let update = format!("UPDATE {} SET lease_owner=$1,lease_token=lease_token+1,lease_until=$2 WHERE event_id=$3::text::uuid AND delivered_at IS NULL",self.table("e002_outbox"));
+        let read = format!("SELECT event_id::text,tenant_id,operation_id,job_id::text,payload_json,created_at,lease_owner,lease_token,lease_until,delivered_at FROM {} WHERE event_id=$1::text::uuid",self.table("e002_outbox"));
         let mut result = Vec::with_capacity(ids.len());
         for id in ids {
             tx.execute(&update, &[&consumer, &lease_until, &id]).await?;
@@ -525,7 +525,7 @@ impl PostgresAdapter {
         if lease_token < 1 || now < 0 {
             return Err(invalid("invalid_outbox_ack"));
         }
-        let sql=format!("UPDATE {} SET delivered_at=$1,lease_owner=NULL,lease_until=NULL WHERE event_id=$2::uuid AND lease_owner=$3 AND lease_token=$4 AND lease_until>$1 AND delivered_at IS NULL",self.table("e002_outbox"));
+        let sql=format!("UPDATE {} SET delivered_at=$1,lease_owner=NULL,lease_until=NULL WHERE event_id=$2::text::uuid AND lease_owner=$3 AND lease_token=$4 AND lease_until>$1 AND delivered_at IS NULL",self.table("e002_outbox"));
         let mut client = self.client.lock().await;
         let tx = client.transaction().await?;
         tx.batch_execute("SET LOCAL synchronous_commit = on")
@@ -553,11 +553,11 @@ impl PostgresAdapter {
         let tx = client.transaction().await?;
         tx.batch_execute("SET LOCAL synchronous_commit = on")
             .await?;
-        let insert=format!("INSERT INTO {} (consumer,event_id,consumed_at) VALUES ($1,$2::uuid,$3) ON CONFLICT (consumer,event_id) DO NOTHING",self.table("e002_consumed_events"));
+        let insert=format!("INSERT INTO {} (consumer,event_id,consumed_at) VALUES ($1,$2::text::uuid,$3) ON CONFLICT (consumer,event_id) DO NOTHING",self.table("e002_consumed_events"));
         let changed = tx.execute(&insert, &[&consumer, &event_id, &now]).await?;
         if changed == 0 {
             let read = format!(
-                "SELECT effect_json FROM {} WHERE consumer=$1 AND event_id=$2::uuid",
+                "SELECT effect_json FROM {} WHERE consumer=$1 AND event_id=$2::text::uuid",
                 self.table("e002_consumer_effects")
             );
             let row = tx.query_one(&read, &[&consumer, &event_id]).await?;
@@ -569,7 +569,7 @@ impl PostgresAdapter {
             return Ok(false);
         }
         let effect_sql = format!(
-            "INSERT INTO {} (consumer,event_id,effect_json) VALUES ($1,$2::uuid,$3)",
+            "INSERT INTO {} (consumer,event_id,effect_json) VALUES ($1,$2::text::uuid,$3)",
             self.table("e002_consumer_effects")
         );
         tx.execute(&effect_sql, &[&consumer, &event_id, &effect_json])
