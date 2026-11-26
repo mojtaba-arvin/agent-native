@@ -22,6 +22,7 @@ jobs:
     env:
       T16_POSTGRES_DSN: postgresql://postgres:postgres@127.0.0.1:5432/agent_native
       T16_PSQL_DSN: postgresql://postgres:postgres@127.0.0.1:5432/agent_native
+      AGENT_NATIVE_E002_POSTGRES_DSN: postgresql://postgres:postgres@127.0.0.1:5432/agent_native
       T16_SIGNING_KEY: abababababababababababababababababababababababababababababababab
     services:
       postgres:
