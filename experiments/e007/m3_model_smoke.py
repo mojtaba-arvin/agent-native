@@ -191,7 +191,7 @@ def main() -> int:
         candidates.get("status") not in ("provisional_manifest_pinned", "manifest_locked_not_qualified")
         or manifests.get("model_lock_sha256") != expected_lock_sha256
         or model_lock.get("schema_version") != 1
-        or model_lock.get("status") != "provisional_pinned_not_qualified"
+        or model_lock.get("status") not in ("provisional_pinned_not_qualified", "locked_not_qualified")
         or runtime_lock.get("version") not in ollama_version
         or runtime_lock.get("image") != os.environ.get("OLLAMA_IMAGE")
         or runtime_lock.get("python_image") != os.environ.get("PYTHON_IMAGE")
