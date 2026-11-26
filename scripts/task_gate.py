@@ -133,8 +133,11 @@ def evaluate_research_issue(ctx: dict[str, Any], issue_number: int) -> list[str]
     bad = sorted(path for path, file_class in classes.items() if file_class not in allowed and file_class != "state")
     if bad:
         violations.append("Research PR may not change: " + ", ".join(bad))
-    if not (set(classes.values()) & required):
-        violations.append("Research PR must change at least one research or test file.")
+    class_set = set(classes.values())
+    if "research" not in class_set:
+        violations.append("Research PR must include at least one research artifact.")
+    if "test" not in class_set:
+        violations.append("Research PR must include at least one test file.")
     return violations
 
 def evaluate(ctx: dict[str, Any]) -> list[str]:
