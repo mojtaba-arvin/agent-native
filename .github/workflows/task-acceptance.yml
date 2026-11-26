@@ -26,7 +26,7 @@ jobs:
       - name: Extract task or research issue reference
         id: task
         env:
-          PR_BODY: \${{ github.event.pull_request.body }}
+          PR_BODY: ${{ github.event.pull_request.body }}
         shell: bash
         run: |
           set -euo pipefail
@@ -47,8 +47,8 @@ jobs:
         id: context
         uses: actions/github-script@v7
         env:
-          TASK_ID: \${{ steps.task.outputs.id }}
-          TASK_TYPE: \${{ steps.task.outputs.type }}
+          TASK_ID: ${{ steps.task.outputs.id }}
+          TASK_TYPE: ${{ steps.task.outputs.type }}
         with:
           script: |
             const fs = require('fs');
@@ -150,9 +150,9 @@ jobs:
       - name: Run and evaluate acceptance script or research test suites
         working-directory: pr
         env:
-          TASK_ID: \${{ steps.task.outputs.id }}
-          ACCEPTANCE_MODE: \${{ steps.mode.outputs.mode }}
-          CONTEXT_FILE: \${{ steps.context.outputs.context_path }}
+          TASK_ID: ${{ steps.task.outputs.id }}
+          ACCEPTANCE_MODE: ${{ steps.mode.outputs.mode }}
+          CONTEXT_FILE: ${{ steps.context.outputs.context_path }}
         shell: bash
         run: |
           set -euo pipefail
