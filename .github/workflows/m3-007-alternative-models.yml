@@ -24,7 +24,7 @@ concurrency:
 
 jobs:
   cohort:
-    if: github.ref == 'refs/heads/research/m3-007-alternative-cohort' || github.ref == 'refs/heads/research/reboot-core'
+    if: ${{ github.event_name == 'workflow_dispatch' && (github.ref == 'refs/heads/research/m3-007-alternative-cohort' || github.ref == 'refs/heads/research/reboot-core') }}
     runs-on: ubuntu-latest
     timeout-minutes: 360
     env:
