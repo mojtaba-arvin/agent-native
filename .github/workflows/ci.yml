@@ -465,10 +465,10 @@ jobs:
         run: python -m unittest discover -s experiments/e009 -p 'test*.py' -v
 
   models:
-    needs: [e007-preflight]
     concurrency:
       group: agent-native-models-${{ github.event.pull_request.number || github.ref }}
       cancel-in-progress: false
+    needs: [e007-preflight]
     name: Layer 2 · manual CPU diagnostics (not M3 acceptance)
     if: >-
       always() &&
