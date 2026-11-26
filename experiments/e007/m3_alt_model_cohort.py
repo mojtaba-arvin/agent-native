@@ -62,7 +62,7 @@ def observed_model(model_dir: Path, model: dict[str, Any], details: dict[str, An
         "format": detail.get("format"),
         "family": detail.get("family"),
         "model_size_bytes": sum(
-            item["size"] for item in layers if "model" in item["media_type"]
+            item["size"] for item in layers if isinstance(item["media_type"], str) and "model" in item["media_type"]
         ),
         "layers": layers,
     }
@@ -90,6 +90,8 @@ def collect(args: argparse.Namespace) -> int:
     for item in candidates["models"]:
         details = args.details_dir / (hashlib.sha256(item["tag"].encode()).hexdigest() + ".json")
         models.append(observed_model(args.model_dir, item, read_json(details)))
+    if candidates["runtime"]["version"] not in args.ollama_version:
+        raise ValueError("ollama_runtime_version_mismatch")
     observation = {
         "schema_version": 1,
         "cohort": candidates["cohort"],
@@ -97,6 +99,7 @@ def collect(args: argparse.Namespace) -> int:
         "bootstrap_run_id": args.run_id,
         "observed_at": args.observed_at,
         "runtime": candidates["runtime"],
+        "runtime_observed": args.ollama_version.strip(),
         "runner": runner,
         "models": models,
         "policy": candidates["policy"],
@@ -118,6 +121,8 @@ def verify(args: argparse.Namespace) -> int:
         raise ValueError("model_lock_cohort_mismatch")
     if lock.get("runtime") != candidates.get("runtime"):
         raise ValueError("model_lock_runtime_mismatch")
+    if candidates["runtime"]["version"] not in args.ollama_version:
+        raise ValueError("ollama_runtime_version_mismatch")
     expected = {item["tag"]: item for item in lock.get("models", [])}
     declared = {item["tag"]: item for item in candidates.get("models", [])}
     if not expected or set(expected) != set(declared):
@@ -181,6 +186,7 @@ def seal(args: argparse.Namespace) -> int:
         "cohort": candidates["cohort"],
         "provenance": updated["bootstrap_provenance"],
         "runtime": observation["runtime"],
+        "runtime_observed": observation["runtime_observed"],
         "runner": observation["runner"],
         "models": observation["models"],
         "policy": observation["policy"],
@@ -201,6 +207,7 @@ def parser() -> argparse.ArgumentParser:
         p.add_argument("--output", type=Path, required=True)
         p.add_argument("--source-sha", required=True)
         p.add_argument("--run-id", required=True)
+        p.add_argument("--ollama-version", required=True)
         if command == "collect":
             p.add_argument("--observed-at", required=True)
         else:
