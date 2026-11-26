@@ -1125,7 +1125,7 @@
       "id": "CP-010",
       "title": "Complete independent review and merge-base verification for trust-boundary integration",
       "milestone": "C3",
-      "status": "in_progress",
+      "status": "complete",
       "priority": 10,
       "depends_on": [
         "CP-009",
@@ -1174,7 +1174,10 @@
         "PR-90",
         "run:44489229689",
         "run:44489986238",
-        "M2-OWNER-WAIVER-CI-001"
+        "M2-OWNER-WAIVER-CI-001",
+        "PR:#81 merged under exact-head owner waiver",
+        "PR:#90 merged; exact-head review and merge-base CI gates implemented",
+        "PR-81 recorded reviews: 0; owner waiver is not independent peer review; C3 remains pending"
       ]
     },
     {
@@ -1478,7 +1481,7 @@
       "id": "M3-007",
       "title": "Freeze and verify a separate alternate CPU model cohort",
       "milestone": "M3",
-      "status": "pending",
+      "status": "blocked",
       "priority": 34,
       "depends_on": [
         "M3-005",
@@ -1512,6 +1515,13 @@
         "Do not modify the original model-lock or preregistered cohort",
         "Do not dispatch without exact manifest verification",
         "Do not select a model without full local verification and evaluator gate"
+      ],
+      "evidence_ids": [
+        "issue:#294",
+        "run:45843052280; push event on d3bf6cc; zero jobs; failure",
+        "experiments/e007/model_candidates_v2.json status bootstrap_pending",
+        "experiments/e007/model-lock-v2.json absent as of 2026-11-26; no observed digests committed",
+        "No bootstrap, verification, or trial executed"
       ]
     },
     {
@@ -1554,7 +1564,7 @@
       "id": "M3-008",
       "title": "Deduplicate repeated discovery and inspection calls under the fixed E009 token budget",
       "milestone": "M3",
-      "status": "in_progress",
+      "status": "complete",
       "priority": 30,
       "depends_on": [
         "M3-005",
@@ -1597,7 +1607,15 @@
         "run:44539287065",
         "artifact:14538178152",
         "progressive repeated interface.describe ×6 despite native service.inspect being exposed",
-        "upfront 3B repeated inspect and exceeded fixed input-token budget after successful validation"
+        "upfront 3B repeated inspect and exceeded fixed input-token budget after successful validation",
+        "PR:#181 merged as 5e6542af5e736275ff25b2a76b0448673610f9e9",
+        "run:45792882422",
+        "artifact:15102834012",
+        "run:45843054743; e009-kernel 188 tests; Layer 0 16/16 suites; Layer 1 success",
+        "six post-fix Granite feasibility trials retained; all six failed; no candidate qualified",
+        "experiments/e009/local_agent.py#_duplicate_completed_tool_response",
+        "experiments/e009/local_agent.py#_deduplicate_tool_outcomes",
+        "experiments/e009/test_local_agent.py#duplicate-discovery-inspection-compaction-regressions"
       ]
     }
   ]
