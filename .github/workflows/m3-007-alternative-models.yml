@@ -1,6 +1,14 @@
 name: M3-007 Alternative CPU Model Cohort
 
 on:
+  push:
+    branches:
+      - "research/**"
+    paths:
+      - ".github/workflows/m3-007-alternative-models.yml"
+      - "experiments/e007/model_candidates_v2.json"
+      - "experiments/e007/m3_alt_model_cohort.py"
+      - "experiments/e007/test_m3_alt_model_cohort.py"
   workflow_dispatch:
     inputs:
       phase:
@@ -19,10 +27,35 @@ permissions:
   actions: read
 
 concurrency:
-  group: m3-007-${{ inputs.phase }}
+  group: m3-007-${{ github.ref }}-${{ inputs.phase || github.event_name }}
   cancel-in-progress: false
 
 jobs:
+  static-validation:
+    if: ${{ github.event_name == 'push' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout the research branch
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Validate candidate preregistration and helper tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m json.tool experiments/e007/model_candidates_v2.json >/dev/null
+          python3 -m unittest discover -s experiments/e007 -p 'test_m3_alt_model_cohort.py' -v
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          candidates=json.loads(Path("experiments/e007/model_candidates_v2.json").read_text())
+          expected={"qwen3:1.7b","granite4.2:3b","qwen3:4b"}
+          actual={item["tag"] for item in candidates["models"]}
+          if actual != expected:
+              raise SystemExit("m3_007_candidate_set_changed")
+          if candidates.get("status") not in {"bootstrap_pending","manifest_locked_not_qualified"}:
+              raise SystemExit("m3_007_candidate_status_invalid")
+          PY
+
   cohort:
     if: ${{ github.event_name == 'workflow_dispatch' && (github.ref == 'refs/heads/research/m3-007-alternative-cohort' || github.ref == 'refs/heads/research/reboot-core') }}
     runs-on: ubuntu-latest
