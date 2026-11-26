@@ -128,6 +128,10 @@ def verify(args: argparse.Namespace) -> int:
         raise ValueError("model_lock_runtime_mismatch")
     if candidates["runtime"]["version"] not in args.ollama_version:
         raise ValueError("ollama_runtime_version_mismatch")
+    if lock.get("runtime_observed") != args.ollama_version.strip():
+        raise ValueError("model_lock_runtime_observation_mismatch")
+    if lock.get("policy") != candidates.get("policy"):
+        raise ValueError("model_lock_policy_mismatch")
     expected = {item["tag"]: item for item in lock.get("models", [])}
     declared = {item["tag"]: item for item in candidates.get("models", [])}
     if not expected or set(expected) != set(declared):
@@ -168,6 +172,11 @@ def seal(args: argparse.Namespace) -> int:
     if not observation.get("models") or len(observation["models"]) != len(candidates["models"]):
         raise ValueError("bootstrap_observation_model_count_mismatch")
     by_tag = {item["tag"]: item for item in observation["models"]}
+    expected_tags = {item["tag"] for item in candidates["models"]}
+    if len(by_tag) != len(observation["models"]) or set(by_tag) != expected_tags:
+        raise ValueError("bootstrap_observation_candidate_set_mismatch")
+    if candidates["runtime"]["version"] not in observation.get("runtime_observed", ""):
+        raise ValueError("bootstrap_observation_runtime_mismatch")
     updated = dict(candidates)
     updated["status"] = "manifest_locked_not_qualified"
     updated["bootstrap_provenance"] = {
