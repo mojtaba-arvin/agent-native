@@ -6,7 +6,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from m3_alt_model_cohort import model_manifest_path, observed_model
+from argparse import Namespace
+
+from m3_alt_model_cohort import collect, model_manifest_path, observed_model, seal, verify
 
 
 class AlternativeModelCohortTests(unittest.TestCase):
