@@ -9,6 +9,7 @@ on:
       - "experiments/e007/model_candidates_v2.json"
       - "experiments/e007/m3_alt_model_cohort.py"
       - "experiments/e007/test_m3_alt_model_cohort.py"
+      - "experiments/e007/test_m3_007_workflow.py"
   workflow_dispatch:
     inputs:
       phase:
