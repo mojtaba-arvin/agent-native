@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "request_id": "e007-provider-http500-repro-a-20261118-attempt2",
+  "branch": "research/reboot-core",
+  "workflow": "e007-provider-diagnostic.yml",
+  "model": "qwen3:8b",
+  "case_path": "experiments/e007/evals/e007-factorial-a-snapshot-per-operation-v1.eval.json",
+  "arm": "upfront",
+  "repetitions": 1,
+  "temperature": 0,
+  "top_p": 1,
+  "seed": 42,
+  "num_ctx": 16384,
+  "num_predict": 2048,
+  "max_input_tokens": 120000,
+  "max_output_tokens": 6000,
+  "max_tool_calls": 20,
+  "max_wall_seconds": 3000,
+  "no_apply": true
+}

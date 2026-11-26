@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "default_decision": "deny",
+  "capabilities": [
+    "items.read",
+    "items.create",
+    "jobs.submit",
+    "jobs.read",
+    "jobs.cancel"
+  ],
+  "effects": [
+    "repository.read",
+    "repository.write",
+    "queue.submit",
+    "queue.read",
+    "queue.cancel"
+  ]
+}

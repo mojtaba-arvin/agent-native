@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "snapshot": "2026-11-16",
+  "source": {
+    "workflow_run_id": 43846465352,
+    "workflow_run_url": "https://github.com/mojtaba-arvin/agent-native/actions/runs/43846465352",
+    "artifact_id": 14215785765,
+    "artifact_name": "e002-initial-runtime-matrix",
+    "source_commit": "23d955b4b20b613debe694868e2104074c289386",
+    "runner": "GitHub-hosted ubuntu-latest"
+  },
+  "protocol": {
+    "requests_per_candidate_per_repetition": 1000,
+    "concurrency": 32,
+    "warmup_requests": 100,
+    "repetitions": 3,
+    "randomization_seed": 20261116,
+    "request": "GET /work?ms=0",
+    "status_counts": "1000 HTTP 200 responses in every repetition"
+  },
+  "results": {
+    "rust-tokio-hyper": {
+      "median_throughput_rps": 5061.29,
+      "median_p50_ms": 5.735,
+      "median_p95_ms": 11.226,
+      "median_p99_ms": 13.639,
+      "median_cpu_seconds_sampled": 0.06,
+      "median_peak_process_tree_rss_bytes_sampled": 4354048
+    },
+    "beam-elixir-otp": {
+      "median_throughput_rps": 4844.57,
+      "median_p50_ms": 6.01,
+      "median_p95_ms": 11.091,
+      "median_p99_ms": 13.72,
+      "median_cpu_seconds_sampled": 0.2,
+      "median_peak_process_tree_rss_bytes_sampled": 95551488
+    },
+    "go-net-http": {
+      "median_throughput_rps": 4500.89,
+      "median_p50_ms": 6.427,
+      "median_p95_ms": 12.412,
+      "median_p99_ms": 15.785,
+      "median_cpu_seconds_sampled": 0.12,
+      "median_peak_process_tree_rss_bytes_sampled": 12271616
+    },
+    "wasi-p2-wasmtime-50.0.1": {
+      "median_throughput_rps": 4183.1,
+      "median_p50_ms": 6.803,
+      "median_p95_ms": 13.863,
+      "median_p99_ms": 17.049,
+      "median_cpu_seconds_sampled": 0.24,
+      "median_peak_process_tree_rss_bytes_sampled": 29454336
+    }
+  },
+  "interpretation": {
+    "decision_grade": false,
+    "runtime_selection": null,
+    "limitations": [
+      "Only three repetitions on a shared GitHub-hosted runner.",
+      "Single trivial in-memory endpoint; no database, serialization-heavy payload, auth policy, or inter-service traffic.",
+      "CPU time is read from /proc tick counters and is coarse for these short runs.",
+      "RSS is sampled every 20 ms and can miss short-lived peaks.",
+      "WASI numbers include the Wasmtime CLI host; BEAM numbers include the Mix/BEAM process tree.",
+      "No confidence intervals, CPU pinning, frequency control, or dedicated-machine isolation."
+    ]
+  }
+}

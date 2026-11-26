@@ -1,0 +1,111 @@
+{
+  "schema_version": 1,
+  "requirements": [
+    {
+      "id": "SEC-001",
+      "name": "default_deny",
+      "status": "prototype_tested",
+      "test": "test_missing_capability_is_denied_by_default"
+    },
+    {
+      "id": "SEC-002",
+      "name": "explicit_effect_allowlist",
+      "status": "prototype_tested",
+      "test": "test_undeclared_effect_is_denied_even_with_grant"
+    },
+    {
+      "id": "SEC-003",
+      "name": "principal_and_tenant_binding",
+      "status": "prototype_tested",
+      "test": "test_cross_tenant_grant_is_denied"
+    },
+    {
+      "id": "SEC-004",
+      "name": "resource_scope_boundary",
+      "status": "prototype_tested",
+      "test": "test_resource_scope_uses_path_boundaries"
+    },
+    {
+      "id": "SEC-005",
+      "name": "grant_expiry",
+      "status": "prototype_tested",
+      "test": "test_expired_grant_is_denied"
+    },
+    {
+      "id": "SEC-006",
+      "name": "delegation_attenuation",
+      "status": "prototype_tested",
+      "test": "test_delegation_can_only_narrow_scope_and_expiry"
+    },
+    {
+      "id": "SEC-007",
+      "name": "delegation_depth",
+      "status": "prototype_tested",
+      "test": "test_delegation_depth_is_enforced"
+    },
+    {
+      "id": "SEC-008",
+      "name": "structured_audit_decision",
+      "status": "prototype_tested",
+      "test": "test_matching_grant_allows_declared_effect"
+    },
+    {
+      "id": "SEC-009",
+      "name": "no_ambient_secret_authority",
+      "status": "design_only",
+      "test": null
+    },
+    {
+      "id": "SEC-010",
+      "name": "default_deny_network_egress",
+      "status": "design_only",
+      "test": null
+    },
+    {
+      "id": "SEC-011",
+      "name": "hard_runtime_resource_quotas",
+      "status": "reference_model_only",
+      "test": null
+    },
+    {
+      "id": "SEC-012",
+      "name": "cryptographic_grant_authentication_and_revocation",
+      "status": "design_only",
+      "test": null
+    },
+    {
+      "id": "SEC-013",
+      "name": "tenant_isolation_at_storage_boundary",
+      "status": "design_only",
+      "test": null
+    },
+    {
+      "id": "SEC-014",
+      "name": "human_approval_for_high_impact_actions",
+      "status": "design_only",
+      "test": null
+    },
+    {
+      "id": "SEC-015",
+      "name": "canonical_resource_and_immutable_authority_inputs",
+      "status": "prototype_tested",
+      "test": "test_encoded_and_ambiguous_resource_paths_are_rejected"
+    },
+    {
+      "id": "SEC-016",
+      "name": "malformed_requested_effects_denied",
+      "status": "prototype_tested",
+      "test": "test_malformed_requested_effects_are_denied_without_crashing"
+    }
+  ],
+  "human_approval_gates": [
+    "production_deployment",
+    "destructive_migration",
+    "capability_scope_widening",
+    "broad_network_egress",
+    "production_secret_export",
+    "resource_quota_increase",
+    "release_credential_change"
+  ],
+  "production_enforcement_enabled": false
+}

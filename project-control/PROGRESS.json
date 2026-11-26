@@ -1,0 +1,377 @@
+{
+  "schema_version": 1,
+  "as_of": "2026-11-19",
+  "overall_status": "in_progress",
+  "completion_claims": [
+    {
+      "id": "CLAIM-CI-001",
+      "statement": "The unified CI workflow passed its configured Layer 0 and Layer 1 checks on the PR head; this does not assert a capacity benchmark or M3 model acceptance.",
+      "status": "verified",
+      "evidence_event_ids": [
+        "CP-UNIFIED-CI-RUN-026"
+      ]
+    },
+    {
+      "id": "CLAIM-C0-001",
+      "statement": "Versioned project state documents exist in the reviewed PR head.",
+      "status": "verified",
+      "milestone_id": "C0",
+      "criterion": "Versioned project state exists",
+      "evidence_event_ids": [
+        "CP-CONTROL-STATE-001"
+      ]
+    },
+    {
+      "id": "CLAIM-C0-002",
+      "statement": "Task contracts define acceptance and recovery behavior.",
+      "status": "verified",
+      "milestone_id": "C0",
+      "criterion": "Task contracts define acceptance and recovery",
+      "evidence_event_ids": [
+        "CP-CONTROL-STATE-001"
+      ]
+    },
+    {
+      "id": "CLAIM-C0-003",
+      "statement": "The control-plane validator rejects malformed statuses and broken references in negative self-tests.",
+      "status": "verified",
+      "milestone_id": "C0",
+      "criterion": "Validator rejects malformed statuses and broken references",
+      "evidence_event_ids": [
+        "CP-CI-RUN-952"
+      ]
+    },
+    {
+      "id": "CLAIM-C1-001",
+      "statement": "The append-only run ledger preserves successful, failed, cancelled, and ineligible executions with immutable run IDs, commit references, and evidence URLs.",
+      "status": "verified",
+      "milestone_id": "C1",
+      "criterion": "Run ledger records successes and failures with immutable evidence references",
+      "evidence_event_ids": [
+        "CP-LEDGER-STRUCTURE-001"
+      ]
+    },
+    {
+      "id": "CLAIM-C1-002",
+      "statement": "The unified CI runs the control-plane validator and negative self-tests, rejecting malformed statuses, broken references, invalid ledger events, and preregistration violations.",
+      "status": "verified",
+      "milestone_id": "C1",
+      "criterion": "CI rejects malformed control-plane state",
+      "evidence_event_ids": [
+        "CP-CI-RUN-952"
+      ]
+    },
+    {
+      "id": "CLAIM-C1-003",
+      "statement": "The claims checker requires every verified milestone criterion to map to exactly one completion claim backed by eligible immutable ledger evidence.",
+      "status": "verified",
+      "milestone_id": "C1",
+      "criterion": "Progress claims resolve to evidence",
+      "evidence_event_ids": [
+        "CP-CLAIMS-VALIDATION-002"
+      ]
+    },
+    {
+      "id": "CLAIM-M0-002",
+      "statement": "Benchmark cohorts and thresholds are preregistered in Git-blob-pinned manifests; the manual E-009 capacity workflow consumes its frozen configuration and validates the decision chain before dispatch.",
+      "status": "verified",
+      "milestone_id": "M0",
+      "criterion": "Benchmark cohorts and thresholds are preregistered and immutable after start",
+      "evidence_event_ids": [
+        "CI-RUN-44441229102"
+      ]
+    },
+    {
+      "id": "CLAIM-M0-001",
+      "statement": "The current branch inventory preserves the four unique E-007 research branches and their evidence artifacts, records exact branch tips/reachability for all 27 refs, and performs no destructive ref operations.",
+      "status": "verified",
+      "milestone_id": "M0",
+      "criterion": "Research-only branch content is preserved and reviewed before pruning",
+      "evidence_event_ids": [
+        "CP-M0-001-COMPLETE-002"
+      ]
+    },
+    {
+      "id": "CLAIM-M0-003",
+      "statement": "Fast CI generates a run-bound JSON summary and a source-hash-pinned scorecard from CI output, the append-only run ledger, and the progress register; it preserves unknown test counts and failed/cancelled/ineligible history.",
+      "status": "verified",
+      "milestone_id": "M0",
+      "criterion": "Run artifacts and test counts are generated from source evidence",
+      "evidence_event_ids": [
+        "CI-RUN-44443670754"
+      ]
+    },
+    {
+      "id": "CLAIM-C0-004",
+      "statement": "A fresh process can resume from committed repository state through the machine-readable resume command, which enforces task dependencies and WIP limits.",
+      "status": "verified",
+      "milestone_id": "C0",
+      "criterion": "A clean handoff can resume from repository state",
+      "evidence_event_ids": [
+        "CP-008-RESUME-001"
+      ]
+    },
+    {
+      "id": "CLAIM-C1-004",
+      "statement": "Decision history changes are dated, hash-chained, and append-only; CI rejects rewrites and truncation while preserving prior rationale.",
+      "status": "verified",
+      "milestone_id": "C1",
+      "criterion": "Decision changes are dated and preserve prior rationale",
+      "evidence_event_ids": [
+        "C1-DECISION-APPEND-001"
+      ]
+    },
+    {
+      "id": "CLAIM-M1-001",
+      "statement": "The agent_native package installs in a clean isolated virtual environment, exposes stable public imports, and declares no runtime dependencies.",
+      "status": "verified",
+      "milestone_id": "M1",
+      "criterion": "Installable agent_native package",
+      "evidence_event_ids": [
+        "M1-PACKAGE-CLI-001"
+      ]
+    },
+    {
+      "id": "CLAIM-M1-002",
+      "statement": "Supported package and CLI imports do not mutate sys.path; historical E-009/E-010 entry points are explicitly isolated as non-package experiments, with E-009/E-004 parity tests passing against the package API.",
+      "status": "verified",
+      "milestone_id": "M1",
+      "criterion": "No import-time sys.path mutation",
+      "evidence_event_ids": [
+        "M1-PACKAGE-CLI-001"
+      ]
+    },
+    {
+      "id": "CLAIM-M1-003",
+      "statement": "The installed agent-native command exposes check, inspect, run, worker, and audit with explicit paths/service IDs, deterministic help, machine-readable errors, stable exit codes, and no implicit production credentials.",
+      "status": "verified",
+      "milestone_id": "M1",
+      "criterion": "Unified CLI supports check/run/inspect/worker/audit",
+      "evidence_event_ids": [
+        "M1-PACKAGE-CLI-001"
+      ]
+    },
+    {
+      "id": "CLAIM-M1-004",
+      "statement": "All 15 deterministic CI suites pass with 627 known tests; the installed-package suite includes 54 CLI/package/parity tests and preserves the prior experiment suites.",
+      "status": "verified",
+      "milestone_id": "M1",
+      "criterion": "Existing deterministic test coverage is preserved or increased",
+      "evidence_event_ids": [
+        "M1-PACKAGE-CLI-001"
+      ]
+    },
+    {
+      "id": "CLAIM-C2-001",
+      "statement": "The dependency-aware scheduler emits only dependency-ready tasks and respects the configured WIP limit.",
+      "status": "verified",
+      "milestone_id": "C2",
+      "criterion": "Scheduler selects only ready tasks within WIP limits",
+      "evidence_event_ids": [
+        "CP-009-SCHEDULER-CI-001"
+      ]
+    },
+    {
+      "id": "CLAIM-C2-002",
+      "statement": "Repeated identical task failures and no-progress attempts trigger a stop-and-replan result rather than automatic unchanged retries.",
+      "status": "verified",
+      "milestone_id": "C2",
+      "criterion": "Repeated failures force a documented replan",
+      "evidence_event_ids": [
+        "CP-009-SCHEDULER-CI-001"
+      ]
+    },
+    {
+      "id": "CLAIM-C2-003",
+      "statement": "Active and scheduled workstreams carry explicit, distinct working branches, base branches, and integration ownership.",
+      "status": "verified",
+      "milestone_id": "C2",
+      "criterion": "Independent task branches and integration ownership are explicit",
+      "evidence_event_ids": [
+        "CP-009-SCHEDULER-CI-001"
+      ]
+    },
+    {
+      "id": "CLAIM-M2-001",
+      "statement": "The Gateway resolves services by manifest/service ID rather than a hard-coded demo mapping.",
+      "status": "verified",
+      "milestone_id": "M2",
+      "criterion": "Gateway resolves service by manifest/id, not a hard-coded demo",
+      "evidence_event_ids": [
+        "M2-INTEGRATION-2026-11-19-001"
+      ]
+    },
+    {
+      "id": "CLAIM-M2-002",
+      "statement": "Declarative CRUD, job, and event handlers are driven by service IR and generic dispatch.",
+      "status": "verified",
+      "milestone_id": "M2",
+      "criterion": "Declarative CRUD/job/event handlers are driven by IR",
+      "evidence_event_ids": [
+        "M2-INTEGRATION-2026-11-19-001"
+      ]
+    },
+    {
+      "id": "CLAIM-M2-003",
+      "statement": "Write effects and capabilities are explicit, default-deny, tenant/resource scoped, and cannot be applied by the agent.",
+      "status": "verified",
+      "milestone_id": "M2",
+      "criterion": "Write effects/capabilities are explicit and deny-by-default",
+      "evidence_event_ids": [
+        "M2-INTEGRATION-2026-11-19-001"
+      ]
+    },
+    {
+      "id": "CLAIM-M2-004",
+      "statement": "A second service (Inventory) uses the same Gateway without service-specific core changes; positive write planning and negative capability/tenant cases pass.",
+      "status": "verified",
+      "milestone_id": "M2",
+      "criterion": "A new service can be added without core changes",
+      "evidence_event_ids": [
+        "M2-INTEGRATION-2026-11-19-001"
+      ]
+    },
+    {
+      "id": "CLAIM-M3-003-001",
+      "statement": "The locked zero-cost CPU feasibility evaluation completed on the pinned Granite model/runtime set, retained all six raw outcomes, and verified that no candidate completed the full E009 inspect/propose/validate/plan lifecycle.",
+      "status": "verified",
+      "evidence_event_ids": [
+        "M3-003-FEASIBILITY-2026-11-19-001"
+      ]
+    },
+    {
+      "id": "CLAIM-M3-004-001",
+      "statement": "The E009 provider adapter now exposes exact discovered Gateway schemas as provider-native functions, preserves the trusted Gateway dispatch boundary, rejects undiscovered tools, and passes the 143-test Layer 0 suite plus Layer 1 native/container/database/PostgreSQL validation.",
+      "status": "verified",
+      "evidence_event_ids": [
+        "M3-004-IMPLEMENTATION-2026-11-19-001"
+      ]
+    },
+    {
+      "id": "CLAIM-M3-006-001",
+      "statement": "A separate shortlist of small CPU-capable Ollama tool-calling models was researched from official model-library metadata, with exact tags, published download sizes, context metadata, and a resource-heavier reserve; the active Granite cohort and lock were not changed.",
+      "status": "verified",
+      "evidence_event_ids": [
+        "M3-006-RESEARCH-VERIFIED-2026-11-19-002"
+      ]
+    },
+    {
+      "id": "CLAIM-CP-011-001",
+      "statement": "The expensive M3 CPU feasibility workflow no longer triggers on documentation-only report changes or on edits to its own workflow definition; executable harness/model inputs still trigger it and workflow_dispatch remains available.",
+      "status": "verified",
+      "evidence_event_ids": [
+        "CP-011-M3-TRIGGER-OPTIMIZATION-2026-11-19-001"
+      ]
+    },
+    {
+      "id": "CLAIM-M3-005-001",
+      "statement": "The locked six-cell CPU feasibility rerun completed on the provider-native schema adapter with all raw traces retained. No model completed inspect/propose/validate/plan; the strongest run reached successful proposal and validation but exceeded the unchanged input-token budget before planning.",
+      "status": "verified",
+      "evidence_event_ids": [
+        "M3-005-CPU-RERUN-2026-11-19-001"
+      ]
+    }
+  ],
+  "milestones": {
+    "C0": {
+      "status": "complete",
+      "verified_exit_criteria": [
+        "Versioned project state exists",
+        "Task contracts define acceptance and recovery",
+        "Validator rejects malformed statuses and broken references",
+        "A clean handoff can resume from repository state"
+      ],
+      "total_exit_criteria": 4
+    },
+    "C1": {
+      "status": "complete",
+      "verified_exit_criteria": [
+        "Run ledger records successes and failures with immutable evidence references",
+        "Progress claims resolve to evidence",
+        "Decision changes are dated and preserve prior rationale",
+        "CI rejects malformed control-plane state"
+      ],
+      "total_exit_criteria": 4
+    },
+    "C2": {
+      "status": "complete",
+      "verified_exit_criteria": [
+        "Scheduler selects only ready tasks within WIP limits",
+        "Repeated failures force a documented replan",
+        "Independent task branches and integration ownership are explicit"
+      ],
+      "total_exit_criteria": 3
+    },
+    "C3": {
+      "status": "pending",
+      "verified_exit_criteria": [],
+      "total_exit_criteria": 3
+    },
+    "C4": {
+      "status": "pending",
+      "verified_exit_criteria": [],
+      "total_exit_criteria": 3
+    },
+    "M0": {
+      "status": "complete",
+      "verified_exit_criteria": [
+        "Research-only branch content is preserved and reviewed before pruning",
+        "Benchmark cohorts and thresholds are preregistered and immutable after start",
+        "Run artifacts and test counts are generated from source evidence"
+      ],
+      "total_exit_criteria": 3
+    },
+    "M1": {
+      "status": "complete",
+      "verified_exit_criteria": [
+        "Installable agent_native package",
+        "No import-time sys.path mutation",
+        "Unified CLI supports check/run/inspect/worker/audit",
+        "Existing deterministic test coverage is preserved or increased"
+      ],
+      "total_exit_criteria": 4
+    },
+    "M2": {
+      "status": "complete",
+      "verified_exit_criteria": [
+        "Gateway resolves service by manifest/id, not a hard-coded demo",
+        "Declarative CRUD/job/event handlers are driven by IR",
+        "Write effects/capabilities are explicit and deny-by-default",
+        "A new service can be added without core changes"
+      ],
+      "total_exit_criteria": 4
+    },
+    "M3": {
+      "status": "in_progress",
+      "verified_exit_criteria": [],
+      "total_exit_criteria": 4
+    },
+    "M4": {
+      "status": "pending",
+      "verified_exit_criteria": [],
+      "total_exit_criteria": 4
+    },
+    "M5": {
+      "status": "pending",
+      "verified_exit_criteria": [],
+      "total_exit_criteria": 4
+    }
+  },
+  "known_baseline_facts": [
+    {
+      "claim": "E-009 integrated single-node kernel and durable SQLite audit sink exist",
+      "status": "observed_in_prior_project_snapshot",
+      "verification_required": true
+    },
+    {
+      "claim": "E-007 real-model runs have not established complete end-to-end acceptance",
+      "status": "observed_in_prior_project_snapshot",
+      "verification_required": true
+    },
+    {
+      "claim": "E-002 candidate measurements are diagnostic and do not select a runtime",
+      "status": "observed_in_prior_project_snapshot",
+      "verification_required": true
+    }
+  ]
+}

@@ -1,0 +1,272 @@
+{
+  "protocol_version": "0.1",
+  "tools": [
+    {
+      "name": "interface.describe",
+      "summary": "Discover compact tool metadata or one detailed schema.",
+      "mode": "read_only",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "service.inspect",
+      "summary": "Inspect one service or one operation contract.",
+      "mode": "read_only",
+      "input_schema": {
+        "type": "object",
+        "required": [
+          "service_id"
+        ],
+        "properties": {
+          "service_id": {
+            "type": "string"
+          },
+          "operation": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "service.propose",
+      "summary": "Create an immutable change set containing a complete canonical service IR snapshot (not a patch) against a known base revision; does not apply it.",
+      "mode": "proposal_only",
+      "input_schema": {
+        "type": "object",
+        "required": [
+          "service_id",
+          "base_revision",
+          "ir"
+        ],
+        "properties": {
+          "service_id": {
+            "type": "string"
+          },
+          "base_revision": {
+            "type": "string"
+          },
+          "ir": {
+            "type": "object",
+            "description": "Complete proposed service IR snapshot, not a partial patch. Include ir_version=1, service, all types, and all existing operations plus requested changes.",
+            "required": [
+              "ir_version",
+              "service",
+              "types",
+              "operations"
+            ],
+            "properties": {
+              "ir_version": {
+                "type": "integer",
+                "enum": [
+                  1
+                ]
+              },
+              "service": {
+                "type": "object",
+                "required": [
+                  "name",
+                  "version"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "version": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "types": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "name",
+                    "fields"
+                  ],
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "name",
+                          "type"
+                        ],
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "type": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "operations": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "name",
+                    "method",
+                    "path",
+                    "input",
+                    "output",
+                    "errors",
+                    "validation",
+                    "effects",
+                    "capability"
+                  ],
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "method": {
+                      "type": "string",
+                      "enum": [
+                        "GET",
+                        "POST",
+                        "PUT",
+                        "PATCH",
+                        "DELETE"
+                      ]
+                    },
+                    "path": {
+                      "type": "string"
+                    },
+                    "input": {
+                      "type": "array",
+                      "description": "Array of typed declarations; never an object map.",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "name",
+                          "source",
+                          "type"
+                        ],
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "source": {
+                            "type": "string",
+                            "enum": [
+                              "path",
+                              "query",
+                              "body",
+                              "header"
+                            ]
+                          },
+                          "type": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    },
+                    "output": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "validation": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "effects": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "capability": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "service.validate",
+      "summary": "Validate a proposed change set against trusted structural and effect constraints.",
+      "mode": "read_only",
+      "input_schema": {
+        "type": "object",
+        "required": [
+          "change_set_id"
+        ],
+        "properties": {
+          "change_set_id": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "service.plan",
+      "summary": "Preview effects and required human approvals without applying changes.",
+      "mode": "read_only",
+      "input_schema": {
+        "type": "object",
+        "required": [
+          "change_set_id"
+        ],
+        "properties": {
+          "change_set_id": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "service.apply",
+      "summary": "Disabled in this prototype; no state or production changes can be applied.",
+      "mode": "disabled",
+      "input_schema": {
+        "type": "object",
+        "required": [
+          "change_set_id"
+        ],
+        "properties": {
+          "change_set_id": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  ]
+}

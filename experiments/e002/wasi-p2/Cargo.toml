@@ -1,0 +1,11 @@
+[package]
+name = "agent-native-e002-wasi-p2"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+futures-lite = "=2.6.1"
+wstd = "=0.6.8"

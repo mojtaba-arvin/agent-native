@@ -1,0 +1,67 @@
+services:
+  postgres:
+    image: postgres:16.4@sha256:e62fbf9d3e2b49816a32c400ed2dba83e3b361e6833e624024309c35d334b412
+    environment:
+      POSTGRES_USER: agent_native
+      POSTGRES_PASSWORD: ${T18_POSTGRES_PASSWORD:?T18_POSTGRES_PASSWORD is required}
+      POSTGRES_DB: agent_native
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agent_native -d agent_native"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+      start_period: 3s
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    restart: "no"
+
+  app:
+    image: agent-native:t15
+    command:
+      - serve
+      - --services-root
+      - /opt/agent-native/services
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8080"
+      - --max-concurrency
+      - "32"
+      - --max-request-body-bytes
+      - "16384"
+      - --request-timeout-seconds
+      - "10"
+      - --allow-non-loopback
+    environment:
+      AGENT_NATIVE_POSTGRES_DSN: postgresql://agent_native:${T18_POSTGRES_PASSWORD:?required}@postgres:5432/agent_native
+      AGENT_NATIVE_POSTGRES_SCHEMA: agent_native
+      AGENT_NATIVE_TOKEN_SIGNING_KEY_HEX: ${T18_TOKEN_SIGNING_KEY_HEX:?T18_TOKEN_SIGNING_KEY_HEX is required}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ../../services:/opt/agent-native/services:ro
+    ports:
+      - "127.0.0.1:${T18_HTTP_PORT:-18080}:8080"
+    user: "65532:65532"
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health/ready', timeout=2).read()"
+      interval: 2s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
+    restart: "no"
+
+volumes:
+  postgres-data:

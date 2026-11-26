@@ -1,0 +1,740 @@
+name: Agent Native CI
+
+on:
+  push:
+    branches:
+      - main
+      - "research/**"
+  pull_request:
+    types: [opened, reopened, ready_for_review, synchronize]
+  pull_request_review:
+    types: [submitted, dismissed]
+  merge_group:
+    types: [checks_requested]
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+    inputs:
+      run_benchmark_matrix:
+        description: Run the extended E-002 performance matrix
+        required: false
+        type: boolean
+        default: false
+      generate_lockfiles:
+        description: Generate and upload pinned Rust lockfiles
+        required: false
+        type: boolean
+        default: false
+      run_e009_performance_confirmation:
+        description: Run the explicit ten-repetition E-009 capacity confirmation
+        required: false
+        type: boolean
+        default: false
+      model_suite:
+        description: Optional manual CPU diagnostic; not M3 acceptance
+        required: false
+        type: choice
+        default: none
+        options: [none, e007, e009, e010]
+
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read
+
+jobs:
+  # Each expensive lane has its own branch-scoped queue. A run in one lane
+  # cannot cancel or occupy another lane's concurrency group.
+  changes:
+    name: Detect extended-check impact
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      extended: ${{ steps.detect.outputs.extended }}
+      t09: ${{ steps.detect.outputs.t09 }}
+    steps:
+      - id: detect
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            core.setOutput('t09', 'false');
+            const isT09Measurement = (path) =>
+              path === 'experiments/e002/controlled_host_matrix.py' ||
+              path === 'experiments/e002/test_controlled_host_matrix.py' ||
+              path === 'experiments/e002/T09-evidence.md' ||
+              path.startsWith('experiments/e002/loadgen/') ||
+              path.startsWith('experiments/e002/controlled-host/');
+            const needsExtended = (path) =>
+              path.startsWith('.github/') ||
+              path.startsWith('scripts/') ||
+              path.startsWith('acceptance/') ||
+              path.startsWith('src/') ||
+              path.startsWith('tests/') ||
+              path.startsWith('schemas/') ||
+              path.startsWith('services/') ||
+              path.startsWith('project-control/') ||
+              path.startsWith('experiments/e001/baselines/') ||
+              path.startsWith('experiments/e002/') ||
+              path.startsWith('experiments/e009/');
+
+            try {
+              let paths = [];
+              if (context.eventName === 'pull_request' || context.eventName === 'pull_request_review') {
+                const files = await github.paginate(github.rest.pulls.listFiles, {
+                  owner,
+                  repo,
+                  pull_number: context.payload.pull_request.number,
+                  per_page: 100
+                });
+                if (files.length >= 3000) {
+                  core.setOutput('extended', 'true');
+                  return;
+                }
+                paths = files.map(file => file.filename);
+              } else if (context.eventName === 'push') {
+                const before = context.payload.before;
+                const head = context.payload.after;
+                if (!before || /^0+$/.test(before)) {
+                  core.setOutput('extended', 'true');
+                  return;
+                }
+                const { data } = await github.rest.repos.compareCommits({
+                  owner,
+                  repo,
+                  base: before,
+                  head
+                });
+                if (!data.files || data.files.length >= 300) {
+                  core.setOutput('extended', 'true');
+                  return;
+                }
+                paths = data.files.map(file => file.filename);
+              } else if (context.eventName === 'merge_group' || context.eventName === 'schedule') {
+                core.setOutput('extended', 'true');
+                return;
+              } else {
+                core.setOutput('extended', 'false');
+                return;
+              }
+              core.setOutput('t09', String(paths.some(isT09Measurement)));
+              core.setOutput('extended', String(paths.some(needsExtended)));
+            } catch (error) {
+              core.warning('Could not classify extended-check impact; failing safe by running Layer 1: ' + error.message);
+              core.setOutput('extended', 'true');
+            }
+
+  fast:
+    concurrency:
+      group: agent-native-fast-${{ github.event.pull_request.number || github.ref }}
+      cancel-in-progress: false
+    name: Layer 0 · deterministic fast checks
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      AGENT_NATIVE_SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      AGENT_NATIVE_SOURCE_BRANCH: ${{ github.head_ref || github.ref_name }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify PR head includes the latest target branch
+        if: github.event_name == 'pull_request' || github.event_name == 'pull_request_review'
+        shell: bash
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin "+refs/heads/${BASE_REF}:refs/remotes/origin/pr-base"
+          base_sha="$(git rev-parse refs/remotes/origin/pr-base)"
+          git cat-file -e "${HEAD_SHA}^{commit}"
+          if ! git merge-base --is-ancestor "${base_sha}" "${HEAD_SHA}"; then
+            echo "::error::PR head is behind its current target branch; update the working branch and rerun CI."
+            exit 1
+          fi
+          echo "PR head contains current target branch ${base_sha}."
+      - name: Enforce independent reviews for trust-boundary changes
+        if: github.event_name == 'pull_request' || github.event_name == 'pull_request_review'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const pull = context.payload.pull_request;
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner, repo, pull_number: pull.number, per_page: 100
+            });
+            const trustBoundary = (path) =>
+              path.startsWith('src/agent_native/auth/') ||
+              path.startsWith('src/agent_native/authz/') ||
+              path.startsWith('src/agent_native/identity/') ||
+              path.startsWith('src/agent_native/capability/') ||
+              path.startsWith('src/agent_native/gateway/') ||
+              path.startsWith('src/agent_native/apply/') ||
+              path.startsWith('src/agent_native/rollback/') ||
+              path === 'src/agent_native/security.py' ||
+              path === 'src/agent_native/runtime.py' ||
+              path === 'src/agent_native/handlers.py' ||
+              path === 'src/agent_native/manifest.py' ||
+              path === 'src/agent_native/ir.py';
+            const changed = files.map(file => file.filename).filter(trustBoundary);
+            if (changed.length === 0) {
+              core.info('No trust-boundary implementation paths changed; independent-review gate not applicable.');
+              return;
+            }
+            const reviews = await github.paginate(github.rest.pulls.listReviews, {
+              owner, repo, pull_number: pull.number, per_page: 100
+            });
+            const latest = new Map();
+            for (const review of reviews.sort((a, b) =>
+              new Date(a.submitted_at || 0) - new Date(b.submitted_at || 0))) {
+              if (review.user?.login) {
+                latest.set(review.user.login, {
+                  state: review.state,
+                  user_type: review.user.type,
+                  commit_id: review.commit_id
+                });
+              }
+            }
+            const approvals = [...latest.entries()]
+              .filter(([login, review]) =>
+                review.state === 'APPROVED' &&
+                review.user_type !== 'Bot' &&
+                review.commit_id === pull.head.sha &&
+                login !== pull.user.login &&
+                !login.endsWith('[bot]'))
+              .map(([login]) => login);
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner, repo, issue_number: pull.number, per_page: 100
+            });
+            const ownerLogin = owner.toLowerCase();
+            const waiverMarker = 'OWNER-APPROVED-REVIEW-WAIVER: ' + pull.head.sha;
+            const ownerAuthoredPull = pull.user?.login?.toLowerCase() === ownerLogin;
+            const ownerWaiver = ownerAuthoredPull && comments.some(comment =>
+              comment.user?.login?.toLowerCase() === ownerLogin &&
+              comment.body?.split(/\r?\n/).some(line => line.trim() === waiverMarker)
+            );
+
+            core.info('Trust-boundary files: ' + changed.join(', '));
+            core.info('Independent approvals on exact head: ' + approvals.length);
+            if (approvals.length >= 2) {
+              core.info('Two independent human approvals satisfy the default trust-boundary gate.');
+            } else if (ownerWaiver) {
+              core.warning('Owner-authorized exact-head waiver found. This is not a peer review and does not count as independent approval.');
+            } else {
+              core.setFailed('Trust-boundary changes require two independent APPROVED reviews or an exact-head repository-owner waiver; found ' + approvals.length + ' approvals and no valid waiver.');
+            }
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11.18"
+      - name: Resolve comparison base
+        id: paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_EVENT_NAME" == "pull_request" || "$GITHUB_EVENT_NAME" == "pull_request_review" ]]; then
+            echo "base=${{ github.event.pull_request.base.sha }}" >> "$GITHUB_OUTPUT"
+          elif [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
+            before="${{ github.event.before }}"
+            if [[ "$before" =~ ^0+$ ]]; then
+              echo "base=" >> "$GITHUB_OUTPUT"
+            else
+              echo "base=$before" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "base=" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Run affected suites in parallel
+        run: |
+          if [[ -n "${{ steps.paths.outputs.base }}" ]]; then
+            bash scripts/fast.sh --base "${{ steps.paths.outputs.base }}" --json-summary "$RUNNER_TEMP/fast-ci-summary.json"
+          else
+            bash scripts/fast.sh --json-summary "$RUNNER_TEMP/fast-ci-summary.json"
+          fi
+      - name: Generate source-verified evidence scorecard
+        if: always() && steps.paths.outcome == 'success'
+        run: |
+          if [[ ! -s "$RUNNER_TEMP/fast-ci-summary.json" ]]; then
+            echo "Fast checks did not emit a summary; skipping scorecard without masking the primary failure."
+            exit 0
+          fi
+          python scripts/generate_scorecard.py \
+            --summary "$RUNNER_TEMP/fast-ci-summary.json" \
+            --ledger project-control/RUN_LEDGER.jsonl \
+            --progress project-control/PROGRESS.json \
+            --output "$RUNNER_TEMP/fast-ci-scorecard.json"
+      - name: Upload fast-CI evidence artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fast-ci-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/fast-ci-summary.json
+            ${{ runner.temp }}/fast-ci-scorecard.json
+          if-no-files-found: ignore
+          retention-days: 30
+
+  extended:
+    concurrency:
+      group: agent-native-extended-${{ github.event.pull_request.number || github.ref }}
+      cancel-in-progress: false
+    name: Layer 1 · native, container, and database validation
+    needs: changes
+    if: always() && (github.event_name == 'merge_group' || github.event_name == 'schedule' || needs.changes.result != 'success' || needs.changes.outputs.extended == 'true')
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    services:
+      postgres:
+        image: postgres:16.4
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: agent_native
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d agent_native"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      AGENT_NATIVE_E002_POSTGRES_DSN: postgresql://postgres:postgres@localhost:5432/agent_native
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11.18"
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23.12"
+      - uses: dtolnay/rust-toolchain@1.100.0
+        with:
+          targets: wasm32-wasip2
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: "29.1.2"
+          elixir-version: "1.20.5"
+      - name: E-001 Go and Rust baselines
+        run: go test ./...
+        working-directory: experiments/e001/baselines/go
+      - name: E-001 Rust baseline
+        run: cargo test --locked
+        working-directory: experiments/e001/baselines/rust
+      - name: E-002 Go runtime
+        run: |
+          go mod tidy
+          go test ./...
+          go build -o "$RUNNER_TEMP/e002-go" .
+          python ../conformance.py --command "$RUNNER_TEMP/e002-go" --cwd .
+        working-directory: experiments/e002/go
+      - name: Upload E-002 Go module lockfile
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e002-go-module-lock-${{ github.sha }}
+          path: |
+            experiments/e002/go/go.mod
+            experiments/e002/go/go.sum
+          retention-days: 7
+      - name: Check T41 Rust storage formatting
+        run: rustfmt --check --edition 2021 experiments/e002/rust/src/storage.rs
+      - name: E-002 Rust runtime
+        run: |
+          cargo test --locked
+          cargo build --locked --release
+          python ../conformance.py --command ./target/release/agent-native-e002-rust --cwd .
+        working-directory: experiments/e002/rust
+      - name: E-002 WASI Preview 2 runtime
+        run: |
+          cargo build --locked --release --target wasm32-wasip2
+          curl -fsSL https://github.com/bytecodealliance/wasmtime/releases/download/v50.0.1/wasmtime-v50.0.1-x86_64-linux.tar.xz -o "$RUNNER_TEMP/wasmtime.tar.xz"
+          tar -xJf "$RUNNER_TEMP/wasmtime.tar.xz" -C "$RUNNER_TEMP"
+          WASMTIME_BIN="$(find "$RUNNER_TEMP" -type f -name wasmtime -perm -111 | head -n 1)"
+          test -n "$WASMTIME_BIN"
+          "$WASMTIME_BIN" --version
+          python ../conformance.py --command "$WASMTIME_BIN serve --addr=127.0.0.1:8080 -S cli=y -S http=y target/wasm32-wasip2/release/agent_native_e002_wasi_p2.wasm" --cwd .
+        working-directory: experiments/e002/wasi-p2
+      - name: E-002 BEAM runtime
+        run: |
+          mix test
+          python ../conformance.py --command "mix run -e AgentNativeE002Beam.Server.main()" --cwd .
+        working-directory: experiments/e002/beam
+      - name: E-002 PostgreSQL storage and cross-engine parity
+        run: |
+          python -m pip install "psycopg[binary]==3.2.9"
+          python -m unittest discover -s experiments/e002 -p "test_postgres_reference_adapter.py" -v
+          python -m unittest discover -s experiments/e002 -p "test_cross_engine_trace_parity.py" -v
+      - name: E-009 cgroup-v2 capacity smoke
+        run: |
+          python experiments/e009/performance_smoke.py \
+            --requests 1000 --repetitions 2 --concurrency 32 --target-rps 100 \
+            --containerized --output "$RUNNER_TEMP/e009-cgroup-smoke.json"
+      - name: E-002 controlled one-vCPU ten-repetition matrix
+        if: github.event_name == 'pull_request' && needs.changes.outputs.t09 == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          BUNDLE="$RUNNER_TEMP/e002-t09-bundle"
+          OUTPUT="$RUNNER_TEMP/e002-t09-matrix"
+          mkdir -p "$BUNDLE" "$OUTPUT"
+
+          (cd experiments/e002/loadgen && go test ./... && go vet ./... && go build -o "$RUNNER_TEMP/e002-loadgen" .)
+          python -m unittest discover -s experiments/e002 -p "test_controlled_host_matrix.py" -v
+          (cd experiments/e002/beam && MIX_ENV=prod mix release --overwrite)
+
+          cp "$RUNNER_TEMP/e002-go" "$BUNDLE/e002-go"
+          cp experiments/e002/rust/target/release/agent-native-e002-rust "$BUNDLE/e002-rust"
+          cp experiments/e002/wasi-p2/target/wasm32-wasip2/release/agent_native_e002_wasi_p2.wasm "$BUNDLE/agent_native_e002_wasi_p2.wasm"
+          WASMTIME_BIN="$(find "$RUNNER_TEMP" -type f -name wasmtime -perm -111 -print -quit)"
+          test -n "$WASMTIME_BIN"
+          cp "$WASMTIME_BIN" "$BUNDLE/wasmtime"
+          {
+            echo "Go: $(go version)"
+            echo "Rust: $(rustc --version)"
+            echo "Cargo: $(cargo --version)"
+            echo "Wasmtime: $("$WASMTIME_BIN" --version)"
+            echo "Elixir and Erlang/OTP:"
+            elixir --version
+          } > "$BUNDLE/toolchains.txt"
+          cp -a experiments/e002/beam/_build/prod/rel/agent_native_e002_beam "$BUNDLE/beam-release"
+          chmod 0755 "$BUNDLE/e002-go" "$BUNDLE/e002-rust" "$BUNDLE/wasmtime"
+
+          python experiments/e002/controlled_host_matrix.py \
+            --bundle "$BUNDLE" \
+            --loadgen "$RUNNER_TEMP/e002-loadgen" \
+            --output "$OUTPUT" \
+            --source-sha "${{ github.event.pull_request.head.sha }}"
+      - name: Upload T09 raw request and cgroup evidence
+        if: always() && github.event_name == 'pull_request' && needs.changes.outputs.t09 == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: e002-controlled-cgroup-matrix-${{ github.run_id }}
+          path: ${{ runner.temp }}/e002-t09-matrix/
+          if-no-files-found: warn
+          retention-days: 90
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: layer-1-native-and-cgroup-evidence
+          path: ${{ runner.temp }}/*.json
+          if-no-files-found: ignore
+          retention-days: 14
+
+  e007-preflight:
+    name: E-007 deterministic preflight before model provisioning
+    if: github.event_name == 'workflow_dispatch' && inputs.model_suite == 'e007'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16.4
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: agent_native
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d agent_native"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      AGENT_NATIVE_E002_POSTGRES_DSN: postgresql://postgres:postgres@localhost:5432/agent_native
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11.18"
+      - name: Install pinned E-009 PostgreSQL test driver
+        run: python -m pip install "psycopg[binary]==3.2.9"
+      - name: Validate the exact four-cell dispatch manifest
+        run: python experiments/e007/validate_factorial_dispatch.py
+      - name: Validate the factorial runner shell syntax
+        run: bash -n experiments/e007/run_factorial_pilot.sh
+      - name: Run deterministic E-007 tests
+        run: python -m unittest discover -s experiments/e007 -p 'test*.py' -v
+      - name: Run deterministic E-009 tests
+        run: python -m unittest discover -s experiments/e009 -p 'test*.py' -v
+
+  models:
+    concurrency:
+      group: agent-native-models-${{ github.event.pull_request.number || github.ref }}
+      cancel-in-progress: false
+    needs: [e007-preflight]
+    name: Layer 2 · manual CPU diagnostics (not M3 acceptance)
+    if: >-
+      always() &&
+      github.event_name == 'workflow_dispatch' &&
+      inputs.model_suite != 'none' &&
+      (inputs.model_suite != 'e007' || needs.e007-preflight.result == 'success')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+      issues: write
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11.18"
+      - name: Mark this run as CPU diagnostic only
+        run: echo 'CPU-only model evidence is exploratory and does not satisfy M3 decision-grade acceptance.' >> "$GITHUB_STEP_SUMMARY"
+      - name: Install Ollama
+        run: |
+          curl --fail --silent --show-error --location https://ollama.com/install.sh | sh
+          ollama --version | tee "$RUNNER_TEMP/ollama-version.txt"
+      - name: Start Ollama and pull Qwen3
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo systemctl stop ollama.service 2>/dev/null || true
+          OLLAMA_GO_TEMPLATE=false OLLAMA_HOST=127.0.0.1:11434 ollama serve > "$RUNNER_TEMP/ollama-serve.log" 2>&1 &
+          for attempt in $(seq 1 60); do
+            if ollama list >/dev/null 2>&1; then break; fi
+            sleep 2
+          done
+          ollama list
+          ollama pull qwen3:8b
+          ollama show qwen3:8b --modelfile > "$RUNNER_TEMP/qwen3-modelfile.txt"
+          ollama list > "$RUNNER_TEMP/ollama-models.txt"
+      - name: Run E-007 matched factorial pilot
+        if: inputs.model_suite == 'e007'
+        env:
+          FACTORIAL_OUTPUT_DIR: ${{ runner.temp }}/agent-native-e007-factorial-${{ github.run_id }}
+          E007_PINNED_REV: ${{ github.sha }}
+          E007_REF_NAME: ${{ github.ref_name }}
+        run: bash experiments/e007/run_factorial_pilot.sh
+      - name: Run E-009 bounded real-agent trial
+        if: inputs.model_suite == 'e009'
+        run: |
+          python experiments/e009/local_agent.py \
+            --model qwen3:8b --arm upfront \
+            --results-dir "$RUNNER_TEMP/agent-native-e009-runs" \
+            --max-input-tokens 48000 --max-output-tokens 6000 \
+            --max-tool-calls 20 --max-wall-seconds 900 \
+            --num-ctx 8192 --num-predict 2048 \
+            --temperature 0 --top-p 1 --seed 42
+      - name: Run E-010 isolated sandbox apply demo
+        if: inputs.model_suite == 'e010'
+        run: bash experiments/e010/run_demo.sh
+      - name: Upload model-evaluation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: layer-2-model-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/agent-native-e007-factorial-*/
+            ${{ runner.temp }}/agent-native-e009-runs/
+            /tmp/agent-native-e010-runs/
+            ${{ runner.temp }}/ollama-version.txt
+            ${{ runner.temp }}/ollama-models.txt
+            ${{ runner.temp }}/qwen3-modelfile.txt
+            ${{ runner.temp }}/ollama-serve.log
+          if-no-files-found: warn
+          retention-days: 30
+      - name: Publish E-007 run and artifact reference to issue #61
+        if: always() && inputs.model_suite == 'e007'
+        uses: actions/github-script@v7
+        env:
+          PINNED_SHA: ${{ github.sha }}
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const { data: run } = await github.rest.actions.getWorkflowRun({
+              owner, repo, run_id: context.runId
+            });
+            const { data: listed } = await github.rest.actions.listWorkflowRunArtifacts({
+              owner, repo, run_id: context.runId
+            });
+            const artifact = listed.artifacts.find(item =>
+              item.name === 'layer-2-model-evidence-' + context.runId + '-' + context.runAttempt
+            );
+            const artifactLine = artifact
+              ? '[model evidence artifact ' + artifact.id + '](https://github.com/' + owner + '/' + repo + '/actions/runs/' + context.runId + '/artifacts/' + artifact.id + ')'
+              : 'No model evidence artifact was uploaded.';
+            await github.rest.issues.createComment({
+              owner, repo, issue_number: 61,
+              body: [
+                '## E-007 manual CPU diagnostic run',
+                '',
+                'Run: ' + run.html_url,
+                'Run ID: ' + run.id,
+                'Conclusion: ' + (run.conclusion || run.status),
+                'Pinned commit: `' + process.env.PINNED_SHA + '`',
+                artifactLine,
+                '',
+                'CPU-only output is exploratory; verify four cells and same-hash propose → validate → plan. This is not M3 decision-grade acceptance.'
+              ].join('\n')
+            });
+
+  benchmark:
+    concurrency:
+      group: agent-native-benchmark-${{ github.event.pull_request.number || github.ref }}
+      cancel-in-progress: false
+    name: Layer 1 · explicit performance matrix
+    if: github.event_name == 'workflow_dispatch' && inputs.run_benchmark_matrix
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23.12"
+      - uses: dtolnay/rust-toolchain@1.100.0
+        with:
+          targets: wasm32-wasip2
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: "29.1.2"
+          elixir-version: "1.20.5"
+      - name: Build Go candidate
+        run: go build -o "$RUNNER_TEMP/e002-go" .
+        working-directory: experiments/e002/go
+      - name: Build Rust candidate
+        run: cargo build --locked --release
+        working-directory: experiments/e002/rust
+      - name: Build WASI component
+        run: cargo build --locked --release --target wasm32-wasip2
+        working-directory: experiments/e002/wasi-p2
+      - name: Test and package BEAM candidate
+        run: |
+          mix test
+          MIX_ENV=prod mix release --overwrite
+        working-directory: experiments/e002/beam
+      - name: Install pinned Wasmtime
+        run: |
+          curl -fsSL https://github.com/bytecodealliance/wasmtime/releases/download/v50.0.1/wasmtime-v50.0.1-x86_64-linux.tar.xz -o "$RUNNER_TEMP/wasmtime.tar.xz"
+          tar -xJf "$RUNNER_TEMP/wasmtime.tar.xz" -C "$RUNNER_TEMP"
+          WASMTIME_BIN="$(find "$RUNNER_TEMP" -type f -name wasmtime -perm -111 | head -n 1)"
+          test -n "$WASMTIME_BIN"
+          echo "$(dirname "$WASMTIME_BIN")" >> "$GITHUB_PATH"
+      - name: Measure deployable artifact sizes
+        run: |
+          mkdir -p "$RUNNER_TEMP/e002-results"
+          python experiments/e002/measure_artifacts.py \
+            --go "$RUNNER_TEMP/e002-go" \
+            --rust experiments/e002/rust/target/release/agent-native-e002-rust \
+            --wasi-component experiments/e002/wasi-p2/target/wasm32-wasip2/release/agent_native_e002_wasi_p2.wasm \
+            --wasmtime "$(command -v wasmtime)" \
+            --beam-release experiments/e002/beam/_build/prod/rel/agent_native_e002_beam \
+            --output "$RUNNER_TEMP/e002-results/artifact-sizes.json"
+      - name: Run randomized ten-repetition performance matrix
+        run: |
+          python experiments/e002/run_matrix.py \
+            --go-command "$RUNNER_TEMP/e002-go" \
+            --rust-command ./target/release/agent-native-e002-rust \
+            --wasi-command "wasmtime serve --addr=127.0.0.1:8080 -S cli=y -S http=y target/wasm32-wasip2/release/agent_native_e002_wasi_p2.wasm" \
+            --beam-command "mix run -e AgentNativeE002Beam.Server.main()" \
+            --requests 5000 --concurrency 32 --warmup 250 --repetitions 10 \
+            --output "$RUNNER_TEMP/e002-results"
+        working-directory: .
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e002-ten-repetition-performance-matrix
+          path: ${{ runner.temp }}/e002-results/
+          if-no-files-found: warn
+          retention-days: 30
+
+  performance-confirmation:
+    concurrency:
+      group: agent-native-performance-confirmation-${{ github.event.pull_request.number || github.ref }}
+      cancel-in-progress: false
+    name: Explicit E-009 ten-repetition capacity confirmation
+    if: github.event_name == 'workflow_dispatch' && inputs.run_e009_performance_confirmation
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      actions: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11.18"
+      - name: Validate frozen preregistration and decision chain
+        run: python scripts/check_preregistrations.py
+      - name: Run E-009 ten-repetition capacity confirmation
+        run: |
+          python experiments/e009/performance_smoke.py \
+            --config experiments/e009/capacity-confirmation-v1.json \
+            --output "$RUNNER_TEMP/e009-performance.json"
+      - name: Upload E-009 performance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e009-performance-confirmation-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/e009-performance.json
+          if-no-files-found: ignore
+          retention-days: 30
+      - name: Publish E-009 run and artifact reference to issue #58
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const { data: run } = await github.rest.actions.getWorkflowRun({
+              owner, repo, run_id: context.runId
+            });
+            const { data: listed } = await github.rest.actions.listWorkflowRunArtifacts({
+              owner, repo, run_id: context.runId
+            });
+            const artifact = listed.artifacts.find(item =>
+              item.name === 'e009-performance-confirmation-' + context.runId + '-' + context.runAttempt
+            );
+            const artifactLine = artifact
+              ? '[performance artifact ' + artifact.id + '](https://github.com/' + owner + '/' + repo + '/actions/runs/' + context.runId + '/artifacts/' + artifact.id + ')'
+              : 'No performance artifact was uploaded.';
+            await github.rest.issues.createComment({
+              owner, repo, issue_number: 58,
+              body: [
+                '## E-009 ten-repetition performance confirmation',
+                '',
+                'Run: ' + run.html_url,
+                'Run ID: ' + run.id,
+                'Conclusion: ' + (run.conclusion || run.status),
+                'Commit: `' + context.sha + '`',
+                artifactLine,
+                '',
+                'Review the raw artifact before making any capacity or production claim.'
+              ].join('\n')
+            });
+
+  lockfiles:
+    concurrency:
+      group: agent-native-lockfiles-${{ github.event.pull_request.number || github.ref }}
+      cancel-in-progress: false
+    name: Generate pinned Rust dependency lockfiles
+    if: github.event_name == 'workflow_dispatch' && inputs.generate_lockfiles
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.100.0
+      - name: Generate lockfiles with pinned Rust/Cargo
+        run: |
+          cargo generate-lockfile --manifest-path experiments/e001/baselines/rust/Cargo.toml
+          cargo generate-lockfile --manifest-path experiments/e002/rust/Cargo.toml
+          cargo generate-lockfile --manifest-path experiments/e002/wasi-p2/Cargo.toml
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pinned-rust-lockfiles
+          path: |
+            experiments/e001/baselines/rust/Cargo.lock
+            experiments/e002/rust/Cargo.lock
+            experiments/e002/wasi-p2/Cargo.lock
+          if-no-files-found: error
+          retention-days: 14

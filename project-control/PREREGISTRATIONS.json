@@ -1,0 +1,130 @@
+{
+  "schema_version": 1,
+  "policy": {
+    "hash_algorithm": "git-blob-sha1",
+    "frozen_statuses": [
+      "frozen",
+      "ready_for_manual_dispatch",
+      "dispatched",
+      "completed",
+      "failed",
+      "cancelled",
+      "ineligible",
+      "historical"
+    ],
+    "draft_statuses": [
+      "draft"
+    ],
+    "require_new_record_id_for_manifest_changes": true,
+    "require_decision_event_for_register_or_registry_changes": true,
+    "no_apply_for_agent_evaluation": true
+  },
+  "baseline_event_id": "DECISION-BASELINE-2026-11-19",
+  "records": [
+    {
+      "record_id": "E007-FACTORIAL-QWEN3-PILOT-20261118-V1",
+      "kind": "cohort_manifest",
+      "path": "experiments/e007/dispatch.json",
+      "git_blob_sha1": "ace554534793bd89426463c2a9d4e81b68338d50",
+      "status": "ready_for_manual_dispatch",
+      "run_ids": [],
+      "decision_event_id": "DECISION-BASELINE-2026-11-19",
+      "no_apply": true,
+      "notes": "Four-cell 2x2 pilot, one repetition per cell, Qwen3 8B, temperature 0, seed 42, order C-A-D-B. Prepared only; not dispatched and not M3 acceptance."
+    },
+    {
+      "record_id": "E007-LEGACY-DISPATCH-REQUEST-20261118",
+      "kind": "historical_request",
+      "path": "experiments/e007/dispatch-request.json",
+      "git_blob_sha1": "c578b442043389ac4fc2419be91195f593776bfe",
+      "status": "historical",
+      "run_ids": [],
+      "decision_event_id": "DECISION-BASELINE-2026-11-19",
+      "no_apply": true,
+      "notes": "Historical request artifact; names superseded workflow and is not consumed by run_factorial_pilot.sh."
+    },
+    {
+      "record_id": "E002-CANDIDATE-STATUS-SNAPSHOT-20261118",
+      "kind": "historical_evidence_index",
+      "path": "experiments/e002/candidate-status.json",
+      "git_blob_sha1": "824086aadc16de9b3c47eb4b374bb38618cc818d",
+      "status": "historical",
+      "run_ids": [
+        43846465352,
+        43850570600,
+        44339334484,
+        44345013099,
+        44356165574
+      ],
+      "decision_event_id": "DECISION-BASELINE-2026-11-19",
+      "notes": "Historical runtime/storage conformance and cross-engine parity index. The first two smoke matrices are explicitly not decision-grade; no runtime/storage product selection."
+    },
+    {
+      "record_id": "E002-DECISION-MATRIX-SNAPSHOT-20261117",
+      "kind": "historical_decision_matrix",
+      "path": "experiments/e002/decision-matrix.md",
+      "git_blob_sha1": "d7dc0253bbf51c2e806d126775fd494c19f8079b",
+      "status": "historical",
+      "run_ids": [],
+      "decision_event_id": "DECISION-BASELINE-2026-11-19",
+      "notes": "Historical weighted decision matrix snapshot. Weights and thresholds are not to be silently changed."
+    },
+    {
+      "record_id": "E002-CONTROL-PLANE-WORKLOAD-DRAFT-V1",
+      "kind": "workload_design",
+      "path": "experiments/e002/control-plane-workload.md",
+      "git_blob_sha1": "11748b79e3aecce04ffa2d7f57b6885a7f5cee71",
+      "status": "draft",
+      "run_ids": [],
+      "decision_event_id": "DECISION-BASELINE-2026-11-19",
+      "notes": "Workload design proposal only; not implemented or benchmarked. Must be frozen under a new record before confirmatory measurement."
+    },
+    {
+      "record_id": "E009-PERFORMANCE-EVIDENCE-SNAPSHOT-20261118",
+      "kind": "historical_performance_evidence",
+      "path": "experiments/e009/performance-evidence-2026-11-18.md",
+      "git_blob_sha1": "031fd58c50eae0aea7c0f0eb11d224bd5b19eecb",
+      "status": "historical",
+      "run_ids": [
+        44345238807,
+        44355728291,
+        44340325781,
+        44357166863,
+        44359451102
+      ],
+      "decision_event_id": "DECISION-BASELINE-2026-11-19",
+      "notes": "Historical capacity cohorts include both passing and failing p99 results; not a stable SLO or production capacity certification."
+    },
+    {
+      "record_id": "DECISION-REGISTER-BASELINE-20261119",
+      "kind": "decision_register",
+      "path": "DECISIONS.json",
+      "git_blob_sha1": "3a125799d436584264930ce094d47d19c4753d99",
+      "status": "frozen",
+      "run_ids": [],
+      "decision_event_id": "DECISION-REGISTER-REFRESH-2026-11-23",
+      "notes": "Current decision-register pin refreshed on 2026-11-23. The original 2026-11-19 baseline event remains immutable and records the historical fourteen-decision snapshot; the current register contains sixteen decisions, including D-0015 and D-0016."
+    },
+    {
+      "record_id": "DESIGN-DECISION-LOG-BASELINE-20261119",
+      "kind": "append_only_decision_log",
+      "path": "research/design-decisions.md",
+      "git_blob_sha1": "14efcd0fdd47805564e55f8ced2fa1087914d49b",
+      "status": "historical",
+      "run_ids": [],
+      "decision_event_id": "DECISION-BASELINE-2026-11-19",
+      "notes": "Historical narrative decision log. New decisions append dated entries; historical rationale is not rewritten."
+    },
+    {
+      "record_id": "E009-CAPACITY-CONFIRMATION-2026-11-19-V1",
+      "kind": "performance_cohort_manifest",
+      "path": "experiments/e009/capacity-confirmation-v1.json",
+      "git_blob_sha1": "efee4e4d2f64444b4a38a4203aa88704e562ea53",
+      "status": "ready_for_manual_dispatch",
+      "run_ids": [],
+      "decision_event_id": "DECISION-PREREG-E009-CAPACITY-2026-11-19",
+      "no_apply": true,
+      "notes": "Frozen ten-repetition, one-CPU/1-GiB E-009 capacity cohort. The manual workflow consumes this manifest directly; it is not a production SLO or cross-runtime certification."
+    }
+  ]
+}

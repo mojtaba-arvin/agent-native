@@ -1,0 +1,108 @@
+name: task-gate
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, edited]
+    branches: [research/reboot-core]
+
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout base branch (for task_gate.py)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.ref }}
+
+      - name: Unit-test the gate (sanity)
+        run: python3 -I -m unittest discover -s scripts -p "test_task_gate.py"
+
+      - name: Build context.json
+        uses: actions/github-script@v7
+        env:
+          PAUSED: ${{ vars.NEW_WORK_PAUSED }}
+        with:
+          script: |
+            const fs = require('fs');
+            const pr = context.payload.pull_request;
+            const repo = context.repo;
+
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner: repo.owner, repo: repo.repo, pull_number: pr.number, per_page: 100
+            });
+            const fileNames = files.flatMap(file =>
+              [file.filename, file.previous_filename].filter(Boolean)
+            );
+
+            const body = pr.body || '';
+            const taskMatch = body.match(/^Task:[ \t]*(T\d{2})[ \t]*$/m);
+
+            let task = null;
+            let acceptanceExists = false;
+
+            if (taskMatch) {
+              const taskId = taskMatch[1];
+              const issuesRaw = await github.paginate(github.rest.issues.listForRepo, {
+                owner: repo.owner, repo: repo.repo, labels: 'v1', state: 'all', per_page: 100
+              });
+              const issues = issuesRaw.filter(issue => !issue.pull_request);
+              const issue = issues.find(item => item.title.startsWith(`[${taskId}]`));
+
+              if (issue) {
+                const labels = issue.labels.map(label =>
+                  (typeof label === 'string' ? label : label.name)
+                );
+                const issueBody = issue.body || '';
+                const depLine = issueBody.match(/^Depends:[ \t]*(.*)$/m);
+                const deps = depLine ? (depLine[1].match(/T\d{2}/g) || []) : [];
+                const depsClosed = deps.every(dependency => {
+                  const dependencyIssue = issues.find(item => item.title.startsWith(`[${dependency}]`));
+                  return dependencyIssue && dependencyIssue.state === 'closed';
+                });
+                const budgetMatch = issueBody.match(/^Attempt budget:[ \t]*(\d+)[ \t]*$/m);
+                const budget = budgetMatch ? parseInt(budgetMatch[1], 10) : 3;
+
+                const closedPrs = await github.paginate(github.rest.pulls.list, {
+                  owner: repo.owner, repo: repo.repo, state: 'closed', per_page: 100
+                });
+                const attempts = closedPrs.filter(pull => {
+                  const match = (pull.body || '').match(/^Task:[ \t]*(T\d{2})[ \t]*$/m);
+                  return match && match[1] === taskId && !pull.merged_at && pull.number !== pr.number;
+                }).length;
+
+                try {
+                  await github.rest.repos.getContent({
+                    owner: repo.owner, repo: repo.repo,
+                    path: `acceptance/${taskId}.sh`, ref: pr.base.sha
+                  });
+                  acceptanceExists = true;
+                } catch (error) {
+                  acceptanceExists = false;
+                }
+
+                task = {
+                  state: issue.state,
+                  labels,
+                  deps_closed: depsClosed,
+                  attempts,
+                  budget
+                };
+              }
+            }
+
+            const result = {
+              files: fileNames,
+              body,
+              task,
+              acceptance_exists: acceptanceExists,
+              paused: process.env.PAUSED === 'true'
+            };
+            fs.writeFileSync('context.json', JSON.stringify(result));
+
+      - name: Run task gate
+        run: python3 scripts/task_gate.py --context context.json

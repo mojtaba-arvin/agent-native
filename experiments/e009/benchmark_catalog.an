@@ -1,0 +1,114 @@
+service Catalog {
+  version: "1";
+
+  type Item {
+    id: UUID;
+    name: String;
+  }
+
+  type WorkTicket {
+    id: UUID;
+    state: String;
+  }
+
+  type PlanResult {
+    valid: Boolean;
+    will_mutate: Boolean;
+    will_deploy: Boolean;
+    operation: String;
+    revision: String;
+  }
+
+  operation get_item {
+    method: GET;
+    path: "/items/{id}";
+    input {
+      id: UUID from path;
+    }
+    output: Item;
+    errors: [InvalidInput, NotFound, Unauthorized];
+    validation: [];
+    effects: [repository.read];
+    capability: "items.read";
+  }
+
+  operation create_item {
+    method: POST;
+    path: "/items";
+    input {
+      idempotency_key: String from header;
+      name: String from body;
+    }
+    output: Item;
+    errors: [Conflict, InvalidInput, Unauthorized];
+    validation: [name.non_empty, idempotency_key.non_empty];
+    effects: [repository.write];
+    capability: "items.create";
+  }
+
+  operation get_item_by_name {
+    method: GET;
+    path: "/items/by-name/{name}";
+    input {
+      name: String from path;
+    }
+    output: Item;
+    errors: [InvalidInput, NotFound, Unauthorized];
+    validation: [name.non_empty];
+    effects: [repository.read];
+    capability: "items.read";
+  }
+
+  operation submit_rebuild {
+    method: POST;
+    path: "/items/rebuild";
+    input {
+      idempotency_key: String from header;
+    }
+    output: WorkTicket;
+    errors: [Conflict, InvalidInput, RateLimited, ServiceUnavailable, Unauthorized];
+    validation: [idempotency_key.non_empty];
+    effects: [queue.submit];
+    capability: "jobs.submit";
+  }
+
+  operation get_job {
+    method: GET;
+    path: "/jobs/{id}";
+    input {
+      id: UUID from path;
+    }
+    output: WorkTicket;
+    errors: [InvalidInput, NotFound, ServiceUnavailable, Unauthorized];
+    validation: [];
+    effects: [queue.read];
+    capability: "jobs.read";
+  }
+
+  operation cancel_job {
+    method: POST;
+    path: "/jobs/{id}/cancel";
+    input {
+      id: UUID from path;
+    }
+    output: WorkTicket;
+    errors: [InvalidInput, NotFound, ServiceUnavailable, Unauthorized];
+    validation: [];
+    effects: [queue.cancel];
+    capability: "jobs.cancel";
+  }
+
+  operation plan_operation {
+    method: POST;
+    path: "/control/validate-plan";
+    input {
+      operation_name: String from body;
+      base_revision: String from body;
+    }
+    output: PlanResult;
+    errors: [InvalidInput, Unauthorized];
+    validation: [operation_name.non_empty, base_revision.non_empty];
+    effects: [contract.read];
+    capability: "contracts.plan";
+  }
+}

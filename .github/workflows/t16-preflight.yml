@@ -1,0 +1,195 @@
+name: T16 preflight contract
+
+on:
+  push:
+    branches:
+      - "task/T16-controlled-host-slo"
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: t16-preflight-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  preflight-contract:
+    name: T16 preregistration, workload, and PostgreSQL contract tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      T16_POSTGRES_DSN: postgresql://postgres:postgres@127.0.0.1:5432/agent_native
+      T16_PSQL_DSN: postgresql://postgres:postgres@127.0.0.1:5432/agent_native
+      AGENT_NATIVE_E002_POSTGRES_DSN: postgresql://postgres:postgres@127.0.0.1:5432/agent_native
+      T16_SIGNING_KEY: abababababababababababababababababababababababababababababababab
+    services:
+      postgres:
+        image: postgres:16.4
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: agent_native
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d agent_native"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate T16 workflow YAML
+        run: ruby -e 'require "yaml"; YAML.parse_file(".github/workflows/t16-preflight.yml"); YAML.parse_file(".github/workflows/task-acceptance.yml")'
+      - name: Validate controlled-host orchestration and immutable Docker bases
+        run: |
+          bash -n experiments/e002/t16/one-command.sh
+          python - <<'PY'
+          import re
+          from pathlib import Path
+
+          dockerfile = Path("experiments/e002/t16/Dockerfile").read_text(encoding="utf-8")
+          workflow = Path(".github/workflows/t16-preflight.yml").read_text(encoding="utf-8")
+          expected = {
+              "GO_IMAGE": "golang:1.23.12-bookworm@sha256:167053a2bb901972bf2c1611f8f52c44d5fe7e762e5cab213708d82c421614db",
+              "RUST_IMAGE": "rust:1.100-bookworm@sha256:ade39a710ef85f3506cffcfec3e8a24ba090badef1dff2fb798f71d878833fea",
+              "POSTGRES_IMAGE": "postgres:16.4@sha256:e62fbf9d3e2b49816a32c400ed2dba83e3b361e6833e624024309c35d334b412",
+          }
+          if "ARG DOCKER_IMAGE=docker:27.5.1-cli@sha256:851f91d241214e7c6db86513b270d58776379aacc5eb9c4a87e5b47115e3065c" not in dockerfile or "docker buildx imagetools inspect docker:27.5.1-cli" not in workflow:
+              raise SystemExit("Docker CLI base must be resolved to an immutable digest")
+          if "ARG SOURCE_SHA" not in dockerfile or "ARG BUILD_TIME" not in dockerfile or "--build-arg SOURCE_SHA=" not in workflow or "--build-arg BUILD_TIME=" not in workflow:
+              raise SystemExit("Preflight image must be bound to the exact source SHA and build time")
+          for name, ref in expected.items():
+              if f"ARG {name}={ref}" not in dockerfile or ref not in workflow:
+                  raise SystemExit(f"{name} must be an ARG and its CI build input must be digest-pinned")
+          stages = (
+              "FROM ${GO_IMAGE} AS go-build",
+              "FROM ${GO_IMAGE} AS loadgen-build",
+              "FROM ${RUST_IMAGE} AS rust-build",
+              "FROM ${DOCKER_IMAGE} AS docker-cli",
+              "FROM ${POSTGRES_IMAGE}",
+          )
+          if any(stage not in dockerfile for stage in stages):
+              raise SystemExit("Every runtime/build stage must use its reviewed digest-pinned image ARG")
+          PY
+      - name: Resolve digest-pinned Docker CLI base
+        id: docker-cli-base
+        shell: bash
+        run: |
+          set -euo pipefail
+          inspect="$(docker buildx imagetools inspect docker:27.5.1-cli)"
+          digest="$(echo "$inspect" | awk '$1 == "Digest:" {print $2; exit}')"
+          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+          echo "DOCKER_IMAGE=docker:27.5.1-cli@$digest" >> "$GITHUB_ENV"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11.18"
+      - name: Compile preflight tooling
+        run: python -m py_compile experiments/e002/t16/preflight.py experiments/e002/t16/run.py
+      - name: Install PostgreSQL test driver
+        run: python -m pip install "psycopg[binary]==3.2.9"
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: Install T16 PostgreSQL schema
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          import psycopg
+
+          schema = Path("experiments/e002/t16/schema.sql").read_text(encoding="utf-8")
+          with psycopg.connect(os.environ["T16_POSTGRES_DSN"]) as db:
+              db.execute(schema, prepare=False)
+          PY
+      - name: Issue signed T16 benchmark credentials
+        run: |
+          python - <<'PY'
+          import os
+          import sys
+          sys.path.insert(0, "experiments/e002/t16")
+          from tokens import issue_benchmark_tokens
+          read_token, deny_token = issue_benchmark_tokens(os.environ["T16_SIGNING_KEY"])
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as output:
+              output.write("T16_READ_TOKEN=" + read_token + "\n")
+              output.write("T16_DENY_TOKEN=" + deny_token + "\n")
+          PY
+      - name: Test preregistration, workload, and PostgreSQL contract
+        run: python -m unittest discover -s experiments/e002/t16 -p "test_*.py" -v
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23.12"
+      - name: Test Go product server against PostgreSQL
+        run: go test ./...
+        working-directory: experiments/e002/go
+      - name: Install OpenSSL development library for Rust HMAC verifier
+        run: sudo apt-get update && sudo apt-get install -y libssl-dev
+      - uses: dtolnay/rust-toolchain@1.100.0
+      - name: Test Rust product candidate
+        run: cargo test --locked
+        working-directory: experiments/e002/rust
+      - name: Build both candidate runtimes in the production benchmark image
+        run: |
+          docker build \
+            --build-arg GO_IMAGE=golang:1.23.12-bookworm@sha256:167053a2bb901972bf2c1611f8f52c44d5fe7e762e5cab213708d82c421614db \
+            --build-arg RUST_IMAGE=rust:1.100-bookworm@sha256:ade39a710ef85f3506cffcfec3e8a24ba090badef1dff2fb798f71d878833fea \
+            --build-arg POSTGRES_IMAGE=postgres:16.4@sha256:e62fbf9d3e2b49816a32c400ed2dba83e3b361e6833e624024309c35d334b412 \
+            --build-arg DOCKER_IMAGE="$DOCKER_IMAGE" \
+            --build-arg SOURCE_SHA="$GITHUB_SHA" \
+            --build-arg BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --file experiments/e002/t16/Dockerfile --tag t16-candidates-ci .
+      - name: Verify candidate image includes the pinned PostgreSQL client
+        run: docker run --rm --entrypoint psql t16-candidates-ci --version
+      - name: Refresh short-lived signed conformance credentials
+        run: |
+          python - <<'PY'
+          import os
+          import sys
+          sys.path.insert(0, "experiments/e002/t16")
+          from tokens import issue_benchmark_tokens
+          read_token, deny_token = issue_benchmark_tokens(os.environ["T16_SIGNING_KEY"])
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as output:
+              output.write("T16_READ_TOKEN=" + read_token + "\n")
+              output.write("T16_DENY_TOKEN=" + deny_token + "\n")
+          PY
+      - name: Run product conformance against both candidate containers
+        run: |
+          python - <<'PY'
+          import importlib.util
+          import os
+          import sys
+          import uuid
+
+          sys.path.insert(0, "experiments/e002/t16")
+          spec = importlib.util.spec_from_file_location("t16_runner", "experiments/e002/t16/run.py")
+          module = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(module)
+          image = "t16-candidates-ci"
+          dsn = os.environ["T16_POSTGRES_DSN"]
+          read_token = os.environ["T16_READ_TOKEN"]
+          deny_token = os.environ["T16_DENY_TOKEN"]
+          for candidate in ("go-net-http", "rust-tokio-hyper"):
+              print("testing candidate: " + candidate, flush=True)
+              name = "t16-ci-" + candidate + "-" + uuid.uuid4().hex[:8]
+              try:
+                  module.run_command([
+                      "docker", "run", "--detach", "--name", name, "--network=host",
+                      "--memory=1g",
+                      "--env", "T16_SIGNING_KEY=" + os.environ["T16_SIGNING_KEY"],
+                      "--env", "T16_PSQL_DSN=" + os.environ["T16_PSQL_DSN"],
+                      image, candidate,
+                  ], timeout=60)
+                  module.wait_ready(name)
+                  module.verify_product_conformance(dsn, read_token, deny_token)
+                  print(candidate + ": product conformance passed")
+              finally:
+                  module.run_command(["docker", "rm", "--force", name], timeout=60, allow_failure=True)
+          PY
+      - name: Test open-loop T16 product workload generator
+        run: go test ./...
+        working-directory: experiments/e002/t16/loadgen
+      - name: Vet and build open-loop T16 product workload generator
+        run: |
+          go vet ./...
+          go build -o "$RUNNER_TEMP/t16-loadgen" .
+        working-directory: experiments/e002/t16/loadgen

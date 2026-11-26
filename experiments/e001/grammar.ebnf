@@ -1,0 +1,24 @@
+(* E-001 prototype grammar; intentionally small and provisional. *)
+service       = "service", declaration_identifier, "{", version, { type_decl }, { operation }, "}" ;
+version       = "version", ":", string, ";" ;
+type_decl     = "type", declaration_identifier, "{", field, { field }, "}" ;
+field         = declaration_identifier, ":", declaration_identifier, ";" ;
+operation     = "operation", declaration_identifier, "{",
+                method, path, input, output, errors, validation, effects, capability, "}" ;
+method        = "method", ":", http_method, ";" ;
+path          = "path", ":", string, ";" ;
+input         = "input", "{", { input_field }, "}" ;
+input_field   = declaration_identifier, ":", declaration_identifier, "from", input_source, ";" ;
+output        = "output", ":", declaration_identifier, ";" ;
+errors        = "errors", ":", "[", [ identifier, { ",", identifier } ], "]", ";" ;
+validation    = "validation", ":", "[", [ identifier, { ",", identifier } ], "]", ";" ;
+effects       = "effects", ":", "[", [ identifier, { ",", identifier } ], "]", ";" ;
+capability    = "capability", ":", string, ";" ;
+http_method   = "GET" | "POST" | "PUT" | "PATCH" | "DELETE" ;
+input_source  = "path" | "query" | "body" | "header" ;
+declaration_identifier = letter, { letter | digit | "_" } ;
+identifier    = letter, { letter | digit | "_" | "." | "-" } ;
+string        = '"', { escaped_char | ? any non-quote, non-backslash character ? }, '"' ;
+
+(* Semantic validation additionally checks type resolution, route safety,
+   unique names/routes, exact path-input binding, and supported validation rules. *)
