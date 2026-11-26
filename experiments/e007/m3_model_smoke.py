@@ -173,7 +173,11 @@ def run_one(model: dict[str, Any], endpoint: str, results_root: Path, arm: str) 
 
 
 def main() -> int:
-    candidates = read_json(ROOT / "experiments" / "e007" / "model_candidates.json")
+    candidates_path = Path(os.environ.get(
+        "MODEL_CANDIDATES",
+        str(ROOT / "experiments" / "e007" / "model_candidates.json"),
+    ))
+    candidates = read_json(candidates_path)
     manifests = read_json(Path(os.environ["MODEL_MANIFESTS"]))
     model_lock_path = Path(os.environ["MODEL_LOCK"])
     model_lock = read_json(model_lock_path)
@@ -184,7 +188,7 @@ def main() -> int:
     runtime_lock = model_lock.get("runtime", {})
     expected_lock_sha256 = hashlib.sha256(model_lock_path.read_bytes()).hexdigest()
     if (
-        candidates.get("status") != "provisional_manifest_pinned"
+        candidates.get("status") not in ("provisional_manifest_pinned", "manifest_locked_not_qualified")
         or manifests.get("model_lock_sha256") != expected_lock_sha256
         or model_lock.get("schema_version") != 1
         or model_lock.get("status") != "provisional_pinned_not_qualified"
