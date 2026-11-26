@@ -35,6 +35,25 @@ def make_context(files, kind="code", **overrides):
     return context
 
 
+
+def make_research_context(files, **overrides):
+    context = {
+        "files": files,
+        "body": "Research issue: #290\\n\\nM3-007 implementation",
+        "research_issue": {
+            "number": 290,
+            "title": "[M3-007] Preregister alternative zero-cost CPU model feasibility cohort",
+            "state": "open",
+            "labels": ["kind:research"],
+            "has_goal": True,
+            "has_acceptance": True,
+        },
+        "paused": False,
+    }
+    context.update(overrides)
+    return context
+
+
 class TaskGateTests(unittest.TestCase):
     def assert_passes(self, context):
         self.assertEqual(gate.evaluate(context), [])
@@ -206,6 +225,56 @@ class TaskGateTests(unittest.TestCase):
 
     def test_empty_pr(self):
         self.assert_fails(make_context([]), "no files")
+
+
+    def test_valid_research_issue_pr(self):
+        self.assert_passes(make_research_context([
+            "experiments/e007/m3_alt_model_cohort.py",
+            "experiments/e007/test_m3_alt_model_cohort.py",
+            ".github/workflows/m3-007-alternative-models.yml",
+            "research/M3_007_ALTERNATIVE_COHORT.md",
+        ]))
+
+    def test_research_issue_requires_exact_reference_and_resolved_issue(self):
+        self.assert_fails(
+            {"files": ["research/a.md"], "body": "Research issue: #290", "research_issue": None},
+            "could not be resolved",
+        )
+        self.assert_fails(
+            make_research_context(["research/a.md"], body="Research issue: #0"),
+            "Task: T07",
+        )
+
+    def test_research_issue_must_be_open_research_and_unblocked(self):
+        context = make_research_context(["research/a.md"])
+        context["research_issue"]["state"] = "closed"
+        self.assert_fails(context, "not open")
+        context = make_research_context(["research/a.md"])
+        context["research_issue"]["labels"] = ["kind:docs"]
+        self.assert_fails(context, "kind:research")
+        context = make_research_context(["research/a.md"])
+        context["research_issue"]["labels"] = ["kind:research", "blocked"]
+        self.assert_fails(context, "labeled blocked")
+
+    def test_research_issue_requires_goal_and_acceptance_sections(self):
+        context = make_research_context(["research/a.md"])
+        context["research_issue"]["has_acceptance"] = False
+        self.assert_fails(context, "Goal and Acceptance")
+
+    def test_research_issue_file_allowlist_and_evidence_requirements(self):
+        self.assert_fails(make_research_context(["src/agent_native/runtime.py"]), "may not change")
+        self.assert_fails(make_research_context(["research/a.md"]), "research or test")
+        self.assert_fails(
+            make_research_context(["experiments/a.py", "project-control/HANDOFF.md"]),
+            "frozen legacy state",
+        )
+
+    def test_paused_state_blocks_research_issue_prs(self):
+        self.assert_fails(make_research_context(["experiments/a.py"], paused=True), "paused")
+
+    def test_v1_task_path_still_takes_precedence_and_requires_task_issue(self):
+        context = make_context(["src/a.py"], body="Task: T07\\nResearch issue: #290")
+        self.assert_passes(context)
 
     def test_classify(self):
         self.assertEqual(gate.classify("scripts/test_x.py"), "ci")
