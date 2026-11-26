@@ -76,3 +76,5 @@ M3-008 is active: add runner-side duplicate discovery/inspection handling and de
 - T32/#209 remains blocked with its attempt budget exhausted. PR #256 is now observed closed and unmerged; do not reopen, merge, or increase the budget. Replan only after E-002 durable adapter conformance #58 has a reviewed integration path.
 - Do not delete `feat/m3-progressive-deduplication` merely because PR #181 merged: branch comparison shows six commits ahead of the current default branch. Preserve it until its unique history is reconciled. No branch deletion is authorized by this checkpoint.
 - No paid model/API/GPU work, hidden-oracle run, apply, production deployment, or `main` merge was performed.
+
+Checkpoint reconciliation tracking: issue [#298](https://github.com/mojtaba-arvin/agent-native/issues/298), PR [#297](https://github.com/mojtaba-arvin/agent-native/pull/297).
