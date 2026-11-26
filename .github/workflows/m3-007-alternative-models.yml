@@ -39,6 +39,7 @@ jobs:
           set -euo pipefail
           python3 -m json.tool experiments/e007/model_candidates_v2.json >/dev/null
           python3 -m unittest discover -s experiments/e007 -p 'test_m3_alt_model_cohort.py' -v
+          python3 -m unittest discover -s experiments/e007 -p 'test_m3_007_workflow.py' -v
           python3 - <<'PY'
           import json
           from pathlib import Path
