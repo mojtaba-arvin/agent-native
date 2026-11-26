@@ -148,6 +148,48 @@ def verify(args: argparse.Namespace) -> int:
     return 0
 
 
+def seal(args: argparse.Namespace) -> int:
+    candidates = read_json(args.candidates)
+    observation = read_json(args.observation)
+    if observation.get("cohort") != candidates.get("cohort"):
+        raise ValueError("bootstrap_observation_cohort_mismatch")
+    if observation.get("source_sha") != args.source_sha:
+        raise ValueError("bootstrap_observation_source_sha_mismatch")
+    if not observation.get("models") or len(observation["models"]) != len(candidates["models"]):
+        raise ValueError("bootstrap_observation_model_count_mismatch")
+    by_tag = {item["tag"]: item for item in observation["models"]}
+    updated = dict(candidates)
+    updated["status"] = "manifest_locked_not_qualified"
+    updated["bootstrap_provenance"] = {
+        "run_id": observation["bootstrap_run_id"],
+        "source_sha": observation["source_sha"],
+        "observation_sha256": hashlib.sha256(args.observation.read_bytes()).hexdigest(),
+        "observed_at": observation["observed_at"],
+    }
+    updated["models"] = []
+    for item in candidates["models"]:
+        observed = by_tag[item["tag"]]
+        updated["models"].append({**item, **{
+            key: observed[key] for key in (
+                "manifest_sha256", "config_digest", "quantization_level",
+                "parameter_size", "format", "family", "model_size_bytes", "layers"
+            )
+        }})
+    lock = {
+        "schema_version": 1,
+        "status": "locked_not_qualified",
+        "cohort": candidates["cohort"],
+        "provenance": updated["bootstrap_provenance"],
+        "runtime": observation["runtime"],
+        "runner": observation["runner"],
+        "models": observation["models"],
+        "policy": observation["policy"],
+    }
+    write_json(args.candidates_output, updated)
+    write_json(args.lock_output, lock)
+    return 0
+
+
 def parser() -> argparse.ArgumentParser:
     root = argparse.ArgumentParser()
     sub = root.add_subparsers(dest="command", required=True)
@@ -163,12 +205,18 @@ def parser() -> argparse.ArgumentParser:
             p.add_argument("--observed-at", required=True)
         else:
             p.add_argument("--lock", type=Path, required=True)
+    p = sub.add_parser("seal")
+    p.add_argument("--candidates", type=Path, required=True)
+    p.add_argument("--observation", type=Path, required=True)
+    p.add_argument("--source-sha", required=True)
+    p.add_argument("--candidates-output", type=Path, required=True)
+    p.add_argument("--lock-output", type=Path, required=True)
     return root
 
 
 def main() -> int:
     args = parser().parse_args()
-    return collect(args) if args.command == "collect" else verify(args)
+    return collect(args) if args.command == "collect" else verify(args) if args.command == "verify" else seal(args)
 
 
 if __name__ == "__main__":
