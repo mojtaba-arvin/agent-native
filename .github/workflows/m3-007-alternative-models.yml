@@ -138,6 +138,7 @@ jobs:
               with urllib.request.urlopen(req,timeout=90) as response: details=json.loads(response.read())
               (out/(hashlib.sha256(model["tag"].encode()).hexdigest()+".json")).write_text(json.dumps(details,sort_keys=True,indent=2)+"\n",encoding="utf-8")
           PY
+          docker exec ollama-pull ollama --version > "$OUTPUT_DIR/ollama-version.txt"
 
       - name: Stop all registry-connected services
         run: |
