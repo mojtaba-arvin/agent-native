@@ -117,6 +117,11 @@ def verify(args: argparse.Namespace) -> int:
     if lock.get("schema_version") != 1 or lock.get("status") != "locked_not_qualified":
         raise ValueError("model_lock_status_invalid")
     lock_sha = hashlib.sha256(args.lock.read_bytes()).hexdigest()
+    candidate_sha = hashlib.sha256(args.candidates.read_bytes()).hexdigest()
+    if lock.get("candidate_manifest_sha256") != candidate_sha:
+        raise ValueError("candidate_manifest_lock_sha_mismatch")
+    if lock.get("provenance") != candidates.get("bootstrap_provenance"):
+        raise ValueError("model_lock_provenance_mismatch")
     if lock.get("cohort") != candidates.get("cohort"):
         raise ValueError("model_lock_cohort_mismatch")
     if lock.get("runtime") != candidates.get("runtime"):
@@ -180,8 +185,10 @@ def seal(args: argparse.Namespace) -> int:
                 "parameter_size", "format", "family", "model_size_bytes", "layers"
             )
         }})
+    candidate_bytes = (json.dumps(updated, indent=2, sort_keys=True) + "\\n").encode("utf-8")
     lock = {
         "schema_version": 1,
+        "candidate_manifest_sha256": hashlib.sha256(candidate_bytes).hexdigest(),
         "status": "locked_not_qualified",
         "cohort": candidates["cohort"],
         "provenance": updated["bootstrap_provenance"],
