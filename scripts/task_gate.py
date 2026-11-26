@@ -103,11 +103,47 @@ def owner_authorized_governance_from_event() -> bool:
     return expected_marker in body.splitlines()
 
 
+
+def evaluate_research_issue(ctx: dict[str, Any], issue_number: int) -> list[str]:
+    files: list[str] = list(ctx.get("files") or [])
+    issue = ctx.get("research_issue")
+    if not isinstance(issue, dict) or issue.get("number") != issue_number:
+        return [f"Research issue #{issue_number} could not be resolved as a repository issue."]
+    if not files:
+        return ["PR changes no files."]
+    labels = set(issue.get("labels") or [])
+    violations: list[str] = []
+    if issue.get("state") != "open":
+        violations.append(f"Research issue #{issue_number} is not open.")
+    if "kind:research" not in labels:
+        violations.append(f"Research issue #{issue_number} must have label kind:research.")
+    if "blocked" in labels:
+        violations.append(f"Research issue #{issue_number} is labeled blocked; replan instead of retrying.")
+    if issue.get("has_goal") is not True or issue.get("has_acceptance") is not True:
+        violations.append(f"Research issue #{issue_number} must contain Goal and Acceptance sections.")
+    if ctx.get("paused"):
+        violations.append("New work is paused; research implementation PRs may not merge.")
+    classes = {path: classify(path) for path in files}
+    for path, file_class in classes.items():
+        if file_class == "state":
+            violations.append(f"{path} is frozen legacy state; do not edit status or progress files.")
+    allowed, required = KIND_RULES["research"]
+    bad = sorted(path for path, file_class in classes.items() if file_class not in allowed and file_class != "state")
+    if bad:
+        violations.append("Research PR may not change: " + ", ".join(bad))
+    if not (set(classes.values()) & required):
+        violations.append("Research PR must change at least one research or test file.")
+    return violations
+
 def evaluate(ctx: dict[str, Any]) -> list[str]:
     files: list[str] = list(ctx.get("files") or [])
-    match = TASK_LINE.search(ctx.get("body") or "")
+    body = ctx.get("body") or ""
+    match = TASK_LINE.search(body)
     if not match:
-        return ["PR description needs a line exactly like 'Task: T07'."]
+        research_match = RESEARCH_ISSUE_LINE.search(body)
+        if research_match:
+            return evaluate_research_issue(ctx, int(research_match.group(1)))
+        return ["PR description needs a line exactly like 'Task: T07' or 'Research issue: #292'."]
     tid = match.group(1)
     task = ctx.get("task")
     if not task:
