@@ -7,8 +7,8 @@ on:
     # Expensive model trials run only when executable inputs change.
     # Workflow/report documentation changes must not consume CPU feasibility minutes.
     paths:
-      - "experiments/e007/m3_model_smoke.py"
       - "experiments/e007/model_candidates.json"
+      - "experiments/e007/model-lock.json"
       - "experiments/e009/local_agent.py"
       - "experiments/e009/agent_gateway.py"
       - "experiments/e009/AGENT_TASK_DELTA.md"
