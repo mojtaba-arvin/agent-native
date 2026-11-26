@@ -1,22 +1,13 @@
 {
-  "updated_at": "2026-11-19",
+  "updated_at": "2026-11-26",
   "active_branch": "research/reboot-core",
   "baseline_branch": "research/reboot-core",
-  "baseline_commit": "de99c9929b8c1a8f0d5a11ad829c63bc8456e279",
+  "baseline_commit": "d3bf6cc86297a10839a46ba09c93d3e10c4a6fe5",
   "current_milestone": "M3",
-  "active_task_ids": [
-    "M3-008"
-  ],
-  "last_completed_task_id": "M3-005",
-  "last_known_green_revision": "b05c142857ae71ae51ad6e8e789f7655c0a0811d",
+  "active_task_ids": [],
+  "last_completed_task_id": "M3-008",
+  "last_known_green_revision": "d3bf6cc86297a10839a46ba09c93d3e10c4a6fe5",
   "wip_limit": 2,
-  "next_action": "Implement a deterministic duplicate-discovery/inspection guard and deduplicate identical successful tool outcomes in the compaction ledger. Preserve the exact discovered schema, base revision, and next_actions. Keep the 12,000 input-token budget and all preregistered limits unchanged; then rerun the locked matrix on the new adapter.",
-  "active_workstreams": [
-    {
-      "task_id": "M3-008",
-      "branch": "feat/m3-progressive-deduplication",
-      "base_branch": "research/reboot-core",
-      "integration_owner": "integrator"
-    }
-  ]
+  "next_action": "M3-007 is blocked by T45 workflow activation/registration: inspect `gh workflow list --repo mojtaba-arvin/agent-native` and enable m3-007-alternative-models.yml only if disabled. Do not dispatch a model phase as part of this repair. Once an ordinary push produces static-validation and guard jobs, run bootstrap only; review observed manifest/config/layer digests before committing the new lock, then perform a separate no-network verification. Never run trial before that verification succeeds. C3 remains pending until genuine independent human reviews are recorded; an owner waiver is not peer review.",
+  "active_workstreams": []
 }
