@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from experiments.e007.m3_alt_model_cohort import model_manifest_path, observed_model
+from m3_alt_model_cohort import model_manifest_path, observed_model
 
 
 class AlternativeModelCohortTests(unittest.TestCase):
