@@ -263,7 +263,7 @@ class TaskGateTests(unittest.TestCase):
 
     def test_research_issue_file_allowlist_and_evidence_requirements(self):
         self.assert_fails(make_research_context(["src/agent_native/runtime.py"]), "may not change")
-        self.assert_fails(make_research_context(["research/a.md"]), "research or test")
+        self.assert_fails(make_research_context(["research/a.md"]), "test file")
         self.assert_fails(
             make_research_context(["experiments/a.py", "project-control/HANDOFF.md"]),
             "frozen legacy state",
