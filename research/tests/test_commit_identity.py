@@ -78,11 +78,25 @@ class CommitIdentityPolicyTests(unittest.TestCase):
 
     def test_genuine_automation_requires_matching_bot_author_and_committer(self):
         pr = {"body": "", "labels": [{"name": AUTO_LABEL}]}
+        for login in ("github-actions[bot]", "dependabot[bot]"):
+            with self.subTest(login=login):
+                automation = commit(
+                    login, "automation@example.org", login, "Bot",
+                )
+                self.assertEqual(validate(pr, [automation]), [])
+
+    def test_bot_coauthor_remains_rejected_on_automation_commit(self):
+        pr = {"body": "", "labels": [{"name": AUTO_LABEL}]}
         automation = commit(
-            "github-actions[bot]", "bot@users.noreply.github.com",
+            "github-actions[bot]", "automation@example.org",
             "github-actions[bot]", "Bot",
+            message=(
+                "chore: generated version update\\n"
+                "Co-authored-by: Copilot <copilot[bot]@users.noreply.github.com>"
+            ),
         )
-        self.assertEqual(validate(pr, [automation]), [])
+        errors = validate(pr, [automation])
+        self.assertTrue(any("Co-authored-by" in error for error in errors))
 
     def test_automation_label_alone_does_not_authorize_bot_commit(self):
         pr = {"body": "", "labels": [{"name": AUTO_LABEL}]}
