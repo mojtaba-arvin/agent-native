@@ -54,3 +54,8 @@ Commit metadata is self-asserted. A malicious or careless agent can choose a hum
 - No sampled commit establishes a genuine `github-actions[bot]` or `dependabot[bot]` author exception. The allowlist is therefore prospective and narrowly constrained; its label is not a provenance attestation.
 
 These observations are limited to the queried history and current PR. They do not prove the full historical absence of bot attribution or authenticate the private verified-email settings.
+
+
+## Enforcement configuration observed (2026-11-28)
+
+The active `Protect research/reboot-core` repository ruleset (ID `27708604`) requires GitHub Actions check contexts `gate` and `acceptance`, requires all review threads resolved, and requires zero approving reviews. It does not list `Commit identity` as a required status check. The current connector can read rulesets but does not expose administration writes, so no ruleset mutation was attempted. The new `Commit identity` workflow is therefore an active PR validation but is not a hard merge gate under the current ruleset. Making it mandatory requires an authorized repository-administration change; the PR does not bypass or alter existing protections.
