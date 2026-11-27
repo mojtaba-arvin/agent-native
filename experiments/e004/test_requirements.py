@@ -46,7 +46,7 @@ class SecurityRequirementTraceabilityTests(unittest.TestCase):
                     source = source_path.read_text(encoding="utf-8")
                     self.assertRegex(
                         source,
-                        rf"^\s*def\s+{re.escape(method)}\s*\(",
+                        rf"(?m)^\s*def\s+{re.escape(method)}\s*\(",
                         f"missing executable test method: {reference}",
                     )
 
