@@ -68,13 +68,29 @@ class CommitIdentityPolicyTests(unittest.TestCase):
             [],
         )
 
-    def test_maintainer_marker_rejects_other_human_identity(self):
+    def test_external_human_is_preserved_in_maintainer_ai_pr(self):
+        pr = {"body": MARKER, "labels": []}
+        commits = [
+            commit(NAME, EMAIL, "mojtaba-arvin", "User"),
+            commit("Other Human", "other@example.org", "other-human", "User"),
+        ]
+        self.assertEqual(validate(pr, commits), [])
+
+    def test_maintainer_marker_requires_maintainer_commit(self):
         pr = {"body": MARKER, "labels": []}
         errors = validate(
             pr,
             [commit("Other Human", "other@example.org", "other-human", "User")],
         )
-        self.assertTrue(any("expected Mojtaba Arvin" in error for error in errors))
+        self.assertTrue(any("requires at least one commit" in error for error in errors))
+
+    def test_maintainer_account_requires_exact_identity(self):
+        pr = {"body": "", "labels": []}
+        errors = validate(
+            pr,
+            [commit("Wrong Name", "wrong@example.org", "mojtaba-arvin", "User")],
+        )
+        self.assertTrue(any("maintainer account must use" in error for error in errors))
 
 
 if __name__ == "__main__":
