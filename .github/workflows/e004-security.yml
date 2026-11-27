@@ -1,0 +1,33 @@
+name: E-004 security contracts
+
+on:
+  pull_request:
+    branches: [research/reboot-core]
+    paths:
+      - "experiments/e004/**"
+      - "src/agent_native/security.py"
+      - ".github/workflows/e004-security.yml"
+  push:
+    branches: [research/reboot-core]
+    paths:
+      - "experiments/e004/**"
+      - "src/agent_native/security.py"
+      - ".github/workflows/e004-security.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e004-security-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run E-004 reference and signed-token security tests
+        run: python -m unittest discover -s experiments/e004 -p "test_*.py" -v
