@@ -68,6 +68,28 @@ class CapabilityTokenAuthorityTests(unittest.TestCase):
                 with self.assertRaisesRegex(AuthenticationError, "invalid_token_claims"):
                     authority.authenticate("Bearer " + token)
 
+    def test_token_signed_by_another_key_is_rejected(self):
+        token = self.issue()
+        other_authority = CapabilityTokenAuthority(
+            b"z" * 32, issuer="issuer-a", audience="service-a",
+            clock=lambda: self.now, max_ttl_seconds=600,
+        )
+        with self.assertRaisesRegex(AuthenticationError, "invalid_token_signature"):
+            other_authority.authenticate("Bearer " + token)
+
+    def test_noncanonical_signature_encoding_is_rejected(self):
+        token = self.issue()
+        with self.assertRaisesRegex(AuthenticationError, "invalid_token_encoding"):
+            self.authority.authenticate("Bearer " + token + "=")
+
+    def test_authority_rejects_short_keys_and_invalid_clock_skew(self):
+        with self.assertRaisesRegex(ValueError, "capability_signing_key_must_be_at_least_32_bytes"):
+            CapabilityTokenAuthority(b"short")
+        with self.assertRaisesRegex(ValueError, "invalid_token_clock_skew"):
+            CapabilityTokenAuthority(
+                b"k" * 32, clock=lambda: self.now, clock_skew_seconds=61
+            )
+
     def test_expired_bearer_token_is_rejected(self):
         token = self.issue()
         self.now = 1_300
