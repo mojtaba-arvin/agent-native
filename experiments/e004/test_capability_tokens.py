@@ -79,7 +79,7 @@ class CapabilityTokenAuthorityTests(unittest.TestCase):
 
     def test_noncanonical_signature_encoding_is_rejected(self):
         token = self.issue()
-        with self.assertRaisesRegex(AuthenticationError, "invalid_token_encoding"):
+        with self.assertRaisesRegex(AuthenticationError, "invalid_authorization_scheme"):
             self.authority.authenticate("Bearer " + token + "=")
 
     def test_authority_rejects_short_keys_and_invalid_clock_skew(self):
