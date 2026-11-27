@@ -17,14 +17,14 @@ The portfolio scan found concrete bot attribution in two repositories:
 2. Git author name and email are configurable metadata. Global/local Git configuration is a convenience, not an enforcement mechanism, and environment variables or API-created commits can override it.
 3. GitHub associates commits with accounts using email identity. The configured maintainer email must be verified/associated with the maintainer's GitHub account before relying on profile attribution.
 4. A commit signature proves possession/use of a signing key; it does not prove that a human physically wrote the code.
-5. PR validation can inspect commit metadata and co-author trailers. It can reject known bot/agent identities, preserve other human identities, and require the maintainer identity for explicitly marked owner-authorized AI-assisted PRs.
+5. PR validation can inspect commit metadata and co-author trailers. It can reject known bot/agent identities, require at least one maintainer-authored commit in explicitly marked AI-assisted PRs, validate every commit attributed to the maintainer, and preserve other human contributors.
 6. A failing CI check is only a hard merge gate when repository rules require it. A workflow alone does not enforce branch protection.
 
 ## Decision
 
 - Owner-authorized AI-assisted implementation commits use `Mojtaba Arvin <m.arvin@live.com>`, conditional on that email being verified on the GitHub account.
-- PRs containing this work carry `<!-- maintainer-directed-ai-work -->`; the validator requires every commit author in those PRs to match the maintainer identity.
-- Preserve all external human contributor authorship. Never rewrite another person's commits as the maintainer.
+- PRs containing this work carry `<!-- maintainer-directed-ai-work -->`; the validator requires at least one commit authored by `mojtaba-arvin` and validates every commit attributed to that account against the exact maintainer name/email. Other human contributor commits remain attributed to their real authors.
+- Preserve all external human contributor authorship. Never amend or rewrite another person's commits as the maintainer; add separate maintainer-authored commits for AI-assisted changes.
 - Reject known AI/agent/bot authors and bot `Co-authored-by` trailers on ordinary implementation PRs.
 - Genuine GitHub Actions/Dependabot commits may use their own bot identity only when explicitly approved with `allow-automation-commits`; never disguise automation as a human.
 - Disclose AI assistance in the PR body. The human commit identity represents maintainer ownership/responsibility, not a claim that the maintainer personally typed each line.
@@ -32,7 +32,7 @@ The portfolio scan found concrete bot attribution in two repositories:
 
 ## Validation design
 
-`scripts/check_commit_identity.py` checks the complete PR commit list from the GitHub API, including paginated results. Its fixture tests cover maintainer identity, an external human contributor, prohibited bot authors, prohibited bot co-author trailers, the explicit automation exception, and maintainer-marker enforcement. The PR workflow uses read-only permissions and trusted base-branch code.
+`scripts/check_commit_identity.py` checks the complete PR commit list from the GitHub API, including paginated results. Its fixture tests cover maintainer identity, an external human contributor sharing a marked PR, a marker without a maintainer commit, mismatched maintainer metadata, prohibited bot authors, prohibited bot co-author trailers, and the explicit automation exception. The PR workflow uses read-only contents/pull-request permissions, no secrets, and no write access; it checks out the PR head.
 
 ## Limitations and residual risks
 
