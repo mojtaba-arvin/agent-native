@@ -1,101 +1,225 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "requirements": [
     {
       "id": "SEC-001",
       "name": "default_deny",
       "status": "prototype_tested",
-      "test": "test_missing_capability_is_denied_by_default"
+      "enforcement_scope": "E-004 reference model and E-009 runtime",
+      "tests": [
+        "experiments/e004/test_security_model.py::PolicyEngineTests.test_missing_capability_is_denied_by_default",
+        "experiments/e009/test_kernel.py::KernelTests.test_default_deny_happens_before_handler_and_is_audited"
+      ]
     },
     {
       "id": "SEC-002",
       "name": "explicit_effect_allowlist",
       "status": "prototype_tested",
-      "test": "test_undeclared_effect_is_denied_even_with_grant"
+      "enforcement_scope": "E-004 reference model and E-009 service startup/runtime",
+      "tests": [
+        "experiments/e004/test_security_model.py::PolicyEngineTests.test_undeclared_effect_is_denied_even_with_grant",
+        "experiments/e009/test_kernel.py::KernelTests.test_untrusted_effect_is_rejected_at_service_startup"
+      ]
     },
     {
       "id": "SEC-003",
       "name": "principal_and_tenant_binding",
       "status": "prototype_tested",
-      "test": "test_cross_tenant_grant_is_denied"
+      "enforcement_scope": "E-004 reference model and E-009 trusted request context",
+      "tests": [
+        "experiments/e004/test_security_model.py::PolicyEngineTests.test_cross_tenant_grant_is_denied",
+        "experiments/e009/test_kernel.py::KernelTests.test_tenant_isolation_is_enforced_inside_repository_queries"
+      ]
     },
     {
       "id": "SEC-004",
       "name": "resource_scope_boundary",
       "status": "prototype_tested",
-      "test": "test_resource_scope_uses_path_boundaries"
+      "enforcement_scope": "E-004 reference model",
+      "tests": [
+        "experiments/e004/test_security_model.py::PolicyEngineTests.test_resource_scope_uses_path_boundaries"
+      ]
     },
     {
       "id": "SEC-005",
       "name": "grant_expiry",
       "status": "prototype_tested",
-      "test": "test_expired_grant_is_denied"
+      "enforcement_scope": "E-004 reference model and signed bearer-token verifier",
+      "tests": [
+        "experiments/e004/test_security_model.py::PolicyEngineTests.test_expired_grant_is_denied",
+        "experiments/e004/test_capability_tokens.py::CapabilityTokenAuthorityTests.test_expired_bearer_token_is_rejected",
+        "experiments/e004/test_capability_tokens.py::CapabilityTokenAuthorityTests.test_expired_individual_grant_is_not_returned"
+      ]
     },
     {
       "id": "SEC-006",
       "name": "delegation_attenuation",
       "status": "prototype_tested",
-      "test": "test_delegation_can_only_narrow_scope_and_expiry"
+      "enforcement_scope": "E-004 reference model",
+      "tests": [
+        "experiments/e004/test_security_model.py::PolicyEngineTests.test_delegation_can_only_narrow_scope_and_expiry",
+        "experiments/e004/test_security_model.py::PolicyEngineTests.test_delegation_rejects_scope_widening_and_expiry_extension",
+        "experiments/e004/test_security_model.py::PolicyEngineTests.test_delegation_must_reduce_at_least_one_authority_dimension"
+      ]
     },
     {
       "id": "SEC-007",
       "name": "delegation_depth",
       "status": "prototype_tested",
-      "test": "test_delegation_depth_is_enforced"
+      "enforcement_scope": "E-004 reference model",
+      "tests": [
+        "experiments/e004/test_security_model.py::PolicyEngineTests.test_delegation_depth_is_enforced"
+      ]
     },
     {
       "id": "SEC-008",
-      "name": "structured_audit_decision",
+      "name": "structured_fail_closed_audit",
       "status": "prototype_tested",
-      "test": "test_matching_grant_allows_declared_effect"
+      "enforcement_scope": "E-004 decision events and E-009 injected/durable SQLite audit prototype",
+      "tests": [
+        "experiments/e004/test_security_model.py::PolicyEngineTests.test_matching_grant_allows_declared_effect",
+        "experiments/e009/test_kernel.py::KernelTests.test_default_deny_happens_before_handler_and_is_audited",
+        "experiments/e009/test_kernel.py::KernelTests.test_audit_failure_is_fail_closed_before_application_handler"
+      ],
+      "production_gate": "production_deployment"
     },
     {
       "id": "SEC-009",
       "name": "no_ambient_secret_authority",
       "status": "design_only",
-      "test": null
+      "enforcement_scope": "no general-purpose production secret broker or scoped secret handle",
+      "tests": [],
+      "human_approval_gate": "production_secret_access"
     },
     {
       "id": "SEC-010",
       "name": "default_deny_network_egress",
       "status": "design_only",
-      "test": null
+      "enforcement_scope": "no production egress broker, destination policy, or DNS/IP rebinding defense",
+      "tests": [],
+      "human_approval_gate": "broad_network_egress"
     },
     {
       "id": "SEC-011",
       "name": "hard_runtime_resource_quotas",
-      "status": "reference_model_only",
-      "test": null
+      "status": "design_only",
+      "enforcement_scope": "HTTP admission/body bounds and queue backpressure are not CPU, memory, process, storage, or tenant quotas",
+      "tests": [],
+      "human_approval_gate": "production_execution_until_hard_quotas"
     },
     {
       "id": "SEC-012",
-      "name": "cryptographic_grant_authentication_and_revocation",
-      "status": "design_only",
-      "test": null
+      "name": "cryptographic_capability_grant_authentication",
+      "status": "prototype_tested",
+      "enforcement_scope": "core HMAC-SHA256 bearer-token issuer/verifier; not key rotation, asymmetric issuer separation, or production workload identity",
+      "tests": [
+        "experiments/e004/test_capability_tokens.py::CapabilityTokenAuthorityTests.test_signed_grant_round_trip_binds_principal_tenant_and_scope",
+        "experiments/e004/test_capability_tokens.py::CapabilityTokenAuthorityTests.test_tampered_signature_is_rejected",
+        "experiments/e004/test_capability_tokens.py::CapabilityTokenAuthorityTests.test_wrong_issuer_and_audience_are_rejected",
+        "experiments/e004/test_capability_tokens.py::CapabilityTokenAuthorityTests.test_issue_rejects_grant_for_another_principal_or_tenant",
+        "experiments/e004/test_capability_tokens.py::CapabilityTokenAuthorityTests.test_issue_rejects_unbounded_or_invalid_ttl",
+        "experiments/e004/test_capability_tokens.py::CapabilityTokenAuthorityTests.test_missing_and_malformed_bearer_credentials_are_rejected",
+        "experiments/e004/test_capability_tokens.py::CapabilityTokenAuthorityTests.test_token_signed_by_another_key_is_rejected",
+        "experiments/e004/test_capability_tokens.py::CapabilityTokenAuthorityTests.test_noncanonical_signature_encoding_is_rejected",
+        "experiments/e004/test_capability_tokens.py::CapabilityTokenAuthorityTests.test_authority_rejects_short_keys_and_invalid_clock_skew"
+      ],
+      "production_gate": "production_deployment"
     },
     {
       "id": "SEC-013",
       "name": "tenant_isolation_at_storage_boundary",
-      "status": "design_only",
-      "test": null
+      "status": "prototype_tested",
+      "enforcement_scope": "E-009 SQLite repository query scoping; production PostgreSQL RLS/connection-pool isolation not established by this test",
+      "tests": [
+        "experiments/e009/test_kernel.py::KernelTests.test_tenant_isolation_is_enforced_inside_repository_queries",
+        "experiments/e009/test_repository.py::SQLiteCatalogRepositoryTests.test_tenant_id_is_part_of_every_repository_lookup"
+      ],
+      "human_approval_gate": "production_deployment_until_postgres_tenant_isolation_verified"
     },
     {
       "id": "SEC-014",
       "name": "human_approval_for_high_impact_actions",
-      "status": "design_only",
-      "test": null
+      "status": "approval_gate_defined",
+      "enforcement_scope": "approval must be an authenticated out-of-band operator decision; model text is never approval",
+      "tests": [],
+      "human_approval_gate": "high_impact_action_approval"
     },
     {
       "id": "SEC-015",
       "name": "canonical_resource_and_immutable_authority_inputs",
       "status": "prototype_tested",
-      "test": "test_encoded_and_ambiguous_resource_paths_are_rejected"
+      "enforcement_scope": "E-004 reference model",
+      "tests": [
+        "experiments/e004/test_security_model.py::PolicyEngineTests.test_encoded_and_ambiguous_resource_paths_are_rejected",
+        "experiments/e004/test_security_model.py::PolicyEngineTests.test_noncanonical_unicode_resource_is_rejected",
+        "experiments/e004/test_security_model.py::PolicyEngineTests.test_mutable_effect_allowlists_are_rejected",
+        "experiments/e004/test_security_model.py::PolicyEngineTests.test_trailing_slash_normalization_cannot_fake_attenuation"
+      ]
     },
     {
       "id": "SEC-016",
       "name": "malformed_requested_effects_denied",
       "status": "prototype_tested",
-      "test": "test_malformed_requested_effects_are_denied_without_crashing"
+      "enforcement_scope": "E-004 reference model",
+      "tests": [
+        "experiments/e004/test_security_model.py::PolicyEngineTests.test_malformed_requested_effects_are_denied_without_crashing"
+      ]
+    },
+    {
+      "id": "SEC-017",
+      "name": "capability_revocation_and_bounded_propagation",
+      "status": "design_only",
+      "enforcement_scope": "no revocation identifier, authoritative revocation store, cache invalidation protocol, or propagation SLO",
+      "tests": [],
+      "human_approval_gate": "production_execution_until_revocation"
+    },
+    {
+      "id": "SEC-018",
+      "name": "authenticated_workload_identity_and_propagation",
+      "status": "design_only",
+      "enforcement_scope": "principal/tenant claims are signed, but workload attestation, service identity, channel binding, and delegated caller provenance are not established",
+      "tests": [],
+      "human_approval_gate": "production_execution_until_workload_identity"
+    },
+    {
+      "id": "SEC-019",
+      "name": "tamper_evident_remote_audit_and_secure_transport",
+      "status": "design_only",
+      "enforcement_scope": "E-009 SQLite audit is durable and application-level update/delete protected; cryptographic integrity, remote replication, retention controls, and transport identity are absent",
+      "tests": [],
+      "human_approval_gate": "production_execution_until_secure_audit"
+    },
+    {
+      "id": "SEC-020",
+      "name": "filesystem_and_process_sandbox_isolation",
+      "status": "design_only",
+      "enforcement_scope": "E-010 is a demonstration, not an enforced production guest boundary",
+      "tests": [],
+      "human_approval_gate": "production_execution_until_sandbox"
+    },
+    {
+      "id": "SEC-021",
+      "name": "prompt_injection_cannot_change_trusted_authority",
+      "status": "design_only",
+      "enforcement_scope": "E-009 Agent Gateway has inspect/propose/validate/plan and no apply; adversarial end-to-end injection coverage is not yet present",
+      "tests": [],
+      "human_approval_gate": "apply_and_production_deployment"
+    },
+    {
+      "id": "SEC-022",
+      "name": "production_effect_boundary_enforces_network_and_storage_policy",
+      "status": "design_only",
+      "enforcement_scope": "E-004/E-009 checks declared effects but no general host effect broker covers arbitrary network/filesystem/secret/process access",
+      "tests": [],
+      "human_approval_gate": "production_execution_until_effect_broker"
+    },
+    {
+      "id": "SEC-023",
+      "name": "apply_and_production_deployment_disabled_without_all_controls",
+      "status": "approval_gate_defined",
+      "enforcement_scope": "current E-005/E-009 proposal path is no-apply; production deployment remains outside authorization",
+      "tests": [],
+      "human_approval_gate": "apply_and_production_deployment"
     }
   ],
   "human_approval_gates": [
@@ -103,9 +227,21 @@
     "destructive_migration",
     "capability_scope_widening",
     "broad_network_egress",
-    "production_secret_export",
+    "production_secret_access",
     "resource_quota_increase",
-    "release_credential_change"
+    "release_credential_change",
+    "high_impact_action_approval",
+    "production_execution_until_hard_quotas",
+    "production_deployment_until_postgres_tenant_isolation_verified",
+    "production_execution_until_revocation",
+    "production_execution_until_workload_identity",
+    "production_execution_until_secure_audit",
+    "production_execution_until_sandbox",
+    "apply_and_production_deployment",
+    "production_execution_until_effect_broker"
   ],
-  "production_enforcement_enabled": false
+  "production_enforcement_enabled": false,
+  "production_execution_enabled": false,
+  "apply_enabled": false,
+  "production_deployment_enabled": false
 }
