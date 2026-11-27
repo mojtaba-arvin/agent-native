@@ -91,7 +91,7 @@ class CommitIdentityPolicyTests(unittest.TestCase):
             "github-actions[bot]", "automation@example.org",
             "github-actions[bot]", "Bot",
             message=(
-                "chore: generated version update\\n"
+                "chore: generated version update\n"
                 "Co-authored-by: Copilot <copilot[bot]@users.noreply.github.com>"
             ),
         )
