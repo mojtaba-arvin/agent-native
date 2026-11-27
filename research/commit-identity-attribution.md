@@ -13,7 +13,7 @@ The portfolio scan found concrete bot attribution in two repositories:
 
 ## Technical findings
 
-1. A Git commit stores separate author and committer identities. The author is contribution attribution; the committer records who created the Git object. GitHub Web Flow can therefore appear as committer without being the author.
+1. A Git commit stores separate author and committer identities. The author is contribution attribution; the committer records who created the Git object. Repository history contains a maintainer-associated author with `web-flow` as committer; the identities are distinct and must not be conflated.
 2. Git author name and email are configurable metadata. Global/local Git configuration is a convenience, not an enforcement mechanism, and environment variables or API-created commits can override it.
 3. GitHub associates commits with accounts using email identity. The configured maintainer email must be verified/associated with the maintainer's GitHub account before relying on profile attribution.
 4. A commit signature proves possession/use of a signing key; it does not prove that a human physically wrote the code.
@@ -26,7 +26,7 @@ The portfolio scan found concrete bot attribution in two repositories:
 - PRs containing this work carry `<!-- maintainer-directed-ai-work -->`; the validator requires at least one commit authored by `mojtaba-arvin` and validates every commit attributed to that account against the exact maintainer name/email. Other human contributor commits remain attributed to their real authors.
 - Preserve all external human contributor authorship. Never amend or rewrite another person's commits as the maintainer; add separate maintainer-authored commits for AI-assisted changes.
 - Reject known AI/agent/bot authors and bot `Co-authored-by` trailers on ordinary implementation PRs.
-- Genuine GitHub Actions/Dependabot commits may use their own bot identity only when explicitly approved with `allow-automation-commits`; never disguise automation as a human.
+- Candidate automation exceptions are limited to `github-actions[bot]` and `dependabot[bot]`. The validator requires an explicit `allow-automation-commits` label, the same allowlisted GitHub Bot account as both commit author and committer, and matching non-empty Git author/committer names and emails. Human-author/bot-committer and bot-author/human-committer combinations fail. Bot co-author trailers remain prohibited. The label and commit metadata are not proof that a workflow actually generated the commit or who applied the label; this remains a documented manual provenance boundary, and the exception must be used only after independently confirming the originating automation.
 - Disclose AI assistance in the PR body. The human commit identity represents maintainer ownership/responsibility, not a claim that the maintainer personally typed each line.
 - Do not rewrite historical commits. Apply the policy prospectively.
 
@@ -43,3 +43,14 @@ Commit metadata is self-asserted. A malicious or careless agent can choose a hum
 - GitHub: [Setting your commit email address](https://docs.github.com/en/account-and-profile/how-tos/email-preferences/setting-your-commit-email-address)
 - GitHub: [About commit signature verification](https://docs.github.com/en/authentication/managing-commit-signature-verification/about-commit-signature-verification)
 - GitHub: [About rulesets](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/about-rulesets)
+
+
+## Repository workflow observations (2026-11-28)
+
+- The authenticated GitHub account is `mojtaba-arvin` (account ID 6056661), matching the repository owner and PR author.
+- The current PR head's GitHub-associated author and committer are both `mojtaba-arvin`; its Commit identity workflow passed against that head. The validator's API-side check also requires the exact configured author name/email for this account.
+- A sampled historical repository commit (fb4f163e397cbb8bd01bdd620cd539901e16fca7) resolves to author `mojtaba-arvin` and committer `web-flow`. This is a real workflow distinction, not evidence that the author is a bot.
+- Searches for commit messages containing `Co-authored-by` and `dependabot` returned no matches in the sampled history; this is not a complete historical audit. A `github-actions` message search returned a commit whose author resolved to `mojtaba-arvin`, not an automation author.
+- No sampled commit establishes a genuine `github-actions[bot]` or `dependabot[bot]` author exception. The allowlist is therefore prospective and narrowly constrained; its label is not a provenance attestation.
+
+These observations are limited to the queried history and current PR. They do not prove the full historical absence of bot attribution or authenticate the private verified-email settings.
