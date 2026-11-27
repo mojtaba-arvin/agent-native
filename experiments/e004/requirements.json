@@ -118,7 +118,10 @@
         "experiments/e004/test_capability_tokens.py::CapabilityTokenAuthorityTests.test_wrong_issuer_and_audience_are_rejected",
         "experiments/e004/test_capability_tokens.py::CapabilityTokenAuthorityTests.test_issue_rejects_grant_for_another_principal_or_tenant",
         "experiments/e004/test_capability_tokens.py::CapabilityTokenAuthorityTests.test_issue_rejects_unbounded_or_invalid_ttl",
-        "experiments/e004/test_capability_tokens.py::CapabilityTokenAuthorityTests.test_missing_and_malformed_bearer_credentials_are_rejected"
+        "experiments/e004/test_capability_tokens.py::CapabilityTokenAuthorityTests.test_missing_and_malformed_bearer_credentials_are_rejected",
+        "experiments/e004/test_capability_tokens.py::CapabilityTokenAuthorityTests.test_token_signed_by_another_key_is_rejected",
+        "experiments/e004/test_capability_tokens.py::CapabilityTokenAuthorityTests.test_noncanonical_signature_encoding_is_rejected",
+        "experiments/e004/test_capability_tokens.py::CapabilityTokenAuthorityTests.test_authority_rejects_short_keys_and_invalid_clock_skew"
       ],
       "production_gate": "production_deployment"
     },
