@@ -26,14 +26,17 @@ class CIWorkflowContractTests(unittest.TestCase):
         self.assertIn('"experiments/e002/storage-conformance-contract.md"', workflow)
         self.assertIn("workflow_dispatch:", workflow)
 
-    def test_t16_image_uses_persistent_native_and_buildkit_caches(self):
-        workflow = self.read(".github/workflows/t16-image.yml")
-        self.assertIn("cache-dependency-path:", workflow)
-        self.assertIn("Swatinem/rust-cache@v2", workflow)
-        self.assertIn("--cache-from type=gha,scope=t16-candidates", workflow)
-        self.assertIn("--cache-to type=gha,mode=max,scope=t16-candidates", workflow)
-        self.assertIn('--build-arg SOURCE_SHA="$GITHUB_SHA"', workflow)
-        self.assertIn('--build-arg BUILD_TIME=', workflow)
+    def test_t16_image_and_preflight_share_persistent_build_caches(self):
+        image = self.read(".github/workflows/t16-image.yml")
+        preflight = self.read(".github/workflows/t16-preflight.yml")
+        for workflow in (image, preflight):
+            self.assertIn("cache-dependency-path:", workflow)
+            self.assertIn("Swatinem/rust-cache@v2", workflow)
+            self.assertIn("docker/setup-buildx-action@v4", workflow)
+            self.assertIn("--cache-from type=gha,scope=t16-candidates", workflow)
+            self.assertIn("--cache-to type=gha,mode=max,scope=t16-candidates", workflow)
+        self.assertIn('--build-arg SOURCE_SHA="$GITHUB_SHA"', image)
+        self.assertIn('--build-arg BUILD_TIME=', image)
 
     def test_extended_lane_keeps_full_validation_for_relevant_changes(self):
         workflow = self.read(".github/workflows/ci.yml")
