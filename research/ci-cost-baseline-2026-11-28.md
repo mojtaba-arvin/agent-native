@@ -29,7 +29,6 @@ A recent PR revision ran Agent Native CI Layer 1 and T16 image concurrently, for
 - Rust build caches cover the baseline/runtime/WASI workspaces and the T16 Rust candidate.
 - T16 BuildKit uses the GitHub Actions cache backend for Docker layers.
 - The CI extended-check classifier no longer treats every .github or scripts edit as a reason to run the entire native/database lane. It continues to route CI workflow, acceptance/gate, T16, recovery, preflight, runtime, test, database, and experiment changes to extended validation.
-- Superseded fast/extended CI runs for the same PR/ref can be cancelled; a newer PR revision receives its own checks.
 
 ## Preserved correctness and evidence
 
