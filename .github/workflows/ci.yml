@@ -139,7 +139,7 @@ jobs:
   fast:
     concurrency:
       group: agent-native-fast-${{ github.event.pull_request.number || github.ref }}
-      cancel-in-progress: true
+      cancel-in-progress: false
     name: Layer 0 · deterministic fast checks
     if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
@@ -222,7 +222,7 @@ jobs:
   extended:
     concurrency:
       group: agent-native-extended-${{ github.event.pull_request.number || github.ref }}
-      cancel-in-progress: true
+      cancel-in-progress: false
     name: Layer 1 · native, container, and database validation
     needs: changes
     if: always() && (github.event_name == 'merge_group' || github.event_name == 'schedule' || needs.changes.result != 'success' || needs.changes.outputs.extended == 'true')
