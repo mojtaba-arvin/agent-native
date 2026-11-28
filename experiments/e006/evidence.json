@@ -1,0 +1,105 @@
+{
+  "schema_version": 1,
+  "experiment": "E-006",
+  "purpose": "durable_execution_recovery_and_substrate_evidence",
+  "claims": [
+    {
+      "id": "e006-sqlite-reference",
+      "status": "observed",
+      "statement": "The original E-006 SQLite reference suite passed on commit 550e460ba31f326a1eb6cdcbc0556567809cbe53.",
+      "evidence": {
+        "commit": "550e460ba31f326a1eb6cdcbc0556567809cbe53",
+        "workflow_run_id": "43868695656",
+        "scope": "single-node SQLite reference semantics"
+      }
+    },
+    {
+      "id": "multi-process-claim-exclusion",
+      "status": "observed",
+      "statement": "Independent processes opening the same SQLite file cannot both acquire the same unexpired task lease.",
+      "verification": "test_recovery_protocols.MultiProcessRecoveryTests.test_independent_processes_cannot_claim_the_same_task",
+      "evidence": {
+        "run_id": "46108550642",
+        "commit": "a205dd77f2e28054f71f5ca2d4bef5463d3c980f",
+        "status": "passed",
+        "tests_run": 31,
+        "failures": 0,
+        "errors": 0,
+        "workflow": "E-006 recovery evidence"
+      }
+    },
+    {
+      "id": "abrupt-process-crash-rollback",
+      "status": "observed",
+      "statement": "An abrupt process exit with an open SQLite transaction leaves no partial local effect or completion state after reopen.",
+      "verification": "test_recovery_protocols.MultiProcessRecoveryTests.test_abrupt_process_death_rolls_back_all_uncommitted_effect_writes",
+      "evidence": {
+        "run_id": "46108550642",
+        "commit": "a205dd77f2e28054f71f5ca2d4bef5463d3c980f",
+        "status": "passed",
+        "tests_run": 31,
+        "failures": 0,
+        "errors": 0,
+        "workflow": "E-006 recovery evidence"
+      }
+    },
+    {
+      "id": "external-delivery-at-least-once",
+      "status": "supported",
+      "statement": "A transactional outbox preserves publication intent, but a relay crash after broker acknowledgement and before marking the outbox row can produce duplicate delivery; a transactional consumer inbox can suppress duplicate local effects.",
+      "verification": [
+        "test_recovery_protocols.ExternalEffectRecoveryTests.test_relay_crash_after_broker_ack_causes_duplicate_delivery_not_lost_intent",
+        "test_recovery_protocols.ExternalEffectRecoveryTests.test_consumer_crash_after_commit_before_ack_is_safe_on_redelivery"
+      ],
+      "boundary": "The harness uses independent SQLite files and a deterministic fake broker. It does not prove a real broker, payment provider, email service, or arbitrary HTTP receiver honors idempotency.",
+      "verification_run": {
+        "run_id": "46108550642",
+        "commit": "a205dd77f2e28054f71f5ca2d4bef5463d3c980f",
+        "status": "passed",
+        "tests_run": 31,
+        "failures": 0,
+        "errors": 0,
+        "workflow": "E-006 recovery evidence"
+      }
+    },
+    {
+      "id": "schema-evolution-and-retention",
+      "status": "observed",
+      "statement": "Versioned checksummed migrations, bounded terminal-record retention, WAL checkpointing, VACUUM and integrity checks behave as asserted by the executable model.",
+      "verification": "test_schema_lifecycle",
+      "evidence": {
+        "run_id": "46108550642",
+        "commit": "a205dd77f2e28054f71f5ca2d4bef5463d3c980f",
+        "status": "passed",
+        "tests_run": 31,
+        "failures": 0,
+        "errors": 0,
+        "workflow": "E-006 recovery evidence"
+      }
+    },
+    {
+      "id": "production-persistence-choice",
+      "status": "decision",
+      "statement": "No production persistence substrate is selected by this experiment.",
+      "rationale": "SQLite reference correctness is not a comparative workload benchmark or evidence of multi-node coordination. PostgreSQL and MySQL remain candidates pending identical conformance, failure-injection, workload, recovery and operational-cost measurements."
+    }
+  ],
+  "limitations": [
+    "SQLite tests exercise one shared local filesystem and do not establish distributed locks, multi-host fencing, consensus, or HA.",
+    "A lease token fences database writes only when every state transition checks it; it cannot stop a stale process from completing an external request.",
+    "External publication is at-least-once. Exactly-once external effects require a downstream idempotency contract, or explicit reconciliation/compensation when that contract is absent.",
+    "Retention deletion is irreversible for the deleted rows; production policy must define replay windows, legal holds, audit requirements and archival before enabling cleanup.",
+    "VACUUM requires operational headroom and an exclusive maintenance window appropriate to the selected SQLite mode; this prototype does not establish a production compaction schedule."
+  ],
+  "run_ledger": [
+    {
+      "run_id": "46108550642",
+      "commit": "a205dd77f2e28054f71f5ca2d4bef5463d3c980f",
+      "status": "passed",
+      "tests_run": 31,
+      "failures": 0,
+      "errors": 0,
+      "workflow": "E-006 recovery evidence"
+    }
+  ]
+}
