@@ -131,7 +131,7 @@ jobs:
             --file experiments/e002/t16/Dockerfile \
             --tag t16-candidates:ci \
             --cache-from type=gha,scope=t16-candidates \
-            --cache-to type=gha,mode=max,scope=t16-candidates .
+            .
       - name: Smoke-test embedded load generator and candidate binaries
         run: |
           set +e
