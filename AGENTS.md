@@ -68,6 +68,10 @@ The product is the framework itself. Its own core must own its service model, ex
 
 A feature is not complete because code compiles. It must have executable tests, negative tests, failure semantics, resource limits where relevant, compatibility implications, and evidence that an agent can use it reliably.
 
+## Commit identity and attribution
+
+Read `COMMIT_IDENTITY.md` before creating, amending, or reviewing commits. Maintainer-directed AI-assisted work must use the verified maintainer author identity; preserve real human contributor identities; do not use AI/bot authors or bot co-author trailers. Follow the documented, narrowly approved genuine-automation exception. Do not rewrite historical commits. Repository-specific Git, workflow, review, and merge restrictions in this file remain authoritative.
+
 ## GitHub Issue title convention
 
 Every Issue title must use `<type>(<scope>): <short, clear description>`. Use one lowercase Conventional Commit type: `feat`, `fix`, `docs`, `refactor`, `test`, `build`, `ci`, `chore`, `perf`, or `revert`. Scope must be concise lowercase kebab-case and identify the affected domain/component. Keep priority, milestone, feature/command IDs, phase, agent identity, dates, and run metadata in labels, milestones, or the Issue body—not the title. Do not use bracketed prefixes, standalone priority codes, `Recover:`, or agent/supervisor identity prefixes. Use `chore(roadmap): ...` for milestone bookkeeping and `chore(supervisor): ...` for run ledgers. Preserve all Issue metadata and relationships when renaming; change only the title. See the repository-owned [Issue title convention](docs/issue-title-convention.md).
