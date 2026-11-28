@@ -91,6 +91,7 @@ jobs:
         run: cargo test --locked
         working-directory: experiments/e002/rust
       - uses: docker/setup-buildx-action@v4
+      - uses: crazy-max/ghaction-github-runtime@v3
       - name: Resolve upstream base tags to immutable digests
         id: base
         shell: bash
