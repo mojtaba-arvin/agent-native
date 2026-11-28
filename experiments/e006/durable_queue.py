@@ -193,7 +193,7 @@ class DurableQueue:
                 """SELECT * FROM tasks
                    WHERE deadline_at > ? AND available_at <= ? AND attempts < max_attempts
                      AND (status = 'queued' OR (status = 'running' AND lease_until <= ?))
-                   ORDER BY available_at, id LIMIT 1""",
+                   ORDER BY available_at, rowid LIMIT 1""",
                 (now, now, now),
             ).fetchone()
             if row is None:
