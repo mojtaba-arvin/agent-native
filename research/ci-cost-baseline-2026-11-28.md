@@ -38,26 +38,24 @@ Crash recovery, lease fencing, retry/deadline/cancellation behavior, atomic effe
 
 ## Validation status
 
-Exact-head deterministic, native/database, T16 image, T16 preflight, E-007 preflight, task-gate, task-acceptance, and commit-identity checks passed on the final policy head. The zero-job M3-007 push failure remains a separate pre-existing anomaly and is not a required check.
+Exact-head deterministic, native/database, T16 image, T16 preflight, E-007 preflight, task-gate, task-acceptance, and commit-identity checks passed on head 611427bcac83b78864f31a1905cc443c42782bff. The zero-job M3-007 push failure remains a separate pre-existing anomaly and is not a required check.
 
 ## Final policy and measured exact-head result (2026-11-28)
 
-The repeat run on head 438f3db963b2e1a1f1d36f5c834c43c5e10c7b5d verified BuildKit layer reuse (Go and Rust builder layers were reported as cached). The repeat T16 image job fell from 241s cold to 191s; preflight fell from 224s to 187s. Both workflows still exported the cache in that experiment, so the cache export cost remained.
+The repeated BuildKit experiment confirmed cache reuse: Go and Rust builder layers were reported as cached, and the T16 image workflow no longer exports the cache. The preflight workflow is the only cache writer and exports only on a tracked-source fingerprint miss. The marker uses a fingerprint generated from `git ls-files experiments/e002`, excluding transient build output by construction.
 
-The final implementation changes the cache policy:
-- T16 image imports the shared BuildKit cache and does not export it.
-- T16 preflight is the sole cache writer. It exports only when an actions/cache marker keyed to the T16 Dockerfile and E-002 source fingerprint is missing, then writes the marker. Same-source PR updates should restore the marker and skip repeated exports.
-- Go and Rust caches remain enabled in both T16 workflows.
-
-Exact-head run on e0887d3b0f22dab32d95b52c94a6b099c7781977:
+Exact-head run on `611427bcac83b78864f31a1905cc443c42782bff`:
 
 | Job | Baseline | Final policy | Delta |
 |---|---:|---:|---:|
-| Agent Native CI Layer 1 | 200s | 158s | -42s |
-| Agent Native CI Layer 0 | 6s | 28s | +22s (full deterministic suite selected because workflow/test files changed) |
-| T16 image | 211s | 159s | -52s |
-| T16 preflight | 192s | 242s | +50s (first cache-marker miss and cache population) |
+| Agent Native CI Layer 1 | 200s | 184s | -16s |
+| Agent Native CI Layer 0 | 6s | 29s | +23s (full deterministic suite selected because workflow/test files changed) |
+| CI change detection | 5s | 3s | -2s |
+| T16 image | 211s | 150s | -61s |
+| T16 preflight | 192s | 206s | +14s (first tracked-source cache-marker miss and export) |
 
-Including change detection, the measured runner-time reduction for this relevant PR is approximately 22 seconds. The final preflight run was the cache-marker miss and saved the marker successfully; a subsequent same-source update is required to observe the marker-hit path and confirm that the cache export is skipped. No additional savings are claimed until that run.
+Combined measured runner time for these jobs fell from about 614s to 572s, a reduction of 42s (about 0.7 runner-minutes / 6.8%) on this T16-relevant PR. T16 image's Docker build step fell from 95s to 70s; Go and Rust caches were restored. The native lane's Go and Rust runtime steps fell from 16s to 3s and from 44s to 33s, respectively. PostgreSQL parity and cgroup validation remained enabled and passed.
 
-A docs-only PR has not yet been used to measure the T16 path-filter skip. The two T16 workflows previously consumed about 403 runner-seconds combined, so that is the maximum baseline work avoided for a docs-only change if both are skipped; this remains an expected, not measured, saving.
+The tracked-source cache marker was created on this final head after its first miss. The marker-hit path has not yet been observed on a subsequent same-source update, so no additional preflight savings are claimed. On a subsequent same-source PR update it should skip the one-time cache export.
+
+A docs-only PR has not yet been used to measure the T16 path-filter skip. The two T16 workflows previously consumed about 403 runner-seconds combined, so that is the baseline work expected to be avoided for unrelated docs changes; this remains an expected, not measured, saving.
