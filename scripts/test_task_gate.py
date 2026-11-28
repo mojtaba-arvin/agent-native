@@ -178,6 +178,78 @@ class TaskGateTests(unittest.TestCase):
             with patch.dict(os.environ, {"GITHUB_EVENT_PATH": str(event_path)}):
                 self.assertFalse(gate.owner_authorized_governance_from_event())
 
+    def test_owner_authorized_t30_policy_update_is_narrowly_allowed(self):
+        paths = [
+            ".github/workflows/ci.yml",
+            "scripts/task_gate.py",
+            "scripts/test_task_gate.py",
+            "AGENTS.md",
+            "docs/governance/evidence-gated-pr-merge.md",
+            "project-control/OWNER_ACTIONS.md",
+            "project-control/POLICY.json",
+            "project-control/ROADMAP.json",
+            "project-control/PROGRESS.json",
+            "project-control/TASKS.json",
+            "project-control/BLOCKERS.json",
+            "project-control/README.md",
+            "project-control/HANDOFF.md",
+        ]
+        self.assert_passes(
+            make_context(
+                paths,
+                kind="process",
+                body="Task: T30\\nGovernance authorization: #308",
+                owner_authorized_policy_change=True,
+                acceptance_exists=False,
+            )
+        )
+
+    def test_t30_policy_update_requires_owner_authorization_and_exact_paths(self):
+        paths = [
+            ".github/workflows/ci.yml",
+            "scripts/task_gate.py",
+            "scripts/test_task_gate.py",
+            "project-control/POLICY.json",
+        ]
+        unauthorized = make_context(
+            paths,
+            kind="process",
+            body="Task: T30\\nGovernance authorization: #308",
+            owner_authorized_policy_change=False,
+            acceptance_exists=False,
+        )
+        self.assert_fails(unauthorized, "frozen")
+        extra_state = make_context(
+            paths + ["project-control/STATE.json"],
+            kind="process",
+            body="Task: T30\\nGovernance authorization: #308",
+            owner_authorized_policy_change=True,
+            acceptance_exists=False,
+        )
+        self.assert_fails(extra_state, "frozen")
+
+    def test_policy_change_authorization_is_owner_and_issue_bound(self):
+        event = {
+            "repository": {"owner": {"login": "mojtaba-arvin"}},
+            "pull_request": {
+                "user": {"login": "mojtaba-arvin"},
+                "body": "Task: T30\\nGovernance authorization: #308",
+            },
+        }
+        with tempfile.TemporaryDirectory() as temporary:
+            event_path = Path(temporary) / "event.json"
+            with patch.dict(os.environ, {"GITHUB_EVENT_PATH": str(event_path)}):
+                event_path.write_text(json.dumps(event), encoding="utf-8")
+                self.assertTrue(gate.owner_authorized_policy_change_from_event())
+                stale = copy.deepcopy(event)
+                stale["pull_request"]["body"] = "Task: T30\\nGovernance authorization: #309"
+                event_path.write_text(json.dumps(stale), encoding="utf-8")
+                self.assertFalse(gate.owner_authorized_policy_change_from_event())
+                non_owner = copy.deepcopy(event)
+                non_owner["pull_request"]["user"]["login"] = "contributor"
+                event_path.write_text(json.dumps(non_owner), encoding="utf-8")
+                self.assertFalse(gate.owner_authorized_policy_change_from_event())
+
     def test_acceptance_pr_must_be_separate(self):
         self.assert_passes(make_context(["acceptance/T07.sh"], acceptance_exists=False))
         self.assert_fails(make_context(["acceptance/T07.sh", "src/a.py"]), "only touch acceptance/T07")
