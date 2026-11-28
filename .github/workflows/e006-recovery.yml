@@ -27,6 +27,8 @@ jobs:
         with:
           python-version: "3.12"
       - name: Run durable execution and recovery conformance tests
+        env:
+          E006_TESTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: python experiments/e006/run_evidence.py --output /tmp/e006-run-evidence.json
       - name: Upload machine-readable run evidence
         if: always()
