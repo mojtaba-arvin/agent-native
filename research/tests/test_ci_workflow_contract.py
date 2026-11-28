@@ -38,7 +38,12 @@ class CIWorkflowContractTests(unittest.TestCase):
             self.assertIn("crazy-max/ghaction-github-runtime@v3", workflow)
             self.assertIn("docker buildx build --load", workflow)
             self.assertIn("--cache-from type=gha,scope=t16-candidates", workflow)
-            self.assertIn("--cache-to type=gha,mode=max,scope=t16-candidates", workflow)
+        self.assertNotIn("--cache-to type=gha,mode=max,scope=t16-candidates", image)
+        self.assertIn("actions/cache@v4", preflight)
+        self.assertIn("steps.t16-buildkit-cache.outputs.cache-hit", preflight)
+        self.assertIn('if [[ "$T16_BUILDKIT_CACHE_HIT" != "true" ]]', preflight)
+        self.assertIn("cache_to_args+=(--cache-to type=gha,mode=max,scope=t16-candidates)", preflight)
+        self.assertIn("Mark T16 BuildKit cache as populated", preflight)
         self.assertIn('--build-arg SOURCE_SHA="$GITHUB_SHA"', image)
         self.assertIn('--build-arg BUILD_TIME=', image)
 
