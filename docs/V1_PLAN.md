@@ -8,7 +8,7 @@ This file holds rules only. It holds no status, no task table and no progress no
 
 | What | Where | Never |
 |---|---|---|
-| Task list, status, dependencies, attempts | GitHub Issues with label `v1`, title `[Txx] ...` | in any file |
+| Task list, status, dependencies, attempts | GitHub Issues with label `v1`; put the `Txx` identifier in the Issue body | in any file |
 | Rules | this file, read from the base branch | from your own branch |
 | Done-ness of a task | `acceptance/Txx.sh` passes on the merged head | by someone's claim |
 | Enforcement | `task-gate` and `task-acceptance` workflows on the base branch | by agent discipline alone |
@@ -28,13 +28,13 @@ Open the issue list with label `v1` and state open (via the host's issue browser
 
 Pick the lowest-numbered open task whose `Depends:` tasks are all closed and that is not labeled `blocked`. Parallel agents: claim by assigning yourself and commenting "claimed" first. If it is already assigned to someone else, pick the next one.
 
-Open the issue; read Outputs, Acceptance script and Recovery.
+Open the issue; read its `Task: Txx` identifier, Outputs, Acceptance script and Recovery. Issue titles follow `docs/issue-title-convention.md`; never put the task identifier in the title.
 
 Work on a branch `task/Txx-short-name` created from `origin/research/reboot-core`.
 
 ## 3. Task contract
 
-Every issue has: Outputs, a `Depends:` line, an `Attempt budget:` line (default 3), Recovery, and exactly one label `kind:code|docs|decision|research|process`.
+Every v1 task issue has a `Task: Txx` identifier in its body, Outputs, a `Depends:` line, an `Attempt budget:` line (default 3), Recovery, and exactly one label `kind:code|docs|decision|research|process`. Its title follows `docs/issue-title-convention.md`.
 
 Every product, documentation, decision, or research task has an `acceptance/Txx.sh` script. A `kind:process` task may omit that script only for (a) workflow or task-gate maintenance that adds or updates automated tests for the changed enforcement behavior, or (b) a rules-only PR that changes exactly `docs/V1_PLAN.md` as described in section 8. Such process PRs still require `Task: Txx`, an open v1 issue, closed dependencies, and a passing task gate.
 
