@@ -32,11 +32,11 @@ class DurableQueueTests(unittest.TestCase):
     def tearDown(self):
         self.temp.cleanup()
 
-    def submit(self, task_id="task-1", key="idem-1", payload=None, deadline=1000, max_attempts=3):
+    def submit(self, task_id="task-1", key="idem-1", payload=None, deadline=1000, max_attempts=3, now=10):
         return self.queue.submit(
             task_id=task_id, idempotency_key=key,
             payload={"job": "reconcile"} if payload is None else payload,
-            now=10, deadline_at=deadline, max_attempts=max_attempts,
+            now=now, deadline_at=deadline, max_attempts=max_attempts,
         )
 
     def claim(self, worker="worker-a", now=10, lease=5):
@@ -113,7 +113,7 @@ class DurableQueueTests(unittest.TestCase):
             task_id="task-1", worker_id="worker-a", lease_token=first["lease_token"],
             now=11, effect_key="payment-1", state_key="balance", amount=10,
         )
-        self.submit(task_id="task-2", key="idem-2")
+        self.submit(task_id="task-2", key="idem-2", now=12)
         second = self.claim(worker="worker-b", now=12)
         replay = self.queue.complete_with_increment(
             task_id="task-2", worker_id="worker-b", lease_token=second["lease_token"],
