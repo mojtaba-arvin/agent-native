@@ -23,7 +23,7 @@ The framework must enable agents across capability levels to produce, verify, op
 
 Agents should inspect the repository, form hypotheses, implement experiments, run tests, review diffs, record decisions, and continue without narrating progress to the user. Ask the user only for decisions that require personal authority, credentials, irreversible actions, or material spending.
 
-v1 work follows docs/V1_PLAN.md on research/reboot-core. Task state lives in GitHub Issues. Do not edit project-control/.
+v1 work follows docs/V1_PLAN.md on research/reboot-core. Task state lives in GitHub Issues. Governance files under project-control/ may be changed only for an explicitly scoped, owner-authorized governance Issue; preserve schema validation and historical evidence.
 
 ## Required engineering loop
 
@@ -71,3 +71,7 @@ A feature is not complete because code compiles. It must have executable tests, 
 ## Commit identity and attribution
 
 Read `COMMIT_IDENTITY.md` before creating, amending, or reviewing commits. Maintainer-directed AI-assisted work must use the verified maintainer author identity; preserve real human contributor identities; do not use AI/bot authors or bot co-author trailers. Follow the documented, narrowly approved genuine-automation exception. Do not rewrite historical commits. Repository-specific Git, workflow, review, and merge restrictions in this file remain authoritative.
+
+## Evidence-gated PR review and integration
+
+The implementer may perform and record a complete self-review, including source-level security/threat analysis, and may merge their own PR when the exact head has all required status checks passing, relevant targeted and regression tests pass, trust-boundary changes include security regression coverage, the branch is up to date, the diff and risks are documented, and all material review threads are resolved or explicitly recorded as accepted limitations. A formal GitHub APPROVE review from the PR author is neither possible nor required; never fabricate one or describe self-review as independent peer review. Independent specialist review is risk-based supporting evidence, not a universal merge prerequisite. GitHub branch protection remains authoritative and must never be bypassed. Production deployment, paid workloads, destructive external actions, secrets, and repository security-setting changes retain their separate authorization gates.
