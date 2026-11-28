@@ -5,14 +5,14 @@
       "id": "BLK-001",
       "status": "open",
       "severity": "high",
-      "title": "GitHub autonomous merge and required-check authority is not established",
-      "description": "AGENTS.md reserves repository security settings and main merges for explicit owner authorization. The active Protect Main Branch ruleset currently enforces deletion and non-fast-forward protections only. The classic branch-protection endpoint is not readable through the current integration, so required PR approvals and status checks remain unverified. PR-based integration is available; ruleset/branch-protection changes and unattended main merge require owner action.",
+      "title": "Classic main-branch protection settings are not readable through the current integration",
+      "description": "The active Protect Main Branch repository ruleset currently enforces deletion and non-fast-forward protections only. The classic branch-protection endpoint returns 403 to the connected integration, so any classic required-status or approval settings cannot be verified. This does not block PR-based integration into research/reboot-core: its active ruleset requires a PR, resolved review threads, exact gate/acceptance status checks, and zero approving reviews. Main-branch administrative policy remains a separate owner-controlled configuration question.",
       "owner_action_required": true,
       "unblocks": [
-        "Autonomous merge-to-main acceptance test",
-        "Automated release publication"
+        "Main-branch protection audit",
+        "Optional direct-main integration policy"
       ],
-      "next_step": "Owner reviews GitHub Settings for main, configures required PR approvals/status checks and up-to-date branches, then explicitly authorizes main integration. Keep PR-based integration meanwhile."
+      "next_step": "If main becomes the intended integration target, an authorized owner may inspect classic branch protection and configure required PR/status checks with zero mandatory approvals. Do not treat this unknown as a blocker for the active research/reboot-core PR flow."
     },
     {
       "id": "BLK-002",
@@ -80,15 +80,15 @@
     },
     {
       "id": "BLK-007",
-      "status": "open",
+      "status": "resolved",
       "severity": "medium",
-      "title": "C3 independent peer review remains outstanding after M2 owner waiver",
-      "description": "M2-003 was integrated after an exact-head repository-owner waiver, source-level integrator audit, and fresh Layer 0/Layer 1 checks. The waiver is not peer review. C3 still requires genuine independent human APPROVED reviews on a trust-boundary change; this remaining governance criterion no longer blocks M2 or M3 preparation.",
+      "title": "C3 independent peer-review requirement retired",
+      "description": "The former two-independent-human-approval and owner-waiver requirements were governance gates based on reviewer identity, not technical acceptance evidence. They are retired. C3 now requires documented implementer self-review, a source-level threat review, security regression coverage for trust-boundary changes, exact-head CI, resolved review threads, and merge-base freshness. This policy change does not itself complete C3.",
       "owner_action_required": false,
       "unblocks": [
-        "C3 completion"
+        "C3 evidence-based verification and integration"
       ],
-      "next_step": "Seek two genuine independent human reviewers for a future trust-boundary review and keep C3 pending until their approvals are recorded. Do not block unrelated M3 preparation on this criterion."
+      "next_step": "No second-human approval action remains. Keep C3 pending until its updated technical evidence criteria are actually satisfied."
     }
   ]
 }
