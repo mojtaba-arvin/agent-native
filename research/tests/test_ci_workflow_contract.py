@@ -39,6 +39,8 @@ class CIWorkflowContractTests(unittest.TestCase):
             self.assertIn("docker buildx build --load", workflow)
             self.assertIn("--cache-from type=gha,scope=t16-candidates", workflow)
         self.assertNotIn("--cache-to type=gha,mode=max,scope=t16-candidates", image)
+        self.assertIn("git ls-files -z experiments/e002", preflight)
+        self.assertIn("steps.t16-source.outputs.fingerprint", preflight)
         self.assertIn("actions/cache@v4", preflight)
         self.assertIn("steps.t16-buildkit-cache.outputs.cache-hit", preflight)
         self.assertIn('if [[ "$T16_BUILDKIT_CACHE_HIT" != "true" ]]', preflight)
