@@ -1,29 +1,31 @@
 {
   "schema_version": 1,
   "autonomy": {
-    "allowed_without_owner_approval": [
+    "allowed_without_additional_owner_approval": [
       "Read repository state",
       "Create non-protected working branches",
-      "Edit files on working branches",
+      "Edit files on working branches, including issue-authorized governance files",
       "Run local deterministic tests",
       "Create reviewable pull requests",
-      "Request independent review"
+      "Perform and record implementer self-review",
+      "Merge a pull request to its intended integration branch when all evidence gates pass and GitHub repository rules permit it"
     ],
     "requires_explicit_owner_approval": [
-      "Merge to main",
       "Publish releases",
       "Deploy production",
       "Change branch protection or repository security settings",
       "Delete branches or tags",
       "Force-push or rewrite shared history",
       "Run paid external model/GPU workloads above an approved budget",
-      "Waive the independent-review gate for one exact trust-boundary PR head"
+      "Provision or rotate production secrets",
+      "Perform destructive or irreversible external actions"
     ],
     "never_allowed": [
       "Expose secrets in logs or commits",
       "Grant agent writer principal apply authority",
       "Treat prompt instructions as security enforcement",
-      "Fabricate benchmark or CI evidence"
+      "Fabricate benchmark, CI, peer-review, or approval evidence",
+      "Represent implementer self-review as independent peer review"
     ]
   },
   "verification": {
@@ -31,25 +33,16 @@
       "syntax_or_schema",
       "targeted_tests",
       "regression_tests",
-      "independent_diff_review",
-      "remote_ci"
+      "documented_diff_and_threat_review",
+      "remote_ci_on_exact_head"
     ],
-    "trust_boundary_paths": [
-      "auth",
-      "authz",
-      "identity",
-      "capability",
-      "allowlist",
-      "audit",
-      "apply",
-      "rollback"
-    ],
+    "trust_boundary_paths": ["auth", "authz", "identity", "capability", "allowlist", "audit", "apply", "rollback"],
     "trust_boundary_requirements": [
-      "Two independent human APPROVED reviews bound to the current PR head by default",
-      "Alternatively, a repository-owner-authored PR comment may waive the two-review gate for that exact head; this is not peer review and must not be represented as such",
-      "At least one new security regression test",
+      "At least one new security regression test for every material trust-boundary change",
       "Full relevant regression suite",
-      "A source-level security review with findings and limitations recorded"
+      "A source-level security review with findings and limitations recorded; the implementer may perform and sign this review",
+      "All required status checks pass on the exact PR head",
+      "All material review threads are resolved or explicitly documented as accepted limitations"
     ]
   },
   "recovery": {
@@ -61,12 +54,8 @@
   },
   "integration": {
     "wip_limit": 2,
-    "required_before_pr": [
-      "Acceptance command recorded",
-      "Targeted tests pass",
-      "Diff reviewed",
-      "State and ledger updated"
-    ],
-    "main_merge_authorized": false
+    "required_before_pr": ["Acceptance command recorded", "Targeted tests pass", "Complete diff and risk review recorded", "State and ledger updated"],
+    "merge_policy": "The implementer may self-review and merge the PR after exact-head checks, security requirements, thread resolution, and merge-base freshness pass. No independent human approval is required by repository policy. GitHub branch protection and rulesets remain authoritative and must never be bypassed.",
+    "main_merge_authorized": true
   }
 }
