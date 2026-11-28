@@ -198,7 +198,7 @@ class TaskGateTests(unittest.TestCase):
             make_context(
                 paths,
                 kind="process",
-                body="Task: T30\\nGovernance authorization: #308",
+                body="Task: T30\nGovernance authorization: #308",
                 owner_authorized_policy_change=True,
                 acceptance_exists=False,
             )
@@ -214,7 +214,7 @@ class TaskGateTests(unittest.TestCase):
         unauthorized = make_context(
             paths,
             kind="process",
-            body="Task: T30\\nGovernance authorization: #308",
+            body="Task: T30\nGovernance authorization: #308",
             owner_authorized_policy_change=False,
             acceptance_exists=False,
         )
@@ -222,7 +222,7 @@ class TaskGateTests(unittest.TestCase):
         extra_state = make_context(
             paths + ["project-control/STATE.json"],
             kind="process",
-            body="Task: T30\\nGovernance authorization: #308",
+            body="Task: T30\nGovernance authorization: #308",
             owner_authorized_policy_change=True,
             acceptance_exists=False,
         )
@@ -233,7 +233,7 @@ class TaskGateTests(unittest.TestCase):
             "repository": {"owner": {"login": "mojtaba-arvin"}},
             "pull_request": {
                 "user": {"login": "mojtaba-arvin"},
-                "body": "Task: T30\\nGovernance authorization: #308",
+                "body": "Task: T30\nGovernance authorization: #308",
             },
         }
         with tempfile.TemporaryDirectory() as temporary:
@@ -242,7 +242,7 @@ class TaskGateTests(unittest.TestCase):
                 event_path.write_text(json.dumps(event), encoding="utf-8")
                 self.assertTrue(gate.owner_authorized_policy_change_from_event())
                 stale = copy.deepcopy(event)
-                stale["pull_request"]["body"] = "Task: T30\\nGovernance authorization: #309"
+                stale["pull_request"]["body"] = "Task: T30\nGovernance authorization: #309"
                 event_path.write_text(json.dumps(stale), encoding="utf-8")
                 self.assertFalse(gate.owner_authorized_policy_change_from_event())
                 non_owner = copy.deepcopy(event)
