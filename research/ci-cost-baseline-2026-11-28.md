@@ -38,4 +38,20 @@ Crash recovery, lease fencing, retry/deadline/cancellation behavior, atomic effe
 
 ## Validation status
 
-Baseline measurements are observed. Exact-head post-change runs and cache-hit evidence are pending at the time this note is authored. No percentage or runner-minute savings are claimed until completed job timestamps and repeat-run cache outcomes are available.
+Baseline measurements are observed. Exact-head post-change runs have passed, but the first Buildx cache population added 30–32 seconds to the two T16 workflows. The 74.5s cache export is a warm-up cost. A repeat run is required to verify cache hits and net savings; no BuildKit savings are claimed until then.
+
+
+## Exact-head cold-cache measurement (2026-11-28)
+
+Measured on PR #312 head 19e1d5913f43aecc62f07f8a9d0958950ee7f7b3:
+
+| Job | Baseline | Cold Buildx/cache run | Delta |
+|---|---:|---:|---:|
+| Agent Native CI Layer 1 | 200s | 164s | -36s |
+| Agent Native CI Layer 0 | 6s | 23s | +17s (this PR changed workflow/test configuration, selecting all deterministic suites) |
+| T16 image | 211s | 241s | +30s |
+| T16 preflight | 192s | 224s | +32s |
+
+The T16 Buildx runs successfully imported a GHA cache manifest and exported the first full cache. The preflight cache export took 74.5s (62.3s sending cache layers); this is a cold-cache warm-up cost, not a saving. Go and Rust dependency/build caches were restored in the T16 and native CI jobs. The Dockerfile's Go/Rust builder layers were not reported as cache hits on this first Buildx run.
+
+This cold run is not evidence of a net T16 saving. A repeat exact-source build is required to verify cache reuse and whether avoiding repeated layer uploads offsets the initial export cost. Do not claim BuildKit savings until that repeat run is measured. T16 preflight and image checks, native/database tests, and all required checks completed successfully on this head.
