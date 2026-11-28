@@ -1,0 +1,38 @@
+name: E-006 recovery evidence
+
+on:
+  pull_request:
+    branches: [research/reboot-core]
+    paths:
+      - "experiments/e006/**"
+      - ".github/workflows/e006-recovery.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e006-recovery-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  recovery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run durable execution and recovery conformance tests
+        run: python experiments/e006/run_evidence.py --output /tmp/e006-run-evidence.json
+      - name: Upload machine-readable run evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e006-recovery-evidence-${{ github.run_id }}
+          path: /tmp/e006-run-evidence.json
+          if-no-files-found: warn
+          retention-days: 30
