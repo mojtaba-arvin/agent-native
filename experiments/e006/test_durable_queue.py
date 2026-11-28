@@ -129,7 +129,7 @@ class DurableQueueTests(unittest.TestCase):
             task_id="task-1", worker_id="worker-a", lease_token=first["lease_token"],
             now=11, effect_key="effect-1", state_key="balance", amount=10,
         )
-        self.submit(task_id="task-2", key="idem-2")
+        self.submit(task_id="task-2", key="idem-2", now=12)
         second = self.claim(worker="worker-b", now=12)
         with self.assertRaises(IdempotencyConflict):
             self.queue.complete_with_increment(
