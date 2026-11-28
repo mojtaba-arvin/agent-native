@@ -15,17 +15,33 @@
     },
     {
       "id": "multi-process-claim-exclusion",
-      "status": "hypothesis",
+      "status": "observed",
       "statement": "Independent processes opening the same SQLite file cannot both acquire the same unexpired task lease.",
       "verification": "test_recovery_protocols.MultiProcessRecoveryTests.test_independent_processes_cannot_claim_the_same_task",
-      "required_run": "e006-recovery workflow on exact PR head"
+      "evidence": {
+        "run_id": "46108550642",
+        "commit": "a205dd77f2e28054f71f5ca2d4bef5463d3c980f",
+        "status": "passed",
+        "tests_run": 31,
+        "failures": 0,
+        "errors": 0,
+        "workflow": "E-006 recovery evidence"
+      }
     },
     {
       "id": "abrupt-process-crash-rollback",
-      "status": "hypothesis",
+      "status": "observed",
       "statement": "An abrupt process exit with an open SQLite transaction leaves no partial local effect or completion state after reopen.",
       "verification": "test_recovery_protocols.MultiProcessRecoveryTests.test_abrupt_process_death_rolls_back_all_uncommitted_effect_writes",
-      "required_run": "e006-recovery workflow on exact PR head"
+      "evidence": {
+        "run_id": "46108550642",
+        "commit": "a205dd77f2e28054f71f5ca2d4bef5463d3c980f",
+        "status": "passed",
+        "tests_run": 31,
+        "failures": 0,
+        "errors": 0,
+        "workflow": "E-006 recovery evidence"
+      }
     },
     {
       "id": "external-delivery-at-least-once",
@@ -35,14 +51,31 @@
         "test_recovery_protocols.ExternalEffectRecoveryTests.test_relay_crash_after_broker_ack_causes_duplicate_delivery_not_lost_intent",
         "test_recovery_protocols.ExternalEffectRecoveryTests.test_consumer_crash_after_commit_before_ack_is_safe_on_redelivery"
       ],
-      "boundary": "The harness uses independent SQLite files and a deterministic fake broker. It does not prove a real broker, payment provider, email service, or arbitrary HTTP receiver honors idempotency."
+      "boundary": "The harness uses independent SQLite files and a deterministic fake broker. It does not prove a real broker, payment provider, email service, or arbitrary HTTP receiver honors idempotency.",
+      "verification_run": {
+        "run_id": "46108550642",
+        "commit": "a205dd77f2e28054f71f5ca2d4bef5463d3c980f",
+        "status": "passed",
+        "tests_run": 31,
+        "failures": 0,
+        "errors": 0,
+        "workflow": "E-006 recovery evidence"
+      }
     },
     {
       "id": "schema-evolution-and-retention",
-      "status": "hypothesis",
+      "status": "observed",
       "statement": "Versioned checksummed migrations, bounded terminal-record retention, WAL checkpointing, VACUUM and integrity checks behave as asserted by the executable model.",
       "verification": "test_schema_lifecycle",
-      "required_run": "e006-recovery workflow on exact PR head"
+      "evidence": {
+        "run_id": "46108550642",
+        "commit": "a205dd77f2e28054f71f5ca2d4bef5463d3c980f",
+        "status": "passed",
+        "tests_run": 31,
+        "failures": 0,
+        "errors": 0,
+        "workflow": "E-006 recovery evidence"
+      }
     },
     {
       "id": "production-persistence-choice",
@@ -57,5 +90,16 @@
     "External publication is at-least-once. Exactly-once external effects require a downstream idempotency contract, or explicit reconciliation/compensation when that contract is absent.",
     "Retention deletion is irreversible for the deleted rows; production policy must define replay windows, legal holds, audit requirements and archival before enabling cleanup.",
     "VACUUM requires operational headroom and an exclusive maintenance window appropriate to the selected SQLite mode; this prototype does not establish a production compaction schedule."
+  ],
+  "run_ledger": [
+    {
+      "run_id": "46108550642",
+      "commit": "a205dd77f2e28054f71f5ca2d4bef5463d3c980f",
+      "status": "passed",
+      "tests_run": 31,
+      "failures": 0,
+      "errors": 0,
+      "workflow": "E-006 recovery evidence"
+    }
   ]
 }
