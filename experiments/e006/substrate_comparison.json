@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "experiment": "E-006",
+  "classification": "supported_architecture_comparison_not_benchmark",
+  "production_substrate_decision": "deferred",
+  "selection_rule": "Do not choose a substrate until identical conformance and representative workload suites run against each candidate under process, host, network, failover, backup, restore, and upgrade failure injection.",
+  "candidates": [
+    {
+      "name": "SQLite WAL",
+      "role": "single-node reference and embedded deployment candidate",
+      "transaction_model": "ACID transactions within one database file; writers serialize",
+      "coordination_scope": "one host and filesystem locking domain; not a distributed lock service",
+      "strengths": ["small operational footprint", "simple backup and local durability model", "excellent deterministic reference implementation"],
+      "risks": ["single-writer contention", "filesystem and shared-volume locking constraints", "no multi-node failover or consensus"],
+      "evidence_status": "observed_reference_only",
+      "production_qualification": "not_established",
+      "sources": ["https://www.sqlite.org/wal.html", "https://www.sqlite.org/lockingv3.html"]
+    },
+    {
+      "name": "PostgreSQL",
+      "role": "server database candidate for a single-node service with durable concurrent workers",
+      "transaction_model": "MVCC transactions, row locks, transactional DDL, SKIP LOCKED work claiming",
+      "coordination_scope": "one authoritative database server or a separately qualified HA topology",
+      "strengths": ["row-level claim coordination", "mature recovery and backup tooling", "transactional outbox can share business transaction"],
+      "risks": ["connection and vacuum operations", "HA failover semantics must be tested", "SKIP LOCKED does not by itself guarantee fairness"],
+      "evidence_status": "supported_by_primary_documentation_not_executed_here",
+      "production_qualification": "not_established",
+      "sources": ["https://www.postgresql.org/docs/current/explicit-locking.html", "https://www.postgresql.org/docs/current/sql-select.html", "https://www.postgresql.org/docs/current/routine-vacuuming.html"]
+    },
+    {
+      "name": "MySQL InnoDB",
+      "role": "server database comparison candidate",
+      "transaction_model": "ACID transactions, row-level locking, locking reads including SKIP LOCKED in supported versions",
+      "coordination_scope": "one authoritative database server or a separately qualified HA topology",
+      "strengths": ["mature server database", "row-level locking and transactional local effects"],
+      "risks": ["version-specific locking and DDL behavior", "replication/failover and isolation differences require conformance tests"],
+      "evidence_status": "supported_by_primary_documentation_not_executed_here",
+      "production_qualification": "not_established",
+      "sources": ["https://dev.mysql.com/doc/refman/8.4/en/innodb-locking-reads.html", "https://dev.mysql.com/doc/refman/8.4/en/innodb-transaction-model.html"]
+    }
+  ],
+  "required_measurements_before_selection": [
+    "identical claim, fencing, retry, deadline, cancellation, and idempotency conformance suite",
+    "multi-process and multi-host worker contention with lease expiry and stale-worker injection",
+    "process kill, host restart, database restart, failover, and network partition recovery",
+    "p50/p95/p99 claim and completion latency at declared concurrency and queue depth",
+    "throughput, lock wait, CPU, memory, WAL/binlog growth, and storage amplification",
+    "backup restore RPO/RTO and point-in-time recovery",
+    "schema migration compatibility during rolling application upgrades",
+    "retention, archival, vacuum/compaction cost and bounded storage growth",
+    "operational burden, licensing, managed-service cost, and recovery runbooks"
+  ],
+  "limitations": [
+    "No candidate was benchmarked in this experiment.",
+    "Documentation support is not runtime acceptance evidence.",
+    "No distributed lock, consensus, multi-node availability, or exactly-once external side effect is claimed.",
+    "A production database selection requires the target workload, deployment topology, and recovery objectives."
+  ]
+}
