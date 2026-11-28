@@ -19,7 +19,8 @@ def _nearest_rank(values: list[int], percentile: int) -> int:
 def run_trace(*, task_count: int = 16, concurrency: int = 4) -> dict[str, Any]:
     if not isinstance(task_count, int) or isinstance(task_count, bool) or task_count < 1:
         raise ValueError("invalid_task_count")
-    if not isinstance(concurrency, int) or isinstance(concurrency, bool) or concurrency < 1:
+    if (not isinstance(concurrency, int) or isinstance(concurrency, bool)
+            or concurrency < 1 or concurrency > task_count):
         raise ValueError("invalid_concurrency")
     engine = Engine(max_outstanding=task_count, max_concurrency=concurrency)
     events: list[dict[str, Any]] = []
