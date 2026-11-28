@@ -152,7 +152,7 @@ jobs:
       - uses: docker/setup-buildx-action@v4
       - name: Build both candidate runtimes in the production benchmark image
         run: |
-          docker build \
+          docker buildx build --load \
             --build-arg GO_IMAGE=golang:1.23.12-bookworm@sha256:167053a2bb901972bf2c1611f8f52c44d5fe7e762e5cab213708d82c421614db \
             --build-arg RUST_IMAGE=rust:1.100-bookworm@sha256:ade39a710ef85f3506cffcfec3e8a24ba090badef1dff2fb798f71d878833fea \
             --build-arg POSTGRES_IMAGE=postgres:16.4@sha256:e62fbf9d3e2b49816a32c400ed2dba83e3b361e6833e624024309c35d334b412 \
