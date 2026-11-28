@@ -20,7 +20,7 @@ def main() -> int:
     report = {
         "schema_version": 1,
         "experiment": "E-006",
-        "commit": os.environ.get("GITHUB_SHA", "local-unpinned"),
+        "commit": os.environ.get("E006_TESTED_SHA", os.environ.get("GITHUB_SHA", "local-unpinned")),
         "started_at": started.isoformat(),
         "finished_at": finished.isoformat(),
         "status": "passed" if result.wasSuccessful() else "failed",
