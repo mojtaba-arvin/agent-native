@@ -56,4 +56,4 @@ This is not an OS-level worker termination mechanism. A production runtime must 
 
 ## Evidence status
 
-The original E-006 reference run is recorded in `evidence.json`. New acceptance claims are not marked observed until the new recovery workflow reports success on the exact commit. No production guarantee or substrate decision is inferred from this reference experiment.
+The original E-006 reference run and the additional 31-test recovery run (run `46108550642`, tested commit `a205dd77f2e28054f71f5ca2d4bef5463d3c980f`) are recorded in `evidence.json`. Those observations apply to that exact tested commit and the local-file/fake-broker scope described above. No production guarantee or substrate decision is inferred from this reference experiment.
