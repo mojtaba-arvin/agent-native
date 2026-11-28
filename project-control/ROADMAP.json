@@ -46,16 +46,17 @@
     },
     {
       "id": "C3",
-      "name": "Independent verification and integration",
+      "name": "Evidence-based verification and integration",
       "status": "pending",
       "depends_on": [
         "C1",
         "C2"
       ],
       "exit_criteria": [
-        "Peer review is recorded separately from implementation",
-        "Trust-boundary changes receive two independent reviews and a new security regression test",
-        "Integration verifies full regression suite and merge-base freshness"
+        "Implementer self-review is recorded separately from automated test evidence",
+        "Trust-boundary changes include a security regression test and documented source-level threat review",
+        "Exact-head required CI passes and integration verifies full relevant regression suite and merge-base freshness",
+        "Self-review is never represented as independent peer review"
       ]
     },
     {
