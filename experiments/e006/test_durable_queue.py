@@ -1,9 +1,26 @@
+import multiprocessing
+import os
 import tempfile
 import threading
 import unittest
 from pathlib import Path
 
-from durable_queue import DurableQueue, IdempotencyConflict, StaleLease
+from durable_queue import ClockRegression, DurableQueue, IdempotencyConflict, StaleLease
+
+
+def _competing_claim(path, worker_id, barrier, result_queue):
+    queue = DurableQueue(path)
+    barrier.wait(timeout=10)
+    result_queue.put(queue.claim(worker_id=worker_id, now=10, lease_seconds=20))
+
+
+def _claim_then_exit(path, sender):
+    queue = DurableQueue(path)
+    claimed = queue.claim(worker_id="crashed-process", now=10, lease_seconds=5)
+    sender.send(claimed["lease_token"] if claimed else None)
+    sender.close()
+    os._exit(23)
+
 
 
 class DurableQueueTests(unittest.TestCase):
@@ -15,11 +32,11 @@ class DurableQueueTests(unittest.TestCase):
     def tearDown(self):
         self.temp.cleanup()
 
-    def submit(self, task_id="task-1", key="idem-1", payload=None, deadline=1000, max_attempts=3):
+    def submit(self, task_id="task-1", key="idem-1", payload=None, deadline=1000, max_attempts=3, now=10):
         return self.queue.submit(
             task_id=task_id, idempotency_key=key,
             payload={"job": "reconcile"} if payload is None else payload,
-            now=10, deadline_at=deadline, max_attempts=max_attempts,
+            now=now, deadline_at=deadline, max_attempts=max_attempts,
         )
 
     def claim(self, worker="worker-a", now=10, lease=5):
@@ -96,7 +113,7 @@ class DurableQueueTests(unittest.TestCase):
             task_id="task-1", worker_id="worker-a", lease_token=first["lease_token"],
             now=11, effect_key="payment-1", state_key="balance", amount=10,
         )
-        self.submit(task_id="task-2", key="idem-2")
+        self.submit(task_id="task-2", key="idem-2", now=12)
         second = self.claim(worker="worker-b", now=12)
         replay = self.queue.complete_with_increment(
             task_id="task-2", worker_id="worker-b", lease_token=second["lease_token"],
@@ -112,7 +129,7 @@ class DurableQueueTests(unittest.TestCase):
             task_id="task-1", worker_id="worker-a", lease_token=first["lease_token"],
             now=11, effect_key="effect-1", state_key="balance", amount=10,
         )
-        self.submit(task_id="task-2", key="idem-2")
+        self.submit(task_id="task-2", key="idem-2", now=12)
         second = self.claim(worker="worker-b", now=12)
         with self.assertRaises(IdempotencyConflict):
             self.queue.complete_with_increment(
@@ -273,6 +290,77 @@ class DurableQueueTests(unittest.TestCase):
             self.assertEqual(outcomes, {"cancelled": True, "completion": "fenced"})
             self.assertEqual(self.queue.get_state("balance"), 0)
             self.assertIsNone(self.queue.get_effect("effect-1"))
+
+
+    def test_fifo_claim_order_uses_admission_sequence_not_task_identifier(self):
+        self.submit(task_id="z-first", key="key-z")
+        self.submit(task_id="a-second", key="key-a")
+        first = self.claim()
+        second = self.claim(worker="worker-b", now=11)
+        self.assertEqual(first["id"], "z-first")
+        self.assertEqual(second["id"], "a-second")
+
+    def test_backward_clock_observation_is_rejected_before_lease_mutation(self):
+        self.submit()
+        claimed = self.claim(now=10, lease=5)
+        with self.assertRaisesRegex(ClockRegression, "clock_moved_backwards"):
+            self.queue.renew_lease(
+                task_id="task-1", worker_id="worker-a",
+                lease_token=claimed["lease_token"], now=9, lease_seconds=50,
+            )
+        self.assertEqual(self.queue.get_task("task-1")["lease_until"], 15)
+
+
+    def test_forward_clock_skew_can_expire_work_early(self):
+        self.submit(deadline=100)
+        # The reference cannot distinguish a bad forward-skewed caller clock from
+        # legitimate time. This test preserves that limitation as executable evidence.
+        self.assertEqual(self.queue.expire_deadlines(now=1000), 1)
+        task = self.queue.get_task("task-1")
+        self.assertEqual(task["status"], "failed")
+        self.assertEqual(task["error_code"], "deadline_exceeded")
+
+    def test_two_independent_processes_cannot_claim_one_task(self):
+        self.submit()
+        context = multiprocessing.get_context("spawn")
+        barrier = context.Barrier(3)
+        results = context.Queue()
+        workers = [
+            context.Process(target=_competing_claim, args=(str(self.path), name, barrier, results))
+            for name in ("process-a", "process-b")
+        ]
+        for worker in workers:
+            worker.start()
+        barrier.wait()
+        for worker in workers:
+            worker.join(15)
+            self.assertFalse(worker.is_alive(), "claim process exceeded bounded join")
+            self.assertEqual(worker.exitcode, 0)
+        claims = [results.get(timeout=3), results.get(timeout=3)]
+        self.assertEqual(sum(claim is not None for claim in claims), 1)
+        self.assertEqual(self.queue.get_task("task-1")["lease_token"], 1)
+
+    def test_process_crash_after_durable_claim_recovers_with_new_fence(self):
+        self.submit()
+        context = multiprocessing.get_context("spawn")
+        receiver, sender = context.Pipe(duplex=False)
+        worker = context.Process(target=_claim_then_exit, args=(str(self.path), sender))
+        worker.start()
+        sender.close()
+        self.assertTrue(receiver.poll(10), "crash-injection process did not report its durable claim")
+        first_token = receiver.recv()
+        receiver.close()
+        worker.join(15)
+        self.assertFalse(worker.is_alive(), "crash-injection process exceeded bounded join")
+        self.assertEqual(worker.exitcode, 23)
+        self.assertEqual(first_token, 1)
+
+        reopened = DurableQueue(self.path)
+        recovered = reopened.claim(worker_id="recovery-process", now=16, lease_seconds=5)
+        self.assertIsNotNone(recovered)
+        self.assertEqual(recovered["lease_token"], 2)
+        self.assertEqual(recovered["attempts"], 2)
+
 
 if __name__ == "__main__":
     unittest.main()
