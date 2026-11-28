@@ -1123,7 +1123,7 @@
     },
     {
       "id": "CP-010",
-      "title": "Replace reviewer-identity gate with evidence-based self-review and integration",
+      "title": "Complete independent review and merge-base verification for trust-boundary integration",
       "milestone": "C3",
       "status": "in_progress",
       "priority": 10,
@@ -1131,51 +1131,50 @@
         "CP-009",
         "M2-003"
       ],
-      "owner": "integrator",
+      "owner": "owner-approval",
       "scope": [
         ".github/workflows/ci.yml",
         "project-control/POLICY.json",
-        "project-control/TASKS.json",
         "project-control/BLOCKERS.json",
-        "project-control/ROADMAP.json",
-        "project-control/OWNER_ACTIONS.md",
-        "project-control/README.md",
-        "AGENTS.md",
-        "docs/governance/"
+        "pull-request:81"
       ],
       "acceptance": [
-        "CI does not require independent human approvals or an owner waiver for code PRs",
-        "PR head includes the latest target branch and required status checks pass on the exact head",
-        "Trust-boundary changes include a security regression test and a documented source-level threat review that may be authored by the implementer",
-        "The implementer records self-review without representing it as independent peer review or a formal GitHub approval",
-        "Material review threads are resolved or explicitly documented as accepted limitations",
-        "The implementer may merge only when GitHub branch protection and rulesets permit it; no bypass is used",
-        "C3 remains pending until its evidence-based exit criteria are actually demonstrated"
+        "Peer review records, when present, are separate from implementation commits and attributable to distinct reviewers",
+        "Trust-boundary implementation PRs require two latest APPROVED reviews from distinct non-author human reviewers by default",
+        "CI supports a narrowly scoped repository-owner waiver comment bound to the exact current PR head; it does not count as peer review",
+        "CI rejects trust-boundary PRs with neither two independent approvals nor a valid exact-head owner waiver",
+        "CI rejects PR heads that do not contain the latest target branch",
+        "M2-003 is integrated only after the default reviews or a documented owner waiver and fresh Layer 0/Layer 1 checks",
+        "Approvals and waivers are bound to the current PR head SHA; stale records after a new commit do not count",
+        "Review submission or dismissal events rerun the review gate and applicable CI layers"
       ],
       "expected_outputs": [
-        "Evidence-gated self-review and integration policy",
-        "CI no longer enforces reviewer-identity separation",
-        "Exact-head CI and merge-base freshness remain enforced",
-        "Historical waiver evidence retained without treating it as an ongoing gate"
+        "Independent review enforcement in CI",
+        "Exact-head owner-waiver path with audit record",
+        "Merge-base freshness gate",
+        "Integrated M2-003 Gateway under peer review or explicit owner exception",
+        "C3 remains incomplete when an owner waiver substitutes for peer review"
       ],
       "max_unchanged_retries": 1,
       "replan_after_failures": 2,
       "stop_conditions": [
-        "Do not fabricate formal approvals or claim self-review is independent peer review",
-        "Do not bypass branch protection, required checks, or review-thread resolution",
-        "Do not merge when GitHub reports the PR blocked or non-mergeable",
-        "Do not authorize production, paid model/GPU workloads, secrets, or destructive external actions"
+        "Do not self-approve or count bot reviews",
+        "Do not represent an owner waiver as independent peer review",
+        "Do not merge to main"
       ],
       "execution": {
-        "branch": "docs/issue-308-evidence-gated-integration",
+        "branch": "feat/control-plane-scheduler",
         "base_branch": "research/reboot-core",
         "integration_owner": "integrator"
       },
       "evidence_ids": [
-        "PR-309",
-        "issue:308",
+        ".github/workflows/ci.yml#independent-review-gate",
         ".github/workflows/ci.yml#merge-base-freshness",
-        "project-control/POLICY.json#integration.merge_policy"
+        "PR-81",
+        "PR-90",
+        "run:44489229689",
+        "run:44489986238",
+        "M2-OWNER-WAIVER-CI-001"
       ]
     },
     {
