@@ -1,164 +1,19 @@
 {
   "schema_version": 1,
-  "as_of": "2026-11-19",
+  "as_of": "2026-11-28",
   "source_branch": "research/reboot-core",
   "target_release": "v0.1.0",
   "milestones": [
-    {
-      "id": "C0",
-      "name": "Execution checkpoint and recovery",
-      "status": "complete",
-      "depends_on": [],
-      "exit_criteria": [
-        "Versioned project state exists",
-        "Task contracts define acceptance and recovery",
-        "Validator rejects malformed statuses and broken references",
-        "A clean handoff can resume from repository state"
-      ]
-    },
-    {
-      "id": "C1",
-      "name": "Evidence and progress integrity",
-      "status": "complete",
-      "depends_on": [
-        "C0"
-      ],
-      "exit_criteria": [
-        "Run ledger records successes and failures with immutable evidence references",
-        "Progress claims resolve to evidence",
-        "Decision changes are dated and preserve prior rationale",
-        "CI rejects malformed control-plane state"
-      ]
-    },
-    {
-      "id": "C2",
-      "name": "Autonomous scheduling and recovery",
-      "status": "complete",
-      "depends_on": [
-        "C0",
-        "C1"
-      ],
-      "exit_criteria": [
-        "Scheduler selects only ready tasks within WIP limits",
-        "Repeated failures force a documented replan",
-        "Independent task branches and integration ownership are explicit"
-      ]
-    },
-    {
-      "id": "C3",
-      "name": "Independent verification and integration",
-      "status": "pending",
-      "depends_on": [
-        "C1",
-        "C2"
-      ],
-      "exit_criteria": [
-        "Peer review is recorded separately from implementation",
-        "Trust-boundary changes receive two independent reviews and a new security regression test",
-        "Integration verifies full regression suite and merge-base freshness"
-      ]
-    },
-    {
-      "id": "C4",
-      "name": "CI enforcement",
-      "status": "pending",
-      "depends_on": [
-        "C1",
-        "C3"
-      ],
-      "exit_criteria": [
-        "Control-plane validator runs in deterministic CI",
-        "Claims and evidence references are checked mechanically",
-        "Deliberately malformed state is rejected in a negative test"
-      ]
-    },
-    {
-      "id": "M0",
-      "name": "Research integrity and repository baseline",
-      "status": "complete",
-      "depends_on": [
-        "C0",
-        "C1"
-      ],
-      "exit_criteria": [
-        "Research-only branch content is preserved and reviewed before pruning",
-        "Benchmark cohorts and thresholds are preregistered and immutable after start",
-        "Run artifacts and test counts are generated from source evidence"
-      ]
-    },
-    {
-      "id": "M1",
-      "name": "Package and single-command developer workflow",
-      "status": "complete",
-      "depends_on": [
-        "M0"
-      ],
-      "exit_criteria": [
-        "Installable agent_native package",
-        "No import-time sys.path mutation",
-        "Unified CLI supports check/run/inspect/worker/audit",
-        "Existing deterministic test coverage is preserved or increased"
-      ]
-    },
-    {
-      "id": "M2",
-      "name": "Service-independent Gateway and declarative handlers",
-      "status": "complete",
-      "depends_on": [
-        "M1"
-      ],
-      "exit_criteria": [
-        "Gateway resolves service by manifest/id, not a hard-coded demo",
-        "Declarative CRUD/job/event handlers are driven by IR",
-        "Write effects/capabilities are explicit and deny-by-default",
-        "A new service can be added without core changes"
-      ]
-    },
-    {
-      "id": "M3",
-      "name": "Real-agent capability evaluation",
-      "status": "in_progress",
-      "depends_on": [
-        "M2"
-      ],
-      "exit_criteria": [
-        "Strong/medium/weak model classes are evaluated with preregistered stochastic cohorts",
-        "At least three representative tasks cover operation addition, compatible field addition, and tenant isolation",
-        "Proposal, validation, and plan share exact candidate hash",
-        "Failures and ineligible runs remain visible; no model claim exceeds evidence"
-      ]
-    },
-    {
-      "id": "M4",
-      "name": "Trusted development apply and rollback",
-      "status": "pending",
-      "depends_on": [
-        "M2",
-        "M3"
-      ],
-      "exit_criteria": [
-        "Agent writer principal cannot invoke apply",
-        "Separate controller requires explicit dev-only enablement and exact plan hash",
-        "Conformance and health checks gate atomic publication",
-        "Failure injection proves rollback to previous version"
-      ]
-    },
-    {
-      "id": "M5",
-      "name": "v0.1 hardening and release readiness",
-      "status": "pending",
-      "depends_on": [
-        "M1",
-        "M2",
-        "M3",
-        "M4"
-      ],
-      "exit_criteria": [
-        "F-01/F-03 and relevant security findings are resolved or explicitly scoped",
-        "Quickstart completes in a clean environment",
-        "Security model and limitations are documented",
-        "PRs are reviewable and release artifact is reproducible"
-      ]
-    }
+    {"id":"C0","name":"Execution checkpoint and recovery","status":"complete","depends_on":[],"exit_criteria":["Versioned project state exists","Task contracts define acceptance and recovery","Validator rejects malformed statuses and broken references","A clean handoff can resume from repository state"]},
+    {"id":"C1","name":"Evidence and progress integrity","status":"complete","depends_on":["C0"],"exit_criteria":["Run ledger records successes and failures with immutable evidence references","Progress claims resolve to evidence","Decision changes are dated and preserve prior rationale","CI rejects malformed control-plane state"]},
+    {"id":"C2","name":"Autonomous scheduling and recovery","status":"complete","depends_on":["C0","C1"],"exit_criteria":["Scheduler selects only ready tasks within WIP limits","Repeated failures force a documented replan","Independent task branches and integration ownership are explicit"]},
+    {"id":"C3","name":"Evidence-based verification and integration","status":"pending","depends_on":["C1","C2"],"exit_criteria":["Implementer self-review is recorded separately from automated test evidence","Trust-boundary changes include a security regression test and documented source-level threat review","Exact-head required CI passes and integration verifies full relevant regression suite and merge-base freshness","Self-review is never represented as independent peer review"]},
+    {"id":"C4","name":"CI enforcement","status":"pending","depends_on":["C1","C3"],"exit_criteria":["Control-plane validator runs in deterministic CI","Claims and evidence references are checked mechanically","Deliberately malformed state is rejected in a negative test"]},
+    {"id":"M0","name":"Research integrity and repository baseline","status":"complete","depends_on":["C0","C1"],"exit_criteria":["Research-only branch content is preserved and reviewed before pruning","Benchmark cohorts and thresholds are preregistered and immutable after start","Run artifacts and test counts are generated from source evidence"]},
+    {"id":"M1","name":"Package and single-command developer workflow","status":"complete","depends_on":["M0"],"exit_criteria":["Installable agent_native package","No import-time sys.path mutation","Unified CLI supports check/run/inspect/worker/audit","Existing deterministic test coverage is preserved or increased"]},
+    {"id":"M2","name":"Service-independent Gateway and declarative handlers","status":"complete","depends_on":["M1"],"exit_criteria":["Gateway resolves service by manifest/id, not a hard-coded demo","Declarative CRUD/job/event handlers are driven by IR","Write effects/capabilities are explicit and deny-by-default","A new service can be added without core changes"]},
+    {"id":"M3","name":"Real-agent capability evaluation","status":"in_progress","depends_on":["M2"],"exit_criteria":["Strong/medium/weak model classes are evaluated with preregistered stochastic cohorts","At least three representative tasks cover operation addition, compatible field addition, and tenant isolation","Proposal, validation, and plan share exact candidate hash","Failures and ineligible runs remain visible; no model claim exceeds evidence"]},
+    {"id":"M4","name":"Trusted development apply and rollback","status":"pending","depends_on":["M2","M3"],"exit_criteria":["Agent writer principal cannot invoke apply","Separate controller requires explicit dev-only enablement and exact plan hash","Conformance and health checks gate atomic publication","Failure injection proves rollback to previous version"]},
+    {"id":"M5","name":"v0.1 hardening and release readiness","status":"pending","depends_on":["M1","M2","M3","M4"],"exit_criteria":["F-01/F-03 and relevant security findings are resolved or explicitly scoped","Quickstart completes in a clean environment","Security model and limitations are documented","PRs are reviewable and release artifact is reproducible"]}
   ]
 }
