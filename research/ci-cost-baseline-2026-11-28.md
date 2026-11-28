@@ -38,20 +38,26 @@ Crash recovery, lease fencing, retry/deadline/cancellation behavior, atomic effe
 
 ## Validation status
 
-Baseline measurements are observed. Exact-head post-change runs have passed, but the first Buildx cache population added 30–32 seconds to the two T16 workflows. The 74.5s cache export is a warm-up cost. A repeat run is required to verify cache hits and net savings; no BuildKit savings are claimed until then.
+Exact-head deterministic, native/database, T16 image, T16 preflight, E-007 preflight, task-gate, task-acceptance, and commit-identity checks passed on the final policy head. The zero-job M3-007 push failure remains a separate pre-existing anomaly and is not a required check.
 
+## Final policy and measured exact-head result (2026-11-28)
 
-## Exact-head cold-cache measurement (2026-11-28)
+The repeat run on head 438f3db963b2e1a1f1d36f5c834c43c5e10c7b5d verified BuildKit layer reuse (Go and Rust builder layers were reported as cached). The repeat T16 image job fell from 241s cold to 191s; preflight fell from 224s to 187s. Both workflows still exported the cache in that experiment, so the cache export cost remained.
 
-Measured on PR #312 head 19e1d5913f43aecc62f07f8a9d0958950ee7f7b3:
+The final implementation changes the cache policy:
+- T16 image imports the shared BuildKit cache and does not export it.
+- T16 preflight is the sole cache writer. It exports only when an actions/cache marker keyed to the T16 Dockerfile and E-002 source fingerprint is missing, then writes the marker. Same-source PR updates should restore the marker and skip repeated exports.
+- Go and Rust caches remain enabled in both T16 workflows.
 
-| Job | Baseline | Cold Buildx/cache run | Delta |
+Exact-head run on e0887d3b0f22dab32d95b52c94a6b099c7781977:
+
+| Job | Baseline | Final policy | Delta |
 |---|---:|---:|---:|
-| Agent Native CI Layer 1 | 200s | 164s | -36s |
-| Agent Native CI Layer 0 | 6s | 23s | +17s (this PR changed workflow/test configuration, selecting all deterministic suites) |
-| T16 image | 211s | 241s | +30s |
-| T16 preflight | 192s | 224s | +32s |
+| Agent Native CI Layer 1 | 200s | 158s | -42s |
+| Agent Native CI Layer 0 | 6s | 28s | +22s (full deterministic suite selected because workflow/test files changed) |
+| T16 image | 211s | 159s | -52s |
+| T16 preflight | 192s | 242s | +50s (first cache-marker miss and cache population) |
 
-The T16 Buildx runs successfully imported a GHA cache manifest and exported the first full cache. The preflight cache export took 74.5s (62.3s sending cache layers); this is a cold-cache warm-up cost, not a saving. Go and Rust dependency/build caches were restored in the T16 and native CI jobs. The Dockerfile's Go/Rust builder layers were not reported as cache hits on this first Buildx run.
+Including change detection, the measured runner-time reduction for this relevant PR is approximately 22 seconds. The final preflight run was the cache-marker miss and saved the marker successfully; a subsequent same-source update is required to observe the marker-hit path and confirm that the cache export is skipped. No additional savings are claimed until that run.
 
-This cold run is not evidence of a net T16 saving. A repeat exact-source build is required to verify cache reuse and whether avoiding repeated layer uploads offsets the initial export cost. Do not claim BuildKit savings until that repeat run is measured. T16 preflight and image checks, native/database tests, and all required checks completed successfully on this head.
+A docs-only PR has not yet been used to measure the T16 path-filter skip. The two T16 workflows previously consumed about 403 runner-seconds combined, so that is the maximum baseline work avoided for a docs-only change if both are skipped; this remains an expected, not measured, saving.
