@@ -38,24 +38,22 @@ Crash recovery, lease fencing, retry/deadline/cancellation behavior, atomic effe
 
 ## Validation status
 
-Exact-head deterministic, native/database, T16 image, T16 preflight, E-007 preflight, task-gate, task-acceptance, and commit-identity checks passed on head 611427bcac83b78864f31a1905cc443c42782bff. The zero-job M3-007 push failure remains a separate pre-existing anomaly and is not a required check.
+Exact-head deterministic, native/database, T16 image, T16 preflight, E-007 preflight, task-gate, task-acceptance, and commit-identity checks passed on head 573454a064031037eaa674dfd62a16eef0b4dd44. The zero-job M3-007 push failure remains a separate pre-existing anomaly and is not a required check.
 
 ## Final policy and measured exact-head result (2026-11-28)
 
-The repeated BuildKit experiment confirmed cache reuse: Go and Rust builder layers were reported as cached, and the T16 image workflow no longer exports the cache. The preflight workflow is the only cache writer and exports only on a tracked-source fingerprint miss. The marker uses a fingerprint generated from `git ls-files experiments/e002`, excluding transient build output by construction.
+The repeat BuildKit run confirmed cache reuse. Go and Rust builder layers were reported as cached, the T16 image workflow imports the shared cache without exporting it, and the preflight cache marker was restored on a same-source update. The marker-hit path was observed: the cache marker restore completed, the conditional cache-export step was skipped, and the BuildKit export was not repeated.
 
-Exact-head run on `611427bcac83b78864f31a1905cc443c42782bff`:
+Exact-head run on `573454a064031037eaa674dfd62a16eef0b4dd44`:
 
 | Job | Baseline | Final policy | Delta |
 |---|---:|---:|---:|
-| Agent Native CI Layer 1 | 200s | 184s | -16s |
-| Agent Native CI Layer 0 | 6s | 29s | +23s (full deterministic suite selected because workflow/test files changed) |
-| CI change detection | 5s | 3s | -2s |
+| Agent Native CI Layer 1 | 200s | 145s | -55s |
+| Agent Native CI Layer 0 | 6s | 28s | +22s (full deterministic suite selected because workflow/test files changed) |
+| CI change detection | 5s | 4s | -1s |
 | T16 image | 211s | 150s | -61s |
-| T16 preflight | 192s | 206s | +14s (first tracked-source cache-marker miss and export) |
+| T16 preflight | 192s | 162s | -30s |
 
-Combined measured runner time for these jobs fell from about 614s to 572s, a reduction of 42s (about 0.7 runner-minutes / 6.8%) on this T16-relevant PR. T16 image's Docker build step fell from 95s to 70s; Go and Rust caches were restored. The native lane's Go and Rust runtime steps fell from 16s to 3s and from 44s to 33s, respectively. PostgreSQL parity and cgroup validation remained enabled and passed.
-
-The tracked-source cache marker was created on this final head after its first miss. The marker-hit path has not yet been observed on a subsequent same-source update, so no additional preflight savings are claimed. On a subsequent same-source PR update it should skip the one-time cache export.
+Combined measured runner time for these jobs fell from about 614s to 489s, a reduction of 125s (about 2.1 runner-minutes / 20.4%) on this T16-relevant PR. T16 image's Docker build step fell from 95s to 70s; T16 preflight's build step fell from 86s to 72s. Go and Rust caches were restored. The native lane's Go, Rust, and PostgreSQL parity steps fell from 16s, 44s, and 48s to 3s, 23s, and 33s. PostgreSQL parity and cgroup validation remained enabled and passed.
 
 A docs-only PR has not yet been used to measure the T16 path-filter skip. The two T16 workflows previously consumed about 403 runner-seconds combined, so that is the baseline work expected to be avoided for unrelated docs changes; this remains an expected, not measured, saving.
