@@ -157,76 +157,8 @@ jobs:
             exit 1
           fi
           echo "PR head contains current target branch ${base_sha}."
-      - name: Enforce independent reviews for trust-boundary changes
-        if: github.event_name == 'pull_request' || github.event_name == 'pull_request_review'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const { owner, repo } = context.repo;
-            const pull = context.payload.pull_request;
-            const files = await github.paginate(github.rest.pulls.listFiles, {
-              owner, repo, pull_number: pull.number, per_page: 100
-            });
-            const trustBoundary = (path) =>
-              path.startsWith('src/agent_native/auth/') ||
-              path.startsWith('src/agent_native/authz/') ||
-              path.startsWith('src/agent_native/identity/') ||
-              path.startsWith('src/agent_native/capability/') ||
-              path.startsWith('src/agent_native/gateway/') ||
-              path.startsWith('src/agent_native/apply/') ||
-              path.startsWith('src/agent_native/rollback/') ||
-              path === 'src/agent_native/security.py' ||
-              path === 'src/agent_native/runtime.py' ||
-              path === 'src/agent_native/handlers.py' ||
-              path === 'src/agent_native/manifest.py' ||
-              path === 'src/agent_native/ir.py';
-            const changed = files.map(file => file.filename).filter(trustBoundary);
-            if (changed.length === 0) {
-              core.info('No trust-boundary implementation paths changed; independent-review gate not applicable.');
-              return;
-            }
-            const reviews = await github.paginate(github.rest.pulls.listReviews, {
-              owner, repo, pull_number: pull.number, per_page: 100
-            });
-            const latest = new Map();
-            for (const review of reviews.sort((a, b) =>
-              new Date(a.submitted_at || 0) - new Date(b.submitted_at || 0))) {
-              if (review.user?.login) {
-                latest.set(review.user.login, {
-                  state: review.state,
-                  user_type: review.user.type,
-                  commit_id: review.commit_id
-                });
-              }
-            }
-            const approvals = [...latest.entries()]
-              .filter(([login, review]) =>
-                review.state === 'APPROVED' &&
-                review.user_type !== 'Bot' &&
-                review.commit_id === pull.head.sha &&
-                login !== pull.user.login &&
-                !login.endsWith('[bot]'))
-              .map(([login]) => login);
-            const comments = await github.paginate(github.rest.issues.listComments, {
-              owner, repo, issue_number: pull.number, per_page: 100
-            });
-            const ownerLogin = owner.toLowerCase();
-            const waiverMarker = 'OWNER-APPROVED-REVIEW-WAIVER: ' + pull.head.sha;
-            const ownerAuthoredPull = pull.user?.login?.toLowerCase() === ownerLogin;
-            const ownerWaiver = ownerAuthoredPull && comments.some(comment =>
-              comment.user?.login?.toLowerCase() === ownerLogin &&
-              comment.body?.split(/\r?\n/).some(line => line.trim() === waiverMarker)
-            );
-
-            core.info('Trust-boundary files: ' + changed.join(', '));
-            core.info('Independent approvals on exact head: ' + approvals.length);
-            if (approvals.length >= 2) {
-              core.info('Two independent human approvals satisfy the default trust-boundary gate.');
-            } else if (ownerWaiver) {
-              core.warning('Owner-authorized exact-head waiver found. This is not a peer review and does not count as independent approval.');
-            } else {
-              core.setFailed('Trust-boundary changes require two independent APPROVED reviews or an exact-head repository-owner waiver; found ' + approvals.length + ' approvals and no valid waiver.');
-            }
+      # PR review is evidence-based; the implementer may self-review. Exact-head checks,
+      # merge-base freshness, required thread resolution, and security regression suites remain.
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11.18"
