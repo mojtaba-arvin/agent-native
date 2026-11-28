@@ -10,7 +10,7 @@ from durable_queue import ClockRegression, DurableQueue, IdempotencyConflict, St
 
 def _competing_claim(path, worker_id, barrier, result_queue):
     queue = DurableQueue(path)
-    barrier.wait()
+    barrier.wait(timeout=10)
     result_queue.put(queue.claim(worker_id=worker_id, now=10, lease_seconds=20))
 
 
@@ -337,6 +337,7 @@ class DurableQueueTests(unittest.TestCase):
         worker = context.Process(target=_claim_then_exit, args=(str(self.path), sender))
         worker.start()
         sender.close()
+        self.assertTrue(receiver.poll(10), "crash-injection process did not report its durable claim")
         first_token = receiver.recv()
         receiver.close()
         worker.join(15)
