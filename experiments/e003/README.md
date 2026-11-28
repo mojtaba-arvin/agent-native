@@ -39,3 +39,7 @@ This avoids the unsafe reference-model assumption that removing a worker from bo
 `semantics-contract.md` is now the normative contract for this reference model: bounded admission/accounting, global FIFO among eligible work, one absolute deadline, cooperative cancellation stop acknowledgement, finite retries, crash requeue, idempotency scope, and graceful/immediate shutdown. Retries and worker-crash requeues join the FIFO tail so they cannot continually jump ahead of older eligible work. The adversarial suite in `test_adversarial.py` covers FIFO fairness, capacity recovery, duplicate submission after shutdown, deadline preservation, and late completion/cancellation races.
 
 The fairness statement is deliberately narrow: global FIFO in one in-memory engine. It does not imply per-tenant fairness, weighted scheduling, starvation freedom under unbounded arrivals, or fairness across processes/hosts. E-003 still has no bounded shutdown deadline, process supervisor, kill escalation, durable ledger, or shared clock.
+
+## Deterministic scheduling trace
+
+Run `python experiments/e003/performance_trace.py` to emit a reproducible synthetic scheduling trace (default: 16 tasks, 4 worker slots). It reports admission/start/completion events, maximum observed model concurrency, logical duration, and p50/p99 queue wait in **logical ticks**. This is a queueing/concurrency trace of the reference model, not a wall-clock throughput/latency benchmark and not a production capacity claim. Its deterministic output is covered by `test_performance_trace.py`.
