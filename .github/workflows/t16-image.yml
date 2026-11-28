@@ -71,8 +71,8 @@ jobs:
           go-version: "1.23.12"
           cache: true
           cache-dependency-path: |
-            experiments/e002/go/go.sum
-            experiments/e002/t16/loadgen/go.sum
+            experiments/e002/go/go.mod
+            experiments/e002/t16/loadgen/go.mod
       - name: Test Go candidate
         run: go test ./...
         working-directory: experiments/e002/go
