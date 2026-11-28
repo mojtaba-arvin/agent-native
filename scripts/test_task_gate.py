@@ -178,6 +178,21 @@ class TaskGateTests(unittest.TestCase):
             with patch.dict(os.environ, {"GITHUB_EVENT_PATH": str(event_path)}):
                 self.assertFalse(gate.owner_authorized_governance_from_event())
 
+    def test_t30_governance_policy_allowlist_is_exact(self):
+        self.assertEqual(
+            gate.GOVERNANCE_POLICY_PATHS,
+            frozenset({
+                "project-control/OWNER_ACTIONS.md",
+                "project-control/POLICY.json",
+                "project-control/ROADMAP.json",
+                "project-control/PROGRESS.json",
+                "project-control/TASKS.json",
+                "project-control/BLOCKERS.json",
+                "project-control/README.md",
+                "project-control/HANDOFF.md",
+            }),
+        )
+
     def test_owner_authorized_t30_policy_update_is_narrowly_allowed(self):
         paths = [
             ".github/workflows/ci.yml",
