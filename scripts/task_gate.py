@@ -29,6 +29,16 @@ GOVERNANCE_PIN_PATHS = frozenset({
     "project-control/PREREGISTRATIONS.json",
     "project-control/DECISION_EVENTS.jsonl",
 })
+GOVERNANCE_POLICY_PATHS = frozenset({
+    "project-control/OWNER_ACTIONS.md",
+    "project-control/POLICY.json",
+    "project-control/ROADMAP.json",
+    "project-control/PROGRESS.json",
+    "project-control/TASKS.json",
+    "project-control/BLOCKERS.json",
+    "project-control/README.md",
+    "project-control/HANDOFF.md",
+})
 
 KIND_RULES: dict[str, tuple[set[str], set[str]]] = {
     "code": ({"product", "test", "docs", "other"}, {"product", "test"}),
@@ -103,6 +113,44 @@ def owner_authorized_governance_from_event() -> bool:
     expected_marker = f"Governance authorization: {head_sha}"
     return expected_marker in body.splitlines()
 
+
+
+def owner_authorized_policy_change_from_event() -> bool:
+    """Verify the repository owner authorized the narrowly scoped T30 policy change."""
+    event_path = os.environ.get("GITHUB_EVENT_PATH")
+    if not event_path:
+        return False
+    try:
+        event = json.loads(Path(event_path).read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        return False
+    if not isinstance(event, dict):
+        return False
+    pull = event.get("pull_request")
+    repository = event.get("repository")
+    if not isinstance(pull, dict) or not isinstance(repository, dict):
+        return False
+    owner_record = repository.get("owner")
+    author_record = pull.get("user")
+    if not isinstance(owner_record, dict) or not isinstance(author_record, dict):
+        return False
+    owner = owner_record.get("login")
+    author = author_record.get("login")
+    body = pull.get("body")
+    if (
+        not isinstance(owner, str)
+        or not owner
+        or not isinstance(author, str)
+        or author.lower() != owner.lower()
+        or not isinstance(body, str)
+    ):
+        return False
+    task = TASK_LINE.search(body)
+    return (
+        task is not None
+        and task.group(1) == "T30"
+        and "Governance authorization: #308" in body.splitlines()
+    )
 
 
 def evaluate_research_issue(ctx: dict[str, Any], issue_number: int) -> list[str]:
@@ -180,11 +228,19 @@ def evaluate(ctx: dict[str, Any]) -> list[str]:
         and ctx.get("owner_authorized_governance") is True
         and set(files) == GOVERNANCE_PIN_PATHS
     )
+    policy_state_paths = {path for path, file_class in classes.items() if file_class == "state"}
+    owner_authorized_governance_policy = (
+        tid == "T30"
+        and kind == "process"
+        and ctx.get("owner_authorized_policy_change") is True
+        and policy_state_paths.issubset(GOVERNANCE_POLICY_PATHS)
+    )
 
     for path, file_class in classes.items():
         if file_class == "state" and not (
             (path == DECISION_FILE and kind == "decision")
             or (owner_authorized_governance_pin and path in GOVERNANCE_PIN_PATHS)
+            or (owner_authorized_governance_policy and path in GOVERNANCE_POLICY_PATHS)
         ):
             violations.append(f"{path} is frozen legacy state; do not edit status or progress files.")
 
@@ -224,6 +280,7 @@ def main() -> int:
     with open(args.context, encoding="utf-8") as context_file:
         context = json.load(context_file)
     context["owner_authorized_governance"] = owner_authorized_governance_from_event()
+    context["owner_authorized_policy_change"] = owner_authorized_policy_change_from_event()
     violations = evaluate(context)
     summary = "Task gate: PASS" if not violations else "Task gate: FAIL\n- " + "\n- ".join(violations)
     print(summary)
