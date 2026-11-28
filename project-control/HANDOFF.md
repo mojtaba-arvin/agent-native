@@ -18,20 +18,20 @@
 - CP-009 dependency-aware scheduling/recovery is complete through PR #84.
 - M2-001 ServiceRegistry, M2-002 generic declarative CRUD/list/job/event dispatch, M2-003 Service-independent Gateway, and M2-004 multi-service proof are integrated. M2 is complete on `research/reboot-core@0e8e8fe67f410add6d851584eeb7434f2f707aa8`.
 - PR #81 passed Layer 0 and Layer 1 on head `0e53539ac8652a79bd831c4883ec9ff26ebf411c`; it was integrated under the repository owner's exact-head waiver. The waiver is not peer review. PR #82 passed Layer 0 and Layer 1 on head `1607feafeea17b3d7dfcd1e51f8a3ec5544731ec` and was integrated. The integrated merge commit also passed push CI run #44491048454.
-- PR #90 added the narrow owner-waiver CI path; the two-human-review policy remains the default. C3 remains pending until genuine independent peer reviews are obtained.
+- PR #90's owner-waiver CI path is historical and has been retired. Code integration now uses implementer self-review and exact-head evidence gates; C3 remains pending until its updated technical evidence criteria are met.
 - PR #89 hardened E-007 evaluator filesystem-custody preflight: symlink and hard-link rejection, owner/mode checks, and no oracle path in the public evidence object. These checks are not OS/container/network isolation.
 - M3 is now the current milestone. M3-000 topology smoke is complete. M3-001 remains blocked because no qualifying free/open-weight model cohort or protected hidden-oracle custody path has been demonstrated. The owner authorized zero paid spend, limited to GitHub Actions free usage for this public repository. No paid API/GPU call or hidden-oracle cohort has been run.
 - The manual Qwen3 CPU workflow remains exploratory only and cannot satisfy M3 acceptance. The cohort remains draft and non-executable.
 - BLK-001 (main branch protection/integration authority), BLK-004 (qualifying zero-cost model and protected hidden-oracle path), and BLK-007 (C3 peer review) remain open; BLK-007 does not block M3 preparation.
-- No main merge, production deployment, paid provider call, paid GPU evaluation, or destructive branch operation has been performed.
+- No main merge, production deployment, paid provider call, paid GPU evaluation, or destructive branch operation has been performed as of this historical handoff entry.
 
 ## Next actions
 
 1. M3-000 is complete. PR #93 integrated runtime probes; push CI run #44494715310 passed Layer 0/Layer 1, and post-merge topology run #44494715332 passed on `research/reboot-core@ec3975ff11f33516e0d98e349283cbf7b3f19789`. Both separate jobs reported UID 1001, read-only root, noexec /tmp, NoNewPrivs, zero CapEff, blocked outbound networking, 2 GiB memory, 1 CPU, and 64 PIDs. The agent artifact contained only candidate/trace; the evaluator artifact contained only score.json. The smoke used a deterministic stub and synthetic oracle only. The synthetic smoke verifies separate jobs and the configured container restrictions; it does not establish production-grade tenant isolation or actual hidden-oracle custody.
 2. Investigate and pin a free-tier model cohort that can meet the preregistered quality requirements. Keep CPU-only Qwen3 diagnostics exploratory; if no free path is decision-grade, preserve the blocker rather than lowering acceptance.
 3. Keep the M3 cohort non-executable until hidden-oracle custody, sandbox separation, model identity, task fixtures, and preregistration hashes are verified.
-4. Pursue genuine independent human reviews for C3 in parallel; do not represent the owner waiver as peer review.
-5. Do not merge to `main`, deploy production, or incur paid API/GPU spend.
+4. Do not seek or fabricate a second-human approval for ordinary code PRs. Complete C3 through documented self-review, source-level threat analysis, security regression coverage, exact-head CI, resolved threads, and merge-base freshness.
+5. Do not deploy production or incur paid API/GPU spend without the applicable authorization.
 
 
 ## 19 November 2026 — M3 provider-schema integration
