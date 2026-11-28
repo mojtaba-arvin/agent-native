@@ -1,9 +1,26 @@
+import multiprocessing
+import os
 import tempfile
 import threading
 import unittest
 from pathlib import Path
 
-from durable_queue import DurableQueue, IdempotencyConflict, StaleLease
+from durable_queue import ClockRegression, DurableQueue, IdempotencyConflict, StaleLease
+
+
+def _competing_claim(path, worker_id, barrier, result_queue):
+    queue = DurableQueue(path)
+    barrier.wait()
+    result_queue.put(queue.claim(worker_id=worker_id, now=10, lease_seconds=20))
+
+
+def _claim_then_exit(path, sender):
+    queue = DurableQueue(path)
+    claimed = queue.claim(worker_id="crashed-process", now=10, lease_seconds=5)
+    sender.send(claimed["lease_token"] if claimed else None)
+    sender.close()
+    os._exit(23)
+
 
 
 class DurableQueueTests(unittest.TestCase):
@@ -273,6 +290,66 @@ class DurableQueueTests(unittest.TestCase):
             self.assertEqual(outcomes, {"cancelled": True, "completion": "fenced"})
             self.assertEqual(self.queue.get_state("balance"), 0)
             self.assertIsNone(self.queue.get_effect("effect-1"))
+
+
+    def test_fifo_claim_order_uses_admission_sequence_not_task_identifier(self):
+        self.submit(task_id="z-first", key="key-z")
+        self.submit(task_id="a-second", key="key-a")
+        first = self.claim()
+        second = self.claim(worker="worker-b", now=11)
+        self.assertEqual(first["id"], "z-first")
+        self.assertEqual(second["id"], "a-second")
+
+    def test_backward_clock_observation_is_rejected_before_lease_mutation(self):
+        self.submit()
+        claimed = self.claim(now=10, lease=5)
+        with self.assertRaisesRegex(ClockRegression, "clock_moved_backwards"):
+            self.queue.renew_lease(
+                task_id="task-1", worker_id="worker-a",
+                lease_token=claimed["lease_token"], now=9, lease_seconds=50,
+            )
+        self.assertEqual(self.queue.get_task("task-1")["lease_until"], 15)
+
+    def test_two_independent_processes_cannot_claim_one_task(self):
+        self.submit()
+        context = multiprocessing.get_context("spawn")
+        barrier = context.Barrier(3)
+        results = context.Queue()
+        workers = [
+            context.Process(target=_competing_claim, args=(str(self.path), name, barrier, results))
+            for name in ("process-a", "process-b")
+        ]
+        for worker in workers:
+            worker.start()
+        barrier.wait()
+        for worker in workers:
+            worker.join(15)
+            self.assertFalse(worker.is_alive(), "claim process exceeded bounded join")
+            self.assertEqual(worker.exitcode, 0)
+        claims = [results.get(timeout=3), results.get(timeout=3)]
+        self.assertEqual(sum(claim is not None for claim in claims), 1)
+        self.assertEqual(self.queue.get_task("task-1")["lease_token"], 1)
+
+    def test_process_crash_after_durable_claim_recovers_with_new_fence(self):
+        self.submit()
+        context = multiprocessing.get_context("spawn")
+        receiver, sender = context.Pipe(duplex=False)
+        worker = context.Process(target=_claim_then_exit, args=(str(self.path), sender))
+        worker.start()
+        sender.close()
+        first_token = receiver.recv()
+        receiver.close()
+        worker.join(15)
+        self.assertFalse(worker.is_alive(), "crash-injection process exceeded bounded join")
+        self.assertEqual(worker.exitcode, 23)
+        self.assertEqual(first_token, 1)
+
+        reopened = DurableQueue(self.path)
+        recovered = reopened.claim(worker_id="recovery-process", now=16, lease_seconds=5)
+        self.assertIsNotNone(recovered)
+        self.assertEqual(recovered["lease_token"], 2)
+        self.assertEqual(recovered["attempts"], 2)
+
 
 if __name__ == "__main__":
     unittest.main()
