@@ -35,6 +35,7 @@ class CIWorkflowContractTests(unittest.TestCase):
             self.assertIn("experiments/e002/t16/loadgen/go.mod", workflow)
             self.assertIn("Swatinem/rust-cache@v2", workflow)
             self.assertIn("docker/setup-buildx-action@v4", workflow)
+            self.assertIn("docker buildx build --load", workflow)
             self.assertIn("--cache-from type=gha,scope=t16-candidates", workflow)
             self.assertIn("--cache-to type=gha,mode=max,scope=t16-candidates", workflow)
         self.assertIn('--build-arg SOURCE_SHA="$GITHUB_SHA"', image)
