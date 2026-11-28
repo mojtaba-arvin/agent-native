@@ -256,10 +256,10 @@ jobs:
           go-version: "1.23.12"
           cache: true
           cache-dependency-path: |
-            experiments/e001/baselines/go/go.sum
-            experiments/e002/go/go.sum
-            experiments/e002/loadgen/go.sum
-            experiments/e002/t16/loadgen/go.sum
+            experiments/e001/baselines/go/go.mod
+            experiments/e002/go/go.mod
+            experiments/e002/loadgen/go.mod
+            experiments/e002/t16/loadgen/go.mod
       - uses: dtolnay/rust-toolchain@1.100.0
         with:
           targets: wasm32-wasip2
@@ -295,7 +295,7 @@ jobs:
           name: e002-go-module-lock-${{ github.sha }}
           path: |
             experiments/e002/go/go.mod
-            experiments/e002/go/go.sum
+            experiments/e002/go/go.mod
           retention-days: 7
       - name: Check T41 Rust storage formatting
         run: rustfmt --check --edition 2021 experiments/e002/rust/src/storage.rs
