@@ -145,7 +145,7 @@ class Engine:
             task.status = "expired"
         elif task.attempts < task.max_attempts:
             task.status = "queued"
-            self.queue.appendleft(task_id)
+            self.queue.append(task_id)
         else:
             task.status = "failed"
         return task.status
