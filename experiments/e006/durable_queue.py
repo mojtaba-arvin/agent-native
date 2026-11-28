@@ -16,6 +16,11 @@ class StaleLease(Exception):
     pass
 
 
+class ClockRegression(Exception):
+    """The reference database observed time moving backwards."""
+
+
+
 def _canonical(value: object) -> str:
     return json.dumps(
         value,
@@ -50,6 +55,10 @@ class DurableQueue:
             connection.execute("PRAGMA journal_mode=WAL")
             connection.executescript(
                 """
+                CREATE TABLE IF NOT EXISTS clock_state (
+                    singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
+                    last_now INTEGER NOT NULL
+                );
                 CREATE TABLE IF NOT EXISTS tasks (
                     id TEXT PRIMARY KEY,
                     idempotency_key TEXT NOT NULL UNIQUE,
@@ -104,6 +113,25 @@ class DurableQueue:
             connection.close()
 
     @staticmethod
+    def _observe_clock(connection: sqlite3.Connection, now: int) -> None:
+        """Fence backward caller-clock movement across processes sharing this DB.
+
+        This detects regressions relative to the greatest supplied timestamp. It
+        cannot detect a forward-skewed clock; callers still need one authoritative
+        clock source and a deployment-specific skew policy.
+        """
+        row = connection.execute(
+            "SELECT last_now FROM clock_state WHERE singleton = 1"
+        ).fetchone()
+        if row is not None and now < row["last_now"]:
+            raise ClockRegression("clock_moved_backwards")
+        connection.execute(
+            """INSERT INTO clock_state(singleton, last_now) VALUES (1, ?)
+               ON CONFLICT(singleton) DO UPDATE SET last_now = MAX(last_now, excluded.last_now)""",
+            (now,),
+        )
+
+    @staticmethod
     def _task(row: sqlite3.Row) -> dict:
         result = dict(row)
         result["payload"] = json.loads(result.pop("payload_json"))
@@ -125,6 +153,7 @@ class DurableQueue:
         except (TypeError, ValueError) as error:
             raise ValueError("invalid_task_payload") from error
         with self._transaction() as connection:
+            self._observe_clock(connection, now)
             existing = connection.execute(
                 "SELECT * FROM tasks WHERE idempotency_key = ?", (idempotency_key,)
             ).fetchone()
@@ -147,6 +176,7 @@ class DurableQueue:
         _require_int(now, "now")
         _require_int(lease_seconds, "lease_seconds", minimum=1)
         with self._transaction() as connection:
+            self._observe_clock(connection, now)
             connection.execute(
                 """UPDATE tasks SET status = 'failed', error_code = 'deadline_exceeded',
                    lease_owner = NULL, lease_until = NULL
@@ -186,6 +216,7 @@ class DurableQueue:
         _require_int(now, "now")
         _require_int(lease_seconds, "lease_seconds", minimum=1)
         with self._transaction() as connection:
+            self._observe_clock(connection, now)
             cursor = connection.execute(
                 """UPDATE tasks SET lease_until = ?
                    WHERE id = ? AND status = 'running' AND lease_owner = ?
@@ -202,6 +233,7 @@ class DurableQueue:
         _require_int(now, "now")
         _require_int(delay_seconds, "delay_seconds")
         with self._transaction() as connection:
+            self._observe_clock(connection, now)
             row = self._owned_lease(connection, task_id, worker_id, lease_token, now)
             if row["attempts"] >= row["max_attempts"]:
                 connection.execute(
@@ -231,6 +263,7 @@ class DurableQueue:
             raise ValueError("invalid_failure_injection_flag")
         payload_hash = _digest({"state_key": state_key, "amount": amount})
         with self._transaction() as connection:
+            self._observe_clock(connection, now)
             self._owned_lease(connection, task_id, worker_id, lease_token, now)
             existing = connection.execute(
                 "SELECT * FROM effect_ledger WHERE effect_key = ?", (effect_key,)
@@ -280,6 +313,7 @@ class DurableQueue:
     def expire_deadlines(self, *, now: int) -> int:
         _require_int(now, "now")
         with self._transaction() as connection:
+            self._observe_clock(connection, now)
             cursor = connection.execute(
                 """UPDATE tasks SET status = 'failed', error_code = 'deadline_exceeded',
                    lease_owner = NULL, lease_until = NULL
