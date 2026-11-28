@@ -68,8 +68,18 @@ jobs:
               path.startsWith('experiments/e002/loadgen/') ||
               path.startsWith('experiments/e002/controlled-host/');
             const needsExtended = (path) =>
-              path.startsWith('.github/') ||
-              path.startsWith('scripts/') ||
+              path === '.github/workflows/ci.yml' ||
+              path === '.github/workflows/task-acceptance.yml' ||
+              path === '.github/workflows/task-gate.yml' ||
+              path === '.github/workflows/t16-image.yml' ||
+              path === '.github/workflows/t16-preflight.yml' ||
+              path === '.github/workflows/e006-recovery.yml' ||
+              path === '.github/workflows/e007-preflight.yml' ||
+              path === '.github/workflows/nightly-acceptance.yml' ||
+              path.startsWith('.github/actions/') ||
+              path === 'scripts/ci.py' ||
+              path === 'scripts/fast.sh' ||
+              path === 'scripts/package_install_smoke.py' ||
               path.startsWith('acceptance/') ||
               path.startsWith('src/') ||
               path.startsWith('tests/') ||
@@ -129,7 +139,7 @@ jobs:
   fast:
     concurrency:
       group: agent-native-fast-${{ github.event.pull_request.number || github.ref }}
-      cancel-in-progress: false
+      cancel-in-progress: true
     name: Layer 0 · deterministic fast checks
     if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
@@ -212,7 +222,7 @@ jobs:
   extended:
     concurrency:
       group: agent-native-extended-${{ github.event.pull_request.number || github.ref }}
-      cancel-in-progress: false
+      cancel-in-progress: true
     name: Layer 1 · native, container, and database validation
     needs: changes
     if: always() && (github.event_name == 'merge_group' || github.event_name == 'schedule' || needs.changes.result != 'success' || needs.changes.outputs.extended == 'true')
@@ -244,9 +254,23 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: "1.23.12"
+          cache: true
+          cache-dependency-path: |
+            experiments/e001/baselines/go/go.sum
+            experiments/e002/go/go.sum
+            experiments/e002/loadgen/go.sum
+            experiments/e002/t16/loadgen/go.sum
       - uses: dtolnay/rust-toolchain@1.100.0
         with:
           targets: wasm32-wasip2
+      - name: Cache Rust workspace builds
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            experiments/e001/baselines/rust
+            experiments/e002/rust
+            experiments/e002/wasi-p2
+          cache-on-failure: true
       - uses: erlef/setup-beam@v1
         with:
           otp-version: "29.1.2"
