@@ -26,6 +26,15 @@
       "Treat prompt instructions as security enforcement",
       "Fabricate benchmark, CI, peer-review, or approval evidence",
       "Represent implementer self-review as independent peer review"
+    ],
+    "allowed_without_owner_approval": [
+      "Read repository state",
+      "Create non-protected working branches",
+      "Edit files on working branches, including issue-authorized governance files",
+      "Run local deterministic tests",
+      "Create reviewable pull requests",
+      "Perform and record implementer self-review",
+      "Merge a pull request to its intended integration branch when all evidence gates pass and GitHub repository rules permit it"
     ]
   },
   "verification": {
@@ -36,7 +45,16 @@
       "documented_diff_and_threat_review",
       "remote_ci_on_exact_head"
     ],
-    "trust_boundary_paths": ["auth", "authz", "identity", "capability", "allowlist", "audit", "apply", "rollback"],
+    "trust_boundary_paths": [
+      "auth",
+      "authz",
+      "identity",
+      "capability",
+      "allowlist",
+      "audit",
+      "apply",
+      "rollback"
+    ],
     "trust_boundary_requirements": [
       "At least one new security regression test for every material trust-boundary change",
       "Full relevant regression suite",
@@ -54,7 +72,12 @@
   },
   "integration": {
     "wip_limit": 2,
-    "required_before_pr": ["Acceptance command recorded", "Targeted tests pass", "Complete diff and risk review recorded", "State and ledger updated"],
+    "required_before_pr": [
+      "Acceptance command recorded",
+      "Targeted tests pass",
+      "Complete diff and risk review recorded",
+      "State and ledger updated"
+    ],
     "merge_policy": "The implementer may self-review and merge the PR after exact-head checks, security requirements, thread resolution, and merge-base freshness pass. No independent human approval is required by repository policy. GitHub branch protection and rulesets remain authoritative and must never be bypassed.",
     "main_merge_authorized": true
   }
