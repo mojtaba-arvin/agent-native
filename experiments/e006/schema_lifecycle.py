@@ -122,8 +122,8 @@ def compact_database(path: str | Path) -> dict:
             raise RuntimeError(f"sqlite_integrity_check_failed:{integrity}")
         return {
             "checkpoint_busy": int(checkpoint[0]),
-            "checkpointed_frames": int(checkpoint[1]),
-            "checkpoint_total_frames": int(checkpoint[2]),
+            "wal_frames": int(checkpoint[1]),
+            "checkpointed_frames": int(checkpoint[2]),
             "integrity_check": integrity,
         }
     finally:
