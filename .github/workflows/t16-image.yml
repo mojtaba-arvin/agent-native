@@ -2,6 +2,15 @@ name: T16 immutable benchmark image
 
 on:
   pull_request:
+    paths:
+      - ".github/workflows/t16-image.yml"
+      - ".github/workflows/t16-preflight.yml"
+      - "Dockerfile"
+      - "experiments/e002/go/**"
+      - "experiments/e002/rust/**"
+      - "experiments/e002/t16/**"
+      - "experiments/e002/loadgen/**"
+      - "experiments/e002/conformance.py"
   push:
     branches:
       - "task/T16-controlled-host-slo"
@@ -60,6 +69,10 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: "1.23.12"
+          cache: true
+          cache-dependency-path: |
+            experiments/e002/go/go.sum
+            experiments/e002/t16/loadgen/go.sum
       - name: Test Go candidate
         run: go test ./...
         working-directory: experiments/e002/go
@@ -69,6 +82,11 @@ jobs:
           go vet ./...
         working-directory: experiments/e002/t16/loadgen
       - uses: dtolnay/rust-toolchain@1.100.0
+      - name: Cache Rust candidate build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: experiments/e002/rust
+          cache-on-failure: true
       - name: Test Rust candidate
         run: cargo test --locked
         working-directory: experiments/e002/rust
@@ -110,7 +128,9 @@ jobs:
             --build-arg SOURCE_SHA="$GITHUB_SHA" \
             --build-arg BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             --file experiments/e002/t16/Dockerfile \
-            --tag t16-candidates:ci .
+            --tag t16-candidates:ci \
+            --cache-from type=gha,scope=t16-candidates \
+            --cache-to type=gha,mode=max,scope=t16-candidates .
       - name: Smoke-test embedded load generator and candidate binaries
         run: |
           set +e
