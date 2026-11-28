@@ -131,15 +131,23 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: "1.23.12"
+          cache: true
+          cache-dependency-path: experiments/e002/go/go.mod
       - name: Test Go product server against PostgreSQL
         run: go test ./...
         working-directory: experiments/e002/go
       - name: Install OpenSSL development library for Rust HMAC verifier
         run: sudo apt-get update && sudo apt-get install -y libssl-dev
       - uses: dtolnay/rust-toolchain@1.100.0
+      - name: Cache Rust candidate build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: experiments/e002/rust
+          cache-on-failure: true
       - name: Test Rust product candidate
         run: cargo test --locked
         working-directory: experiments/e002/rust
+      - uses: docker/setup-buildx-action@v4
       - name: Build both candidate runtimes in the production benchmark image
         run: |
           docker build \
@@ -149,7 +157,9 @@ jobs:
             --build-arg DOCKER_IMAGE="$DOCKER_IMAGE" \
             --build-arg SOURCE_SHA="$GITHUB_SHA" \
             --build-arg BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-            --file experiments/e002/t16/Dockerfile --tag t16-candidates-ci .
+            --file experiments/e002/t16/Dockerfile --tag t16-candidates-ci \
+            --cache-from type=gha,scope=t16-candidates \
+            --cache-to type=gha,mode=max,scope=t16-candidates .
       - name: Verify candidate image includes the pinned PostgreSQL client
         run: docker run --rm --entrypoint psql t16-candidates-ci --version
       - name: Refresh short-lived signed conformance credentials
