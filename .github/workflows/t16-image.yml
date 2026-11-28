@@ -120,7 +120,7 @@ jobs:
           resolve docker_image docker:27.5.1-cli
       - name: Build committed Dockerfile with pinned base images
         run: |
-          docker build \
+          docker buildx build --load \
             --build-arg GO_IMAGE="${{ steps.base.outputs.go_image }}" \
             --build-arg RUST_IMAGE="${{ steps.base.outputs.rust_image }}" \
             --build-arg POSTGRES_IMAGE="${{ steps.base.outputs.postgres_image }}" \
