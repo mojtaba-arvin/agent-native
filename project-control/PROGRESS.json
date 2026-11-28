@@ -305,7 +305,7 @@
     "C3": {
       "status": "pending",
       "verified_exit_criteria": [],
-      "total_exit_criteria": 4
+      "total_exit_criteria": 3
     },
     "C4": {
       "status": "pending",
