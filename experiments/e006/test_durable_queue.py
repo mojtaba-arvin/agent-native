@@ -310,6 +310,16 @@ class DurableQueueTests(unittest.TestCase):
             )
         self.assertEqual(self.queue.get_task("task-1")["lease_until"], 15)
 
+
+    def test_forward_clock_skew_can_expire_work_early(self):
+        self.submit(deadline=100)
+        # The reference cannot distinguish a bad forward-skewed caller clock from
+        # legitimate time. This test preserves that limitation as executable evidence.
+        self.assertEqual(self.queue.expire_deadlines(now=1000), 1)
+        task = self.queue.get_task("task-1")
+        self.assertEqual(task["status"], "failed")
+        self.assertEqual(task["error_code"], "deadline_exceeded")
+
     def test_two_independent_processes_cannot_claim_one_task(self):
         self.submit()
         context = multiprocessing.get_context("spawn")
